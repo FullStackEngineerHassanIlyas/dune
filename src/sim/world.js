@@ -12,6 +12,7 @@ import { updateMovement } from './movement.js';
 import { applyCommand } from './orders.js';
 import { tryDeploy } from './deploy.js';
 import { updatePower } from './economy.js';
+import { updateProduction, revalidateProduction } from './production.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -96,7 +97,9 @@ export class World {
     this.processPathQueue();
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
     for (const u of [...this.units.values()]) if (this.units.has(u.id)) updateMovement(this, u);
+    updateProduction(this);
     if (this.tick % 10 === 0) updatePower(this);
+    if (this.tick % 20 === 0) revalidateProduction(this);
     this.tick++;
     this.time = this.tick * DT;
   }

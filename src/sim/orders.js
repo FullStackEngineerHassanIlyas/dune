@@ -1,6 +1,7 @@
 // Player and AI commands (spec §3). Everything is validated here; the simulation never trusts input.
 import { findDestinations } from './destinations.js';
 import { orderDeploy } from './deploy.js';
+import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './production.js';
 
 export function applyCommand(world, houseId, cmd) {
   const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId);
@@ -10,6 +11,11 @@ export function applyCommand(world, houseId, cmd) {
     case 'guard': units.forEach((u) => { stopUnit(u); u.order = { type: 'guard', x: u.tx, y: u.ty }; }); return;
     case 'scatter': scatter(world, units); return;
     case 'deploy': units.forEach((u) => orderDeploy(world, u)); return;
+    case 'build': orderBuild(world, houseId, cmd.typeId, cmd.count ?? 1); return;
+    case 'hold': orderHold(world, houseId, cmd.typeId); return;
+    case 'place': orderPlace(world, houseId, cmd.typeId, cmd.x, cmd.y); return;
+    case 'setRally': orderRally(world, houseId, cmd.structureId, cmd.x, cmd.y); return;
+    case 'setPrimary': orderPrimary(world, houseId, cmd.structureId); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });
   }
 }

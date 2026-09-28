@@ -4,20 +4,9 @@ import { generateMap } from '../sim/mapgen.js';
 import { World } from '../sim/world.js';
 import { LIGHT_VEHICLE, INFANTRY, PLAYABLE_HOUSES } from '../data/houses.js';
 import { UNITS } from '../data/units.js';
+import { findFreeTile } from '../sim/spawn.js';
 
-export function findFreeTile(world, x, y, moveClass, maxR = 8, minR = 0) {
-  const map = world.map;
-  for (let r = minR; r <= maxR; r++) {
-    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-      const tx = x + dx, ty = y + dy;
-      if (!map.inBounds(tx, ty)) continue;
-      const i = map.idx(tx, ty);
-      if (!map.unit[i] && !map.structure[i] && map.moveFactor(i, moveClass) > 0) return { x: tx, y: ty };
-    }
-  }
-  return null;
-}
+export { findFreeTile };
 
 export function spawnStartingForces(world, house, start) {
   const facing = Math.atan2(world.map.h / 2 - start.y, world.map.w / 2 - start.x);
