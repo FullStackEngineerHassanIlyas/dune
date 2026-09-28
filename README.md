@@ -12,9 +12,11 @@ sound, melody and line of text is made from scratch in code; no original game fi
 
 ## Status
 
-Plan 1a (engine core) is done: generated Arrakis maps in 3D, house-coloured 3D units, C&C-style
-selection and movement, control groups and MCV deployment. Production, economy, combat, fog of war,
-radar and the computer opponent arrive with plan 1b.
+Plan 1a (engine core) and plan 1b (base building and economy) are done: generated Arrakis maps in
+3D, house-coloured 3D units and structures, C&C-style selection and movement, control groups, MCV
+deployment, the sidebar with production, placement with the concrete rule, power, harvesting and
+credits, selling and repairs, fog of war and the radar. Combat, the computer opponent, effects and
+sound arrive with plan 1c.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -31,15 +33,36 @@ radar and the computer opponent arrive with plan 1b.
 | H · Home | Centre on the Construction Yard · reset the camera and centre |
 | Screen edges, arrow keys, middle drag | Scroll |
 | Mouse wheel · Alt + middle drag | Zoom · rotate and tilt |
+| Sidebar icon: left click | Build; resume when on hold; place when READY |
+| Sidebar icon: right click | Put on hold; a second right click cancels with a full refund |
+| Sidebar icon: Shift + left click | Queue five units |
+| Repair / Sell buttons | Toggle repair or sell mode; click own structures; right click or Esc leaves the mode |
+| Click a factory, then the ground | Set its rally point (Modern: right click); double-click a factory to make it primary |
+| Radar | Left click or drag jumps the camera; with own units selected a left click (Modern: right click) orders them there |
 
 Browsers may keep Ctrl + digit for switching tabs; Ctrl + Shift + digit always works.
 `?scheme=modern` swaps to right-click orders.
 
-## URL flags
+## Base building
 
-`?scene=skirmish|terrain|gallery|render-test` · `seed=11` · `size=64` ·
-`house=atreides|harkonnen|ordos` · `enemy=…` · `quality=low|medium|high` · `scheme=classic|modern` ·
-`dist=30` (camera distance)
+Deploy the MCV to get a Construction Yard; its sidebar strip then offers what the tech tree allows.
+Structures go on rock next to your base; tiles without your concrete cost hit points (the ghost shows
+green = concrete, yellow = bare rock, red = blocked). Wind Traps power the base — short power slows
+production and switches the radar off. Every Refinery comes with a Harvester; full loads are worth 700
+credits, Refineries and Silos store them. Selling refunds half the price times the health left;
+repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
+stays visible; enemies show only inside your units' and buildings' sight.
+
+## Scenes and URL flags
+
+Scenes: `?scene=skirmish` (default game) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`)
+· `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
+`&fps=1` for the meter) · `terrain` · `gallery` (unit models) · `render-test`.
+
+Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
+`quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
+(skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `gameSpeed=slowest…fastest` ·
+`debug=1` (invariant checks) · `fps=1` (frame meter).
 
 ## Docs
 
