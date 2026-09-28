@@ -4,3 +4,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #overlay { pointer-events: none; }
 #ui { position: absolute; inset: 0; pointer-events: none; }
 .fatal { position: absolute; inset: 0; display: grid; place-items: center; background: #1a1008; color: #f2d7a0; font-size: 20px; text-align: center; padding: 2em; pointer-events: auto; }
+.message-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: 60vw; padding: 6px 18px;
+  background: linear-gradient(#3a2a18, #22170c); border: 2px solid #b8893a; border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,.6);
+  font: bold 15px "Trebuchet MS", sans-serif; letter-spacing: .04em; color: #f5d48a; text-align: center; text-shadow: 0 1px 0 #000;
+  opacity: 0; transition: opacity .25s; pointer-events: none; }
+.message-bar.show { opacity: 1; }
