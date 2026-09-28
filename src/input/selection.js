@@ -1,15 +1,17 @@
 // Selection state plus pure screen-space hit tests (testable without a browser).
 export class Selection {
-  constructor() { this.ids = new Set(); this.version = 0; }
-  set(ids) { this.ids = new Set(ids); this.version++; }
-  add(ids) { for (const id of ids) this.ids.add(id); this.version++; }
-  toggle(id) { if (this.ids.has(id)) this.ids.delete(id); else this.ids.add(id); this.version++; }
-  clear() { if (this.ids.size) { this.ids.clear(); this.version++; } }
+  constructor() { this.ids = new Set(); this.structureId = 0; this.version = 0; }
+  set(ids) { this.ids = new Set(ids); this.structureId = 0; this.version++; }
+  add(ids) { for (const id of ids) this.ids.add(id); this.structureId = 0; this.version++; }
+  toggle(id) { if (this.ids.has(id)) this.ids.delete(id); else this.ids.add(id); this.structureId = 0; this.version++; }
+  setStructure(id) { this.ids = new Set(); this.structureId = id; this.version++; }
+  clear() { if (this.ids.size || this.structureId) { this.ids.clear(); this.structureId = 0; this.version++; } }
   has(id) { return this.ids.has(id); }
   list() { return [...this.ids]; }
-  prune(alive) {
+  prune(alive, structureAlive = () => true) {
     let changed = false;
     for (const id of this.ids) if (!alive(id)) { this.ids.delete(id); changed = true; }
+    if (this.structureId && !structureAlive(this.structureId)) { this.structureId = 0; changed = true; }
     if (changed) this.version++;
   }
 }

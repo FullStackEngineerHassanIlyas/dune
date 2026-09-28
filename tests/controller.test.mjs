@@ -245,3 +245,42 @@ test('orderTile orders the selection to a map tile (the radar uses it)', () => {
   c.orderTile(12, 7);
   assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 12, y: 7 });
 });
+
+test('a click selects a structure; with a factory selected a ground click sets its rally point', () => {
+  const { world, c, issued } = setup();
+  const lf = world.spawnStructure('lightFactory', 'atreides', 2, 12);
+  c.onClick(px(2), px(12), 0, NONE, false);
+  assert.equal(c.selection.structureId, lf.id);
+  assert.equal(c.selection.list().length, 0);
+  assert.equal(c.cursorFor(c.hitTest(px(9), px(14))), 'move');
+  c.onClick(px(9), px(14), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: lf.id, x: 9, y: 14 });
+  assert.equal(c.selection.structureId, lf.id, 'the factory stays selected');
+  c.onClick(px(2), px(12), 0, NONE, true);
+  assert.deepEqual(issued.at(-1), { type: 'setPrimary', structureId: lf.id });
+  c.onClick(px(9), px(14), 2, NONE, false);
+  assert.equal(c.selection.structureId, 0, 'right click deselects (classic)');
+});
+
+test('modern scheme: right click on the ground sets the rally point of the selected factory', () => {
+  const { world, c, issued } = setup('modern');
+  const lf = world.spawnStructure('lightFactory', 'atreides', 2, 12);
+  c.onClick(px(2), px(12), 0, NONE, false);
+  c.onClick(px(9), px(14), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: lf.id, x: 9, y: 14 });
+});
+
+test('harvesters clicked onto an own refinery go back to base; enemy structures do not steal the selection', () => {
+  const { world, tank, c, issued } = setup();
+  world.spawnStructure('refinery', 'atreides', 2, 12);
+  const harv = world.spawnUnit('harvester', 'atreides', 10, 10);
+  c.selection.set([harv.id]);
+  assert.equal(c.cursorFor(c.hitTest(px(3), px(12))), 'move');
+  c.onClick(px(3), px(12), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [harv.id] });
+  world.spawnStructure('windtrap', 'harkonnen', 14, 2);
+  c.selection.set([tank.id]);
+  c.onClick(px(14), px(2), 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [tank.id]);
+  assert.equal(c.selection.structureId, 0);
+});

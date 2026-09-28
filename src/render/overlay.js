@@ -22,10 +22,11 @@ export class Overlay {
   setDragBox(box) { this.dragBox = box; }
   marker(x, z) { this.markers.push({ x, z, t: 0 }); }
 
-  draw({ world, selection, hoverId, project, positionOf, groups, dt, healthBars = 'selected' }) {
+  draw({ world, selection, hoverId, hoverStructureId = null, project, positionOf, groups, dt, healthBars = 'selected', canSee = () => true }) {
     const c = this.ctx;
     c.clearRect(0, 0, this.w, this.h);
     for (const u of world.units.values()) {
+      if (!canSee(u)) continue;
       const selected = selection.has(u.id), hovered = u.id === hoverId;
       const damaged = u.hp < u.maxHp;
       if (!selected && !hovered && healthBars !== 'always' && !(healthBars === 'damaged' && damaged)) continue;
@@ -42,6 +43,41 @@ export class Overlay {
         c.fillText(String(g), s.x + half - 5, s.y + half + 1);
         c.fillStyle = '#fff';
         c.fillText(String(g), s.x + half - 6, s.y + half);
+      }
+    }
+    for (const s of world.structures.values()) {
+      const selected = s.id === selection.structureId, hovered = s.id === hoverStructureId;
+      if (!selected && !hovered && healthBars !== 'always' && !(healthBars === 'damaged' && s.hp < s.maxHp)) continue;
+      const p = project(s.x + s.w / 2, s.y + s.h / 2, 0.3);
+      if (!p.visible) continue;
+      const half = Math.max(12, p.pxPerUnit * Math.max(s.w, s.h) * 0.52);
+      if (selected || hovered) brackets(c, p.x, p.y, half, selected ? '#ffffff' : 'rgba(255,255,255,0.45)');
+      healthBar(c, p.x, p.y - half - 7, Math.min(half * 2, 96), s.hp / s.maxHp);
+      if (!selected) continue;
+      if (s.rally) {
+        const r = project(s.rally.x + 0.5, s.rally.y + 0.5, 0.05);
+        c.save();
+        c.setLineDash([6, 5]);
+        c.strokeStyle = 'rgba(255,255,255,0.85)';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.moveTo(p.x, p.y);
+        c.lineTo(r.x, r.y);
+        c.stroke();
+        c.restore();
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.arc(r.x, r.y, 4, 0, Math.PI * 2);
+        c.fill();
+      }
+      if (s.primary) {
+        c.font = 'bold 11px "Trebuchet MS", sans-serif';
+        c.textAlign = 'center';
+        c.fillStyle = '#000';
+        c.fillText('PRIMARY', p.x + 1, p.y + half + 14);
+        c.fillStyle = '#ffd24a';
+        c.fillText('PRIMARY', p.x, p.y + half + 13);
+        c.textAlign = 'start';
       }
     }
     this.markers = this.markers.filter((m) => (m.t += dt) < 0.6);

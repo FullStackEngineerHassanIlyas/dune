@@ -20,6 +20,8 @@ import { makeCursorSetter } from '../ui/cursors.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
+import { SelectionPanel, selectionPanelModel } from '../ui/selection-panel.js';
+import { unitVisibleTo } from '../sim/fog.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 import { IconFactory } from '../render/icons.js';
 import { HOUSES } from '../data/houses.js';
@@ -70,7 +72,11 @@ export class GameView {
       onOrder: (tx, ty) => this.controller.orderTile(tx, ty),
       ordersOnLeft: () => settings.scheme !== 'modern' && this.controller.ownSelected().length > 0,
       ordersOnRight: () => settings.scheme === 'modern',
+    });    this.panel = new SelectionPanel(document.getElementById('ui'), {
+      iconFor: (typeId, houseId) => this.icons.forItem(typeId, houseId),
+      onButton: (id) => this.panelAction(id),
     });
+
     this.fps = params.bool('fps') ? new FpsMeter(document.getElementById('ui'), r3d.renderer) : null;
     this.selection = new Selection();
     this.groups = new Groups();
@@ -132,6 +138,17 @@ export class GameView {
     return out;
   }
 
+  panelAction(id) {
+    const units = this.controller.ownSelected();
+    const s = this.world.structures.get(this.selection.structureId);
+    const issue = (cmd) => this.world.issue(this.house, cmd);
+    if (['stop', 'guard', 'scatter', 'deploy'].includes(id) && units.length) issue({ type: id, ids: units.map((u) => u.id) });
+    else if (id === 'return') issue({ type: 'returnToBase', ids: units.filter((u) => u.harvest).map((u) => u.id) });
+    else if (s && id === 'repair') issue({ type: 'repair', structureId: s.id });
+    else if (s && id === 'sell') issue({ type: 'sell', structureId: s.id });
+    else if (s && id === 'primary') issue({ type: 'setPrimary', structureId: s.id });
+  }
+
   frame(now) {
     const { world, r3d } = this;
     const raw = Math.max(0, (now - this.last) / 1000);
@@ -146,7 +163,7 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
-    this.selection.prune((id) => world.units.has(id));
+    this.selection.prune((id) => { const u = world.units.get(id); return !!u && unitVisibleTo(world, this.house, u); }, (id) => world.structures.has(id));
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
     this.rig.update(dt, this.heightAt);
@@ -157,7 +174,12 @@ export class GameView {
     r3d.renderer.info.reset();
     r3d.render();
     this.controller.frame();
-    this.overlay.draw({ world, selection: this.selection, hoverId: this.controller.hoverId, project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars });
+    this.overlay.draw({
+      world, selection: this.selection, hoverId: this.controller.hoverId, hoverStructureId: this.controller.hoverStructureId,
+      project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars,
+      canSee: (u) => unitVisibleTo(world, this.house, u),
+    });
+    this.panel.update(selectionPanelModel(world, this.selection, this.house));
     this.hud.update(dt);
     const sidebar = sidebarModel(world, this.house);
     this.sidebar.update(sidebar, dt);

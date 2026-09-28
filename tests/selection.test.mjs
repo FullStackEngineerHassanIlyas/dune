@@ -39,3 +39,20 @@ test('groups assign, recall live members and detect double taps', () => {
   assert.equal(g.tap(2, 1400), 'select');
   assert.equal(g.groupOf(5), 1);
 });
+
+test('selecting a structure drops the units and back; prune drops dead structures', () => {
+  const s = new Selection();
+  s.set([1, 2]);
+  s.setStructure(7);
+  assert.deepEqual([s.list(), s.structureId], [[], 7]);
+  s.set([3]);
+  assert.equal(s.structureId, 0);
+  s.setStructure(7);
+  const v = s.version;
+  s.prune(() => true, (id) => id !== 7);
+  assert.equal(s.structureId, 0);
+  assert.ok(s.version > v);
+  s.setStructure(8);
+  s.clear();
+  assert.equal(s.structureId, 0);
+});

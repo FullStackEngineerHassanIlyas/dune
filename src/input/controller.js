@@ -5,9 +5,12 @@ import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
 import { checkPlacement } from '../sim/placement.js';
+import { LINE_FACTORIES } from '../sim/tech.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
+
+const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
 
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
@@ -16,6 +19,7 @@ export class Controller {
     Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, onMode, onGhost, onNotice });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
+    this.hoverStructureId = null;
     this.mode = null;
   }
 
@@ -93,7 +97,8 @@ export class Controller {
     const classic = this.settings.scheme !== 'modern';
     const hit = this.hitTest(x, y);
     if (button === 2) {
-      if (classic) this.selection.clear(); else this.order(hit);
+      if (classic) this.selection.clear();
+      else if (!this.rally(hit)) this.order(hit);
       return;
     }
     if (hit?.kind === 'unit' && hit.unit.house === this.house) {
@@ -104,10 +109,37 @@ export class Controller {
       if (mods.shift) this.selection.toggle(u.id); else this.selection.set([u.id]);
       return;
     }
+    if (hit?.kind === 'structure' && hit.structure) { this.clickStructure(hit.structure, classic, double); return; }
     if (classic && this.ownSelected().length) { this.order(hit); return; }
+    if (classic && this.rally(hit)) return;
     if (hit?.kind === 'unit') { this.selection.set([hit.unit.id]); return; }
     if (!mods.shift) this.selection.clear();
   }
+
+  clickStructure(s, classic, double) {
+    const units = this.ownSelected();
+    if (classic && units.length) {
+      if (s.house === this.house && s.typeId === 'refinery' && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return; }
+      if (s.house !== this.house) return;   // attacking structures arrives with combat (plan 1c)
+    }
+    if (double && s.house === this.house && UNIT_FACTORIES.has(s.typeId)) this.issue({ type: 'setPrimary', structureId: s.id });
+    this.selection.setStructure(s.id);
+  }
+
+  /** The selected own unit factory, whose rally point a ground click sets. */
+  rallyTarget() {
+    const s = this.world.structures.get(this.selection.structureId);
+    return s && s.house === this.house && UNIT_FACTORIES.has(s.typeId) ? s : null;
+  }
+
+  rally(hit) {
+    const s = hit?.kind === 'ground' ? this.rallyTarget() : null;
+    if (!s) return false;
+    this.issue({ type: 'setRally', structureId: s.id, x: hit.tx, y: hit.ty });
+    this.onMarker(hit.tx + 0.5, hit.ty + 0.5);
+    return true;
+  }
+
 
   order(hit) {
     const units = this.ownSelected();
@@ -193,6 +225,7 @@ export class Controller {
     }
     const hit = inside ? this.hitTest(x, y) : null;
     this.hoverId = hit?.kind === 'unit' ? hit.unit.id : null;
+    this.hoverStructureId = hit?.kind === 'structure' ? hit.structure?.id ?? null : null;
     if (this.mode?.kind === 'place') this.onGhost(inside ? this.placementAt(x, y) : null);
     this.onCursor(this.cursorFor(hit));
   }
@@ -211,10 +244,15 @@ export class Controller {
       if (own.length === 1 && own[0].id === hit.unit.id && hit.unit.type.deploysTo) return deploySpot(this.world, hit.unit) ? 'deploy' : 'noDeploy';
       return 'select';
     }
-    if (!own.length) return 'default';
-    if (hit.kind === 'structure') return 'noMove';
+    if (hit.kind === 'structure') {
+      const s = hit.structure;
+      if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
+      return own.length && s?.house !== this.house ? 'noMove' : 'select';
+    }
+    if (!own.length) return this.rallyTarget() ? 'move' : 'default';
     const i = this.world.map.idx(hit.tx, hit.ty);
     if (!own.some((u) => this.world.map.moveFactor(i, u.move) > 0)) return 'noMove';
     return own.every((u) => u.harvest) && this.world.map.spice[i] > 0 ? 'attack' : 'move';
   }
+
 }
