@@ -13,7 +13,7 @@ export class CameraRig {
     this.goal = this.target.clone();
     this.minDistance = 8; this.maxDistance = 64;
     this.minPitch = deg(32); this.maxPitch = deg(80);
-    this.distance = this.goalDistance = 24;
+    this.distance = this.goalDistance = 16;
     this.pitch = this.goalPitch = deg(55);
     this.yaw = this.goalYaw = 0;
     this.shake = 0;
@@ -35,7 +35,7 @@ export class CameraRig {
 
   zoom(factor) { this.goalDistance = clamp(this.goalDistance * factor, this.minDistance, this.maxDistance); }
   rotate(dYaw, dPitch) { this.goalYaw += dYaw; this.goalPitch = clamp(this.goalPitch + dPitch, this.minPitch, this.maxPitch); }
-  reset() { this.goalYaw = 0; this.goalPitch = deg(55); this.goalDistance = 24; }
+  reset() { this.goalYaw = 0; this.goalPitch = deg(55); this.goalDistance = 16; }
 
   update(dt, heightAt) {
     const k = 1 - Math.exp(-dt * 12);

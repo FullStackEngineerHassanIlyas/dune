@@ -1,6 +1,7 @@
 // Terrain mesh + apron + live data textures (spice, concrete, shroud) + decal map.
 import * as THREE from 'three';
 import { injectTerrainShader } from './terrain-shader.js';
+import { rockDetailTexture } from './terrain-textures.js';
 
 export function buildTerrainGeometry(hf) {
   const { vw, vh, sub } = hf;
@@ -70,7 +71,7 @@ export class TerrainView {
     this.decals = new DecalMap(map.w, map.h);
     this.uniforms = {
       uSpice: { value: this.spiceTex }, uConcrete: { value: this.concreteTex }, uShroud: { value: this.shroudTex },
-      uDecals: { value: this.decals.texture }, uMapSize: { value: new THREE.Vector2(map.w, map.h) }, uTime: { value: 0 },
+      uDecals: { value: this.decals.texture }, uRockTex: { value: rockDetailTexture() }, uMapSize: { value: new THREE.Vector2(map.w, map.h) }, uTime: { value: 0 },
     };
     const material = injectTerrainShader(new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), this.uniforms);
     this.mesh = new THREE.Mesh(buildTerrainGeometry(hf), material);

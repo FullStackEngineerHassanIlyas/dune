@@ -5,7 +5,7 @@ import { PAL } from '../palette.js';
 
 function figure(name, armour) {
   const b = new ModelBuilder(name);
-  const k = armour ? 1.12 : 1;
+  const k = (armour ? 1.12 : 1) * 1.35;   // exaggerated like every RTS so figures read at battle zoom
   const hip = 0.085 * k, torso = 0.07 * k;
   const body = armour ? PAL.sand : PAL.cloth;
   b.node('legL', { pivot: [0, hip, 0.022 * k], axis: 'z' });

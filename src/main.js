@@ -4,6 +4,7 @@ const SCENES = {
   'render-test': () => import('./scenes/render-test.js'),
   terrain: () => import('./scenes/terrain.js'),
   gallery: () => import('./scenes/gallery.js'),
+  skirmish: () => import('./scenes/skirmish.js'),
 };
 
 function fatal(message) {
