@@ -28,7 +28,7 @@ radar and the computer opponent arrive with plan 1b.
 | Ctrl + 1–9 (or Ctrl + Shift + 1–9) | Assign a control group |
 | 1–9, tap twice | Select a group, centre on it |
 | S · G · X · D | Stop · guard · scatter · deploy |
-| H or Home | Centre on the Construction Yard |
+| H · Home | Centre on the Construction Yard · reset the camera and centre |
 | Screen edges, arrow keys, middle drag | Scroll |
 | Mouse wheel · Alt + middle drag | Zoom · rotate and tilt |
 
