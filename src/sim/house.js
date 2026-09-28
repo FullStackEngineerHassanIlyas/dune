@@ -1,0 +1,15 @@
+// A player or computer faction taking part in a game.
+import { HOUSES } from '../data/houses.js';
+
+export class House {
+  constructor(id, slot, { credits = 0, ai = false, techLevel = 9 } = {}) {
+    if (!HOUSES[id]) throw new Error(`unknown house ${id}`);
+    this.id = id;
+    this.slot = slot;
+    this.info = HOUSES[id];
+    this.credits = credits;
+    this.isAI = ai;
+    this.techLevel = techLevel;
+    this.stats = { spiceHarvested: 0, unitsKilled: 0, unitsLost: 0, structuresKilled: 0, structuresLost: 0 };
+  }
+}
