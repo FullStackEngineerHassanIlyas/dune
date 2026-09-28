@@ -238,3 +238,10 @@ test('sell mode sells own structures only; repair mode repairs damaged own struc
   c.onClick(px(3), px(13), 0, NONE, false);
   assert.deepEqual(issued.at(-1), { type: 'repair', structureId: own.id });
 });
+
+test('orderTile orders the selection to a map tile (the radar uses it)', () => {
+  const { tank, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.orderTile(12, 7);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 12, y: 7 });
+});

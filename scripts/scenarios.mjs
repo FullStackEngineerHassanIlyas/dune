@@ -23,4 +23,5 @@ export const SCENARIOS = {
   'icons-harkonnen': { query: 'scene=icons&house=harkonnen' },
   'skirmish-sidebar': { query: 'scene=skirmish&seed=11&house=atreides&deploy=1' },
   'skirmish-sidebar-ordos': { query: 'scene=skirmish&seed=5&house=ordos&deploy=1&dist=14' },
+  'radar-online': { query: 'scene=skirmish&seed=11&house=atreides&deploy=1&radar=1' },
 };

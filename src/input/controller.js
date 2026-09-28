@@ -46,6 +46,7 @@ export class Controller {
   inViewport(x, y) { const v = this.viewport(); return x >= v.left && x <= v.right && y >= v.top && y <= v.bottom; }
   ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house); }
   issue(cmd) { this.world.issue(this.house, cmd); }
+  orderTile(tx, ty) { this.order({ kind: 'ground', tx, ty }); }
 
   setMode(mode) {
     this.mode = mode;

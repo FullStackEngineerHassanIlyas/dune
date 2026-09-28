@@ -52,3 +52,12 @@ test('camera rig clamps to the map and zoom limits, and looks north at yaw 0', (
   rig.pan(0, 5);
   assert.ok(rig.goal.z < 30, 'panning forward moves north');
 });
+
+import { screenToPlane } from '../src/render/picking.js';
+
+test('screenToPlane meets a flat plane; the top of the view lies farther north', () => {
+  const cam = camera();
+  const c = screenToPlane(cam, 0, 0, 0);
+  assert.ok(Math.abs(c.x - 10) < 1e-6 && Math.abs(c.z - 10) < 1e-6);
+  assert.ok(screenToPlane(cam, 0, 1, 0).z < screenToPlane(cam, 0, -1, 0).z);
+});

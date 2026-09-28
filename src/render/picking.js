@@ -27,6 +27,16 @@ export function screenToGround(camera, ndcX, ndcY, heightAt, maxHeight = 3.5) {
   return null;
 }
 
+/** Where the ray through an NDC point meets the plane y = h, or null at or above the horizon. */
+export function screenToPlane(camera, ndcX, ndcY, h = 0) {
+  ndc.set(ndcX, ndcY);
+  raycaster.setFromCamera(ndc, camera);
+  const o = raycaster.ray.origin, d = raycaster.ray.direction;
+  if (d.y > -1e-4) return null;
+  const t = (o.y - h) / -d.y;
+  return { x: o.x + d.x * t, z: o.z + d.z * t };
+}
+
 export function worldToScreen(camera, x, y, z, width, height, out = {}) {
   v.set(x, y, z).project(camera);
   out.x = ((v.x + 1) / 2) * width;

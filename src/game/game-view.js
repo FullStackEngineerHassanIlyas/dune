@@ -5,7 +5,7 @@ import { terrainSubFor } from '../render/quality.js';
 import { Heightfield } from '../render/heightfield.js';
 import { TerrainView } from '../render/terrain.js';
 import { CameraRig } from '../render/camera-rig.js';
-import { screenToGround, worldToScreen, pixelsPerUnit } from '../render/picking.js';
+import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
 import { UnitViews } from '../render/views/unit-views.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
@@ -19,6 +19,7 @@ import { Controller } from '../input/controller.js';
 import { makeCursorSetter } from '../ui/cursors.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
+import { Radar } from '../ui/radar.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 import { IconFactory } from '../render/icons.js';
 import { HOUSES } from '../data/houses.js';
@@ -63,6 +64,13 @@ export class GameView {
       onTool: (tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool }),
     });
     this.sidebar.el.style.setProperty('--house', `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`);
+    this.radar = new Radar(this.sidebar.radarEl, {
+      world, house,
+      onJump: (x, z) => this.rig.lookAt(x, z, true),
+      onOrder: (tx, ty) => this.controller.orderTile(tx, ty),
+      ordersOnLeft: () => settings.scheme !== 'modern' && this.controller.ownSelected().length > 0,
+      ordersOnRight: () => settings.scheme === 'modern',
+    });
     this.fps = params.bool('fps') ? new FpsMeter(document.getElementById('ui'), r3d.renderer) : null;
     this.selection = new Selection();
     this.groups = new Groups();
@@ -113,6 +121,17 @@ export class GameView {
     }
   }
 
+  /** The camera's view on the ground (tile coordinates), for the radar outline. */
+  viewQuad() {
+    const out = [];
+    for (const [x, y] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
+      const p = screenToPlane(this.r3d.camera, x, y, 0.2);
+      if (!p) return null;
+      out.push(p);
+    }
+    return out;
+  }
+
   frame(now) {
     const { world, r3d } = this;
     const raw = Math.max(0, (now - this.last) / 1000);
@@ -140,7 +159,9 @@ export class GameView {
     this.controller.frame();
     this.overlay.draw({ world, selection: this.selection, hoverId: this.controller.hoverId, project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars });
     this.hud.update(dt);
-    this.sidebar.update(sidebarModel(world, this.house), dt);
+    const sidebar = sidebarModel(world, this.house);
+    this.sidebar.update(sidebar, dt);
+    this.radar.update(dt, { online: sidebar.radar, view: this.viewQuad() });
     this.fps?.frame();
   }
 
