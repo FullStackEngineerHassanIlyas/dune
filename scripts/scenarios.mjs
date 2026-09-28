@@ -4,4 +4,7 @@ export const SCENARIOS = {
   'render-test': { query: 'scene=render-test' },
   'render-test-low': { query: 'scene=render-test&quality=low' },
   'render-test-high': { query: 'scene=render-test&quality=high' },
+  terrain: { query: 'scene=terrain&seed=7' },
+  'terrain-overview': { query: 'scene=terrain&seed=7&dist=70&x=32&z=36' },
+  'terrain-seed-21': { query: 'scene=terrain&seed=21' },
 };

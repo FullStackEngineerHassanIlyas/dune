@@ -2,6 +2,7 @@
 const SCENES = {
   boot: () => import('./scenes/boot.js'),
   'render-test': () => import('./scenes/render-test.js'),
+  terrain: () => import('./scenes/terrain.js'),
 };
 
 function fatal(message) {
