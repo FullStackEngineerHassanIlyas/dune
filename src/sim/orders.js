@@ -2,6 +2,7 @@
 import { findDestinations } from './destinations.js';
 import { orderDeploy } from './deploy.js';
 import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './production.js';
+import { orderSell, orderRepair } from './structure-actions.js';
 
 export function applyCommand(world, houseId, cmd) {
   const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId);
@@ -16,6 +17,8 @@ export function applyCommand(world, houseId, cmd) {
     case 'place': orderPlace(world, houseId, cmd.typeId, cmd.x, cmd.y); return;
     case 'setRally': orderRally(world, houseId, cmd.structureId, cmd.x, cmd.y); return;
     case 'setPrimary': orderPrimary(world, houseId, cmd.structureId); return;
+    case 'sell': orderSell(world, houseId, cmd.structureId); return;
+    case 'repair': orderRepair(world, houseId, cmd.structureId, cmd.on); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });
   }
 }
