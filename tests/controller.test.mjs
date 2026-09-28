@@ -127,3 +127,33 @@ test('a quick second click on the selected MCV deploys it even when it counts as
   c.onClick(px(8), px(8), 0, NONE, true);
   assert.deepEqual(issued.at(-1), { type: 'deploy', ids: [mcv.id] });
 });
+
+test('held keys do not repeat orders or group taps', () => {
+  const { tank, c, issued, looked } = setup();
+  c.selection.set([tank.id]);
+  c.onKey('x', 'KeyX', NONE);
+  c.onKey('x', 'KeyX', { ...NONE, repeat: true });
+  assert.equal(issued.filter((i) => i.type === 'scatter').length, 1);
+  c.onKey('2', 'Digit2', { ...NONE, ctrl: true });
+  c.onKey('2', 'Digit2', NONE);
+  c.onKey('2', 'Digit2', { ...NONE, repeat: true });
+  assert.equal(looked.length, 0);
+});
+
+test('no order on ground none of the selected units can enter; infantry may climb', () => {
+  const { tank, world, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.onClick(px(15), px(15), 0, NONE, false);
+  assert.equal(issued.length, 0);
+  const trooper = world.spawnUnit('trooper', 'atreides', 2, 12);
+  c.selection.set([tank.id, trooper.id]);
+  c.onClick(px(15), px(15), 0, NONE, false);
+  assert.equal(issued.at(-1).type, 'move');
+});
+
+test('a click on ground beyond the map edge issues nothing', () => {
+  const { tank, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.onClick(px(25), px(5), 0, NONE, false);
+  assert.equal(issued.length, 0);
+});

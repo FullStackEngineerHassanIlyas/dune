@@ -15,4 +15,5 @@ export const SCENARIOS = {
   'skirmish-harkonnen': { query: 'scene=skirmish&seed=5&house=harkonnen' },
   'skirmish-ordos-close': { query: 'scene=skirmish&seed=8&house=ordos&dist=12' },
   'skirmish-wide': { query: 'scene=skirmish&seed=11&house=atreides&dist=55' },
+  stress: { query: 'scene=stress&fps=1&quality=low', settleMs: 4000 },
 };

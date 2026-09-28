@@ -41,6 +41,7 @@ export class Heightfield {
     this.rock = new Float32Array(n);
     this.mountain = new Float32Array(n);
     this.dune = new Float32Array(n);
+    this.maxHeight = 0;
     this.build();
   }
 
@@ -75,6 +76,7 @@ export class Heightfield {
       let h = sand * (1 - r) + rockTop * r + mountain * m;
       h *= smooth(0, 0.8, Math.min(x, y, map.w - x, map.h - y));   // meet the flat apron at the map edge
       this.data[k] = h;
+      if (this.data[k] > this.maxHeight) this.maxHeight = this.data[k];   // the stored float32, not the double
       this.rock[k] = r;
       this.mountain[k] = m;
       this.dune[k] = d * (1 - r);

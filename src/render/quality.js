@@ -6,3 +6,6 @@ export const QUALITY = {
 };
 
 export function qualityPreset(name) { return QUALITY[name] ?? QUALITY.medium; }
+
+/** Large maps drop to three terrain vertices per tile side (spec §5.2). */
+export function terrainSubFor(mapW, preset) { return mapW > 64 ? Math.min(3, preset.terrainSub) : preset.terrainSub; }

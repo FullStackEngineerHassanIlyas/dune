@@ -9,3 +9,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
   font: bold 15px "Trebuchet MS", sans-serif; letter-spacing: .04em; color: #f5d48a; text-align: center; text-shadow: 0 1px 0 #000;
   opacity: 0; transition: opacity .25s; pointer-events: none; }
 .message-bar.show { opacity: 1; }
+
+.fps-meter { position: absolute; left: 8px; top: 8px; padding: 3px 8px; background: rgba(0,0,0,.55); color: #9f9; font: 12px monospace; pointer-events: none; z-index: 5; }
+.fatal h2 { margin: 0 0 .4em; color: #ffcf7a; }
+.fatal button { margin-top: 1em; padding: .5em 1.4em; font: bold 15px "Trebuchet MS", sans-serif; background: #b8893a; border: 0; color: #1a1008; cursor: pointer; }

@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js';
 import { createSky, createEnvironment } from './sky.js';
 import { qualityPreset } from './quality.js';
+import { createGradePass } from './grade-pass.js';
 
 export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.9, 0.42).normalize();
 
@@ -21,7 +22,7 @@ export class Renderer3D {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.shadowMap.enabled = q.shadows > 0;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft was removed in r186
 
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0xd9bb8e, 0.0085);
@@ -52,12 +53,14 @@ export class Renderer3D {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
       this.composer.addPass(this.bloom);
     }
+    this.composer.addPass(createGradePass());
     this.composer.addPass(new OutputPass());
     if (q.fxaa) this.composer.addPass(new FXAAPass());
 
     this.resize();
     addEventListener('resize', () => this.resize());
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; this.onContextLost?.(); });
+    canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this.onContextRestored?.(); });
   }
 
   resize() {

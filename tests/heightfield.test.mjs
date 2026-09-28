@@ -76,3 +76,8 @@ test('flattening under a structure updates the terrain geometry in place', async
   assert.ok(nor.getY(40 * hf.vw + 40) > 0.999, 'flat footprint faces straight up');
   assert.ok(pos.version > v0, 'positions re-uploaded');
 });
+
+test('maxHeight is the highest vertex', () => {
+  const hf = new Heightfield(testMap(), { sub: 2, seed: 3 });
+  assert.equal(hf.maxHeight, Math.max(...hf.data));
+});

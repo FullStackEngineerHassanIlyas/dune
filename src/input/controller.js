@@ -69,6 +69,9 @@ export class Controller {
       return;
     }
     const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
+    if (hit.kind === 'structure') return;   // structure clicks are handled by selection (Task 15) and combat (plan 1c)
+    const map = this.world.map, i = map.idx(tx, ty);
+    if (!units.some((u) => map.moveFactor(i, u.move) > 0)) return;   // nobody selected can go there
     this.issue({ type: 'move', ids: units.map((u) => u.id), x: tx, y: ty });
     this.onMarker(tx + 0.5, ty + 0.5);
   }
@@ -95,6 +98,7 @@ export class Controller {
 
   onKey(key, code, mods) {
     const digit = code?.startsWith('Digit') ? Number(code.slice(5)) : null;
+    if (mods.repeat && (digit !== null || HOTKEYS[key])) return true;   // held keys must not repeat orders
     if (digit !== null) {
       if (mods.ctrl) { this.groups.assign(digit, this.ownSelected().map((u) => u.id)); return true; }
       const ids = this.groups.get(digit, (id) => this.world.units.has(id));
