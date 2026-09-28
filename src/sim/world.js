@@ -15,12 +15,14 @@ import { updatePower } from './economy.js';
 import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
 import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
+import { updateFog } from './fog.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
     this.map = map;
     this.rng = new Rng(seed);
     this.tick = 0;
+    this.fogOfWar = true;    // skirmish option; false reveals everything
     this.time = 0;
     this.houses = new Map();
     this.units = new Map();
@@ -109,6 +111,7 @@ export class World {
     updateProduction(this);
     updateRepairs(this);
     if (this.tick % 10 === 0) updatePower(this);
+    if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     this.tick++;
     this.time = this.tick * DT;
