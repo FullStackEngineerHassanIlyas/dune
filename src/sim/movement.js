@@ -82,7 +82,7 @@ function blocked(world, u, occupantId) {
 
 // Ask an idle friendly unit to step onto a free neighbouring tile that is not on our way.
 function nudge(world, other, requester) {
-  if (world.tick - other.nudgedAt < 30) return;
+  if (world.tick - other.nudgedAt < 30 || other.noNudge) return;
   const map = world.map;
   const onPath = new Set(requester.path.slice(requester.pathIndex, requester.pathIndex + 4));
   const options = [];
@@ -95,6 +95,7 @@ function nudge(world, other, requester) {
   if (!options.length) return;
   const target = options[world.rng.int(options.length)];
   other.nudgedAt = world.tick;
+  other.resumeOrder = other.order.type === 'move' ? null : other.order;   // e.g. a harvester's routine
   other.order = { type: 'move', x: map.xOf(target), y: map.yOf(target), nudge: true };
   other.goal = target;
   other.path = [target];
@@ -124,7 +125,8 @@ function arrive(world, u) {
   if (u.pathState === 'ready' && !u.pathReached && u.goal >= 0 && here !== u.goal && u.repaths < 6) { replan(world, u); return; }
   u.path = []; u.pathIndex = 0; u.pathState = 'none'; u.stuckTicks = 0; u.waitTicks = 0;
   if (u.order.type === 'move') {
-    u.order = { type: 'idle' };
+    u.order = (u.order.nudge && u.resumeOrder) || { type: 'idle' };
+    u.resumeOrder = null;
     u.goal = -1;
     world.events.push('arrived', { id: u.id });
   } else if (u.order.type === 'deploy') {

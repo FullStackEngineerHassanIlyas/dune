@@ -72,6 +72,11 @@ export class Controller {
     if (hit.kind === 'structure') return;   // structure clicks are handled by selection (Task 15) and combat (plan 1c)
     const map = this.world.map, i = map.idx(tx, ty);
     if (!units.some((u) => map.moveFactor(i, u.move) > 0)) return;   // nobody selected can go there
+    if (units.every((u) => u.harvest) && map.spice[i] > 0) {
+      this.issue({ type: 'harvest', ids: units.map((u) => u.id), x: tx, y: ty });
+      this.onMarker(tx + 0.5, ty + 0.5);
+      return;
+    }
     this.issue({ type: 'move', ids: units.map((u) => u.id), x: tx, y: ty });
     this.onMarker(tx + 0.5, ty + 0.5);
   }
@@ -149,6 +154,7 @@ export class Controller {
     if (!own.length) return 'default';
     if (hit.kind === 'structure') return 'noMove';
     const i = this.world.map.idx(hit.tx, hit.ty);
-    return own.some((u) => this.world.map.moveFactor(i, u.move) > 0) ? 'move' : 'noMove';
+    if (!own.some((u) => this.world.map.moveFactor(i, u.move) > 0)) return 'noMove';
+    return own.every((u) => u.harvest) && this.world.map.spice[i] > 0 ? 'attack' : 'move';
   }
 }

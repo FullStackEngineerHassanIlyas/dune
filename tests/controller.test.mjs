@@ -157,3 +157,13 @@ test('a click on ground beyond the map edge issues nothing', () => {
   c.onClick(px(25), px(5), 0, NONE, false);
   assert.equal(issued.length, 0);
 });
+
+test('with only harvesters selected, a click on spice orders harvesting there', () => {
+  const { world, c, issued } = setup();
+  world.map.setSpice(world.map.idx(12, 12), 250);
+  const hv = world.spawnUnit('harvester', 'atreides', 3, 14);
+  c.selection.set([hv.id]);
+  assert.equal(c.cursorFor(c.hitTest(px(12), px(12))), 'attack');
+  c.onClick(px(12), px(12), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'harvest', ids: [hv.id], x: 12, y: 12 });
+});

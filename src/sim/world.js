@@ -14,6 +14,7 @@ import { tryDeploy } from './deploy.js';
 import { updatePower } from './economy.js';
 import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
+import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -34,6 +35,7 @@ export class World {
     this.pathSearchCap = 10000;    // expansions for any single search; longer ones return a partial path
     this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
+    this.onStructurePlaced = (s) => { if (s.typeId === 'refinery') spawnFreeHarvester(this, s); };
   }
 
   addHouse(id, opts = {}) {
@@ -50,6 +52,7 @@ export class World {
       if (this.map.unit[i] || this.map.structure[i]) throw new Error(`tile ${x},${y} is taken`);
       this.map.unit[i] = unit.id;
     }
+    if (unit.typeId === 'harvester') initHarvester(unit);
     this.units.set(unit.id, unit);
     this.events.push('unitSpawned', { id: unit.id, house: houseId, unitType: typeId });
     return unit;
@@ -67,6 +70,7 @@ export class World {
     this.map.revision++;
     this.structures.set(s.id, s);
     this.events.push('structurePlaced', { id: s.id, house: houseId, structureType: typeId, x, y });
+    this.onStructurePlaced?.(s);
     return s;
   }
 
@@ -97,7 +101,11 @@ export class World {
     for (const { houseId, command } of commands) applyCommand(this, houseId, command);
     this.processPathQueue();
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
-    for (const u of [...this.units.values()]) if (this.units.has(u.id)) updateMovement(this, u);
+    for (const u of [...this.units.values()]) {
+      if (!this.units.has(u.id)) continue;
+      if (u.harvest) updateHarvester(this, u);
+      updateMovement(this, u);
+    }
     updateProduction(this);
     updateRepairs(this);
     if (this.tick % 10 === 0) updatePower(this);
