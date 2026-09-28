@@ -19,4 +19,6 @@ export const SCENARIOS = {
   'structures-atreides': { query: 'scene=structures&house=atreides' },
   'structures-harkonnen': { query: 'scene=structures&house=harkonnen' },
   'structures-closeup': { query: 'scene=structures&house=ordos&dist=6&x=6&z=3&pitch=35' },
+  'icons-atreides': { query: 'scene=icons&house=atreides' },
+  'icons-harkonnen': { query: 'scene=icons&house=harkonnen' },
 };

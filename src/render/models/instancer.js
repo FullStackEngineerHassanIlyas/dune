@@ -7,6 +7,24 @@ import { getMaterial, HOUSE_TINTED } from './materials.js';
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const local = new THREE.Matrix4(), tmp = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0);
 
+/** A node's own transform: move to its pivot, then turn, slide or scale by `v`. Part geometry lives in this space. */
+export function nodeLocal(node, v, out) {
+  out.makeTranslation(node.pivot[0], node.pivot[1], node.pivot[2]);
+  if (node.kind === 'rot') out.multiply(tmp.makeRotationAxis(AXES[node.axis], v));
+  else if (node.kind === 'trans') { const a = AXES[node.axis]; out.multiply(tmp.makeTranslation(a.x * v, a.y * v, a.z * v)); }
+  else if (node.kind === 'scale') out.multiply(tmp.makeScale(v, v, v));
+  return out;
+}
+
+/** Matrices of every node at rest (default parameters) under `root`; parents are declared before children. */
+export function nodeMatricesAtRest(def, root = new THREE.Matrix4()) {
+  const out = {};
+  for (const [name, node] of Object.entries(def.nodes)) {
+    out[name] = node.parent ? new THREE.Matrix4().multiplyMatrices(out[node.parent], nodeLocal(node, node.value, new THREE.Matrix4())) : root.clone();
+  }
+  return out;
+}
+
 export class InstancedModel {
   constructor(def, scene, { capacity = 8, castShadow = true } = {}) {
     this.def = def;
@@ -82,11 +100,7 @@ export class InstancedModel {
         const node = nodes[this.nodeNames[n]];
         const out = this.nodeMatrices[n];
         if (!node.parent) { out.copy(h.matrix); continue; }
-        local.makeTranslation(node.pivot[0], node.pivot[1], node.pivot[2]);
-        const v = h.params[node.param] ?? node.value;
-        if (node.kind === 'rot') local.multiply(tmp.makeRotationAxis(AXES[node.axis], v));
-        else if (node.kind === 'trans') { const a = AXES[node.axis]; local.multiply(tmp.makeTranslation(a.x * v, a.y * v, a.z * v)); }
-        else if (node.kind === 'scale') local.multiply(tmp.makeScale(v, v, v));
+        nodeLocal(node, h.params[node.param] ?? node.value, local);
         out.multiplyMatrices(this.nodeMatrices[this.nodeIndex[node.parent]], local);
       }
       for (let p = 0; p < this.meshes.length; p++) {
