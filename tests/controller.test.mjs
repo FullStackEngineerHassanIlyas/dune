@@ -176,3 +176,65 @@ test('units the player cannot see cannot be clicked', () => {
   assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 12, y: 5 }, 'treated as ground');
   assert.equal(c.cursorFor(c.hitTest(px(12), px(5))), 'move');
 });
+
+test('placement mode places the ready structure centred on the cursor and refuses bad spots', () => {
+  const { world, c, issued } = setup();
+  const notices = [];
+  c.onNotice = (t) => notices.push(t);
+  world.spawnStructure('constructionYard', 'atreides', 2, 12);
+  world.houses.get('atreides').lines.structure.current = { typeId: 'windtrap', cost: 300, total: 21.6, progress: 1, paid: 300, state: 'ready', starved: false };
+  c.startPlacement('windtrap');
+  c.onClick(18 * 40, 3 * 40, 0, NONE, false);
+  assert.equal(issued.length, 0);
+  assert.equal(notices.length, 1);
+  assert.equal(c.mode.kind, 'place', 'still placing after a refused spot');
+  assert.deepEqual(c.placementAt(200, 520).check.ok, true);
+  c.onClick(200, 520, 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'place', typeId: 'windtrap', x: 4, y: 12 });
+  assert.equal(c.mode, null);
+});
+
+test('placement mode ends when the structure is no longer ready', () => {
+  const { world, c } = setup();
+  const line = world.houses.get('atreides').lines.structure;
+  line.current = { typeId: 'windtrap', cost: 300, total: 21.6, progress: 1, paid: 300, state: 'ready', starved: false };
+  c.startPlacement('windtrap');
+  c.frame();
+  assert.equal(c.mode.kind, 'place');
+  line.current = null;
+  c.frame();
+  assert.equal(c.mode, null);
+});
+
+test('right click or Escape leaves a mode without ordering anything', () => {
+  const { c, issued } = setup();
+  c.setMode({ kind: 'sell' });
+  c.onClick(px(5), px(5), 2, NONE, false);
+  assert.equal(c.mode, null);
+  c.setMode({ kind: 'repair' });
+  c.onKey('Escape', 'Escape', NONE);
+  assert.equal(c.mode, null);
+  assert.equal(issued.length, 0);
+});
+
+test('sell mode sells own structures only; repair mode repairs damaged own structures', () => {
+  const { world, c, issued } = setup();
+  const own = world.spawnStructure('windtrap', 'atreides', 2, 12);
+  world.spawnStructure('windtrap', 'harkonnen', 10, 12);
+  c.setMode({ kind: 'sell' });
+  assert.equal(c.cursorFor(c.hitTest(px(10), px(12))), 'noSell');
+  c.onClick(px(10), px(12), 0, NONE, false);
+  assert.equal(issued.length, 0);
+  assert.equal(c.cursorFor(c.hitTest(px(2), px(12))), 'sell');
+  c.onClick(px(2), px(12), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'sell', structureId: own.id });
+  assert.equal(c.mode.kind, 'sell', 'sell mode stays on until cancelled');
+  c.setMode({ kind: 'repair' });
+  assert.equal(c.cursorFor(c.hitTest(px(3), px(13))), 'noRepair');
+  c.onClick(px(3), px(13), 0, NONE, false);
+  assert.equal(issued.length, 1, 'undamaged: nothing to repair');
+  own.hp = own.maxHp / 2;
+  assert.equal(c.cursorFor(c.hitTest(px(3), px(13))), 'repair');
+  c.onClick(px(3), px(13), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'repair', structureId: own.id });
+});

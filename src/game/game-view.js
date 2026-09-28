@@ -8,6 +8,7 @@ import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, worldToScreen, pixelsPerUnit } from '../render/picking.js';
 import { UnitViews } from '../render/views/unit-views.js';
 import { StructureViews } from '../render/views/structure-views.js';
+import { PlacementGhost } from '../render/placement-ghost.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -41,6 +42,7 @@ export class GameView {
     r3d.scene.add(this.terrain.group);
     this.unitViews = new UnitViews(r3d.scene, hf);
     this.structureViews = new StructureViews(r3d.scene, hf);
+    this.ghost = new PlacementGhost(r3d.scene, hf);
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
@@ -67,6 +69,8 @@ export class GameView {
       onCursor: makeCursorSetter(canvas),
       onMarker: (x, z) => this.overlay.marker(x, z),
       onDragBox: (box) => this.overlay.setDragBox(box),
+      onGhost: (p) => this.ghost.show(p),
+      onNotice: (text) => this.hud.message(text),
     });
     new Pointer(canvas, this.controller);
     new Keyboard((key, code, mods) => this.controller.onKey(key, code, mods));

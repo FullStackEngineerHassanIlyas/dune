@@ -3,14 +3,20 @@
 // Modern: left click selects, right click orders.
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
+import { STRUCTURES } from '../data/structures.js';
+import { checkPlacement } from '../sim/placement.js';
+
+/** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
+export const placementOrigin = (g, size) => Math.round(g - size / 2);
 
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
 export class Controller {
-  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true }) {
-    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee });
+  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
+    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, onMode, onGhost, onNotice });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
+    this.mode = null;
   }
 
   candidates() {
@@ -41,8 +47,48 @@ export class Controller {
   ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house); }
   issue(cmd) { this.world.issue(this.house, cmd); }
 
+  setMode(mode) {
+    this.mode = mode;
+    if (mode?.kind !== 'place') this.onGhost(null);
+    this.onMode(mode);
+  }
+
+  startPlacement(typeId) { this.setMode({ kind: 'place', typeId }); }
+
+  placementAt(x, y) {
+    if (this.mode?.kind !== 'place') return null;
+    const g = this.ground(x, y);
+    if (!g) return null;
+    const t = STRUCTURES[this.mode.typeId];
+    const px = placementOrigin(g.x, t.w), py = placementOrigin(g.z, t.h);
+    return { typeId: this.mode.typeId, x: px, y: py, check: checkPlacement(this.world, this.house, this.mode.typeId, px, py) };
+  }
+
+  modeClick(x, y, button) {
+    if (button === 2) { this.setMode(null); return; }
+    const m = this.mode;
+    if (m.kind === 'place') {
+      const p = this.placementAt(x, y);
+      if (!p) return;
+      if (!p.check.ok) { this.onNotice(p.check.reason === 'notAdjacent' ? 'Structures must be placed next to your base.' : 'Cannot build there.'); return; }
+      this.issue({ type: 'place', typeId: m.typeId, x: p.x, y: p.y });
+      this.setMode(null);
+      return;
+    }
+    const s = this.ownStructureAt(x, y);
+    if (!s) return;
+    if (m.kind === 'sell') this.issue({ type: 'sell', structureId: s.id });
+    else if (m.kind === 'repair' && s.hp < s.maxHp) this.issue({ type: 'repair', structureId: s.id });
+  }
+
+  ownStructureAt(x, y) {
+    const hit = this.hitTest(x, y);
+    return hit?.kind === 'structure' && hit.structure?.house === this.house ? hit.structure : null;
+  }
+
   onClick(x, y, button, mods, double) {
     if (!this.inViewport(x, y)) return;
+    if (this.mode) { this.modeClick(x, y, button); return; }
     const classic = this.settings.scheme !== 'modern';
     const hit = this.hitTest(x, y);
     if (button === 2) {
@@ -120,7 +166,7 @@ export class Controller {
     }
     if (key === 'Home') { this.rig.reset?.(); this.centerOnBase(); return true; }   // spec §5.5: Home resets the view
     if (key === 'h') { this.centerOnBase(); return true; }
-    if (key === 'Escape') { this.selection.clear(); return true; }
+    if (key === 'Escape') { if (this.mode) this.setMode(null); else this.selection.clear(); return true; }
     return false;
   }
 
@@ -139,12 +185,24 @@ export class Controller {
 
   frame() {
     const { x, y } = this.mouse;
-    const hit = x >= 0 && this.inViewport(x, y) ? this.hitTest(x, y) : null;
+    const inside = x >= 0 && this.inViewport(x, y);
+    if (this.mode?.kind === 'place') {
+      const item = this.world.houses.get(this.house)?.lines?.structure.current;
+      if (item?.typeId !== this.mode.typeId || item.state !== 'ready') this.setMode(null);
+    }
+    const hit = inside ? this.hitTest(x, y) : null;
     this.hoverId = hit?.kind === 'unit' ? hit.unit.id : null;
+    if (this.mode?.kind === 'place') this.onGhost(inside ? this.placementAt(x, y) : null);
     this.onCursor(this.cursorFor(hit));
   }
 
   cursorFor(hit) {
+    if (this.mode) {
+      if (this.mode.kind === 'place') return 'default';
+      const s = hit?.kind === 'structure' && hit.structure?.house === this.house ? hit.structure : null;
+      if (this.mode.kind === 'sell') return s ? 'sell' : 'noSell';
+      return s && s.hp < s.maxHp ? 'repair' : 'noRepair';
+    }
     const own = this.ownSelected();
     if (!hit) return own.length ? 'noMove' : 'default';
     if (hit.kind === 'unit') {
