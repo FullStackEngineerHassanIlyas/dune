@@ -21,4 +21,6 @@ export const SCENARIOS = {
   'structures-closeup': { query: 'scene=structures&house=ordos&dist=6&x=6&z=3&pitch=35' },
   'icons-atreides': { query: 'scene=icons&house=atreides' },
   'icons-harkonnen': { query: 'scene=icons&house=harkonnen' },
+  'skirmish-sidebar': { query: 'scene=skirmish&seed=11&house=atreides&deploy=1' },
+  'skirmish-sidebar-ordos': { query: 'scene=skirmish&seed=5&house=ordos&deploy=1&dist=14' },
 };

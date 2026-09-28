@@ -18,6 +18,10 @@ import { Groups } from '../input/groups.js';
 import { Controller } from '../input/controller.js';
 import { makeCursorSetter } from '../ui/cursors.js';
 import { Hud } from '../ui/hud.js';
+import { Sidebar } from '../ui/sidebar.js';
+import { sidebarModel } from '../ui/sidebar-model.js';
+import { IconFactory } from '../render/icons.js';
+import { HOUSES } from '../data/houses.js';
 import { FpsMeter } from '../ui/fps.js';
 import { showCrash } from '../ui/crash.js';
 import { FixedLoop } from '../core/loop.js';
@@ -33,6 +37,7 @@ export class GameView {
     this.settings = settings;
     this.params = params;
     this.debug = params.bool('debug');
+    document.getElementById('app').classList.add('has-sidebar');   // before the renderer measures the canvas
     const canvas = (this.canvas = document.getElementById('gl'));
     const r3d = (this.r3d = new Renderer3D(canvas, settings.quality));
     r3d.renderer.info.autoReset = false;
@@ -50,6 +55,14 @@ export class GameView {
     this.cameraControl = new CameraControl(this.rig, canvas, settings);
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
+    this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
+    this.sidebar = new Sidebar(document.getElementById('ui'), {
+      iconFor: (typeId) => this.icons.forItem(typeId, house),
+      onCommand: (cmd) => world.issue(house, cmd),
+      onPlace: (typeId) => this.controller.startPlacement(typeId),
+      onTool: (tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool }),
+    });
+    this.sidebar.el.style.setProperty('--house', `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`);
     this.fps = params.bool('fps') ? new FpsMeter(document.getElementById('ui'), r3d.renderer) : null;
     this.selection = new Selection();
     this.groups = new Groups();
@@ -71,6 +84,7 @@ export class GameView {
       onDragBox: (box) => this.overlay.setDragBox(box),
       onGhost: (p) => this.ghost.show(p),
       onNotice: (text) => this.hud.message(text),
+      onMode: (mode) => this.sidebar.setTool(mode?.kind ?? null),
     });
     new Pointer(canvas, this.controller);
     new Keyboard((key, code, mods) => this.controller.onKey(key, code, mods));
@@ -126,6 +140,7 @@ export class GameView {
     this.controller.frame();
     this.overlay.draw({ world, selection: this.selection, hoverId: this.controller.hoverId, project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars });
     this.hud.update(dt);
+    this.sidebar.update(sidebarModel(world, this.house), dt);
     this.fps?.frame();
   }
 

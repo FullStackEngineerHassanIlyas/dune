@@ -21,12 +21,13 @@ import { lightFactory } from './structures/light-factory.js';
 import { heavyFactory } from './structures/heavy-factory.js';
 import { gunTurret, rocketTurret } from './structures/turret.js';
 import { wallPost, wallArm } from './structures/wall.js';
+import { concreteSlab } from './structures/concrete.js';
 import { placeholderStructure, placeholderUnit } from './structures/placeholder.js';
 
 const BUILDERS = {
   combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper,
   constructionYard, windtrap, refinery, silo, outpost, barracks, wor, lightFactory, heavyFactory,
-  turret: gunTurret, rocketTurret, wallPost, wallArm, placeholderUnit,
+  turret: gunTurret, rocketTurret, wallPost, wallArm, concrete: concreteSlab(1), concrete4: concreteSlab(2), placeholderUnit,
 };
 
 export const UNIT_MODEL = {
@@ -38,7 +39,7 @@ export const UNIT_MODEL = {
 export const STRUCTURE_MODEL = {
   constructionYard: 'constructionYard', windtrap: 'windtrap', refinery: 'refinery', silo: 'silo', outpost: 'outpost',
   barracks: 'barracks', wor: 'wor', lightFactory: 'lightFactory', heavyFactory: 'heavyFactory',
-  turret: 'turret', rocketTurret: 'rocketTurret', wall: 'wallPost',
+  turret: 'turret', rocketTurret: 'rocketTurret', wall: 'wallPost', concrete: 'concrete', concrete4: 'concrete4',
 };
 
 const cache = new Map();
