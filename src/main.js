@@ -3,6 +3,7 @@ const SCENES = {
   boot: () => import('./scenes/boot.js'),
   'render-test': () => import('./scenes/render-test.js'),
   terrain: () => import('./scenes/terrain.js'),
+  gallery: () => import('./scenes/gallery.js'),
 };
 
 function fatal(message) {

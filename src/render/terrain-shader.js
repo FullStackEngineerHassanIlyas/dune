@@ -26,7 +26,8 @@ vec3 terrainAlbedo(vec2 p, inout float rough, inout float spiceAmt) {
   sand *= 1.0 + 0.14 * vTerrain.z * clamp(vWorldPos.y * 3.0, 0.0, 1.0);
   vec3 rock = mix(vec3(0.36, 0.28, 0.21), vec3(0.55, 0.44, 0.32), tFbm(p * 0.9));
   rock *= 0.86 + 0.24 * tFbm(p * 1.6 + 3.0);
-  rock *= 1.0 - 0.4 * (1.0 - smoothstep(0.0, 0.025, abs(tNoise(p * 4.5) - 0.5)));
+  float crackMask = smoothstep(0.55, 0.72, tFbm(p * 0.35 + 9.0));
+  rock *= 1.0 - 0.3 * crackMask * (1.0 - smoothstep(0.0, 0.012, abs(tNoise(p * 4.5) - 0.5)));
   vec3 mtn = mix(vec3(0.27, 0.21, 0.17), vec3(0.45, 0.35, 0.27), tFbm(p * vec2(0.6, 2.4)));
   mtn *= 0.93 + 0.07 * sin(vWorldPos.y * 9.0 + tFbm(p * 0.7) * 5.0);
   vec3 col = mix(sand, rock, vTerrain.x);

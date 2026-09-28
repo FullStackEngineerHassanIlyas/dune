@@ -24,14 +24,11 @@ export function detailTexture() {
     img.data[i * 4 + 3] = 255;
   }
   g.putImageData(img, 0, 0);
-  g.globalAlpha = 0.3;
-  g.strokeStyle = '#707070';
-  g.lineWidth = 2;
-  for (let k = 0; k < 6; k++) {
-    const p = 20 + k * 42;
-    g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 256); g.stroke();
-    g.beginPath(); g.moveTo(0, p + 11); g.lineTo(256, p + 11); g.stroke();
-  }
+  // soft grime streaks instead of a regular panel grid (a grid tiles visibly on every face)
+  g.globalAlpha = 0.12;
+  g.fillStyle = '#6a6259';
+  for (let k = 0; k < 40; k++) g.fillRect(rnd() * 256, rnd() * 256, 2 + rnd() * 6, 10 + rnd() * 40);
+  g.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 4;

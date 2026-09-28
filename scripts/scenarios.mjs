@@ -7,4 +7,8 @@ export const SCENARIOS = {
   terrain: { query: 'scene=terrain&seed=7' },
   'terrain-overview': { query: 'scene=terrain&seed=7&dist=70&x=32&z=36' },
   'terrain-seed-21': { query: 'scene=terrain&seed=21' },
+  'gallery-atreides': { query: 'scene=gallery&house=atreides' },
+  'gallery-harkonnen': { query: 'scene=gallery&house=harkonnen' },
+  'gallery-ordos': { query: 'scene=gallery&house=ordos' },
+  'gallery-closeup': { query: 'scene=gallery&house=atreides&dist=4.5&x=5&z=3.6&pitch=30' },
 };
