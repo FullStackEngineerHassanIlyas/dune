@@ -1,6 +1,7 @@
 // Entry point: checks WebGL2, then loads the scene named by ?scene= (default: skirmish).
 const SCENES = {
   boot: () => import('./scenes/boot.js'),
+  'render-test': () => import('./scenes/render-test.js'),
 };
 
 function fatal(message) {
