@@ -9,6 +9,7 @@ import { createUnit } from './unit.js';
 import { createStructure, footprint } from './structure.js';
 import { updateMovement } from './movement.js';
 import { applyCommand } from './orders.js';
+import { tryDeploy } from './deploy.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -25,7 +26,7 @@ export class World {
     this.pathfinder = new PathFinder(map);
     this.pathQueue = [];
     this.pathNodeBudget = 40000;   // A* expansions per tick across all units
-    this.onDeploy = null;          // set by the deploy module (Task 7)
+    this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
   }
 
