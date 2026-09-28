@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { lerpAngle, wrapAngle } from '../../sim/geometry.js';
+import { unitVisibleTo } from '../../sim/fog.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, unitModelId } from '../models/index.js';
 import { poseMatrix } from './pose.js';
@@ -23,9 +24,10 @@ function clampTilt(n) {
 }
 
 export class UnitViews {
-  constructor(scene, hf) {
+  constructor(scene, hf, { viewer = null } = {}) {
     this.scene = scene;
     this.hf = hf;
+    this.viewer = viewer;
     this.models = new Map();
     this.views = new Map();
     this.normal = { x: 0, y: 1, z: 0 };
@@ -40,7 +42,7 @@ export class UnitViews {
   sync(world, alpha, dt) {
     for (const u of world.units.values()) if (!this.views.has(u.id)) this.create(u);
     for (const [id, v] of this.views) if (!world.units.has(id)) this.destroy(id, v);
-    for (const u of world.units.values()) this.pose(u, this.views.get(u.id), alpha, dt);
+    for (const u of world.units.values()) this.pose(u, this.views.get(u.id), alpha, dt, world);
     for (const m of this.models.values()) m.update();
   }
 
@@ -62,13 +64,14 @@ export class UnitViews {
     return v ? { x: v.x, z: v.z } : { x: u.x, z: u.y };
   }
 
-  pose(u, v, alpha, dt) {
+  pose(u, v, alpha, dt, world = null) {
     const x = u.px + (u.x - u.px) * alpha, z = u.py + (u.y - u.py) * alpha;
     const heading = lerpAngle(u.pheading, u.heading, alpha);
     const turret = lerpAngle(u.pturret, u.turret, alpha);
     const dist = u.pdistance + (u.distance - u.pdistance) * alpha;
     v.x = x;
     v.z = z;
+    v.visible = !this.viewer || !world || unitVisibleTo(world, this.viewer, u);
     v.recoil = Math.max(0, v.recoil - dt * 0.3);
     if (v.house !== u.house) {
       v.house = u.house;

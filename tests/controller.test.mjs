@@ -167,3 +167,12 @@ test('with only harvesters selected, a click on spice orders harvesting there', 
   c.onClick(px(12), px(12), 0, NONE, false);
   assert.deepEqual(issued.at(-1), { type: 'harvest', ids: [hv.id], x: 12, y: 12 });
 });
+
+test('units the player cannot see cannot be clicked', () => {
+  const { enemy, tank, c, issued } = setup();
+  c.canSee = (u) => u.id !== enemy.id;
+  c.selection.set([tank.id]);
+  c.onClick(px(12), px(5), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 12, y: 5 }, 'treated as ground');
+  assert.equal(c.cursorFor(c.hitTest(px(12), px(5))), 'move');
+});

@@ -58,16 +58,17 @@ test('structure views sit on the footprint centre and rise over 0.9 s', () => {
   const cy = world.spawnStructure('constructionYard', 'ordos', 4, 6);
   views.sync(world, 1000);
   const v = views.views.get(cy.id);
-  const p = pos(v.handle.matrix);
+  const p = pos(v.handles[0].matrix);
   assert.deepEqual([p.x, p.z], [5, 7]);
-  const s0 = new THREE.Vector3().setFromMatrixScale(v.handle.matrix).y;
+  const s0 = new THREE.Vector3().setFromMatrixScale(v.handles[0].matrix).y;
   views.sync(world, 1450);
-  const s1 = new THREE.Vector3().setFromMatrixScale(v.handle.matrix).y;
+  const s1 = new THREE.Vector3().setFromMatrixScale(v.handles[0].matrix).y;
   views.sync(world, 2000);
-  const s2 = new THREE.Vector3().setFromMatrixScale(v.handle.matrix).y;
+  const s2 = new THREE.Vector3().setFromMatrixScale(v.handles[0].matrix).y;
   assert.ok(s0 < s1 && s1 < s2 && Math.abs(s2 - 1) < 1e-9);
   world.removeStructure(cy);
   views.sync(world, 2100);
+  views.sync(world, 2900);   // after the 0.7 s sink-away
   assert.equal(views.views.size, 0);
 });
 
@@ -84,4 +85,72 @@ test('vehicles never tilt more than 25 degrees, even beside cliffs', () => {
   views.sync(world, 1, 0.016);
   const up = new THREE.Vector3().setFromMatrixColumn(views.views.get(tank.id).handles[0].matrix, 1).normalize();
   assert.ok(THREE.MathUtils.radToDeg(up.angleTo(new THREE.Vector3(0, 1, 0))) <= 25.5, `tilt ${THREE.MathUtils.radToDeg(up.angleTo(new THREE.Vector3(0, 1, 0)))}`);
+});
+
+test('enemy units and structures stay hidden outside the viewer\'s sight', () => {
+  const world = flatWorld(40, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const units = new UnitViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  const structures = new StructureViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  world.spawnUnit('combatTank', 'atreides', 3, 8);
+  const enemy = world.spawnUnit('quad', 'harkonnen', 30, 8);
+  const yard = world.spawnStructure('constructionYard', 'harkonnen', 32, 4);
+  world.step();
+  units.sync(world, 1, 0.016);
+  structures.sync(world, 1000);
+  assert.equal(units.views.get(enemy.id).handles[0].visible, false);
+  assert.equal(structures.views.get(yard.id).handles[0].visible, false);
+  world.spawnUnit('trike', 'atreides', 29, 6);
+  for (let i = 0; i < 5; i++) world.step();   // fog refreshes every five ticks
+  units.sync(world, 1, 0.016);
+  structures.sync(world, 1100);
+  assert.equal(units.views.get(enemy.id).handles[0].visible, true);
+  assert.equal(structures.views.get(yard.id).handles[0].visible, true);
+});
+
+test('wall arms reach only towards walled neighbours', () => {
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new StructureViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  const a = world.spawnStructure('wall', 'atreides', 5, 5);
+  world.spawnStructure('wall', 'atreides', 6, 5);
+  world.spawnStructure('wall', 'atreides', 5, 6);
+  world.step();
+  views.sync(world, 1000);
+  const [, e, s, w, n] = views.views.get(a.id).handles;   // post, then arms E, S, W, N
+  assert.deepEqual([e.visible, s.visible, w.visible, n.visible], [true, true, false, false]);
+});
+
+test('a sold structure sinks away over 0.7 s and is then removed', () => {
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new StructureViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  const trap = world.spawnStructure('windtrap', 'atreides', 4, 4);
+  views.sync(world, 0);
+  views.sync(world, 2000);
+  world.removeStructure(trap, 'sold');
+  views.sync(world, 2300);   // the view notices the removal and starts sinking
+  views.sync(world, 2650);
+  const v = views.views.get(trap.id);
+  assert.ok(v, 'still sinking');
+  const sy = new THREE.Vector3().setFromMatrixScale(v.handles[0].matrix).y;
+  assert.ok(sy < 0.6 && sy > 0.4, `scale ${sy}`);
+  views.sync(world, 3100);
+  assert.equal(views.views.has(trap.id), false);
+});
+
+test('the heavy factory door opens when a vehicle is built there, and turrets rest facing north', () => {
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new StructureViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  const hf1 = world.spawnStructure('heavyFactory', 'atreides', 4, 4);
+  const gun = world.spawnStructure('turret', 'atreides', 10, 10);
+  views.sync(world, 5000);
+  assert.equal(views.views.get(hf1.id).handles[0].params.door, 0);
+  assert.ok(Math.abs(views.views.get(gun.id).handles[0].params.turret - Math.PI / 2) < 1e-9);
+  views.notify({ type: 'unitBuilt', structureId: hf1.id }, 5000);
+  views.sync(world, 5600);
+  assert.ok(views.views.get(hf1.id).handles[0].params.door > 0.3);
+  views.sync(world, 8000);
+  assert.equal(views.views.get(hf1.id).handles[0].params.door, 0);
 });

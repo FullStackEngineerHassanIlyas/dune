@@ -7,8 +7,8 @@ import { deploySpot } from '../sim/deploy.js';
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
 export class Controller {
-  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {} }) {
-    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox });
+  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true }) {
+    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
   }
@@ -16,6 +16,7 @@ export class Controller {
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
+      if (!this.canSee(u)) continue;
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.isGround ? 0.12 : 1.5);
       if (!s.visible) continue;
