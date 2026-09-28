@@ -81,7 +81,7 @@ test('wheeled units prefer sand over rock', () => {
 test('budget exhaustion returns a partial path toward the goal', () => {
   const m = mapFrom(Array(40).fill('r'.repeat(40)));
   const pf = new PathFinder(m);
-  const { path, reached } = pf.find(m.idx(0, 0), m.idx(39, 39), 'tracked', { maxNodes: 50 });
+  const { path, reached } = pf.find(m.idx(0, 0), m.idx(39, 39), 'tracked', { maxNodes: 10 });
   assert.equal(reached, false);
   assert.ok(path.length > 0);
   const end = path.at(-1);

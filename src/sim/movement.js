@@ -2,7 +2,7 @@
 // (tracked vehicles on the spot), then drives at the original speed for the terrain it enters.
 // The tile it leaves is released halfway. Blocked units wait, ask idle friends to make way,
 // re-plan around units, and give up after STUCK_GIVEUP_SECONDS so nothing deadlocks.
-import { DT, SIM_HZ, TURN_RATE, DRIVE_ANGLE, groundSpeed, STUCK_REPATH_SECONDS, STUCK_GIVEUP_SECONDS } from '../data/tuning.js';
+import { DT, SIM_HZ, TURN_RATE, TURRET_TURN_RATE, DRIVE_ANGLE, groundSpeed, STUCK_REPATH_SECONDS, STUCK_GIVEUP_SECONDS } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 
 const REPATH_TICKS = Math.round(STUCK_REPATH_SECONDS * SIM_HZ);
@@ -12,6 +12,7 @@ const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]
 export function updateMovement(world, u) {
   if (!u.isGround) return;
   if (!u.type.turret) u.turret = u.heading;
+  else if (!u.aiming) u.turret = turnToward(u.turret, u.heading, TURRET_TURN_RATE * DT);   // combat sets aiming
   if (u.step) { advance(world, u); return; }
   if (u.pathState === 'waiting') return;
   if (u.pathState !== 'ready' || u.pathIndex >= u.path.length) { arrive(world, u); return; }
@@ -50,6 +51,8 @@ function advance(world, u) {
     u.tx = map.xOf(s.to); u.ty = map.yOf(s.to);
     u.step = null;
     u.pathIndex++;
+    u.stuckTicks = 0;   // progress: the give-up clock measures time without progress
+    u.repaths = 0;
     world.onTileEntered?.(u);
   } else {
     u.x = fx + (tx - fx) * s.progress;
@@ -62,7 +65,8 @@ const isIdle = (u) => u.pathState !== 'ready' && u.pathState !== 'waiting';
 function blocked(world, u, occupantId) {
   const other = world.units.get(occupantId);
   const lastStep = u.pathIndex === u.path.length - 1;
-  if (other && !other.step && isIdle(other)) {
+  const parked = other && !other.step && isIdle(other);
+  if (parked) {
     if (lastStep) { u.path.length = u.pathIndex; arrive(world, u); return; }   // our spot is taken: stop beside it
     if (other.house === u.house) nudge(world, other, u);
   }
@@ -70,7 +74,10 @@ function blocked(world, u, occupantId) {
   u.waitTicks = 0;
   u.stuckTicks += REPATH_TICKS;
   if (u.stuckTicks >= GIVEUP_TICKS) { giveUp(world, u); return; }
-  replan(world, u, true);
+  // A blocker that is parked, or waiting for our own tile (head-on), will not clear by itself: if there
+  // is no way around it, stop. A blocker that is moving on will clear: keep the route and wait.
+  const headOn = other && !other.step && other.path[other.pathIndex] === world.map.idx(u.tx, u.ty);
+  replan(world, u, { avoidUnits: true, keepIfEmpty: !(parked || headOn) });
 }
 
 // Ask an idle friendly unit to step onto a free neighbouring tile that is not on our way.
@@ -98,10 +105,10 @@ function nudge(world, other, requester) {
   other.waitTicks = 0;
 }
 
-function replan(world, u, avoidUnits = false) {
+function replan(world, u, opts = {}) {
   if (u.goal < 0) { arrive(world, u); return; }
   u.repaths++;
-  world.requestPath(u, u.goal, { avoidUnits });
+  world.requestPath(u, u.goal, opts);
 }
 
 function giveUp(world, u) {

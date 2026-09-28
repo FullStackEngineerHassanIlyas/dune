@@ -17,6 +17,9 @@ export const TURN_RATE = [0, 2.6, 4.8, 10];
 export const DRIVE_ANGLE = { foot: Math.PI, tracked: 0.5, harvester: 0.5, wheeled: 1.1, air: Math.PI, worm: Math.PI };
 export const GAME_SPEED = { slowest: 0.5, slow: 0.75, normal: 1, fast: 1.25, fastest: 1.5 };
 
+/** Turret traverse (radians per second) when swinging back in line with the hull. */
+export const TURRET_TURN_RATE = 3.5;
+
 export const STUCK_REPATH_SECONDS = 1.5;
 export const STUCK_GIVEUP_SECONDS = 5;
 

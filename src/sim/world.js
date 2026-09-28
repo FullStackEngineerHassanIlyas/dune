@@ -4,6 +4,7 @@ import { EventQueue } from '../core/events.js';
 import { STRUCTURES } from '../data/structures.js';
 import { DT } from '../data/tuning.js';
 import { PathFinder } from './pathfind.js';
+import { Reachability } from './reach.js';
 import { House } from './house.js';
 import { createUnit } from './unit.js';
 import { createStructure, footprint } from './structure.js';
@@ -24,8 +25,10 @@ export class World {
     this.events = new EventQueue();
     this.pending = [];
     this.pathfinder = new PathFinder(map);
+    this.reach = new Reachability(map);
     this.pathQueue = [];
-    this.pathNodeBudget = 40000;   // A* expansions per tick across all units
+    this.pathNodeBudget = 6000;    // A* expansions per tick across all units (~8 ms on the target laptop)
+    this.pathSearchCap = 10000;    // expansions for any single search; longer ones return a partial path
     this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
   }
@@ -96,10 +99,11 @@ export class World {
     this.time = this.tick * DT;
   }
 
-  requestPath(u, goal, { avoidUnits = false } = {}) {
+  requestPath(u, goal, { avoidUnits = false, keepIfEmpty = false } = {}) {
     u.goal = goal;
     u.pathState = 'waiting';
     u.avoidUnits = avoidUnits;
+    u.keepIfEmpty = keepIfEmpty;
     if (!u.queued) { u.queued = true; this.pathQueue.push(u.id); }
   }
 
@@ -119,8 +123,17 @@ export class World {
         const other = this.units.get(o);
         return other && !other.step && other.pathState !== 'ready' ? 6 : 0.5;
       };
-      const res = this.pathfinder.find(map.idx(u.tx, u.ty), u.goal, u.move, { maxNodes: Math.min(budget, 30000), blocked, extraCost });
+      const start = map.idx(u.tx, u.ty);
+      if (u.goal !== start && !this.reach.connected(start, u.goal, u.move)) {
+        u.goal = this.reach.nearestReachable(u.goal, start, u.move) ?? start;   // retarget instead of an exhaustive search
+      }
+      let res = this.pathfinder.find(start, u.goal, u.move, { maxNodes: this.pathSearchCap, blocked, extraCost });
       budget -= this.pathfinder.expanded + 1;
+      if (!res.path.length && blocked && u.keepIfEmpty) {
+        // no way around the crowd: keep the normal route and wait behind it
+        res = this.pathfinder.find(start, u.goal, u.move, { maxNodes: this.pathSearchCap, extraCost });
+        budget -= this.pathfinder.expanded + 1;
+      }
       u.path = res.path;
       u.pathIndex = 0;
       u.pathReached = res.reached;

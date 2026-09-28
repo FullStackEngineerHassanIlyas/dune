@@ -5,7 +5,9 @@ import { TERRAIN_REF } from '../data/tuning.js';
 
 const SQRT2 = Math.SQRT2;
 const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, SQRT2], [1, -1, SQRT2], [-1, 1, SQRT2], [-1, -1, SQRT2]];
-const MIN_STEP = TERRAIN_REF / 255;
+// Estimate one step at the cost of ordinary sand or rock (factor 160). Only concrete is cheaper, so
+// paths across concrete may be slightly longer than optimal — in exchange searches stay small.
+const H_STEP = TERRAIN_REF / 160;
 
 class MinHeap {
   constructor(capacity) { this.ids = new Int32Array(capacity); this.pri = new Float32Array(capacity); this.size = 0; }
@@ -60,7 +62,7 @@ export class PathFinder {
     const gx = goal % w, gy = (goal / w) | 0;
     const hOf = (i) => {
       const dx = Math.abs((i % w) - gx), dy = Math.abs(((i / w) | 0) - gy);
-      return (Math.max(dx, dy) + (SQRT2 - 1) * Math.min(dx, dy)) * MIN_STEP;
+      return (Math.max(dx, dy) + (SQRT2 - 1) * Math.min(dx, dy)) * H_STEP;
     };
     const passable = (i) => map.moveFactor(i, moveClass) > 0 && !(blocked && i !== goal && blocked(i));
     const heap = this.heap;
