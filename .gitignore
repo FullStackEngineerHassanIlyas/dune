@@ -1,0 +1,9 @@
+node_modules/
+screenshots/
+.DS_Store
+# private reference images (copyrighted, never distribute)
+docs/research/refs/*.png
+docs/research/refs/*.jpg
+docs/research/refs/*.gif
+# player-supplied original game files
+original/
