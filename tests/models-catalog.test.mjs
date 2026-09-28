@@ -43,3 +43,29 @@ test('model sizes stay inside their footprint', () => {
     }
   }
 });
+
+import { STRUCTURE_MODEL } from '../src/render/models/index.js';
+
+test('every plan-1b structure has a real model with its animated nodes', () => {
+  for (const id of ['windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'turret', 'rocketTurret', 'wall']) {
+    assert.ok(STRUCTURE_MODEL[id], `${id} is mapped`);
+    assert.ok(!STRUCTURE_MODEL[id].startsWith('placeholder'));
+  }
+  const nodes = (id) => modelDef(STRUCTURE_MODEL[id]).nodes;
+  assert.ok(nodes('windtrap').fan && nodes('outpost').dish && nodes('refinery').padLights && nodes('heavyFactory').door);
+  assert.ok(nodes('barracks').flag && nodes('turret').turret && nodes('turret').barrel && nodes('rocketTurret').turret);
+  assert.ok(modelDef('wallArm').parts.length > 0);
+});
+
+test('structure models stay inside their footprint', () => {
+  for (const [id, s] of Object.entries(STRUCTURES)) {
+    const m = STRUCTURE_MODEL[id];
+    if (!m || m.startsWith('placeholder')) continue;
+    for (const p of modelDef(m).parts) {
+      if (p.node !== 'root') continue;
+      p.geometry.computeBoundingBox();
+      const b = p.geometry.boundingBox;
+      assert.ok(b.max.x - b.min.x <= s.w + 0.01 && b.max.z - b.min.z <= s.h + 0.01, `${id} fits ${s.w}x${s.h}`);
+    }
+  }
+});
