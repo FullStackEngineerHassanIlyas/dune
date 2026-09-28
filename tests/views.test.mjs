@@ -70,3 +70,18 @@ test('structure views sit on the footprint centre and rise over 0.9 s', () => {
   views.sync(world, 2100);
   assert.equal(views.views.size, 0);
 });
+
+test('vehicles never tilt more than 25 degrees, even beside cliffs', () => {
+  const world = flatWorld(24, 16, G.ROCK);
+  for (let y = 4; y < 12; y++) for (let x = 12; x < 16; x++) world.map.ground[world.map.idx(x, y)] = G.MOUNTAIN;
+  const hf = new Heightfield(world.map, { sub: 4, seed: 3 });
+  let spot = null;
+  for (let x = 10; x < 12.5 && !spot; x += 0.05) if (hf.normalAt(x, 8.5).y < Math.cos(THREE.MathUtils.degToRad(32))) spot = x;
+  assert.ok(spot, 'precondition: a steep slope beside the mountains');
+  const views = new UnitViews(new THREE.Scene(), hf);
+  const tank = world.spawnUnit('combatTank', 'atreides', 11, 8, { heading: 0 });
+  tank.x = tank.px = spot;
+  views.sync(world, 1, 0.016);
+  const up = new THREE.Vector3().setFromMatrixColumn(views.views.get(tank.id).handles[0].matrix, 1).normalize();
+  assert.ok(THREE.MathUtils.radToDeg(up.angleTo(new THREE.Vector3(0, 1, 0))) <= 25.5, `tilt ${THREE.MathUtils.radToDeg(up.angleTo(new THREE.Vector3(0, 1, 0)))}`);
+});

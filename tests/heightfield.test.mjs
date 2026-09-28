@@ -61,3 +61,18 @@ test('terrain geometry has one vertex per heightfield sample and upward normals'
   const ny = g.attributes.normal.array;
   for (let i = 1; i < ny.length; i += 3) assert.ok(ny[i] > 0);
 });
+
+test('flattening under a structure updates the terrain geometry in place', async () => {
+  const { updateTerrainGeometry } = await import('../src/render/terrain.js');
+  const hf = new Heightfield(testMap(), { sub: 4, seed: 3 });
+  const g = buildTerrainGeometry(hf);
+  const avg = hf.flatten(9, 9, 2, 2);
+  const pos = g.attributes.position, nor = g.attributes.normal, v0 = pos.version;
+  updateTerrainGeometry(g, hf, 8, 8, 4, 4);
+  for (const [vx, vy] of [[36, 36], [40, 40], [44, 44], [38, 42]]) {
+    const k = vy * hf.vw + vx;
+    assert.ok(Math.abs(pos.getY(k) - avg) < 1e-6, `vertex ${vx},${vy}`);
+  }
+  assert.ok(nor.getY(40 * hf.vw + 40) > 0.999, 'flat footprint faces straight up');
+  assert.ok(pos.version > v0, 'positions re-uploaded');
+});

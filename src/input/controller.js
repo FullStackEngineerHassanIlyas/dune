@@ -50,8 +50,9 @@ export class Controller {
     }
     if (hit?.kind === 'unit' && hit.unit.house === this.house) {
       const u = hit.unit;
-      if (double) { this.selectSameType(u); return; }
+      // a second click on the selected MCV deploys it, even when the two clicks were quick enough to count as a double click
       if (classic && !mods.shift && u.type.deploysTo && this.selection.ids.size === 1 && this.selection.has(u.id)) { this.issue({ type: 'deploy', ids: [u.id] }); return; }
+      if (double) { this.selectSameType(u); return; }
       if (mods.shift) this.selection.toggle(u.id); else this.selection.set([u.id]);
       return;
     }
@@ -107,7 +108,8 @@ export class Controller {
       if (ids.length) this.issue({ type: HOTKEYS[key], ids });
       return true;
     }
-    if (key === 'h' || key === 'Home') { this.centerOnBase(); return true; }
+    if (key === 'Home') { this.rig.reset?.(); this.centerOnBase(); return true; }   // spec §5.5: Home resets the view
+    if (key === 'h') { this.centerOnBase(); return true; }
     if (key === 'Escape') { this.selection.clear(); return true; }
     return false;
   }

@@ -24,3 +24,23 @@ test('server serves the page, vendored three as JavaScript, 404s and blocks path
     server.close();
   }
 });
+
+test('server refuses dot-folders and the private reference images, and binds to localhost by default', async () => {
+  const { HOST } = await import('../serve.mjs');
+  assert.equal(HOST, process.env.HOST || '127.0.0.1');
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  try {
+    for (const p of ['/.git/HEAD', '/.superpowers/sdd/x', '/docs/research/refs/INDEX.md', '/docs/research/refs/genesis-boxart.png']) {
+      const r = await fetch(`http://127.0.0.1:${port}${p}`);
+      assert.equal(r.status, 403, p);
+      await r.arrayBuffer();
+    }
+    const ok = await fetch(`http://127.0.0.1:${port}/docs/research/README.md`);
+    assert.equal(ok.status, 200);
+    await ok.arrayBuffer();
+  } finally {
+    server.close();
+  }
+});

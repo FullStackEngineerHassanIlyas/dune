@@ -19,7 +19,12 @@ export function sanitize(obj) {
   return out;
 }
 
-export function loadSettings(params, storage = globalThis.localStorage) {
+// Reading localStorage itself throws (SecurityError) when the browser blocks site data.
+function defaultStorage() {
+  try { return globalThis.localStorage ?? null; } catch { return null; }
+}
+
+export function loadSettings(params, storage = defaultStorage()) {
   let stored = {};
   try { stored = JSON.parse(storage?.getItem(KEY) ?? '{}') ?? {}; } catch { stored = {}; }
   const merged = { ...stored };
@@ -27,6 +32,6 @@ export function loadSettings(params, storage = globalThis.localStorage) {
   return sanitize(merged);
 }
 
-export function saveSettings(settings, storage = globalThis.localStorage) {
+export function saveSettings(settings, storage = defaultStorage()) {
   try { storage?.setItem(KEY, JSON.stringify(sanitize(settings))); } catch { /* private mode: keep for this session only */ }
 }

@@ -106,3 +106,14 @@ test('fixed loop honours game speed', () => {
   const loop = new FixedLoop(0.05);
   assert.equal(loop.advance(0.1, 1.5).steps, 3);
 });
+
+test('settings survive a browser that blocks site storage', () => {
+  const desc = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('SecurityError: storage is blocked'); } });
+  try {
+    assert.equal(loadSettings(readParams('?quality=low')).quality, 'low');
+    assert.doesNotThrow(() => saveSettings({ ...DEFAULTS, quality: 'high' }));
+  } finally {
+    if (desc) Object.defineProperty(globalThis, 'localStorage', desc); else delete globalThis.localStorage;
+  }
+});

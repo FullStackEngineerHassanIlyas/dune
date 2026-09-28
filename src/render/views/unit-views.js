@@ -9,6 +9,18 @@ import { poseMatrix } from './pose.js';
 
 const SQUAD = [[0.1, 0], [-0.08, 0.11], [-0.08, -0.11]];
 const UP = { x: 0, y: 1, z: 0 };
+const MAX_TILT = Math.tan((25 * Math.PI) / 180);
+
+// Vehicles follow the ground but never lean past 25° (steep ground next to cliffs looked like climbing).
+function clampTilt(n) {
+  const h = Math.hypot(n.x, n.z);
+  if (h <= n.y * MAX_TILT) return n;
+  const k = (n.y * MAX_TILT) / h;
+  n.x *= k; n.z *= k;
+  const len = Math.hypot(n.x, n.y, n.z);
+  n.x /= len; n.y /= len; n.z /= len;
+  return n;
+}
 
 export class UnitViews {
   constructor(scene, hf) {
@@ -72,7 +84,7 @@ export class UnitViews {
       h.visible = v.visible && k < shown;
       let fx = x, fz = z;
       if (v.handles.length > 1) { const [a, b] = SQUAD[k]; fx += cos * a - sin * b; fz += sin * a + cos * b; }
-      const n = foot ? UP : this.hf.normalAt(fx, fz, this.normal);
+      const n = foot ? UP : clampTilt(this.hf.normalAt(fx, fz, this.normal));
       poseMatrix(h.matrix, fx, this.hf.heightAt(fx, fz) + 0.004, fz, heading, n);
       const p = h.params;
       p.turret = -wrapAngle(turret - heading);

@@ -49,6 +49,20 @@ function apronGeometry(w, h, margin = 250) {
   return g;
 }
 
+/** Rewrite heights and normals of the vertices inside a tile rectangle after the heightfield changed. */
+export function updateTerrainGeometry(geometry, hf, x0, y0, w, h) {
+  const pos = geometry.attributes.position, nor = geometry.attributes.normal, s = hf.sub, tmp = { x: 0, y: 1, z: 0 };
+  const vx0 = Math.max(0, x0 * s), vy0 = Math.max(0, y0 * s), vx1 = Math.min(hf.vw - 1, (x0 + w) * s), vy1 = Math.min(hf.vh - 1, (y0 + h) * s);
+  for (let vy = vy0; vy <= vy1; vy++) for (let vx = vx0; vx <= vx1; vx++) {
+    const k = vy * hf.vw + vx;
+    pos.setY(k, hf.data[k]);
+    hf.normalAt(vx / s, vy / s, tmp);
+    nor.setXYZ(k, tmp.x, tmp.y, tmp.z);
+  }
+  pos.needsUpdate = true;
+  nor.needsUpdate = true;
+}
+
 function dataTexture(w, h, channels, fill = 0) {
   const data = new Uint8Array(w * h * channels).fill(fill);
   const t = new THREE.DataTexture(data, w, h, channels === 1 ? THREE.RedFormat : THREE.RGFormat, THREE.UnsignedByteType);
@@ -104,6 +118,13 @@ export class TerrainView {
     }
     this.uniforms.uTime.value = now / 1000;
     this.decals.flush(now);
+  }
+
+  /** Level the ground under a new structure so it neither floats nor sinks. Returns the floor height. */
+  flattenFootprint(x, y, w, h) {
+    const floor = this.hf.flatten(x, y, w, h);
+    updateTerrainGeometry(this.mesh.geometry, this.hf, x - 1, y - 1, w + 2, h + 2);
+    return floor;
   }
 
   /** explored/visible: one byte per tile (0 or 255). */

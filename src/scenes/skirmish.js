@@ -79,6 +79,7 @@ export async function start({ search }) {
     for (const e of world.events.drain()) {
       if (e.type === 'eva' && e.house === house) hud.message(e.text);
       else if (e.type === 'deployed' && e.house === house) hud.message('Construction Yard deployed.');
+      if (e.type === 'structurePlaced') { const s = world.structures.get(e.id); if (s) terrain.flattenFootprint(s.x, s.y, s.w, s.h); }
     }
   };
 

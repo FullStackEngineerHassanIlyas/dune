@@ -20,17 +20,18 @@ function setup(scheme = 'classic') {
   const issue = world.issue.bind(world);
   world.issue = (h, cmd) => { issued.push(cmd); issue(h, cmd); };
   const looked = [];
+  const resets = [];
   const cursors = [];
   const c = new Controller({
     world, house: 'atreides', selection: new Selection(), groups: new Groups(), settings: { scheme },
     project: (x, z) => ({ x: x * 40, y: z * 40, visible: true, pxPerUnit: 40 }),
     ground: (sx, sy) => (sy < 20 ? null : { x: sx / 40, y: 0, z: sy / 40 }),
     viewport: () => ({ left: 0, top: 0, right: 2000, bottom: 2000 }),
-    rig: { lookAt: (x, z) => looked.push([x, z]) },
+    rig: { lookAt: (x, z) => looked.push([x, z]), reset: () => resets.push(1) },
     positionOf: (u) => ({ x: u.x, z: u.y }),
     onCursor: (name) => cursors.push(name),
   });
-  return { world, tank, tank2, enemy, mcv, c, issued, looked, cursors };
+  return { world, tank, tank2, enemy, mcv, c, issued, looked, resets, cursors };
 }
 
 test('classic: click selects, click on ground moves, right click deselects', () => {
@@ -108,4 +109,21 @@ test('cursor reflects what a click would do', () => {
   c.selection.set([mcv.id]);
   assert.equal(c.cursorFor(c.hitTest(px(8), px(8))), 'deploy');
   assert.equal(c.cursorFor(null), 'noMove');
+});
+
+test('Home resets the view and centres on the base; H only centres', () => {
+  const { c, looked, resets } = setup();
+  c.onKey('Home', 'Home', NONE);
+  assert.equal(resets.length, 1);
+  assert.equal(looked.length, 1);
+  c.onKey('h', 'KeyH', NONE);
+  assert.equal(resets.length, 1);
+  assert.equal(looked.length, 2);
+});
+
+test('a quick second click on the selected MCV deploys it even when it counts as a double click', () => {
+  const { mcv, c, issued } = setup();
+  c.onClick(px(8), px(8), 0, NONE, false);
+  c.onClick(px(8), px(8), 0, NONE, true);
+  assert.deepEqual(issued.at(-1), { type: 'deploy', ids: [mcv.id] });
 });
