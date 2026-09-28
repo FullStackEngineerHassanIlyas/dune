@@ -18,9 +18,10 @@ export function spawnStartingForces(world, house, start) {
   return units;
 }
 
-export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000 } = {}) {
+export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true } = {}) {
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 2 });
   const world = new World({ map, seed });
+  world.fogOfWar = fog;
   const rival = enemy && enemy !== house ? enemy : PLAYABLE_HOUSES.find((h) => h !== house);
   world.addHouse(house, { credits });
   world.addHouse(rival, { credits, ai: true });

@@ -75,12 +75,12 @@ vec3 perturbTerrainNormal(vec3 n, vec2 p, float spiceAmt) {
 }
 
 float terrainShroud(vec2 p) {
-#ifdef APRON
-  return 0.62;
-#else
-  vec2 sh = texture2D(uShroud, p / uMapSize).rg;
+  vec2 sh = texture2D(uShroud, clamp(p / uMapSize, 0.0, 1.0)).rg;   // the apron takes the nearest edge tile's shroud
   float n = (tNoise(p * 2.5) - 0.5) * 0.25;
   float explored = smoothstep(0.2, 0.8, sh.r + n);
+#ifdef APRON
+  return explored * 0.62;
+#else
   float visible = smoothstep(0.2, 0.8, sh.g + n);
   return explored * mix(0.62, 1.0, visible);
 #endif

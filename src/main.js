@@ -8,6 +8,7 @@ const SCENES = {
   stress: () => import('./scenes/stress.js'),
   structures: () => import('./scenes/structures.js'),
   icons: () => import('./scenes/icons.js'),
+  base: () => import('./scenes/base.js'),
 };
 
 function fatal(message) {

@@ -25,7 +25,13 @@ export async function launchChrome({ width = 1600, height = 900 } = {}) {
   if (!version) { proc.kill(); throw new Error('Chrome did not open its DevTools endpoint'); }
   return {
     port, width, height,
-    async close() { proc.kill(); await sleep(300); await rm(userDir, { recursive: true, force: true }); },
+    async close() {
+      const exited = proc.exitCode !== null ? Promise.resolve() : new Promise((r) => proc.once('exit', r));
+      proc.kill();
+      await Promise.race([exited, sleep(5000)]);
+      // Chrome's helper processes may still flush the profile for a moment after the main process exits
+      await rm(userDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    },
   };
 }
 

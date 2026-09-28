@@ -35,3 +35,8 @@ test('findFreeTile respects the minimum radius and passability', () => {
   assert.notDeepEqual([t.x, t.y], [6, 5]);
   assert.equal(findFreeTile(flatWorld(3, 3, G.MOUNTAIN), 1, 1, 'tracked', 2), null);
 });
+
+test('skirmish fog of war is on by default and can be switched off', () => {
+  assert.equal(setupSkirmish({ seed: 2 }).world.fogOfWar, true);
+  assert.equal(setupSkirmish({ seed: 2, fog: false }).world.fogOfWar, false);
+});

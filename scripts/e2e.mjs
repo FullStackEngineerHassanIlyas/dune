@@ -16,7 +16,7 @@ const server = await startServer(PORT);
 const chrome = await launchChrome({ width: 1400, height: 800 });
 let page;
 try {
-  page = await openPage(chrome, `http://localhost:${PORT}/?scene=skirmish&seed=11&house=atreides&quality=low`);
+  page = await openPage(chrome, `http://localhost:${PORT}/?scene=skirmish&seed=11&house=atreides&quality=low&gameSpeed=fastest`);
   await page.waitFor('window.__dune && window.__dune.ready === true', 120000);
   await sleep(600);
   const ev = (expr) => page.eval(expr);
@@ -69,6 +69,40 @@ try {
   }
   check('clicking the selected MCV again deploys a Construction Yard', deployed);
 
+  let wt = null;
+  for (let i = 0; i < 25 && !wt?.visible; i++) { await sleep(200); wt = await ev(`__dune.buttonRect('windtrap')`); }
+  check('the deployed yard fills the structure strip', !!wt?.visible);
+  const creditsBefore = await ev('__dune.credits()');
+  await page.click(wt.x, wt.y);
+  let ready = false;
+  for (let i = 0; i < 600 && !ready; i++) {   // headless software GL runs ~2 fps; the sim catches up at most 0.25 s per frame
+    await sleep(200);
+    ready = (await ev(`__dune.sidebar().structures.find((i) => i.typeId === 'windtrap').state`)) === 'ready';
+  }
+  check('clicking the Wind Trap icon builds it and pays for it', ready && (await ev('__dune.credits()')) <= creditsBefore - 290);
+  await page.click(wt.x, wt.y);
+  await sleep(200);
+  check('clicking a READY icon starts placement', (await ev('__dune.mode()')) === 'place');
+  const spot = await ev(`__dune.findPlacement('windtrap')`);
+  const ps = await ev(`__dune.screenOfFootprint('windtrap', ${spot.x}, ${spot.y})`);
+  await page.mouse('mouseMoved', ps.x, ps.y, { button: 'none', held: 'none' });
+  await sleep(250);
+  await page.click(ps.x, ps.y);
+  let trap = null;
+  for (let i = 0; i < 25 && !trap; i++) { await sleep(150); trap = (await ev(`__dune.structures('windtrap')`)).find((s) => s.house === 'atreides') ?? null; }
+  check('clicking the ground places the Wind Trap next to the yard', !!trap && trap.x === spot.x && trap.y === spot.y);
+  check('the radar stays offline without an Outpost', (await ev('__dune.sidebar().radar')) === false);
+  const sell = await ev(`__dune.toolRect('sell')`);
+  await page.click(sell.x, sell.y);
+  await sleep(150);
+  const credits = await ev('__dune.credits()');
+  const ts2 = await ev(`__dune.screenOfFootprint('windtrap', ${trap.x}, ${trap.y})`);
+  await page.click(ts2.x, ts2.y);
+  let sold = false;
+  for (let i = 0; i < 25 && !sold; i++) { await sleep(150); sold = !(await ev(`__dune.structures('windtrap')`)).some((s) => s.house === 'atreides'); }
+  check('sell mode sells the Wind Trap for a refund', sold && (await ev('__dune.credits()')) > credits);
+  await deselect();
+  check('right click leaves sell mode', (await ev('__dune.mode()')) === null);
   await sleep(1500);
   await mkdir(path.join(root, 'screenshots'), { recursive: true });
   await page.screenshot(path.join(root, 'screenshots', 'e2e-final.png'));

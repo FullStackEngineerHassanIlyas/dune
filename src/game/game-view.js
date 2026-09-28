@@ -9,6 +9,7 @@ import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../
 import { UnitViews } from '../render/views/unit-views.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
+import { ShroudSync } from '../render/shroud.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -48,8 +49,9 @@ export class GameView {
     this.heightAt = (x, z) => hf.heightAt(x, z);
     this.terrain = new TerrainView(world.map, hf);
     r3d.scene.add(this.terrain.group);
-    this.unitViews = new UnitViews(r3d.scene, hf);
-    this.structureViews = new StructureViews(r3d.scene, hf);
+    this.unitViews = new UnitViews(r3d.scene, hf, { viewer: house });
+    this.structureViews = new StructureViews(r3d.scene, hf, { viewer: house });
+    this.shroud = new ShroudSync(world.map.w * world.map.h);
     this.ghost = new PlacementGhost(r3d.scene, hf);
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
     const dist = params.num('dist');
@@ -99,6 +101,7 @@ export class GameView {
       onGhost: (p) => this.ghost.show(p),
       onNotice: (text) => this.hud.message(text),
       onMode: (mode) => this.sidebar.setTool(mode?.kind ?? null),
+      canSee: (u) => unitVisibleTo(world, house, u),
     });
     new Pointer(canvas, this.controller);
     new Keyboard((key, code, mods) => this.controller.onKey(key, code, mods));
@@ -121,6 +124,8 @@ export class GameView {
   onEvent(e) {
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
+    else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
+    if (e.type === 'unitBuilt') this.structureViews.notify(e, performance.now());
     if (e.type === 'structurePlaced') {
       const s = this.world.structures.get(e.id);
       if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
@@ -163,6 +168,7 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
+    if (world.fogOfWar && this.shroud.update(world.houses.get(this.house)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
     this.selection.prune((id) => { const u = world.units.get(id); return !!u && unitVisibleTo(world, this.house, u); }, (id) => world.structures.has(id));
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
@@ -194,7 +200,7 @@ export class GameView {
       this.last = now;
       this.rig.update(1, this.heightAt);
       if (!tick(now)) return;
-      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig });
+      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller });
       window.__dune.ready = true;
       requestAnimationFrame(loop);
     });
