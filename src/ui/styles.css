@@ -76,3 +76,17 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 .sel-buttons button:disabled { opacity: .45; cursor: default; }
 .sel-buttons button.active { border-color: #7dff7a; color: #7dff7a; }
 .sel-buttons kbd { margin-left: 6px; font: 10px Consolas, monospace; color: #c9a063; }
+.end-screen { position: absolute; inset: 0; display: none; place-items: center; background: rgba(10,6,2,.55); pointer-events: auto; z-index: 20; }
+.end-screen.show { display: grid; }
+.end-box { min-width: 360px; padding: 18px 26px 20px; background: linear-gradient(#3a2a18, #1d1409); border: 3px solid #b8893a; border-radius: 4px; box-shadow: 0 6px 30px rgba(0,0,0,.7); text-align: center; }
+.end-box h2 { margin: 0 0 12px; font: bold 26px "Trebuchet MS", sans-serif; letter-spacing: .06em; }
+.end-box h2.won { color: #ffd24a; }
+.end-box h2.lost { color: #ff7a5a; }
+.end-box table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.end-box th { color: #c9a063; font-weight: bold; padding: 3px 8px; }
+.end-box td { padding: 3px 8px; border-top: 1px solid rgba(184,137,58,.3); }
+.end-box td:first-child { text-align: left; color: #d8c29a; }
+.end-box p { margin: 12px 0; color: #d8c29a; }
+.end-buttons { display: flex; gap: 10px; justify-content: center; }
+.end-buttons button { padding: 7px 18px; font: bold 14px "Trebuchet MS", sans-serif; color: #1a1008; background: #d9a52e; border: 0; border-radius: 3px; cursor: pointer; }
+.end-buttons button[data-act="close"] { background: #8e6843; color: #f5d48a; }

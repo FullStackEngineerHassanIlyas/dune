@@ -11,6 +11,8 @@ import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
+import { EndScreen } from '../ui/end-screen.js';
+import { endStats } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
@@ -83,7 +85,16 @@ export class GameView {
     this.panel = new SelectionPanel(document.getElementById('ui'), {
       iconFor: (typeId, houseId) => this.icons.forItem(typeId, houseId),
       onButton: (id) => this.panelAction(id),
+    });    this.endScreen = new EndScreen(document.getElementById('ui'), {
+      onReplay: () => {
+        const q = new URLSearchParams(location.search);
+        q.set('seed', String((Number(q.get('seed')) || 1) + 1));
+        location.search = q.toString();
+      },
     });
+    this.endAt = 0;
+    this.userPaused = false;
+
 
     this.fps = params.bool('fps') ? new FpsMeter(document.getElementById('ui'), r3d.renderer) : null;
     this.selection = new Selection();
@@ -111,13 +122,13 @@ export class GameView {
       canSeeStructure: (s) => structureVisibleTo(world, house, s),
     });
     new Pointer(canvas, this.controller);
-    new Keyboard((key, code, mods) => this.controller.onKey(key, code, mods));
+    new Keyboard((key, code, mods) => this.onKey(key, code, mods));
     this.loop = new FixedLoop(DT);
     this.speed = GAME_SPEED[settings.gameSpeed] ?? 1;
     this.paused = document.hidden;
     this.lost = false;
     this.last = performance.now();
-    document.addEventListener('visibilitychange', () => { this.paused = document.hidden || this.lost; this.last = performance.now(); });
+    document.addEventListener('visibilitychange', () => { this.paused = document.hidden || this.lost || this.userPaused; this.last = performance.now(); });
     r3d.onContextLost = () => { this.lost = true; this.paused = true; this.hud.message('The graphics device was reset — restoring…', 3600); };
     r3d.onContextRestored = () => location.reload();
     this.onFrame = null;
@@ -140,6 +151,7 @@ export class GameView {
     }
     switch (e.type) {
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
+      case 'gameOver': this.endAt = performance.now() + 2500; break;
       case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12, e.y, e.projectile, e.hit); break;
       case 'explosion':
         if (!this.seen(e.x, e.y)) break;
@@ -226,6 +238,20 @@ export class GameView {
     else if (s && id === 'primary') issue({ type: 'setPrimary', structureId: s.id });
   }
 
+  onKey(key, code, mods) {
+    if (key === 'p' && !mods.ctrl) {
+      if (!mods.repeat) this.togglePause();
+      return true;
+    }
+    return this.controller.onKey(key, code, mods);
+  }
+
+  togglePause() {
+    this.userPaused = !this.userPaused;
+    this.paused = document.hidden || this.lost || this.userPaused;
+    this.hud.message(this.userPaused ? 'Paused — press P to continue' : 'Resumed', this.userPaused ? 1e9 : 1.5);
+  }
+
   frame(now) {
     const { world, r3d } = this;
     const raw = Math.max(0, (now - this.last) / 1000);
@@ -265,6 +291,7 @@ export class GameView {
     const sidebar = sidebarModel(world, this.house);
     this.sidebar.update(sidebar, dt);
     this.radar.update(dt, { online: sidebar.radar, view: this.viewQuad() });
+    if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
     this.fps?.frame();
   }
 
