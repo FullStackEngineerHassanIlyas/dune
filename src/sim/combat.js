@@ -6,7 +6,7 @@
 // target and gives up when it gets no closer. The player's side engages only what its fog shows; the
 // AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
@@ -162,6 +162,31 @@ export function destroyStructure(world, s, attacker = null) {
 
 export function updateCombat(world) {
   for (const u of world.units.values()) if (u.isGround && isArmed(u.type)) unitCombat(world, u);
+  for (const s of world.structures.values()) if (s.type.weapon) structureCombat(world, s);
+}
+
+/** Turrets (spec §4.4, structures.md): ground units only, one target at a time, half rate on low power. */
+function structureCombat(world, s) {
+  const t = s.type;
+  const house = world.houses.get(s.house);
+  if (s.cooldown > 0) s.cooldown -= DT * (house && house.power.ratio < 1 ? LOW_POWER_TURRET_RATE : 1);
+  if (s.turret === undefined) s.turret = -Math.PI / 2;   // turrets rest facing north
+  const x = s.x + s.w / 2, y = s.y + s.h / 2;
+  let tgt = s.target;
+  if (tgt) {
+    const p = validTarget(world, s.house, tgt, false) ? targetPoint(world, tgt) : null;
+    if (!p || distanceTo(x, y, tgt, p) > t.range + 0.25) tgt = s.target = null;
+  }
+  // turrets see further than their fog radius (a gun turret uncovers two tiles but shoots five): they ignore fog
+  if (!tgt && (world.tick + s.id) % SCAN_TICKS === 0) tgt = s.target = findTarget(world, s.house, x, y, t.range + 0.25, { structures: false, ignoreFog: true });
+  if (!tgt) return;
+  const p = targetPoint(world, tgt), dist = distanceTo(x, y, tgt, p);
+  const want = Math.atan2(p.y - y, p.x - x);
+  s.turret = turnToward(s.turret, want, TURRET_TURN_RATE * DT);
+  if (Math.abs(angleDiff(s.turret, want)) >= AIM_TOLERANCE || s.cooldown > 0) return;
+  const stats = t.near && dist <= t.near.range ? t.near : t;
+  fireAt(world, { kind: 'structure', id: s.id, house: s.house, x, y }, tgt, p, dist, stats);
+  s.cooldown = fireDelaySeconds(stats.fireDelay);
 }
 
 function scanRadius(u) {

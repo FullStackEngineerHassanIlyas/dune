@@ -16,7 +16,8 @@ import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
 import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
 import { updateFog } from './fog.js';
-import { updateCombat, updateProjectiles } from './combat.js';
+import { updateCombat, updateProjectiles, killUnit } from './combat.js';
+import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -41,6 +42,9 @@ export class World {
     this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
     this.onStructurePlaced = (s) => { if (s.typeId === 'refinery') spawnFreeHarvester(this, s); };
+    this.onUnitKilled = (u, attacker) => aftermathOfUnit(this, u, attacker);
+    this.onStructureKilled = (s) => aftermathOfStructure(this, s);
+    this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
   }
 
   addHouse(id, opts = {}) {

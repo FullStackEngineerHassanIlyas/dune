@@ -65,6 +65,7 @@ const isIdle = (u) => u.pathState !== 'ready' && u.pathState !== 'waiting';
 
 function blocked(world, u, occupantId) {
   const other = world.units.get(occupantId);
+  if (other && u.move === 'tracked' && other.move === 'foot' && other.house !== u.house && world.onCrush) { world.onCrush(u, other); return; }   // tracks crush enemy infantry
   const lastStep = u.pathIndex === u.path.length - 1;
   const parked = other && !other.step && isIdle(other);
   if (parked) {
