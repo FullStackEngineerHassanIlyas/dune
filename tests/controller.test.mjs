@@ -390,3 +390,17 @@ test('infantry clicked onto a badly damaged enemy building capture it while the 
   c.frame();
   assert.equal(cursors.at(-1), 'attack', 'Outposts cannot be captured');
 });
+
+test('aircraft are picked at their flying height; a selected Carryall takes no orders', () => {
+  const { world, c, issued } = setup();
+  const o = world.spawnUnit('ornithopter', 'atreides', 3, 3);
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  const lifts = [];
+  c.project = (x, z, lift) => { lifts.push(lift); return { x: x * 40, y: z * 40, visible: true, pxPerUnit: 40 }; };
+  c.candidates();
+  assert.ok(lifts.includes(o.alt), 'projected at its height');
+  c.selection.set([cy.id]);
+  const before = issued.length;
+  c.onClick(px(8), px(12), 0, NONE, false);
+  assert.equal(issued.length, before, 'nothing ordered');
+});

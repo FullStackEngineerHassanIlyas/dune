@@ -31,7 +31,7 @@ export class Controller {
     for (const u of this.world.units.values()) {
       if (u.inside || !this.canSee(u)) continue;   // vehicles in a repair bay cannot be picked
       const p = this.positionOf(u);
-      const s = this.project(p.x, p.z, u.isGround ? 0.12 : 1.5);
+      const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;
       out.push({ id: u.id, unit: u, sx: s.x, sy: s.y, own: u.house === this.house, r: Math.max(10, s.pxPerUnit * (u.move === 'foot' ? 0.3 : 0.42)) });
     }
@@ -51,7 +51,7 @@ export class Controller {
   }
 
   inViewport(x, y) { const v = this.viewport(); return x >= v.left && x <= v.right && y >= v.top && y <= v.bottom; }
-  ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house); }
+  ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && !u.type.autonomous); }   // Carryalls can be looked at, not ordered
   issue(cmd) { this.world.issue(this.house, cmd); }
   orderTile(tx, ty) { this.order({ kind: 'ground', tx, ty }); }
 

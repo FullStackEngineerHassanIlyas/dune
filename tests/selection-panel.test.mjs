@@ -109,3 +109,20 @@ test('a repair facility tells which vehicle it is fixing and how far along it is
   assert.ok(runUntil(world, () => bay.bay?.state === 'repairing', 20) > 0);
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.some((d) => /^Repairing Combat Tank \d+ %$/.test(d)));
 });
+
+test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall gets buttons', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const c = world.spawnUnit('carryall', 'atreides', 5, 5);
+  const o = world.spawnUnit('ornithopter', 'atreides', 9, 9);
+  const t = world.spawnUnit('combatTank', 'atreides', 15, 15);
+  const sel = new Selection();
+  sel.set([c.id]);
+  let m = selectionPanelModel(world, sel, 'atreides');
+  assert.ok(m.details.includes('Standing by'));
+  assert.deepEqual(m.buttons, []);
+  c.job = { stage: 'fetch', unit: t.id };
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Fetching Combat Tank'));
+  sel.set([o.id]);
+  m = selectionPanelModel(world, sel, 'atreides');
+  assert.ok(m.details.includes('Hunting'));
+});

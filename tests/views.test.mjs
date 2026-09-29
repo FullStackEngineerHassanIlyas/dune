@@ -182,3 +182,24 @@ test('a vehicle in the repair bay stands on the pad while the hoist works and we
   assert.ok(w && Math.abs(w.x - 9.5) < 1e-9 && w.y > hf.heightAt(9.5, 9) + 0.3);
   assert.notEqual(structures.views.get(bay.id).handles[0].params.arm, 0);
 });
+
+test('aircraft fly at their height and bank into turns; a load hangs under its Carryall', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new UnitViews(new THREE.Scene(), hf);
+  const o = world.spawnUnit('ornithopter', 'atreides', 6, 6, { heading: 0 });
+  const c = world.spawnUnit('carryall', 'atreides', 12, 12);
+  const h = world.spawnUnit('harvester', 'atreides', 12, 12, { inside: c.id });
+  c.cargo = h.id;
+  h.alt = c.alt - 0.35;
+  o.pheading = -0.1;   // turning right this tick
+  views.sync(world, 1, 0.016);
+  const po = pos(views.views.get(o.id).handles[0].matrix);
+  assert.ok(Math.abs(po.y - hf.heightAt(6.5, 6.5) - o.alt) < 0.01, 'at its flying height');
+  const up = new THREE.Vector3().setFromMatrixColumn(views.views.get(o.id).handles[0].matrix, 1);
+  assert.ok(up.z > 0.05, 'banked into the turn');
+  const ph = pos(views.views.get(h.id).handles[0].matrix), pc = pos(views.views.get(c.id).handles[0].matrix);
+  assert.ok(pc.y - ph.y > 0.3 && Math.abs(pc.x - ph.x) < 1e-6, 'hanging under it');
+  assert.notEqual(views.views.get(o.id).handles[0].params.flap, undefined);
+  assert.equal(views.views.get(c.id).handles[0].params.claws, 0, 'claws closed on the load');
+});

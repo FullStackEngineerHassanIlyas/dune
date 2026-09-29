@@ -35,11 +35,23 @@ function structureModel(world, s, houseId) {
 }
 
 function unitButtons(own) {
+  own = own.filter((u) => !u.type.autonomous);
   if (!own.length) return [];
   const b = [{ id: 'stop', label: 'Stop', key: 'S' }, { id: 'guard', label: 'Guard', key: 'G' }, { id: 'scatter', label: 'Scatter', key: 'X' }];
   if (own.some((u) => u.type.deploysTo)) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
   if (own.some((u) => u.harvest)) b.push({ id: 'return', label: 'Return' });
   return b;
+}
+
+function unitText(world, u) {
+  if (u.typeId === 'carryall') {
+    const load = world.units.get(u.cargo) ?? world.units.get(u.job?.unit);
+    if (u.job?.stage === 'leave') return 'Leaving';
+    if (u.cargo) return `Carrying ${load?.type.name ?? 'a unit'}`;
+    return u.job ? `Fetching ${load?.type.name ?? 'a unit'}` : 'Standing by';
+  }
+  if (u.typeId === 'ornithopter' && u.order.type === 'idle') return 'Hunting';
+  return u.order.type === 'harvest' ? HARVEST_TEXT[u.harvest.state] ?? 'Harvesting' : ORDER_TEXT[u.order.type] ?? 'Busy';
 }
 
 export function selectionPanelModel(world, selection, houseId) {
@@ -52,7 +64,7 @@ export function selectionPanelModel(world, selection, houseId) {
   if (units.length === 1) {
     const u = units[0], details = [];
     if (u.harvest) details.push(`Spice ${Math.round((u.harvest.load / HARVEST_CAPACITY) * 100)} %`);
-    details.push(u.order.type === 'harvest' ? HARVEST_TEXT[u.harvest.state] ?? 'Harvesting' : ORDER_TEXT[u.order.type] ?? 'Busy');
+    details.push(unitText(world, u));
     return { kind: 'unit', typeId: u.typeId, house: u.house, own: u.house === houseId, name: u.type.name, hp: u.hp, maxHp: u.maxHp, count: 1, details, buttons };
   }
   const counts = new Map();

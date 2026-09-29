@@ -31,7 +31,7 @@ export class Overlay {
       const damaged = u.hp < u.maxHp;
       if (!selected && !hovered && healthBars !== 'always' && !(healthBars === 'damaged' && damaged)) continue;
       const p = positionOf(u);
-      const s = project(p.x, p.z, u.move === 'foot' ? 0.12 : 0.18);
+      const s = project(p.x, p.z, u.alt ?? (u.move === 'foot' ? 0.12 : 0.18));
       if (!s.visible) continue;
       const half = Math.max(8, s.pxPerUnit * (u.move === 'foot' ? 0.2 : 0.34));
       if (selected || hovered) brackets(c, s.x, s.y, half, selected ? '#ffffff' : 'rgba(255,255,255,0.45)');

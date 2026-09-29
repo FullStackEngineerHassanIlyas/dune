@@ -40,3 +40,9 @@ test('the repair bay clanks as vehicles roll in and out; a capture thuds for the
   assert.equal(cueFor({ type: 'structureCaptured', from: 'harkonnen', to: 'atreides', x: 4, y: 4, w: 2, h: 2 }, 'atreides', all).id, 'clunk');
   assert.equal(cueFor({ type: 'structureCaptured', from: 'atreides', to: 'harkonnen', x: 4, y: 4, w: 2, h: 2 }, 'atreides', all), null);
 });
+
+test('a Carryall clunks as it picks up and sets down', () => {
+  assert.equal(cueFor({ type: 'pickedUp', house: 'atreides', x: 5, y: 5 }, 'atreides', all).id, 'clunk');
+  assert.equal(cueFor({ type: 'setDown', house: 'atreides', x: 5, y: 5 }, 'atreides', all).id, 'clunk');
+  assert.equal(cueFor({ type: 'setDown', house: 'harkonnen', x: 5, y: 5 }, 'atreides', all), null);
+});

@@ -22,7 +22,7 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     units: (typeId = null, h = house) => [...world.units.values()].filter((u) => u.house === h && (!typeId || u.typeId === typeId)).map(brief),
     unit: (id) => brief(world.units.get(id)),
     structures: (typeId = null) => [...world.structures.values()].filter((s) => !typeId || s.typeId === typeId).map((s) => ({ id: s.id, typeId: s.typeId, house: s.house, x: s.x, y: s.y, hp: s.hp, maxHp: s.maxHp })),
-    screenOfUnit: (id) => { const u = world.units.get(id); if (!u) return null; const p = positionOf(u); return screen(p.x, p.z, 0.12); },
+    screenOfUnit: (id) => { const u = world.units.get(id); if (!u) return null; const p = positionOf(u); return screen(p.x, p.z, u.alt ?? 0.12); },
     screenOfTile: (x, y) => screen(x + 0.5, y + 0.5, 0),
     screenOfFootprint: (typeId, x, y) => { const t = STRUCTURES[typeId]; return screen(x + t.w / 2, y + t.h / 2, 0); },
     freeTileNear: (x, y, moveClass = 'tracked') => findFreeTile(world, x, y, moveClass, 6),

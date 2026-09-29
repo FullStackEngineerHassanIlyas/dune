@@ -2,7 +2,7 @@
 // sim state: position, heading, terrain tilt for vehicles, turret yaw, recoil, wheels, treads, legs.
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
-import { lerpAngle, wrapAngle } from '../../sim/geometry.js';
+import { lerpAngle, wrapAngle, angleDiff } from '../../sim/geometry.js';
 import { unitVisibleTo } from '../../sim/fog.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, unitModelId } from '../models/index.js';
@@ -84,17 +84,20 @@ export class UnitViews {
       v.color.set(HOUSES[u.house]?.color ?? 0xffffff);
       for (const h of v.handles) h.color.copy(v.color);
     }
-    const foot = u.move === 'foot';
+    const foot = u.move === 'foot', air = !u.isGround;
     const walking = u.distance !== u.pdistance;
     const shown = v.handles.length > 1 && u.hp <= u.maxHp / 2 ? 1 : v.handles.length;
     const cos = Math.cos(heading), sin = Math.sin(heading);
+    const lift = u.alt ?? (u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, or on a repair pad
+    const bank = air ? Math.max(-0.5, Math.min(0.5, angleDiff(u.pheading, u.heading) * 2.5)) : 0;   // lean into turns
+    const banked = { x: -sin * Math.sin(bank), y: Math.cos(bank), z: cos * Math.sin(bank) };
     for (let k = 0; k < v.handles.length; k++) {
       const h = v.handles[k];
       h.visible = v.visible && k < shown;
       let fx = x, fz = z;
       if (v.handles.length > 1) { const [a, b] = SQUAD[k]; fx += cos * a - sin * b; fz += sin * a + cos * b; }
-      const n = foot ? UP : clampTilt(this.hf.normalAt(fx, fz, this.normal));
-      poseMatrix(h.matrix, fx, this.hf.heightAt(fx, fz) + 0.004 + (u.inside ? PAD_LIFT : 0), fz, heading, n);
+      const n = air ? banked : foot || u.alt !== undefined ? UP : clampTilt(this.hf.normalAt(fx, fz, this.normal));
+      poseMatrix(h.matrix, fx, this.hf.heightAt(fx, fz) + 0.004 + lift, fz, heading, n);
       const p = h.params;
       p.turret = -wrapAngle(turret - heading);
       p.barrel = -v.recoil;
@@ -104,6 +107,10 @@ export class UnitViews {
       const swing = walking ? Math.sin(dist * 26 + k * 1.7) * 0.6 : 0;
       p.legL = swing;
       p.legR = -swing;
+      p.flap = Math.sin(dist * 9) * 0.55;
+      p.flapR = -p.flap;
+      p.claws = u.cargo ? 0 : 0.6;
+      p.clawsB = -p.claws;
     }
   }
 }

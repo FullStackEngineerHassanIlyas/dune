@@ -172,11 +172,11 @@ export class GameView {
     switch (e.type) {
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
       case 'gameOver': this.endAt = performance.now() + 2500; break;
-      case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12, e.y, e.projectile, e.hit); break;
+      case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12 + (e.alt ?? 0), e.y, e.projectile, e.hit); break;
       case 'explosion':
         if (!this.seen(e.x, e.y)) break;
-        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25, e.y, e.size);
-        this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
+        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size);
+        if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
         break;
       case 'unitDestroyed':
         if (!this.catchingUp && UNITS[e.typeId]?.move === 'foot' && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
@@ -199,7 +199,7 @@ export class GameView {
     let x = e.x, z = e.y, lift = 0.45;
     if (e.kind === 'unit') {
       const u = this.world.units.get(e.id);
-      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.move === 'foot' ? 0.2 : 0.34; }
+      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (u.move === 'foot' ? 0.2 : 0.34); }
       this.unitViews.recoil(e.id);
     }
     const reach = e.kind === 'unit' ? 0.38 : 0.45;
@@ -217,15 +217,16 @@ export class GameView {
       const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
       const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
       const arc = p.projectile === 'rocket' ? 4 * t * (1 - t) * Math.min(1.2, 0.15 + total * 0.06) : 0;
-      this.effects.trail(p.projectile, x, this.heightAt(x, z) + 0.35 + (0.2 - 0.35) * t + arc, z);
+      const from = 0.35 + (p.fromAlt ?? 0), to = 0.2 + (p.toAlt ?? 0);   // from a flying gun, up to an aircraft
+      this.effects.trail(p.projectile, x, this.heightAt(x, z) + from + (to - from) * t + arc, z);
     }
     this.smokeClock += dt;
     if (this.smokeClock < 0.12) return;
     this.smokeClock = 0;
     for (const u of w.units.values()) {
-      if (u.move === 'foot' || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
+      if (u.move === 'foot' || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
       const p = this.unitViews.renderPos(u);
-      this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35, p.z);
+      this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35 + (u.alt ?? 0), p.z);
     }
     for (const s of w.structures.values()) {
       if (s.hp > s.maxHp / 2 || s.type.isWall || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;

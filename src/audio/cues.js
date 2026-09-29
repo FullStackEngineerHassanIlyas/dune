@@ -20,6 +20,7 @@ export function cueFor(e, me, seen) {
     case 'bayEntered': return mine ? at('ratchet', e.x, e.y) : null;
     case 'unitRepaired': return mine ? at('clunk', e.x, e.y) : null;
     case 'structureCaptured': return e.to === me ? at('clunk', e.x + e.w / 2, e.y + e.h / 2) : null;
+    case 'pickedUp': case 'setDown': return mine ? at('clunk', e.x, e.y) : null;
     default: return null;
   }
 }
