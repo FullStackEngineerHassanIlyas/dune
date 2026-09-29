@@ -19,6 +19,7 @@ import { updateFog } from './fog.js';
 import { updateCombat, updateProjectiles, killUnit, retaliate } from './combat.js';
 import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
 import { updateVictory } from './victory.js';
+import { updateAI } from './ai.js';
 import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.js';
 
 export class World {
@@ -127,6 +128,7 @@ export class World {
     if (this.tick % 10 === 0) updatePower(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
+    if (this.tick % 20 === 10) updateAI(this);
     if (this.tick % 20 === 0) updateVictory(this);
     this.tick++;
     this.time = this.tick * DT;

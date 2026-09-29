@@ -207,7 +207,7 @@ export function updateHarvester(world, u) {
       if (!ref || ref.dockedBy !== u.id) { u.noNudge = false; h.state = 'toRefinery'; h.target = -1; return; }
       const house = world.houses.get(u.house);
       const amount = Math.min(UNLOAD_RATE * DT, h.load);
-      addCredits(world, house, amount);
+      addCredits(world, house, amount * (house.incomeRate ?? 1));   // Hard AIs earn half again as much (spec §4.10)
       house.stats.spiceHarvested += amount;
       h.load -= amount;
       if (h.load <= 1e-6) {
