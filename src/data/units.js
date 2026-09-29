@@ -1,6 +1,8 @@
 // Unit table with the original Dune II values (OpenDUNE unitinfo.c, docs/research/raw/units.md).
 // speed/turn/fireDelay/buildTime are original units; src/data/tuning.js converts them.
-export const MOVE = { FOOT: 'foot', TRACKED: 'tracked', HARVESTER: 'harvester', WHEELED: 'wheeled', AIR: 'air', WORM: 'worm' };
+export const MOVE = { FOOT: 'foot', TRACKED: 'tracked', HARVESTER: 'harvester', WHEELED: 'wheeled', AIR: 'air', WORM: 'worm', SABOTEUR: 'saboteur' };
+/** Infantry of any kind: the Saboteur is a foot soldier with its own way over walls. */
+export const onFoot = (move) => move === MOVE.FOOT || move === MOVE.SABOTEUR;
 const ALL = ['atreides', 'harkonnen', 'ordos'];
 
 export const UNITS = {
@@ -8,7 +10,7 @@ export const UNITS = {
   infantry:    { name: 'Infantry Squad', houses: ['atreides', 'ordos'], builtAt: 'barracks', upgrade: 1, cost: 100, buildTime: 32, hp: 50, move: MOVE.FOOT, speed: 5, turn: 3, turret: false, weapon: 'rifle', damage: 3, range: 2, fireDelay: 45, firesTwice: true, sight: 1, figures: 3 },
   trooper:     { name: 'Heavy Trooper', houses: ['harkonnen', 'ordos'], builtAt: 'wor', upgrade: 0, cost: 100, buildTime: 56, hp: 45, move: MOVE.FOOT, speed: 15, turn: 3, turret: false, weapon: 'trooperRocket', damage: 5, range: 5, fireDelay: 50, targetAir: true, sight: 1, figures: 1 },
   troopers:    { name: 'Trooper Squad', houses: ['harkonnen', 'ordos'], builtAt: 'wor', upgrade: 1, cost: 200, buildTime: 56, hp: 110, move: MOVE.FOOT, speed: 10, turn: 3, turret: false, weapon: 'trooperRocket', damage: 5, range: 5, fireDelay: 50, firesTwice: true, targetAir: true, sight: 1, figures: 3 },
-  saboteur:    { name: 'Saboteur', houses: ['ordos'], builtAt: 'palace', upgrade: 0, cost: 0, buildTime: 48, hp: 10, move: MOVE.FOOT, speed: 40, turn: 3, turret: false, weapon: 'pistol', damage: 2, range: 2, fireDelay: 45, sight: 1, figures: 1 },
+  saboteur:    { name: 'Saboteur', houses: ['ordos'], builtAt: null, upgrade: 0, cost: 0, buildTime: 48, hp: 10, move: MOVE.SABOTEUR, speed: 40, turn: 3, turret: false, weapon: 'pistol', damage: 2, range: 2, fireDelay: 45, sight: 1, figures: 1 },
   trike:       { name: 'Trike', houses: ['atreides'], builtAt: 'lightFactory', upgrade: 0, cost: 150, buildTime: 40, hp: 100, move: MOVE.WHEELED, speed: 45, turn: 2, turret: false, weapon: 'mg', damage: 5, range: 3, fireDelay: 50, firesTwice: true, sight: 2, explodes: true },
   raider:      { name: 'Raider Trike', houses: ['ordos'], builtAt: 'lightFactory', upgrade: 0, cost: 150, buildTime: 40, hp: 80, move: MOVE.WHEELED, speed: 60, turn: 2, turret: false, weapon: 'mg', damage: 5, range: 3, fireDelay: 50, firesTwice: true, sight: 2, explodes: true },
   quad:        { name: 'Quad', houses: ALL, builtAt: 'lightFactory', upgrade: 1, cost: 200, buildTime: 48, hp: 130, move: MOVE.WHEELED, speed: 40, turn: 2, turret: false, weapon: 'mg', damage: 7, range: 3, fireDelay: 50, firesTwice: true, sight: 2 },

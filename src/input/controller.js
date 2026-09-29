@@ -9,6 +9,7 @@ import { LINE_FACTORIES } from '../sim/tech.js';
 import { isArmed } from '../sim/combat.js';
 import { needsRepair } from '../sim/repair-bay.js';
 import { canCapture, capturable } from '../sim/capture.js';
+import { onFoot } from '../data/units.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
@@ -33,7 +34,7 @@ export class Controller {
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;
-      out.push({ id: u.id, unit: u, sx: s.x, sy: s.y, own: u.house === this.house, r: Math.max(10, s.pxPerUnit * (u.move === 'foot' ? 0.3 : 0.42)) });
+      out.push({ id: u.id, unit: u, sx: s.x, sy: s.y, own: u.house === this.house, r: Math.max(10, s.pxPerUnit * (onFoot(u.move) ? 0.3 : 0.42)) });
     }
     return out;
   }

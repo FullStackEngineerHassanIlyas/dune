@@ -90,7 +90,11 @@ export class World {
     }
     const s = createStructure(this.nextId++, typeId, houseId, x, y, opts);
     s.placedAt = this.tick;
-    for (const [fx, fy] of footprint(x, y, t.w, t.h)) this.map.structure[this.map.idx(fx, fy)] = s.id;
+    for (const [fx, fy] of footprint(x, y, t.w, t.h)) {
+      const i = this.map.idx(fx, fy);
+      this.map.structure[i] = s.id;
+      if (t.isWall) this.map.wall[i] = 1;
+    }
     this.map.revision++;
     this.structures.set(s.id, s);
     this.events.push('structurePlaced', { id: s.id, house: houseId, structureType: typeId, x, y });
@@ -110,7 +114,7 @@ export class World {
     if (!this.structures.has(s.id)) return;
     for (const [fx, fy] of footprint(s.x, s.y, s.w, s.h)) {
       const i = this.map.idx(fx, fy);
-      if (this.map.structure[i] === s.id) this.map.structure[i] = 0;
+      if (this.map.structure[i] === s.id) { this.map.structure[i] = 0; this.map.wall[i] = 0; }
     }
     this.map.revision++;
     this.structures.delete(s.id);

@@ -15,7 +15,7 @@ import { SoundEngine } from '../audio/engine.js';
 import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
-import { UNITS } from '../data/units.js';
+import { UNITS, onFoot } from '../data/units.js';
 import { G } from '../data/terrain.js';
 import { nearCamera } from '../render/near-camera.js';
 import { Overlay } from '../render/overlay.js';
@@ -179,7 +179,7 @@ export class GameView {
         if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
         break;
       case 'unitDestroyed':
-        if (!this.catchingUp && UNITS[e.typeId]?.move === 'foot' && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
+        if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
         break;
     }
   }
@@ -199,7 +199,7 @@ export class GameView {
     let x = e.x, z = e.y, lift = 0.45;
     if (e.kind === 'unit') {
       const u = this.world.units.get(e.id);
-      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (u.move === 'foot' ? 0.2 : 0.34); }
+      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (onFoot(u.move) ? 0.2 : 0.34); }
       this.unitViews.recoil(e.id);
     }
     const reach = e.kind === 'unit' ? 0.38 : 0.45;
@@ -224,7 +224,7 @@ export class GameView {
     if (this.smokeClock < 0.12) return;
     this.smokeClock = 0;
     for (const u of w.units.values()) {
-      if (u.move === 'foot' || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
+      if (onFoot(u.move) || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
       const p = this.unitViews.renderPos(u);
       this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35 + (u.alt ?? 0), p.z);
     }
@@ -244,7 +244,7 @@ export class GameView {
     const puff = this.dustClock >= 0.09;
     if (puff) this.dustClock = 0;
     for (const u of w.units.values()) {
-      if (u.move === 'foot') continue;
+      if (onFoot(u.move)) continue;
       const i = map.idx(u.tx, u.ty);
       const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
       const p = this.unitViews.renderPos(u);
