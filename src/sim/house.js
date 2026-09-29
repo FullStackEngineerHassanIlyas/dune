@@ -15,6 +15,6 @@ export class House {
     this.upgrades = { ...(HOUSES[id].startUpgrades ?? {}) };   // factory upgrade levels, house-wide (spec §4.5)
     this.isAI = ai;
     this.techLevel = techLevel;
-    this.stats = { spiceHarvested: 0, unitsKilled: 0, unitsLost: 0, structuresKilled: 0, structuresLost: 0 };
+    this.stats = { spiceHarvested: 0, unitsKilled: 0, unitsLost: 0, structuresKilled: 0, structuresLost: 0, structuresCaptured: 0 };
   }
 }

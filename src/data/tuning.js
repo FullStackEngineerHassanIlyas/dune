@@ -42,3 +42,5 @@ export const UPGRADE_BUILD_TIME = 20;           // original steps per upgrade le
 
 export const UNIT_REPAIR_COST = 0.25;           // a full repair at the Repair Facility costs a quarter of the unit (original: build rate ÷ 4)
 export const BAY_DRIVE_SECONDS = 1;             // driving onto or off the repair pad
+
+export const CAPTURE_BELOW = 0.25;              // infantry take a conquerable building below a quarter of its hit points (spec §4.6)

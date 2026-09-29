@@ -196,7 +196,7 @@ export function updateHarvester(world, u) {
     }
     case 'queued': {
       const ref = world.structures.get(h.refinery);
-      if (!ref) { h.state = 'toRefinery'; h.target = -1; return; }
+      if (!ref || ref.house !== u.house) { h.state = 'toRefinery'; h.target = -1; return; }   // gone or captured
       if (ref.dockedBy && !world.units.has(ref.dockedBy)) ref.dockedBy = 0;
       if ((h.wait -= DT) > 0) return;
       h.wait = 1;

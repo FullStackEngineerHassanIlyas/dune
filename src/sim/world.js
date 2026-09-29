@@ -22,6 +22,7 @@ import { updateVictory } from './victory.js';
 import { updateAI } from './ai.js';
 import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.js';
 import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
+import { updateCapture } from './capture.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -124,6 +125,7 @@ export class World {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
       if (u.harvest) updateHarvester(this, u);
       if (u.order.type === 'repairAt') updateRepairOrder(this, u);
+      if (u.order.type === 'capture') { updateCapture(this, u); if (!this.units.has(u.id)) continue; }   // a squad that walked in is gone
       updateMovement(this, u);
     }
     updateCombat(this);
