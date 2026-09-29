@@ -5,6 +5,7 @@
 import { RECIPES, RATE, render } from './synth.js';
 
 export const MAX_VOICES = 24;
+export const VOICE_GAIN = 0.5;   // each voice at -6 dB, and a limiter before the output, so a battle never clips
 export const VOICE_LIMITS = { rifle: 5, mg: 5, cannon: 4, heavyCannon: 3, rocket: 4, hit: 4, explosionSmall: 4, explosionMedium: 3, explosionLarge: 2, crush: 2, click: 3 };
 const DEFAULT_LIMIT = 2;
 
@@ -45,7 +46,7 @@ export class SoundEngine {
   constructor({ enabled = true, volume = 0.8, win = globalThis.window } = {}) {
     this.win = win ?? {};
     this.available = typeof (this.win.AudioContext ?? this.win.webkitAudioContext) === 'function';
-    this.enabled = enabled && this.available;
+    this.enabled = this.available;   // `enabled: false` only starts muted: M can still turn sound on
     this.volume = volume;
     this.muted = !enabled;
     this.ctx = null;
@@ -54,27 +55,48 @@ export class SoundEngine {
     this.limiter = new VoiceLimiter();
     this.listener = { x: 0, z: 0, rightX: 1, rightZ: 0, range: 16 };
     if (this.enabled) {
-      const unlock = () => this.unlock();
-      this.win.addEventListener('pointerdown', unlock, { once: true });
-      this.win.addEventListener('keydown', unlock, { once: true });
+      // kept until the context really runs: a first key such as Escape or Shift is not a user activation
+      this.onGesture = () => this.unlock();
+      this.win.addEventListener('pointerdown', this.onGesture);
+      this.win.addEventListener('keydown', this.onGesture);
     }
   }
 
+  get running() { return !!this.ctx && (this.ctx.state === undefined || this.ctx.state === 'running'); }
+
   unlock() {
-    if (this.ctx || !this.enabled) return;
+    if (!this.enabled) return;
+    if (!this.ctx) this.open();
+    if (this.ctx && !this.running) this.ctx.resume?.()?.catch?.(() => {});
+    if (this.running && this.onGesture) {
+      this.win.removeEventListener?.('pointerdown', this.onGesture);
+      this.win.removeEventListener?.('keydown', this.onGesture);
+      this.onGesture = null;
+    }
+  }
+
+  open() {
     try {
       const Context = this.win.AudioContext ?? this.win.webkitAudioContext;
       this.ctx = new Context();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume;
-      this.master.connect(this.ctx.destination);
+      const limiter = this.ctx.createDynamicsCompressor?.();
+      if (limiter) {
+        limiter.threshold.value = -6;
+        limiter.knee.value = 4;
+        limiter.ratio.value = 20;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.15;
+        this.master.connect(limiter);
+        limiter.connect(this.ctx.destination);
+      } else this.master.connect(this.ctx.destination);
       for (const id of Object.keys(RECIPES)) {
         const data = render(id);
         const buffer = this.ctx.createBuffer(1, data.length, RATE);
         buffer.copyToChannel(data, 0);
         this.buffers.set(id, buffer);
       }
-      this.ctx.resume?.();
     } catch (err) {
       console.warn('sound disabled:', err);
       this.enabled = false;
@@ -92,7 +114,7 @@ export class SoundEngine {
   }
 
   play(id, { x = null, z = null, volume = 1, rate = 1 } = {}) {
-    if (!this.ctx || this.muted) return false;
+    if (!this.running || this.muted) return false;   // a suspended context would hold voices it cannot finish
     const buffer = this.buffers.get(id);
     if (!buffer) return false;
     let pan = 0, gain = volume;
@@ -108,7 +130,7 @@ export class SoundEngine {
       src.buffer = buffer;
       src.playbackRate.value = rate;
       const g = this.ctx.createGain();
-      g.gain.value = gain;
+      g.gain.value = gain * VOICE_GAIN;
       src.connect(g);
       if (this.ctx.createStereoPanner) {
         const p = this.ctx.createStereoPanner();

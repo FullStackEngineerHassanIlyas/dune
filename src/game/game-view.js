@@ -17,6 +17,7 @@ import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
 import { G } from '../data/terrain.js';
+import { nearCamera } from '../render/near-camera.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -245,6 +246,7 @@ export class GameView {
       const i = map.idx(u.tx, u.ty);
       const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
       const p = this.unitViews.renderPos(u);
+      if (!nearCamera(p.x, p.z, this.rig.target.x, this.rig.target.z, this.rig.distance)) continue;
       const visible = this.seen(p.x, p.z);
       if (u.step && soft) {
         const last = this.trackFrom.get(u.id);
@@ -297,7 +299,7 @@ export class GameView {
       return true;
     }
     if (key === 'm' && !mods.ctrl) {
-      if (!mods.repeat) this.hud.message(this.sound.toggleMute() ? 'Sound off' : 'Sound on', 1.5);
+      if (!mods.repeat) this.hud.message(!this.sound.available ? 'Sound is not available in this browser' : this.sound.toggleMute() ? 'Sound off' : 'Sound on', 1.5);
       return true;
     }
     return this.controller.onKey(key, code, mods);

@@ -144,3 +144,17 @@ test('the AI stops building silos at four', () => {
   const silos = [...world.structures.values()].filter((s) => s.house === 'harkonnen' && s.typeId === 'silo').length;
   assert.ok(silos <= 4, `${silos} silos`);
 });
+
+import { destroyStructure } from '../src/sim/combat.js';
+
+test('an AI that loses its yard mid-game orders a new MCV at once and redeploys', () => {
+  const { world, rival } = setupSkirmish({ seed: 2, difficulty: 'normal' });
+  const has = (t) => [...world.structures.values()].find((s) => s.house === rival && s.typeId === t);
+  assert.ok(runUntil(world, () => !!has('heavyFactory'), 900) > 0, 'a heavy factory went up');
+  run(world, 60);
+  destroyStructure(world, has('constructionYard'), null);
+  const mcvOrdered = () => { const l = world.houses.get(rival).lines.heavy; return l.current?.typeId === 'mcv' || l.queue.includes('mcv') || [...world.units.values()].some((u) => u.house === rival && u.typeId === 'mcv'); };
+  const t = runUntil(world, mcvOrdered, 30);
+  assert.ok(t >= 0 && t < 5, `ordered after ${t} s`);
+  assert.ok(runUntil(world, () => !!has('constructionYard'), 300) > 0, 'a new yard stands');
+});

@@ -23,11 +23,11 @@ export function ownedStructureTypes(world, houseId) {
 
 export function structureTechLevel(t, houseId) { return t.techByHouse?.[houseId] ?? t.tech; }
 
-export function canBuildStructure(house, typeId, owned) {
+export function canBuildStructure(house, typeId, owned, { implied = true } = {}) {
   const t = STRUCTURES[typeId];
   if (!t || !t.requires || DEFERRED.has(typeId)) return false;
   if (!t.houses.includes(house.id) || structureTechLevel(t, house.id) > house.techLevel) return false;
-  if (typeId !== 'windtrap' && !t.isConcrete && !owned.has('windtrap')) return false;   // a Wind Trap is implied for everything (spec §4.5)
+  if (implied && typeId !== 'windtrap' && !t.isConcrete && !owned.has('windtrap')) return false;   // a Wind Trap is implied for everything (spec §4.5)
   return owned.has('constructionYard') && t.requires.every((r) => owned.has(r));
 }
 
@@ -37,11 +37,11 @@ export function canBuildUnit(house, typeId, owned) {
   return owned.has(u.builtAt) && (u.requires ?? []).every((r) => owned.has(r));
 }
 
-export function canBuild(world, houseId, typeId) {
+export function canBuild(world, houseId, typeId, opts = {}) {
   const house = world.houses.get(houseId);
   if (!house) return false;
   const owned = ownedStructureTypes(world, houseId);
-  return STRUCTURES[typeId] ? canBuildStructure(house, typeId, owned) : canBuildUnit(house, typeId, owned);
+  return STRUCTURES[typeId] ? canBuildStructure(house, typeId, owned, opts) : canBuildUnit(house, typeId, owned);
 }
 
 export function buildOptions(world, houseId) {

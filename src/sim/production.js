@@ -161,12 +161,12 @@ export function revalidateProduction(world) {
   for (const house of world.houses.values()) {
     for (const line of LINES) {
       const l = house.lines[line];
-      if (l.current && !canBuild(world, house.id, l.current.typeId)) {   // a READY structure too: its yard may be gone
+      if (l.current && !canBuild(world, house.id, l.current.typeId, { implied: false })) {   // losing power does not cancel work in hand   // a READY structure too: its yard may be gone
         addCredits(world, house, l.current.paid);
         world.events.push('productionCancelled', { house: house.id, typeId: l.current.typeId });
         l.current = null;
       }
-      l.queue = l.queue.filter((t) => canBuild(world, house.id, t));
+      l.queue = l.queue.filter((t) => canBuild(world, house.id, t, { implied: false }));
     }
   }
 }

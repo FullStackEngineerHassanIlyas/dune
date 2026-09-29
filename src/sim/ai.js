@@ -62,7 +62,8 @@ function think(world, house) {
   else buildBase(world, house, view);
   keepHarvesters(world, house, view);
   if (!view.home) return;
-  buildArmy(world, house, view);
+  const rebuilding = !view.yard && !view.units.some((u) => u.type.deploysTo);
+  if (!rebuilding) buildArmy(world, house, view);   // the new MCV comes first
   rally(world, house, view);
   defend(world, house, view);
   attack(world, house, view);
@@ -244,6 +245,6 @@ function nearestEnemyWall(world, houseId, x, y, radius) {
 /** Without a Construction Yard or an MCV the base cannot grow: buy an MCV and deploy it. */
 function rebuildMcv(world, house, view) {
   const heavy = house.lines.heavy;
-  if (!view.count.heavyFactory || heavy.current || heavy.queue.includes('mcv') || house.credits < 900 || !canBuild(world, house.id, 'mcv')) return;
-  issue(world, house, { type: 'build', typeId: 'mcv' });
+  if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv') || !canBuild(world, house.id, 'mcv')) return;
+  issue(world, house, { type: 'build', typeId: 'mcv' });   // queued behind the current item and paid as it builds
 }

@@ -87,3 +87,17 @@ test('units on mirrored diagonal steps never pass through each other', () => {
   assert.ok(closest > 0.6, `they came within ${closest.toFixed(2)} tiles`);
   assert.deepEqual([a.tx, a.ty, b.tx, b.ty], [6, 6, 5, 6]);
 });
+
+test('losing the last Wind Trap does not cancel a structure that is ready', () => {
+  const world = flatWorld(32, 32, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 5000;
+  h.startBuffer = 100000;
+  world.spawnStructure('constructionYard', 'atreides', 2, 2);
+  const trap = world.spawnStructure('windtrap', 'atreides', 6, 2);
+  world.spawnStructure('refinery', 'atreides', 2, 6);
+  h.lines.structure.current = { typeId: 'silo', cost: 150, total: 21.6, progress: 1, paid: 150, state: 'ready', starved: false };
+  world.removeStructure(trap, 'destroyed');
+  run(world, 2);
+  assert.equal(h.lines.structure.current?.state, 'ready');
+});
