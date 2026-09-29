@@ -25,6 +25,10 @@ function structureModel(world, s, houseId) {
     const u = world.units.get(s.occupant);
     details.push(!u ? 'Repair bay free' : s.bay?.stalled ? 'Bay paused: no credits' : `Repairing ${u.type.name} ${Math.floor((u.hp / u.maxHp) * 100)} %`);
   }
+  if (s.typeId === 'starport') {
+    const b = world.houses.get(houseId)?.starport?.batch;
+    details.push(!b ? 'No orders' : b.landed ? 'Frigate unloading' : `Frigate due in ${Math.max(0, Math.ceil(b.landAt - world.time))} s · ${b.items.length} ordered`);
+  }
   if (s.repairing) details.push(s.repairStalled ? 'Repair paused: no credits' : 'Repairing');
   const buttons = own ? [
     { id: 'repair', label: s.repairing ? 'Stop repair' : 'Repair', active: !!s.repairing, disabled: !s.repairing && s.hp >= s.maxHp },

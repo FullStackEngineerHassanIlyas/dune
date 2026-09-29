@@ -46,3 +46,9 @@ test('a Carryall clunks as it picks up and sets down', () => {
   assert.equal(cueFor({ type: 'setDown', house: 'atreides', x: 5, y: 5 }, 'atreides', all).id, 'clunk');
   assert.equal(cueFor({ type: 'setDown', house: 'harkonnen', x: 5, y: 5 }, 'atreides', all), null);
 });
+
+test('a sold-out ware or a full Frigate sounds like an error', () => {
+  assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'soldOut' }, 'atreides', all).id, 'error');
+  assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'frigateFull' }, 'atreides', all).id, 'error');
+  assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'frigateArrived' }, 'atreides', all).id, 'beep');
+});

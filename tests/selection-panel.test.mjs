@@ -126,3 +126,19 @@ test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall
   m = selectionPanelModel(world, sel, 'atreides');
   assert.ok(m.details.includes('Hunting'));
 });
+
+test('a Starport tells when its Frigate is due', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 5000;
+  h.startBuffer = 100000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  const s = world.spawnStructure('starport', 'atreides', 10, 10);
+  world.step();
+  const sel = new Selection();
+  sel.setStructure(s.id);
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('No orders'));
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Frigate due in 30 s · 1 ordered'));
+});

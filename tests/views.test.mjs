@@ -203,3 +203,20 @@ test('aircraft fly at their height and bank into turns; a load hangs under its C
   assert.notEqual(views.views.get(o.id).handles[0].params.flap, undefined);
   assert.equal(views.views.get(c.id).handles[0].params.claws, 0, 'claws closed on the load');
 });
+
+test('the Starport\'s pad lights pulse while its Frigate is due', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 5000;
+  h.startBuffer = 100000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  const s = world.spawnStructure('starport', 'atreides', 10, 10);
+  world.step();
+  const views = new StructureViews(new THREE.Scene(), new Heightfield(world.map, { sub: 2, seed: 1 }));
+  views.sync(world, 1000);
+  assert.equal(views.views.get(s.id).handles[0].params.padLights, 1);
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  views.sync(world, 1100);
+  assert.notEqual(views.views.get(s.id).handles[0].params.padLights, 1);
+});

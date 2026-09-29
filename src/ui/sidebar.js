@@ -98,7 +98,7 @@ export class Sidebar {
     b.countEl.className = 'sb-count';
     b.append(img, b.stateEl, b.countEl);
     b.addEventListener('click', (e) => this.leftClick(b.item, e.shiftKey));
-    b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.onCommand({ type: 'hold', typeId: b.item.typeId }); });
+    b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.onCommand(b.item.cancel ?? { type: 'hold', typeId: b.item.typeId }); });
     b.addEventListener('pointerenter', () => this.showTip(b));
     b.addEventListener('pointerleave', () => this.tip.classList.remove('show'));
     strip.buttons.set(item.typeId, b);
@@ -107,6 +107,7 @@ export class Sidebar {
 
   leftClick(item, shift) {
     if (item.line === 'structure' && item.state === 'ready') { this.onPlace(item.typeId); return; }
+    if (item.order) { this.onCommand({ ...item.order, count: shift ? 5 : 1 }); return; }   // Starport wares
     this.onCommand({ type: 'build', typeId: item.typeId, count: shift ? 5 : 1 });
   }
 

@@ -67,7 +67,8 @@ export class StructureViews {
     p.fan = now * 0.004;
     p.dish = now * 0.0012;
     p.flag = Math.sin(now * 0.002) * 0.3;
-    p.padLights = s.dockedBy || s.occupant ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+    const due = s.typeId === 'starport' && world.houses.get(s.house)?.starport?.batch?.structureId === s.id;   // a Frigate is on its way
+    p.padLights = s.dockedBy || s.occupant || due ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
     p.arm = s.bay?.state === 'repairing' && !s.bay.stalled ? armOffset(now) : 0;
     p.door = now < v.doorUntil ? 0.4 : 0;
     p.turret = s.turret === undefined ? Math.PI / 2 : -s.turret;

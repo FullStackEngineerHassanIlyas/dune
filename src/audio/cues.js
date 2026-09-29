@@ -2,7 +2,7 @@
 // what the player can see is heard; interface sounds (placements, errors, sales) belong to the player.
 const WEAPON = { rifle: 'rifle', pistol: 'rifle', trooperRocket: 'rifle', mg: 'mg', cannon: 'cannon', turretGun: 'cannon', heavyCannon: 'heavyCannon', plasma: 'heavyCannon', sonic: 'heavyCannon' };
 const EXPLOSION = { small: 'explosionSmall', medium: 'explosionMedium', large: 'explosionLarge' };
-const ERRORS = new Set(['insufficientFunds', 'cannotPlace', 'busy', 'cannotDeploy']);
+const ERRORS = new Set(['insufficientFunds', 'cannotPlace', 'busy', 'cannotDeploy', 'soldOut', 'frigateFull']);
 
 export function cueFor(e, me, seen) {
   const at = (id, x, z) => (seen(x, z) ? { id, x, z } : null);

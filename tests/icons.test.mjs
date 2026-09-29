@@ -59,3 +59,11 @@ test('upgrade icon keys name the building and the level it reaches', () => {
   assert.equal(upgradeIconKey('heavyFactory'), null);
   assert.equal(upgradeIconKey('upgrade:windtrap:1'), null, 'wind traps have no upgrades');
 });
+
+import { starportIconKey } from '../src/render/icons.js';
+
+test('Starport icon keys name the unit on sale', () => {
+  assert.deepEqual(starportIconKey('starport:quad'), { unitType: 'quad' });
+  assert.equal(starportIconKey('quad'), null);
+  assert.equal(starportIconKey('starport:windtrap'), null);
+});

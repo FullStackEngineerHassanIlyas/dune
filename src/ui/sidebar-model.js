@@ -3,9 +3,10 @@
 // icon's state, progress and queue count. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { buildSeconds, UPGRADE_BUILD_TIME } from '../data/tuning.js';
+import { buildSeconds, UPGRADE_BUILD_TIME, STARPORT } from '../data/tuning.js';
 import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
+import { starportOf } from '../sim/starport.js';
 
 const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
 
@@ -40,6 +41,17 @@ export function sidebarModel(world, houseId) {
       ...itemState(house.lines[line], typeId, line),
     };
   };
+  const m = house.starport, open = m && starportOf(world, houseId);
+  const ware = (t) => {
+    const b = m.batch, ordered = b ? b.items.filter((i) => i.typeId === t).length : 0;
+    const locked = m.stock[t] <= 0 || !!b?.landed || (b && b.items.length >= STARPORT.load);
+    const eta = b && !b.landed ? ` · Frigate in ${Math.max(0, Math.ceil(b.landAt - world.time))} s` : '';
+    return {
+      typeId: `starport:${t}`, line: 'starport', icon: `starport:${t}`, name: UNITS[t].name, cost: m.price[t], seconds: STARPORT.delivery,
+      note: `Starport · ${m.stock[t]} in stock${eta}`, state: locked ? 'locked' : ordered ? 'queued' : 'idle', progress: 0, count: ordered, starved: false,
+      order: { type: 'starportOrder', typeId: t }, cancel: { type: 'starportCancel', typeId: t },
+    };
+  };
   const power = computePower(world, houseId);
   return {
     credits: Math.floor(house.credits),
@@ -47,7 +59,7 @@ export function sidebarModel(world, houseId) {
     power: { ...power, level: powerLevel(power) },
     radar: radarOnline(world, houseId),
     structures: [...options.structure.map(entry('structure')), ...options.upgrades.map(upgrade)],
-    units: UNIT_LINES.flatMap((line) => options[line].map(entry(line))),
+    units: [...UNIT_LINES.flatMap((line) => options[line].map(entry(line))), ...(open ? Object.keys(m.stock).map(ware) : [])],
   };
 }
 

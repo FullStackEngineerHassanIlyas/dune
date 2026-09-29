@@ -8,6 +8,7 @@ import { modelDef, unitModelId, structureModelId } from './models/index.js';
 import { getMaterial, HOUSE_TINTED } from './models/materials.js';
 import { nodeMatricesAtRest } from './models/instancer.js';
 import { STRUCTURES } from '../data/structures.js';
+import { UNITS } from '../data/units.js';
 import { HOUSES } from '../data/houses.js';
 
 export const ICON_W = 128, ICON_H = 96;
@@ -58,6 +59,30 @@ export function flipRows(src, w, h) {
 export function upgradeIconKey(key) {
   const m = /^upgrade:(\w+):(\d+)$/.exec(key);
   return m && STRUCTURES[m[1]]?.upgrades ? { structureType: m[1], level: Number(m[2]) } : null;
+}
+
+/** 'starport:<unit>' → the Starport ware it names, or null. */
+export function starportIconKey(key) {
+  const m = /^starport:(\w+)$/.exec(key);
+  return m && UNITS[m[1]] ? { unitType: m[1] } : null;
+}
+
+/** Starport wares: the unit with a gold coin in the bottom left corner. */
+function drawPortBadge(ctx) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(20, 14, 6, 0.85)';
+  ctx.strokeStyle = '#e8b84a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(20, ICON_H - 20, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#ffd24a';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$', 20, ICON_H - 19);
+  ctx.restore();
 }
 
 /** Upgrade icons: the building with a gold arrow and the level it reaches in the top right corner. */
@@ -112,6 +137,8 @@ export class IconFactory {
     const color = HOUSES[houseId]?.color ?? 0xffffff;
     const up = upgradeIconKey(typeId);
     if (up) { const t = STRUCTURES[up.structureType]; return this.get(structureModelId(up.structureType, t.w, t.h), color, 0, up.level); }
+    const ware = starportIconKey(typeId);
+    if (ware) return this.get(unitModelId(ware.unitType), color, UNIT_ICON_YAW, 'port');
     const s = STRUCTURES[typeId];
     return s ? this.get(structureModelId(typeId, s.w, s.h), color) : this.get(unitModelId(typeId), color, UNIT_ICON_YAW);
   }
@@ -154,7 +181,7 @@ export class IconFactory {
     r.setClearColor(prevColor, prevAlpha);
     for (const mesh of meshes) { this.scene.remove(mesh); mesh.dispose(); }
     this.ctx.putImageData(new ImageData(flipRows(this.pixels, ICON_W, ICON_H), ICON_W, ICON_H), 0, 0);
-    if (badge) drawUpgradeBadge(this.ctx, badge);
+    if (badge === 'port') drawPortBadge(this.ctx); else if (badge) drawUpgradeBadge(this.ctx, badge);
     return this.canvas.toDataURL();
   }
 }

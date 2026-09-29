@@ -95,3 +95,26 @@ test('upgrades close the structure strip with their level, price, time and what 
   assert.ok(!m.structures.some((i) => i.typeId === 'upgrade:lightFactory'), 'nothing more to buy');
   assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'quad']);
 });
+
+test('the Starport\'s wares close the unit strip with their price, stock and what is on order', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 5000;
+  h.startBuffer = 100000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  world.spawnStructure('starport', 'atreides', 10, 10);
+  world.step();
+  let m = sidebarModel(world, 'atreides');
+  const quad = m.units.find((i) => i.typeId === 'starport:quad');
+  assert.deepEqual([quad.line, quad.icon, quad.name, quad.cost, quad.state, quad.count], ['starport', 'starport:quad', 'Quad', h.starport.price.quad, 'idle', 0]);
+  assert.equal(quad.note, `Starport · ${h.starport.stock.quad} in stock`);
+  assert.deepEqual([quad.order, quad.cancel], [{ type: 'starportOrder', typeId: 'quad' }, { type: 'starportCancel', typeId: 'quad' }]);
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  m = sidebarModel(world, 'atreides');
+  const ordered = m.units.find((i) => i.typeId === 'starport:quad');
+  assert.deepEqual([ordered.state, ordered.count], ['queued', 1]);
+  assert.match(ordered.note, /· Frigate in 30 s$/);
+  h.starport.stock.mcv = 0;
+  assert.equal(sidebarModel(world, 'atreides').units.find((i) => i.typeId === 'starport:mcv').state, 'locked');
+});
