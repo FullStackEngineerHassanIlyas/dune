@@ -12,11 +12,10 @@ sound, melody and line of text is made from scratch in code; no original game fi
 
 ## Status
 
-Plan 1a (engine core) and plan 1b (base building and economy) are done: generated Arrakis maps in
-3D, house-coloured 3D units and structures, C&C-style selection and movement, control groups, MCV
-deployment, the sidebar with production, placement with the concrete rule, power, harvesting and
-credits, selling and repairs, fog of war and the radar. Combat, the computer opponent, effects and
-sound arrive with plan 1c.
+Plans 1a–1c are done: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
+base, harvest spice, raise an army, fight with the original weapons (cannons always hit, rockets
+scatter, tanks crush infantry, turrets guard the base) and win or lose. Sound and more effects arrive
+with plan 1d; the House of IX specials, air units, sandworms and the Palace with plan 2.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -39,6 +38,11 @@ sound arrive with plan 1c.
 | Repair / Sell buttons | Toggle repair or sell mode; click own structures; right click or Esc leaves the mode |
 | Click a factory, then the ground | Set its rally point (Modern: right click); double-click a factory to make it primary |
 | Radar | Left click or drag jumps the camera; with own units selected a left click (Modern: right click) orders them there |
+| Left click an enemy (with units selected) | Attack it (Modern: right click) |
+| A, then click | Attack-move: go there and fight whatever is met on the way |
+| Ctrl + click | Force fire at a unit, building or the ground |
+| G | Area guard: engage what comes near, then return |
+| P | Pause and resume |
 
 Browsers may keep Ctrl + digit for switching tabs; Ctrl + Shift + digit always works.
 `?scheme=modern` swaps to right-click orders.
@@ -53,16 +57,24 @@ credits, Refineries and Silos store them. Selling refunds half the price times t
 repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
 
+## The computer opponent
+
+`?ai=easy|normal|hard` (default Normal). The computer deploys its MCV, builds in its house's order,
+keeps its power up, runs two harvesters per refinery, defends its base and sends growing attack waves
+— the first after about eight minutes on Easy, five on Normal and three and a half on Hard, where it
+also builds faster and earns half again as much from spice. Like the original, it ignores fog of war.
+The game ends when one side has no buildings and no MCV left.
+
 ## Scenes and URL flags
 
 Scenes: `?scene=skirmish` (default game) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`)
-· `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
+· `battle` (two armies fighting; `&idle=1` waits for orders, `&ticks=300` skips ahead) · `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
 `&fps=1` for the meter) · `terrain` · `gallery` (unit models) · `render-test`.
 
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
 (skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `gameSpeed=slowest…fastest` ·
-`debug=1` (invariant checks) · `fps=1` (frame meter).
+`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base).
 
 ## Docs
 
