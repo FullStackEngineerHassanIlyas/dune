@@ -10,6 +10,8 @@ import { UnitViews } from '../render/views/unit-views.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
+import { Effects } from '../render/effects.js';
+import { UNITS } from '../data/units.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -22,7 +24,7 @@ import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
 import { SelectionPanel, selectionPanelModel } from '../ui/selection-panel.js';
-import { unitVisibleTo, structureVisibleTo } from '../sim/fog.js';
+import { unitVisibleTo, structureVisibleTo, isVisible } from '../sim/fog.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 import { IconFactory } from '../render/icons.js';
 import { HOUSES } from '../data/houses.js';
@@ -53,6 +55,9 @@ export class GameView {
     this.structureViews = new StructureViews(r3d.scene, hf, { viewer: house });
     this.shroud = new ShroudSync(world.map.w * world.map.h);
     this.ghost = new PlacementGhost(r3d.scene, hf);
+    this.effects = new Effects(r3d.scene, r3d.quality);
+    this.smokeClock = 0;
+    this.catchingUp = true;   // the first frame drains everything a scene simulated ahead: marks yes, fireworks no
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
@@ -121,6 +126,7 @@ export class GameView {
 
   handleEvents() {
     for (const e of this.world.events.drain()) this.onEvent(e);
+    this.catchingUp = false;
   }
 
   onEvent(e) {
@@ -131,6 +137,70 @@ export class GameView {
     if (e.type === 'structurePlaced') {
       const s = this.world.structures.get(e.id);
       if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
+    }
+    switch (e.type) {
+      case 'fired': if (!this.catchingUp) this.onFired(e); break;
+      case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12, e.y, e.projectile, e.hit); break;
+      case 'explosion':
+        if (!this.seen(e.x, e.y)) break;
+        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25, e.y, e.size);
+        this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
+        break;
+      case 'unitDestroyed':
+        if (!this.catchingUp && UNITS[e.typeId]?.move === 'foot' && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
+        break;
+    }
+  }
+
+  /** Effects only show where the player can see (fog off: everywhere). */
+  seen(x, z) {
+    const w = this.world;
+    if (!w.fogOfWar) return true;
+    const tx = Math.floor(x), ty = Math.floor(z);
+    return w.map.inBounds(tx, ty) && isVisible(w, this.house, tx, ty);
+  }
+
+  onFired(e) {
+    if (!this.seen(e.x, e.y)) return;
+    const dir = Math.atan2(e.ty - e.y, e.tx - e.x);
+    const big = e.projectile !== 'bullet';
+    let x = e.x, z = e.y, lift = 0.45;
+    if (e.kind === 'unit') {
+      const u = this.world.units.get(e.id);
+      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.move === 'foot' ? 0.2 : 0.34; }
+      this.unitViews.recoil(e.id);
+    }
+    const reach = e.kind === 'unit' ? 0.38 : 0.45;
+    x += Math.cos(dir) * reach;
+    z += Math.sin(dir) * reach;
+    this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
+  }
+
+  /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
+  combatEffects(dt, alpha) {
+    const w = this.world;
+    for (const p of w.projectiles.values()) {
+      const x = p.px + (p.x - p.px) * alpha, z = p.py + (p.y - p.py) * alpha;
+      if (!this.seen(x, z)) continue;
+      const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
+      const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
+      const arc = p.projectile === 'rocket' ? 4 * t * (1 - t) * Math.min(1.2, 0.15 + total * 0.06) : 0;
+      this.effects.trail(p.projectile, x, this.heightAt(x, z) + 0.35 + (0.2 - 0.35) * t + arc, z);
+    }
+    this.smokeClock += dt;
+    if (this.smokeClock < 0.12) return;
+    this.smokeClock = 0;
+    for (const u of w.units.values()) {
+      if (u.move === 'foot' || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
+      const p = this.unitViews.renderPos(u);
+      this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35, p.z);
+    }
+    for (const s of w.structures.values()) {
+      if (s.hp > s.maxHp / 2 || s.type.isWall || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
+      const x = s.x + Math.random() * s.w, z = s.y + Math.random() * s.h;
+      const y = this.heightAt(x, z) + 0.5;
+      this.effects.smokePuff(x, y, z);
+      if (s.hp < s.maxHp / 4 || Math.random() < 0.5) this.effects.flame(x, y - 0.1, z);
     }
   }
 
@@ -178,6 +248,8 @@ export class GameView {
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
+    this.combatEffects(dt, alpha);
+    this.effects.update(dt);
     this.terrain.update(now);
     r3d.renderer.info.reset();
     r3d.render();

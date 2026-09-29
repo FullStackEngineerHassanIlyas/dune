@@ -64,6 +64,11 @@ export class UnitViews {
     return v ? { x: v.x, z: v.z } : { x: u.x, z: u.y };
   }
 
+  recoil(id) {
+    const v = this.views.get(id);
+    if (v) v.recoil = 0.08;
+  }
+
   pose(u, v, alpha, dt, world = null) {
     const x = u.px + (u.x - u.px) * alpha, z = u.py + (u.y - u.py) * alpha;
     const heading = lerpAngle(u.pheading, u.heading, alpha);

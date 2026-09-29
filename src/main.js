@@ -9,6 +9,7 @@ const SCENES = {
   structures: () => import('./scenes/structures.js'),
   icons: () => import('./scenes/icons.js'),
   base: () => import('./scenes/base.js'),
+  battle: () => import('./scenes/battle.js'),
 };
 
 function fatal(message) {

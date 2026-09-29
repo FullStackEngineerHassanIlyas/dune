@@ -27,4 +27,7 @@ export const SCENARIOS = {
   'base-atreides': { query: 'scene=base&house=atreides&fog=0' },
   'base-harkonnen-close': { query: 'scene=base&house=harkonnen&dist=12' },
   'base-ordos-fog': { query: 'scene=base&house=ordos&dist=30' },
+  'battle-start': { query: 'scene=battle&dist=26', settleMs: 1500 },
+  'battle-fight': { query: 'scene=battle&dist=22&ticks=300', settleMs: 1500 },
+  'battle-aftermath': { query: 'scene=battle&dist=26&ticks=900', settleMs: 2500 },
 };
