@@ -9,7 +9,7 @@ export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
   const house = params.str('house', 'atreides');
-  const { world, starts } = setupSkirmish({ seed: params.num('seed', 1), size: params.num('size', 64), house, enemy: params.str('enemy'), fog: params.bool('fog', true) });
+  const { world, starts } = setupSkirmish({ seed: params.num('seed', 1), size: params.num('size', 64), house, enemy: params.str('enemy'), fog: params.bool('fog', true), difficulty: params.str('ai', 'normal') });
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   if (params.bool('deploy')) {
     const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');
@@ -23,7 +23,8 @@ export async function start({ search }) {
     }
     for (let i = 0; i < 20; i++) world.step();
   }
-  const view = new GameView({ world, house, settings, params, focus: { x: starts[0].x + 0.5, z: starts[0].y + 2.5 } });
+  const look = params.str('focus') === 'rival' ? starts[1] : starts[0];   // screenshots of the computer's base
+  const view = new GameView({ world, house, settings, params, focus: { x: look.x + 0.5, z: look.y + 2.5 } });
   view.start();
   return view;
 }

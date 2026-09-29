@@ -75,3 +75,29 @@ test('Hard doubles down on income: harvest is worth half again as much', () => {
   assert.ok(Math.abs(h.credits - 1050) < 1e-6, `credits ${h.credits}`);
   assert.equal(h.buildSpeed, 1.25);
 });
+
+test('the AI builds an army and sends its first wave after the attack timer', () => {
+  const { world, house, rival } = setupSkirmish({ seed: 11, difficulty: 'hard' });
+  const waves = [];
+  for (let t = 0; t < 9 * 60 * 20 && !waves.length; t++) {
+    world.step();
+    for (const e of world.events.drain()) if (e.type === 'aiAttack' && e.house === rival) waves.push({ ...e, at: world.time });
+  }
+  assert.equal(waves.length, 1, 'a wave went out');
+  assert.ok(waves[0].at >= 210 - 1, `not before the timer (${waves[0].at})`);
+  assert.ok(waves[0].size >= 5);
+  run(world, 180);
+  assert.ok(world.houses.get(rival).stats.unitsKilled + world.houses.get(rival).stats.structuresKilled > 0, 'the wave hurt the player');
+  assert.ok(world.houses.get(house).stats.unitsLost + world.houses.get(house).stats.structuresLost > 0);
+});
+
+test('the AI defends its base against intruders', () => {
+  const world = flatWorld(40, 24, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const guards = [world.spawnUnit('combatTank', 'harkonnen', 3, 12), world.spawnUnit('combatTank', 'harkonnen', 5, 12)];
+  createBrain(world, 'harkonnen', 'normal');
+  world.houses.get('harkonnen').credits = 0;
+  const raider = world.spawnUnit('quad', 'atreides', 12, 4);
+  run(world, 2);
+  assert.ok(guards.every((u) => u.order.type === 'attack' && u.order.target.id === raider.id), guards.map((u) => u.order.type).join());
+});

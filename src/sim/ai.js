@@ -5,7 +5,8 @@
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild } from './tech.js';
+import { canBuild, buildOptions } from './tech.js';
+import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 
@@ -57,6 +58,11 @@ function think(world, house) {
   if (!view.yard) deployMcv(world, house, view);
   else buildBase(world, house, view);
   keepHarvesters(world, house, view);
+  if (!view.home) return;
+  buildArmy(world, house, view);
+  rally(world, house, view);
+  defend(world, house, view);
+  attack(world, house, view);
 }
 
 function deployMcv(world, house, view) {
@@ -145,4 +151,74 @@ function keepHarvesters(world, house, view) {
   const queued = (heavy.current?.typeId === 'harvester' ? 1 : 0) + heavy.queue.filter((t) => t === 'harvester').length;
   const have = view.units.filter((u) => u.typeId === 'harvester').length;
   if (have + queued < Math.min(6, 2 * refineries) && house.credits >= 300 && canBuild(world, house.id, 'harvester')) issue(world, house, { type: 'build', typeId: 'harvester' });
+}
+
+const ARMY_WEIGHTS = { combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
+const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory'];
+
+function weightedPick(rng, pool) {
+  let r = rng.next() * pool.reduce((n, t) => n + ARMY_WEIGHTS[t], 0);
+  for (const t of pool) if ((r -= ARMY_WEIGHTS[t]) < 0) return t;
+  return pool[pool.length - 1];
+}
+
+function buildArmy(world, house, view) {
+  const d = DIFFICULTY[house.brain.difficulty];
+  if (view.units.filter((u) => isArmed(u.type)).length >= d.armyCap) return;
+  const options = buildOptions(world, house.id);
+  for (const line of ['heavy', 'light', 'infantry']) {
+    const l = house.lines[line];
+    if (l.current || l.queue.length || house.credits < d.reserve) continue;
+    const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
+    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, pool) });
+  }
+}
+
+function rally(world, house, view) {
+  const b = house.brain;
+  const spot = towardsEnemy(world, house, view, 5);
+  for (const s of view.mine) {
+    if (!FACTORIES.includes(s.typeId) || b.rallied.includes(s.id)) continue;
+    b.rallied.push(s.id);
+    issue(world, house, { type: 'setRally', structureId: s.id, x: spot.x, y: spot.y });
+  }
+}
+
+function defend(world, house, view) {
+  const b = house.brain;
+  let intruder = null, best = 10;
+  for (const u of world.units.values()) {
+    if (u.house === house.id || !u.isGround) continue;
+    for (const s of view.mine) {
+      const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
+      if (d < best) { best = d; intruder = u; }
+    }
+  }
+  if (!intruder) return;
+  const ids = view.units
+    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
+    .map((u) => u.id);
+  if (ids.length) issue(world, house, { type: 'attack', ids, targetKind: 'unit', targetId: intruder.id });
+}
+
+function attack(world, house, view) {
+  const b = house.brain, d = DIFFICULTY[b.difficulty];
+  b.wave = b.wave.filter((id) => world.units.has(id));
+  const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle');
+  if (idle.length) {   // wave members that reached their target hunt the next one
+    const t = nearestEnemyTarget(world, house.id, idle[0].x, idle[0].y);
+    if (t) issue(world, house, { type: 'attackMove', ids: idle.map((u) => u.id), x: t.x, y: t.y });
+  }
+  if (world.time < b.nextAttack) return;
+  const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
+  const ready = view.units.filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));
+  if (ready.length < size) { b.nextAttack = world.time + 15; return; }
+  const target = nearestEnemyTarget(world, house.id, view.home.x, view.home.y);
+  if (!target) return;
+  const group = ready.slice(0, size).map((u) => u.id);
+  issue(world, house, { type: 'attackMove', ids: group, x: target.x, y: target.y });
+  b.wave.push(...group);
+  b.waves++;
+  b.nextAttack = world.time + d.waveEvery;
+  world.events.push('aiAttack', { house: house.id, size: group.length, x: target.x, y: target.y });
 }

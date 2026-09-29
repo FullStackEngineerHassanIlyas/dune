@@ -30,4 +30,5 @@ export const SCENARIOS = {
   'battle-start': { query: 'scene=battle&dist=26', settleMs: 1500 },
   'battle-fight': { query: 'scene=battle&dist=22&ticks=300', settleMs: 1500 },
   'battle-aftermath': { query: 'scene=battle&dist=26&ticks=900', settleMs: 2500 },
+  'skirmish-ai-base': { query: 'scene=skirmish&seed=11&house=atreides&fog=0&ticks=6000&dist=34&focus=rival', settleMs: 1500 },
 };

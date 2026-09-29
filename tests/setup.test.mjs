@@ -40,3 +40,11 @@ test('skirmish fog of war is on by default and can be switched off', () => {
   assert.equal(setupSkirmish({ seed: 2 }).world.fogOfWar, true);
   assert.equal(setupSkirmish({ seed: 2, fog: false }).world.fogOfWar, false);
 });
+
+test('skirmish difficulty goes to the rival\'s brain; aiPlayer makes both sides computer players', () => {
+  const { world, house, rival } = setupSkirmish({ seed: 3, difficulty: 'easy' });
+  assert.equal(world.houses.get(rival).brain.difficulty, 'easy');
+  assert.equal(world.houses.get(house).brain, undefined);
+  const both = setupSkirmish({ seed: 3, aiPlayer: true });
+  assert.ok(both.world.houses.get(both.house).brain && both.world.houses.get(both.rival).brain);
+});

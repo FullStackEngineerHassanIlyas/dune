@@ -4,6 +4,7 @@ import { generateMap } from '../sim/mapgen.js';
 import { World } from '../sim/world.js';
 import { LIGHT_VEHICLE, INFANTRY, PLAYABLE_HOUSES } from '../data/houses.js';
 import { UNITS } from '../data/units.js';
+import { createBrain } from '../sim/ai.js';
 import { findFreeTile } from '../sim/spawn.js';
 
 export { findFreeTile };
@@ -18,7 +19,7 @@ export function spawnStartingForces(world, house, start) {
   return units;
 }
 
-export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true } = {}) {
+export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true, difficulty = 'normal', aiPlayer = false } = {}) {
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 2 });
   const world = new World({ map, seed });
   world.fogOfWar = fog;
@@ -28,5 +29,7 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   world.addHouse(rival, { credits, ai: true });
   spawnStartingForces(world, house, starts[0]);
   spawnStartingForces(world, rival, starts[1]);
+  createBrain(world, rival, difficulty);
+  if (aiPlayer) createBrain(world, house, difficulty);
   return { world, starts, house, rival };
 }

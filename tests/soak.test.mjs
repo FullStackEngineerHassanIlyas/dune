@@ -7,7 +7,8 @@ const MINUTES = 10, STUCK_LIMIT = 60;   // seconds a harvester may spend driving
 
 test('harvest soak: on generated maps every harvester keeps delivering for ten game minutes', () => {
   for (const seed of [1, 5, 8, 11]) {
-    const { world, house } = setupSkirmish({ seed, size: 64, house: 'atreides', credits: 0, fog: false });
+    const { world, house, rival } = setupSkirmish({ seed, size: 64, house: 'atreides', credits: 0, fog: false });
+    world.houses.get(rival).brain = undefined;   // logistics only: the computer opponent stays home
     const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');
     world.issue(house, { type: 'deploy', ids: [mcv.id] });
     world.step();
