@@ -15,13 +15,13 @@ import { readParams } from '../core/params.js';
 
 const LAYOUT = [
   ['constructionYard', 1, 1], ['windtrap', 4, 1], ['refinery', 7, 1], ['silo', 11, 1], ['outpost', 14, 1], ['repair', 17, 1],
-  ['barracks', 1, 5], ['wor', 4, 5], ['lightFactory', 7, 5], ['heavyFactory', 10, 5], ['turret', 14, 5], ['rocketTurret', 16, 5],
+  ['barracks', 1, 5], ['wor', 4, 5], ['lightFactory', 7, 5], ['heavyFactory', 10, 5], ['turret', 14, 5], ['rocketTurret', 16, 5], ['hiTech', 18, 5],
 ];
 
 export async function start({ search }) {
   const params = readParams(search);
   const house = HOUSES[params.str('house', 'atreides')] ?? HOUSES.atreides;
-  const map = new GameMap(21, 9);
+  const map = new GameMap(22, 9);
   map.ground.fill(G.ROCK);
   map.concrete.fill(1);
   map.concreteRevision++;
@@ -42,9 +42,9 @@ export async function start({ search }) {
     handles.push(h);
   }
   const rig = new CameraRig(r3d.camera, map.w, map.h);
-  rig.goalDistance = rig.distance = params.num('dist', 15.5);
+  rig.goalDistance = rig.distance = params.num('dist', 17);
   rig.goalPitch = rig.pitch = THREE.MathUtils.degToRad(params.num('pitch', 42));
-  rig.lookAt(params.num('x', 10.5), params.num('z', 5), true);
+  rig.lookAt(params.num('x', 11), params.num('z', 5), true);
   rig.update(1, (x, z) => hf.heightAt(x, z));
   r3d.follow(rig.target.x, rig.target.z, 16);
   const frame = (now) => {

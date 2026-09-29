@@ -44,10 +44,10 @@ test('model sizes stay inside their footprint', () => {
   }
 });
 
-import { STRUCTURE_MODEL } from '../src/render/models/index.js';
+import { STRUCTURE_MODEL, UNIT_MODEL } from '../src/render/models/index.js';
 
 test('every plan-1b structure has a real model with its animated nodes', () => {
-  for (const id of ['concrete', 'concrete4', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'turret', 'rocketTurret', 'wall']) {
+  for (const id of ['concrete', 'concrete4', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'turret', 'rocketTurret', 'wall']) {
     assert.ok(STRUCTURE_MODEL[id], `${id} is mapped`);
     assert.ok(!STRUCTURE_MODEL[id].startsWith('placeholder'));
   }
@@ -69,4 +69,12 @@ test('structure models stay inside their footprint', () => {
       assert.ok(b.max.x - b.min.x <= s.w + 0.01 && b.max.z - b.min.z <= s.h + 0.01, `${id} fits ${s.w}x${s.h}`);
     }
   }
+});
+
+test('aircraft have real models with wings that flap and claws that grip', () => {
+  assert.equal(UNIT_MODEL.carryall, 'carryall');
+  assert.equal(UNIT_MODEL.ornithopter, 'ornithopter');
+  const orni = modelDef('ornithopter').nodes, carry = modelDef('carryall').nodes;
+  assert.ok(orni.wingL && orni.wingR && orni.wingL.param === 'flap' && orni.wingR.param === 'flapR');
+  assert.ok(carry.clawF && carry.clawB && carry.clawF.param === 'claws' && carry.clawB.param === 'clawsB');
 });
