@@ -6,7 +6,7 @@
 // house's level when done.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { DT, buildSeconds, UPGRADE_BUILD_TIME } from '../data/tuning.js';
+import { DT, buildSeconds, UPGRADE_BUILD_TIME, AIR } from '../data/tuning.js';
 import { LINE_FACTORIES, lineOfItem, canBuild, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost } from './tech.js';
 import { placeStructure } from './placement.js';
 import { spend, addCredits } from './economy.js';
@@ -118,11 +118,13 @@ export function spawnFromFactory(world, house, typeId) {
   const factories = [...world.structures.values()].filter((s) => s.house === house.id && s.typeId === t.builtAt);
   const f = factories.find((s) => s.primary) ?? factories[0];
   if (!f) return null;
-  const spot = exitTile(world, f, t.move);
+  const air = t.move === 'air';
+  const spot = air ? { x: f.x + Math.floor(f.w / 2), y: f.y + Math.floor(f.h / 2) } : exitTile(world, f, t.move);   // aircraft lift off the factory itself
   if (!spot) return null;
-  const u = world.spawnUnit(typeId, house.id, spot.x, spot.y, { heading: Math.PI / 2 });
+  const u = world.spawnUnit(typeId, house.id, spot.x, spot.y, air ? { heading: Math.PI / 2, alt: AIR.low } : { heading: Math.PI / 2 });
+  if (air) u.home = f.id;
   world.events.push('unitBuilt', { id: u.id, house: house.id, structureId: f.id, unitType: typeId });
-  if (f.rally && typeId !== 'harvester') orderMove(world, [u], f.rally.x, f.rally.y);
+  if (f.rally && typeId !== 'harvester' && !t.autonomous) orderMove(world, [u], f.rally.x, f.rally.y);
   return u;
 }
 

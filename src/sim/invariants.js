@@ -11,8 +11,8 @@ export function checkInvariants(world) {
     if (!u.isGround) continue;
     const n = held.get(u.id) ?? 0;
     if (u.inside) {
-      const s = world.structures.get(u.inside);
-      if (!s || s.occupant !== u.id) problems.push(`unit ${u.id} is inside a structure that does not hold it`);
+      const holder = world.structures.get(u.inside) ?? world.units.get(u.inside);   // a repair bay or a Carryall
+      if (!holder || (holder.occupant !== u.id && holder.cargo !== u.id)) problems.push(`unit ${u.id} is inside something that does not hold it`);
       if (n > 1) problems.push(`unit ${u.id} in a bay holds ${n} tiles`);
       continue;
     }

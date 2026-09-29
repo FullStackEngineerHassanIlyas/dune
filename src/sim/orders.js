@@ -9,7 +9,7 @@ import { orderRepairAt } from './repair-bay.js';
 import { orderCapture } from './capture.js';
 
 export function applyCommand(world, houseId, cmd) {
-  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside);   // a vehicle in a repair bay takes no orders
+  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous);   // nor do units held in a bay or a Carryall, nor Carryalls
   switch (cmd?.type) {
     case 'move': orderMove(world, units, cmd.x, cmd.y); return;
     case 'stop': units.forEach(stopUnit); return;
@@ -37,21 +37,25 @@ export function stopUnit(u) {
   u.path = []; u.pathIndex = 0; u.pathState = 'none'; u.goal = -1;
   u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
   u.order = { type: 'idle' };
+  u.loiter = null;
 }
 
 export function orderMove(world, units, x, y) {
   const map = world.map;
-  const ground = units.filter((u) => u.isGround);
-  if (!ground.length || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  if (!units.length || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const tx = Math.max(0, Math.min(map.w - 1, Math.floor(x)));
   const ty = Math.max(0, Math.min(map.h - 1, Math.floor(y)));
-  const slots = findDestinations(world, map.idx(tx, ty), ground);
-  for (const u of ground) {
-    u.order = { type: 'move', x: tx, y: ty };
-    u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
-    world.requestPath(u, slots.get(u.id));
+  const ground = units.filter((u) => u.isGround), air = units.filter((u) => !u.isGround);
+  if (ground.length) {
+    const slots = findDestinations(world, map.idx(tx, ty), ground);
+    for (const u of ground) {
+      u.order = { type: 'move', x: tx, y: ty };
+      u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
+      world.requestPath(u, slots.get(u.id));
+    }
   }
-  world.events.push('moveOrdered', { ids: ground.map((u) => u.id), x: tx, y: ty });
+  for (const u of air) { u.order = { type: 'move', x: tx, y: ty }; u.target = null; }   // aircraft fly straight there
+  world.events.push('moveOrdered', { ids: units.map((u) => u.id), x: tx, y: ty });
 }
 
 function scatter(world, units) {

@@ -2,7 +2,7 @@
 import { Rng } from '../core/rng.js';
 import { EventQueue } from '../core/events.js';
 import { STRUCTURES } from '../data/structures.js';
-import { DT } from '../data/tuning.js';
+import { DT, AIR } from '../data/tuning.js';
 import { PathFinder } from './pathfind.js';
 import { Reachability } from './reach.js';
 import { House } from './house.js';
@@ -23,6 +23,7 @@ import { updateAI } from './ai.js';
 import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.js';
 import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
+import { updateAircraft } from './air.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -30,7 +31,7 @@ export class World {
     this.rng = new Rng(seed);
     this.tick = 0;
     this.fogOfWar = true;    // skirmish option; false reveals everything
-    this.rules = { victory: false };   // skirmish and campaign switch victory checks on
+    this.rules = { victory: false, airDelivery: false };   // skirmish and campaign switch victory checks and Carryall deliveries on
     this.outcome = null;
     this.time = 0;
     this.houses = new Map();
@@ -67,11 +68,13 @@ export class World {
   spawnUnit(typeId, houseId, x, y, opts = {}) {
     if (!this.map.inBounds(x, y)) throw new Error(`spawn outside the map at ${x},${y}`);
     const unit = createUnit(this.nextId++, typeId, houseId, x, y, opts);
-    if (unit.isGround) {
+    if (opts.inside) unit.inside = opts.inside;   // born in a Carryall's claws (a delivery)
+    else if (unit.isGround) {
       const i = this.map.idx(x, y);
       if (this.map.unit[i] || this.map.structure[i]) throw new Error(`tile ${x},${y} is taken`);
       this.map.unit[i] = unit.id;
     }
+    if (!unit.isGround) unit.alt = opts.alt ?? AIR.cruise;
     if (unit.typeId === 'harvester') initHarvester(unit);
     this.units.set(unit.id, unit);
     this.events.push('unitSpawned', { id: unit.id, house: houseId, unitType: typeId });
@@ -123,6 +126,7 @@ export class World {
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
     for (const u of [...this.units.values()]) {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
+      if (!u.isGround) { updateAircraft(this, u); continue; }
       if (u.harvest) updateHarvester(this, u);
       if (u.order.type === 'repairAt') updateRepairOrder(this, u);
       if (u.order.type === 'capture') { updateCapture(this, u); if (!this.units.has(u.id)) continue; }   // a squad that walked in is gone
