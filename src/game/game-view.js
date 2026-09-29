@@ -337,7 +337,7 @@ export class GameView {
     }
     this.handleEvents();
     if (world.fogOfWar && this.shroud.update(world.houses.get(this.house)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
-    this.selection.prune((id) => { const u = world.units.get(id); return !!u && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
+    this.selection.prune((id) => { const u = world.units.get(id); return !!u && !u.inside && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
     this.rig.update(dt, this.heightAt);

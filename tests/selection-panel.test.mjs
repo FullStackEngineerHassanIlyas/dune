@@ -86,3 +86,26 @@ test('an enemy structure shows only its name and hit points', () => {
   const m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual([m.own, m.name, m.details, m.buttons], [false, 'Spice Refinery', [], []]);
 });
+
+import { runUntil } from './helpers.mjs';
+
+test('a repair facility tells which vehicle it is fixing and how far along it is', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 1000;
+  h.startBuffer = 5000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  const bay = world.spawnStructure('repair', 'atreides', 8, 8);
+  const sel = new Selection();
+  sel.setStructure(bay.id);
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Repair bay free'));
+  const t = world.spawnUnit('combatTank', 'atreides', 9, 12);
+  t.hp = 100;
+  world.issue('atreides', { type: 'repairAt', ids: [t.id], structureId: bay.id });
+  world.step();
+  const unitSel = new Selection();
+  unitSel.set([t.id]);
+  assert.ok(selectionPanelModel(world, unitSel, 'atreides').details.includes('Going for repairs'));
+  assert.ok(runUntil(world, () => bay.bay?.state === 'repairing', 20) > 0);
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.some((d) => /^Repairing Combat Tank \d+ %$/.test(d)));
+});

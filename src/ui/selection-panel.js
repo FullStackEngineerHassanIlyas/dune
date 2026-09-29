@@ -7,7 +7,7 @@ import { HARVEST_CAPACITY } from '../sim/harvest.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
 const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', unloading: 'Unloading' };
-const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idle' };
+const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idle', repairAt: 'Going for repairs', capture: 'Moving in to capture' };
 
 function structureModel(world, s, houseId) {
   const own = s.house === houseId, t = s.type, details = [];
@@ -21,6 +21,10 @@ function structureModel(world, s, houseId) {
     if (s.rally) details.push('Rally point set');
   }
   if (s.typeId === 'refinery') details.push(s.dockedBy ? 'Harvester unloading' : 'Landing pad free');
+  if (s.typeId === 'repair') {
+    const u = world.units.get(s.occupant);
+    details.push(!u ? 'Repair bay free' : s.bay?.stalled ? 'Bay paused: no credits' : `Repairing ${u.type.name} ${Math.floor((u.hp / u.maxHp) * 100)} %`);
+  }
   if (s.repairing) details.push(s.repairStalled ? 'Repair paused: no credits' : 'Repairing');
   const buttons = own ? [
     { id: 'repair', label: s.repairing ? 'Stop repair' : 'Repair', active: !!s.repairing, disabled: !s.repairing && s.hp >= s.maxHp },

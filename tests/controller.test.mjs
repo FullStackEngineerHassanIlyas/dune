@@ -338,3 +338,32 @@ test('A then a click attack-moves the selection; Escape cancels', () => {
   assert.equal(c.mode, null);
   assert.equal(issued.length, 1);
 });
+
+test('damaged vehicles clicked onto an own repair facility drive in; healthy ones just select it', () => {
+  const { world, tank, c, issued, cursors } = setup();
+  const bay = world.spawnStructure('repair', 'atreides', 2, 12);
+  c.selection.set([tank.id]);
+  c.onMove(px(3), px(12));
+  c.frame();
+  assert.equal(cursors.at(-1), 'select', 'nothing to repair');
+  c.onClick(px(3), px(12), 0, NONE, false);
+  assert.equal(c.selection.structureId, bay.id);
+  tank.hp = 50;
+  c.selection.set([tank.id]);
+  c.frame();
+  assert.equal(cursors.at(-1), 'enter');
+  c.onClick(px(3), px(12), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'repairAt', ids: [tank.id], structureId: bay.id });
+});
+
+test('modern: right click on an own repair facility sends damaged vehicles in; a vehicle in the bay cannot be clicked', () => {
+  const { world, tank, tank2, c, issued } = setup('modern');
+  const bay = world.spawnStructure('repair', 'atreides', 2, 12);
+  tank.hp = 50;
+  c.selection.set([tank.id]);
+  c.onClick(px(3), px(12), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'repairAt', ids: [tank.id], structureId: bay.id });
+  tank2.inside = bay.id;
+  c.onClick(px(7), px(5), 0, NONE, false);
+  assert.ok(!c.selection.has(tank2.id));
+});

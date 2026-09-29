@@ -7,6 +7,7 @@ import { STRUCTURES } from '../data/structures.js';
 import { checkPlacement } from '../sim/placement.js';
 import { LINE_FACTORIES } from '../sim/tech.js';
 import { isArmed } from '../sim/combat.js';
+import { needsRepair } from '../sim/repair-bay.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
@@ -27,7 +28,7 @@ export class Controller {
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
-      if (!this.canSee(u)) continue;
+      if (u.inside || !this.canSee(u)) continue;   // vehicles in a repair bay cannot be picked
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.isGround ? 0.12 : 1.5);
       if (!s.visible) continue;
@@ -133,11 +134,21 @@ export class Controller {
   clickStructure(s, classic, double) {
     const units = this.ownSelected();
     if (classic && units.length) {
-      if (s.house === this.house && s.typeId === 'refinery' && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return; }
+      if (this.structureOrder(s, units)) return;
       if (s.house !== this.house) { this.order({ kind: 'structure', structure: s, tx: s.x, ty: s.y }); return; }
     }
     if (double && s.house === this.house && UNIT_FACTORIES.has(s.typeId)) this.issue({ type: 'setPrimary', structureId: s.id });
     this.selection.setStructure(s.id);
+  }
+
+  /** What a click on an own building tells the selection: harvesters unload at a refinery, damaged vehicles drive into a repair bay. */
+  structureOrder(s, units) {
+    if (s.house !== this.house) return false;
+    if (s.typeId === 'refinery' && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return true; }
+    const fix = s.typeId === 'repair' ? units.filter(needsRepair) : [];
+    if (!fix.length) return false;
+    this.issue({ type: 'repairAt', ids: fix.map((u) => u.id), structureId: s.id });
+    return true;
   }
 
   /** The selected own unit factory, whose rally point a ground click sets. */
@@ -172,7 +183,7 @@ export class Controller {
       return;
     }
     const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
-    if (hit.kind === 'structure') return;   // structure clicks are handled by selection (Task 15) and combat (plan 1c)
+    if (hit.kind === 'structure') { this.structureOrder(hit.structure, units); return; }   // own buildings: unload, repair
     const map = this.world.map, i = map.idx(tx, ty);
     if (!units.some((u) => map.moveFactor(i, u.move) > 0)) return;   // nobody selected can go there
     if (units.every((u) => u.harvest) && map.spice[i] > 0) {
@@ -275,6 +286,7 @@ export class Controller {
     if (hit.kind === 'structure') {
       const s = hit.structure;
       if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
+      if (own.length && s?.house === this.house && s.typeId === 'repair' && own.some(needsRepair)) return 'enter';
       if (own.length && s?.house !== this.house) return own.some((u) => isArmed(u.type)) ? 'attack' : 'noMove';
       return 'select';
     }
