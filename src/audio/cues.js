@@ -17,6 +17,9 @@ export function cueFor(e, me, seen) {
     case 'repairToggled': return mine && e.on ? { id: 'ratchet' } : null;
     case 'productionReady': return mine ? { id: 'ready' } : null;
     case 'eva': return mine ? { id: ERRORS.has(e.key) ? 'error' : 'beep' } : null;
+    case 'bayEntered': return mine ? at('ratchet', e.x, e.y) : null;
+    case 'unitRepaired': return mine ? at('clunk', e.x, e.y) : null;
+    case 'structureCaptured': return e.to === me ? at('clunk', e.x + e.w / 2, e.y + e.h / 2) : null;
     default: return null;
   }
 }

@@ -8,6 +8,7 @@ import { checkPlacement } from '../sim/placement.js';
 import { LINE_FACTORIES } from '../sim/tech.js';
 import { isArmed } from '../sim/combat.js';
 import { needsRepair } from '../sim/repair-bay.js';
+import { canCapture, capturable } from '../sim/capture.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
@@ -176,6 +177,15 @@ export class Controller {
     const armed = units.filter((u) => isArmed(u.type));
     const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
     const enemy = !!entity && entity.house !== this.house;
+    if (hit.kind === 'structure' && !mods.ctrl && capturable(entity, this.house)) {   // infantry walk in, the rest open fire
+      const takers = units.filter(canCapture);
+      if (takers.length) {
+        this.issue({ type: 'capture', ids: takers.map((u) => u.id), structureId: entity.id });
+        const rest = armed.filter((u) => !canCapture(u));
+        if (rest.length) this.issue({ type: 'attack', ids: rest.map((u) => u.id), targetKind: 'structure', targetId: entity.id, force: false });
+        return;
+      }
+    }
     if (armed.length && (enemy || mods.ctrl)) {
       const ids = armed.map((u) => u.id);
       if (entity) this.issue({ type: 'attack', ids, targetKind: entity.kind, targetId: entity.id, force: !enemy });
@@ -287,7 +297,7 @@ export class Controller {
       const s = hit.structure;
       if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
       if (own.length && s?.house === this.house && s.typeId === 'repair' && own.some(needsRepair)) return 'enter';
-      if (own.length && s?.house !== this.house) return own.some((u) => isArmed(u.type)) ? 'attack' : 'noMove';
+      if (own.length && s?.house !== this.house) return capturable(s, this.house) && own.some(canCapture) ? 'capture' : own.some((u) => isArmed(u.type)) ? 'attack' : 'noMove';
       return 'select';
     }
     if (!own.length) return this.rallyTarget() ? 'move' : 'default';

@@ -32,3 +32,11 @@ test('the player hears their own interface, not the enemy\'s', () => {
   assert.equal(cueFor({ type: 'repairToggled', house: 'atreides', on: false }, 'atreides', all), null);
   assert.equal(cueFor({ type: 'moveOrdered' }, 'atreides', all), null);
 });
+
+test('the repair bay clanks as vehicles roll in and out; a capture thuds for the captor', () => {
+  assert.equal(cueFor({ type: 'bayEntered', house: 'atreides', x: 5, y: 5 }, 'atreides', all).id, 'ratchet');
+  assert.equal(cueFor({ type: 'unitRepaired', house: 'atreides', x: 5, y: 5 }, 'atreides', all).id, 'clunk');
+  assert.equal(cueFor({ type: 'bayEntered', house: 'harkonnen', x: 5, y: 5 }, 'atreides', all), null);
+  assert.equal(cueFor({ type: 'structureCaptured', from: 'harkonnen', to: 'atreides', x: 4, y: 4, w: 2, h: 2 }, 'atreides', all).id, 'clunk');
+  assert.equal(cueFor({ type: 'structureCaptured', from: 'atreides', to: 'harkonnen', x: 4, y: 4, w: 2, h: 2 }, 'atreides', all), null);
+});

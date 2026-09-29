@@ -367,3 +367,26 @@ test('modern: right click on an own repair facility sends damaged vehicles in; a
   c.onClick(px(7), px(5), 0, NONE, false);
   assert.ok(!c.selection.has(tank2.id));
 });
+
+test('infantry clicked onto a badly damaged enemy building capture it while the rest attack', () => {
+  const { world, tank, c, issued, cursors } = setup();
+  const squad = world.spawnUnit('infantry', 'atreides', 3, 3);
+  const silo = world.spawnStructure('silo', 'harkonnen', 12, 12);
+  const outpost = world.spawnStructure('outpost', 'harkonnen', 8, 14);
+  outpost.hp = 10;
+  c.selection.set([squad.id, tank.id]);
+  c.onMove(px(12), px(12));
+  c.frame();
+  assert.equal(cursors.at(-1), 'attack', 'not weak enough yet');
+  silo.hp = 20;
+  c.frame();
+  assert.equal(cursors.at(-1), 'capture');
+  c.onClick(px(12), px(12), 0, NONE, false);
+  assert.deepEqual(issued.slice(-2), [
+    { type: 'capture', ids: [squad.id], structureId: silo.id },
+    { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: silo.id, force: false },
+  ]);
+  c.onMove(px(8), px(14));
+  c.frame();
+  assert.equal(cursors.at(-1), 'attack', 'Outposts cannot be captured');
+});
