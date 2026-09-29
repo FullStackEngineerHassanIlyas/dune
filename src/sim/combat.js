@@ -1,12 +1,13 @@
 // Combat (spec §4.6): targets, aiming, firing, projectiles, damage and death. Flat damage, no armour;
 // accurate weapons always hit their target, rockets scatter (1 in 16 wildly); units that fire twice do
-// so only above half health. Turreted units aim independently and fire on the move; the others turn
-// the hull and fire only while standing. Stances: idle units engage what comes into range, guards
-// chase no further than their leash, attack-move engages on the way, an attack order chases its
-// target and gives up when it gets no closer. The player's side engages only what its fog shows; the
-// AI sees everything, as in the original.
+// so only above half health. The Sonic Tank's wave runs its full range and hurts everything on its path
+// once — friend or foe, but never Sonic Tanks or walls. Turreted units aim independently and fire on the
+// move; the others turn the hull and fire only while standing. Stances: idle units engage what comes
+// into range, guards chase no further than their leash, attack-move engages on the way, an attack
+// order chases its target and gives up when it gets no closer. The player's side engages only what its
+// fog shows; the AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR, SONIC } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
@@ -75,6 +76,7 @@ export function stopMoving(u) {
 export function fireAt(world, from, t, p, dist, stats) {
   const shot = shotFor(stats.weapon, dist);
   if (!shot) return;
+  if (shot.wave) { fireWave(world, from, p, stats, shot); return; }
   const air = t.kind === 'unit' && !!p.entity && !p.entity.isGround;
   let ax = p.x, ay = p.y;
   if (!shot.accurate && !air) {
@@ -96,6 +98,39 @@ export function fireAt(world, from, t, p, dist, stats) {
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx: ax, ty: ay });
 }
 
+/** The Sonic Tank's wave (spec §4.6): a ripple straight out to the weapon's range from the gun. */
+function fireWave(world, from, p, stats, shot) {
+  const map = world.map, a = Math.atan2(p.y - from.y, p.x - from.x);
+  const tx = Math.max(0, Math.min(map.w - 0.001, from.x + Math.cos(a) * stats.range));
+  const ty = Math.max(0, Math.min(map.h - 0.001, from.y + Math.sin(a) * stats.range));
+  const id = world.nextProjectileId++;
+  world.projectiles.set(id, {
+    id, weapon: stats.weapon, projectile: shot.projectile, house: from.house, sourceId: from.id, sourceKind: from.kind,
+    x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx, ty,
+    speed: projectileSpeed(shot.speed), damage: stats.damage, accurate: true, homing: false, target: null, airburst: false, fromAlt: 0, toAlt: 0,
+    wave: { hit: [] },
+  });
+  world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx, ty });
+}
+
+/** What the wave passed over since the last tick takes its hit, once per wave and weaker the further it has
+ *  run. Units and buildings on those tiles, own ones too; never Sonic Tanks, walls or anything held inside. */
+function sweep(world, p) {
+  const map = world.map, n = Math.max(1, Math.ceil(Math.hypot(p.x - p.px, p.y - p.py) / 0.25));
+  const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1, by = { house: p.house, id: p.sourceId, kind: p.sourceKind };
+  for (let k = 0; k <= n; k++) {
+    const x = p.px + ((p.x - p.px) * k) / n, y = p.py + ((p.y - p.py) * k) / n, tx = Math.floor(x), ty = Math.floor(y);
+    if (!map.inBounds(tx, ty)) continue;
+    const i = map.idx(tx, ty);
+    const amount = Math.round(p.damage * (1 - (SONIC.fade * Math.hypot(x - p.sx, y - p.sy)) / total));
+    for (const v of [world.units.get(map.unit[i]), world.structures.get(map.structure[i])]) {
+      if (!v || v.hp <= 0 || v.inside || v.typeId === 'sonicTank' || v.type.isWall || p.wave.hit.includes(v.id)) continue;
+      p.wave.hit.push(v.id);
+      damage(world, v, amount, by);
+    }
+  }
+}
+
 export function updateProjectiles(world) {
   for (const p of [...world.projectiles.values()]) {
     p.px = p.x;
@@ -106,11 +141,12 @@ export function updateProjectiles(world) {
       p.x = p.tx;
       p.y = p.ty;
       world.projectiles.delete(p.id);
-      impact(world, p);
+      if (p.wave) sweep(world, p); else impact(world, p);
       continue;
     }
     p.x += (dx / d) * step;
     p.y += (dy / d) * step;
+    if (p.wave) sweep(world, p);
   }
 }
 

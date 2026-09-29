@@ -69,3 +69,5 @@ export const STARPORT = {
   delivery: 30,         // seconds from the first order of a batch to the Frigate landing
   load: 9,              // a Frigate carries at most nine units
 };
+
+export const SONIC = { fade: 0.5 };             // the Sonic Tank's wave has lost half its strength by the end of its 8 tiles
