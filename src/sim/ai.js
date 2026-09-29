@@ -9,6 +9,7 @@ import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCos
 import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
+import { needsRepair } from './repair-bay.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -17,9 +18,9 @@ export const DIFFICULTY = {
 };
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'windtrap'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'windtrap'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'windtrap'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -65,6 +66,7 @@ function think(world, house) {
   const rebuilding = !view.yard && !view.units.some((u) => u.type.deploysTo);
   if (!rebuilding) { buyUpgrades(world, house, view); buildArmy(world, house, view); }   // the new MCV comes first
   rally(world, house, view);
+  sendForRepairs(world, house, view);
   defend(world, house, view);
   attack(world, house, view);
 }
@@ -221,9 +223,28 @@ function defend(world, house, view) {
   }
   if (!intruder) return;
   const ids = view.units
-    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
+    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
     .map((u) => u.id);
   if (ids.length) issue(world, house, { type: 'attack', ids, targetKind: 'unit', targetId: intruder.id });
+}
+
+const REPAIR_BELOW = 0.5, RETREAT_BELOW = 0.3;
+
+/** Worn vehicles go to the Repair Facility: resting ones below half health, any below 30 % (they leave their wave). */
+function sendForRepairs(world, house, view) {
+  const bay = view.mine.find((s) => s.typeId === 'repair');
+  if (!bay) return;
+  const b = house.brain;
+  const ids = [];
+  for (const u of view.units) {
+    if (!needsRepair(u) || u.order.type === 'repairAt' || u.type.deploysTo) continue;
+    const worn = u.hp / u.maxHp;
+    const resting = u.order.type === 'idle' || u.order.type === 'guard' || u.order.type === 'harvest';
+    if (worn < RETREAT_BELOW || (resting && worn < REPAIR_BELOW)) ids.push(u.id);
+  }
+  if (!ids.length) return;
+  b.wave = b.wave.filter((id) => !ids.includes(id));
+  issue(world, house, { type: 'repairAt', ids, structureId: bay.id });
 }
 
 function attack(world, house, view) {

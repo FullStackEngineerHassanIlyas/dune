@@ -172,3 +172,18 @@ test('an AI buys factory upgrades and fields the units they open', () => {
   assert.ok(runUntil(world, () => upgradeLevel(h, 'lightFactory') >= 1, 120) >= 0, 'the light factory too');
   assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && (u.typeId === 'siegeTank' || u.typeId === 'missileTank')), 300) > 0, 'a missile or siege tank rolled out');
 });
+
+test('the AI builds a repair facility and sends worn vehicles to it', () => {
+  const world = flatWorld(48, 40, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const h = world.houses.get('harkonnen');
+  h.credits = 5000;
+  h.startBuffer = 10000;
+  createBrain(world, 'harkonnen', 'normal');
+  const bay = () => [...world.structures.values()].find((s) => s.house === 'harkonnen' && s.typeId === 'repair');
+  assert.ok(runUntil(world, () => !!bay(), 150) > 0, 'a repair facility went up');
+  const tank = world.spawnUnit('combatTank', 'harkonnen', 30, 30);
+  tank.hp = 60;
+  assert.ok(runUntil(world, () => tank.order.type === 'repairAt' || !!tank.inside, 3) >= 0, 'sent for repairs');
+  assert.ok(runUntil(world, () => tank.hp === tank.maxHp, 120) > 0, 'repaired');
+});
