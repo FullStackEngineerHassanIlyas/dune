@@ -101,3 +101,19 @@ test('the AI defends its base against intruders', () => {
   run(world, 2);
   assert.ok(guards.every((u) => u.order.type === 'attack' && u.order.target.id === raider.id), guards.map((u) => u.order.type).join());
 });
+
+test('an AI wave breaks through a wall ring to reach the buildings inside', () => {
+  const world = flatWorld(48, 24, G.ROCK);
+  world.spawnStructure('constructionYard', 'harkonnen', 2, 2);
+  const yard = world.spawnStructure('constructionYard', 'atreides', 36, 11);
+  for (let y = 6; y <= 18; y++) for (let x = 31; x <= 43; x++) {
+    if (Math.max(Math.abs(x - 37), Math.abs(y - 12)) === 6) world.spawnStructure('wall', 'atreides', x, y);
+  }
+  for (let k = 0; k < 6; k++) world.spawnUnit('combatTank', 'harkonnen', 6, 6 + k * 2);
+  const brain = createBrain(world, 'harkonnen', 'hard');
+  world.houses.get('harkonnen').credits = 0;
+  brain.nextAttack = 0;
+  run(world, 300);
+  assert.ok(!world.structures.has(yard.id) || yard.hp < yard.maxHp, 'the wave got at the yard');
+  assert.ok(brain.commands < 120, `${brain.commands} commands in five minutes`);
+});

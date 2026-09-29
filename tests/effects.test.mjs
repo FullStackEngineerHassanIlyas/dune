@@ -37,3 +37,12 @@ test('muzzle flashes borrow a fixed set of point lights that fade out', () => {
   fx.update(0.2);
   assert.ok(fx.lights.every((l) => l.light.intensity === 0));
 });
+
+test('short-lived flashes are drawn at least once even at low frame rates', () => {
+  const pool = new ParticlePool(new THREE.Scene(), 16, { additive: true });
+  pool.emit({ x: 0, y: 0, z: 0, life: 0.04, size: [1, 1], color: [1, 1, 1], alpha: [1, 0] });
+  pool.update(1 / 15);
+  assert.equal(pool.mesh.count, 1, 'drawn in the frame it was born');
+  pool.update(1 / 15);
+  assert.equal(pool.n, 0);
+});

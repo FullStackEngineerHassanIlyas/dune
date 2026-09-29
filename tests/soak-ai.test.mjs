@@ -15,12 +15,12 @@ test('AI against AI: fifteen game minutes of building, harvesting and fighting',
     }
     if (t % 1200 === 0) assert.deepEqual(checkInvariants(world), [], `invariants at ${t / 20} s`);
     if (t % 20) continue;
-    for (const u of world.units.values()) {   // a unit told to go somewhere that stays put for a minute is stuck
-      const moving = (u.order.type === 'move' || u.order.type === 'attackMove') && !u.target;
+    for (const u of world.units.values()) {   // a unit told to go somewhere that stays put for a minute and a half is stuck
+      const moving = u.order.type === 'move' || u.order.type === 'attackMove';   // told to go somewhere, fighting or not
       const key = `${u.tx},${u.ty}`, s = still.get(u.id);
       if (!moving) { still.delete(u.id); continue; }
       if (!s || s.key !== key) still.set(u.id, { key, since: world.time });
-      else if (world.time - s.since > 60 && !stuck) stuck = `${u.typeId} ${u.id} at ${key} (${u.order.type})`;
+      else if (world.time - s.since > 90 && !stuck) stuck = `${u.typeId} ${u.id} at ${key} (${u.order.type})`;
     }
   }
   for (const id of [house, rival]) {

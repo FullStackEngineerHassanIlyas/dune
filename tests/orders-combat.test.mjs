@@ -81,3 +81,43 @@ test('own units and the ground are attacked only when forced; foreign commands a
   assert.ok(world.events.drain().some((e) => e.type === 'fired' && e.id === a.id));
   assert.equal(b.hp, b.maxHp, 'nothing hit the friend');
 });
+
+function islandWorld() {
+  const world = flatWorld(40, 20, G.ROCK);
+  world.fogOfWar = false;
+  const m = world.map;
+  for (let y = 4; y <= 14; y++) for (let x = 16; x <= 26; x++) if (Math.max(Math.abs(x - 21), Math.abs(y - 9)) >= 4) m.ground[m.idx(x, y)] = G.MOUNTAIN;
+  m.revision++;
+  tough(world.spawnUnit('mcv', 'harkonnen', 21, 9));
+  return world;
+}
+
+test('attack-move past an unreachable enemy still arrives', () => {
+  const world = islandWorld();
+  const tank = world.spawnUnit('combatTank', 'atreides', 2, 15, { heading: 0 });   // the road passes six tiles from the island
+  world.issue('atreides', { type: 'attackMove', ids: [tank.id], x: 36, y: 15 });
+  world.step();
+  assert.ok(runUntil(world, () => tank.order.type === 'idle', 120) > 0, `still ${tank.order.type} at ${tank.tx},${tank.ty}`);
+  assert.ok(Math.max(Math.abs(tank.tx - 36), Math.abs(tank.ty - 15)) <= 1, `ended at ${tank.tx},${tank.ty}`);
+});
+
+test('a guard does not keep chasing an enemy it cannot reach', () => {
+  const world = islandWorld();
+  const tank = world.spawnUnit('combatTank', 'atreides', 14, 9, { heading: 0 });
+  world.issue('atreides', { type: 'guard', ids: [tank.id] });
+  run(world, 180);
+  const giveUps = world.events.drain().filter((e) => e.type === 'attackAbandoned').length;
+  assert.ok(giveUps <= 3, `${giveUps} give-ups in three minutes`);
+});
+
+test('an attack whose target died elsewhere stops the chase', () => {
+  const world = flatWorld(48, 16, G.ROCK);
+  const tank = world.spawnUnit('combatTank', 'atreides', 2, 8, { heading: 0 });
+  const quad = world.spawnUnit('quad', 'harkonnen', 40, 8);
+  world.issue('atreides', { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: quad.id });
+  run(world, 3);
+  world.removeUnit(quad);
+  run(world, 8);
+  assert.equal(tank.order.type, 'idle');
+  assert.ok(tank.tx < 9, `stopped near where it was, at ${tank.tx}`);
+});

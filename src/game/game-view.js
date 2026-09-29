@@ -85,7 +85,8 @@ export class GameView {
     this.panel = new SelectionPanel(document.getElementById('ui'), {
       iconFor: (typeId, houseId) => this.icons.forItem(typeId, houseId),
       onButton: (id) => this.panelAction(id),
-    });    this.endScreen = new EndScreen(document.getElementById('ui'), {
+    });
+    this.endScreen = new EndScreen(document.getElementById('ui'), {
       onReplay: () => {
         const q = new URLSearchParams(location.search);
         q.set('seed', String((Number(q.get('seed')) || 1) + 1));

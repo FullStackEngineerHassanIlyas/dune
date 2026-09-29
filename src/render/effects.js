@@ -99,7 +99,8 @@ export class ParticlePool {
     const m = this.mesh.instanceMatrix.array, c = this.mesh.instanceColor.array, a = this.alphaAttr.array;
     let i = 0;
     while (i < this.n) {
-      if ((this.age[i] += dt) >= this.life[i]) { this.kill(i); continue; }
+      if (this.age[i] > 0 && this.age[i] + dt >= this.life[i]) { this.kill(i); continue; }   // everything shows for at least one frame
+      this.age[i] = Math.min(this.age[i] + dt, this.life[i] * 0.999);
       const p = i * 3, drag = Math.max(0, 1 - this.phys[i * 2] * dt), g = this.phys[i * 2 + 1];
       this.vel[p] *= drag;
       this.vel[p + 1] = this.vel[p + 1] * drag - g * dt;

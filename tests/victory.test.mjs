@@ -79,3 +79,13 @@ test('end statistics compare the player with everyone else', () => {
   assert.deepEqual(s.rows[0], { label: 'Spice harvested', you: 1400, enemy: 700 });
   assert.deepEqual(s.rows.find((r) => r.label === 'Buildings destroyed'), { label: 'Buildings destroyed', you: 1, enemy: 0 });
 });
+
+test('walls alone do not keep a house in the game', () => {
+  const { world, h } = duel();
+  world.spawnStructure('wall', 'harkonnen', 20, 10);
+  world.spawnStructure('wall', 'harkonnen', 21, 10);
+  destroyStructure(world, h, null);
+  run(world, 2);
+  assert.equal(world.houses.get('harkonnen').defeated, true);
+  assert.equal(world.outcome.winner, 'atreides');
+});

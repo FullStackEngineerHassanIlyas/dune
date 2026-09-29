@@ -35,10 +35,10 @@ export function distanceTo(x, y, t, p) {
 const seesAll = (world, houseId) => { const h = world.houses.get(houseId); return !h || h.isAI || !world.fogOfWar; };
 const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
 
-export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false } = {}) {
+export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0 } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || !u.isGround) continue;
+    if (u.house === houseId || !u.isGround || u.id === exclude) continue;
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -46,9 +46,9 @@ export function findTarget(world, houseId, x, y, radius, { structures = true, ig
   }
   if (!structures) return best;
   for (const s of world.structures.values()) {
-    if (s.house === houseId || s.type.isWall) continue;
+    if (s.house === houseId || s.type.isWall || s.id === exclude) continue;
     const d = distanceTo(x, y, { kind: 'structure' }, { entity: s });
-    if (d > radius || d >= bestD - 0.5 || !canSee(world, houseId, 'structure', s)) continue;   // units win close calls: they shoot back
+    if (d > radius || d >= bestD - 0.5 || (!ignoreFog && !canSee(world, houseId, 'structure', s))) continue;   // units win close calls: they shoot back
     best = { kind: 'structure', id: s.id };
     bestD = d;
   }
@@ -220,14 +220,18 @@ function unitCombat(world, u) {
   let t;
   if (o.type === 'attack') {
     t = o.target;
-    if (!validTarget(world, u.house, t, o.force)) { endAttack(u); return; }
+    if (!validTarget(world, u.house, t, o.force)) { endAttack(u); stopMoving(u); return; }   // do not drive on to where it died
   } else {
     t = u.target;
-    if (t && !stillWorthIt(world, u, t)) t = u.target = null;
+    if (t && !stillWorthIt(world, u, t)) {
+      t = u.target = null;
+      if (o.type === 'guard' || o.type === 'attackMove') stopMoving(u);   // drop the chase; resume() heads back or on
+    }
     if (!t && (world.tick + u.id) % SCAN_TICKS === 0) {
       const r = scanRadius(u);
       const from = o.type === 'guard' ? { x: o.x + 0.5, y: o.y + 0.5 } : u;   // a guard watches the area around its post
-      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25) : null;
+      const exclude = u.abandoned && world.time < u.abandoned.until ? u.abandoned.id : 0;   // no second go at what it gave up on
+      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude }) : null;
     }
   }
   if (!t) { u.aiming = false; u.secondShot = 0; resume(world, u); return; }
@@ -247,7 +251,9 @@ function chase(world, u, t, p, dist) {
   else if ((u.chaseStall = (u.chaseStall ?? 0) + DT) >= CHASE_GIVEUP_SECONDS) {
     u.chaseBest = Infinity;
     u.chaseStall = 0;
-    if (o.type === 'attack') { endAttack(u); stopMoving(u); } else u.target = null;
+    u.abandoned = { id: t.id, until: world.time + 90 };   // left alone for a minute and a half
+    if (o.type === 'attack') endAttack(u); else u.target = null;
+    stopMoving(u);
     world.events.push('attackAbandoned', { id: u.id });
     return;
   }

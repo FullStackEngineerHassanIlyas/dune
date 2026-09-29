@@ -8,7 +8,7 @@ export function updateVictory(world) {
   for (const house of world.houses.values()) {
     if (house.defeated) continue;
     let alive = false;
-    for (const s of world.structures.values()) if (s.house === house.id) { alive = true; break; }
+    for (const s of world.structures.values()) if (s.house === house.id && !s.type.isWall) { alive = true; break; }   // walls are terrain, not a base
     if (!alive) for (const u of world.units.values()) if (u.house === house.id && u.type.deploysTo) { alive = true; break; }
     if (alive) standing.push(house.id);
     else { house.defeated = true; world.events.push('houseDefeated', { house: house.id }); }

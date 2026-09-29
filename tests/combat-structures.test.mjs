@@ -105,3 +105,13 @@ test('tanks crush enemy infantry, never their own', () => {
   run(w2, 20);
   assert.ok(w2.units.has(friend.id), 'own infantry survives');
 });
+
+test('a destroyed store does not burn credits the starting allowance is holding', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.startBuffer = 3000;
+  h.credits = 2500;
+  const r = world.spawnStructure('refinery', 'atreides', 2, 2);
+  destroyStructure(world, r, { house: 'harkonnen', id: 0, kind: 'unit' });
+  assert.equal(h.credits, 2500);
+});

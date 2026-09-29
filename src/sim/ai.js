@@ -80,7 +80,7 @@ function deployMcv(world, house, view) {
 
 export function enemyCentre(world, houseId) {
   let sx = 0, sy = 0, n = 0;
-  for (const s of world.structures.values()) if (s.house !== houseId) { sx += s.x + s.w / 2; sy += s.y + s.h / 2; n++; }
+  for (const s of world.structures.values()) if (s.house !== houseId && !s.type.isWall) { sx += s.x + s.w / 2; sy += s.y + s.h / 2; n++; }
   if (!n) for (const u of world.units.values()) if (u.house !== houseId && u.isGround) { sx += u.x; sy += u.y; n++; }
   return n ? { x: sx / n, y: sy / n } : null;
 }
@@ -89,7 +89,7 @@ export function enemyCentre(world, houseId) {
 export function nearestEnemyTarget(world, houseId, x, y) {
   let best = null, bestD = Infinity;
   for (const s of world.structures.values()) {
-    if (s.house === houseId) continue;
+    if (s.house === houseId || s.type.isWall) continue;
     const d = Math.hypot(s.x + s.w / 2 - x, s.y + s.h / 2 - y);
     if (d < bestD) { bestD = d; best = { x: s.x + Math.floor(s.w / 2), y: Math.min(world.map.h - 1, s.y + s.h) }; }
   }
@@ -205,9 +205,14 @@ function attack(world, house, view) {
   const b = house.brain, d = DIFFICULTY[b.difficulty];
   b.wave = b.wave.filter((id) => world.units.has(id));
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle');
-  if (idle.length) {   // wave members that reached their target hunt the next one
-    const t = nearestEnemyTarget(world, house.id, idle[0].x, idle[0].y);
-    if (t) issue(world, house, { type: 'attackMove', ids: idle.map((u) => u.id), x: t.x, y: t.y });
+  if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target (at most every 10 s)
+    b.huntAt = world.time + 10;
+    const lead = idle[0], ids = idle.map((u) => u.id);
+    const t = nearestEnemyTarget(world, house.id, lead.x, lead.y);
+    const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
+    const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
+    if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
+    else if (t) issue(world, house, { type: 'attackMove', ids, x: t.x, y: t.y });
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
@@ -221,4 +226,14 @@ function attack(world, house, view) {
   b.waves++;
   b.nextAttack = world.time + d.waveEvery;
   world.events.push('aiAttack', { house: house.id, size: group.length, x: target.x, y: target.y });
+}
+
+function nearestEnemyWall(world, houseId, x, y, radius) {
+  let best = null, bestD = radius;
+  for (const s of world.structures.values()) {
+    if (s.house === houseId || !s.type.isWall) continue;
+    const d = Math.hypot(s.x + 0.5 - x, s.y + 0.5 - y);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
 }
