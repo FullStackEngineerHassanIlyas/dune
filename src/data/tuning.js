@@ -77,3 +77,12 @@ export const DEVIATOR = {
   seconds: 40,          // … for this long, then go home (spec §4.6, tunable)
   immune: ['harvester', 'mcv', 'deviator', 'sandworm'],   // and aircraft: the gas stays on the ground
 };
+
+export const DESTRUCT = {
+  delay: 3,             // seconds of warning glow before a Devastator blows itself apart (spec §4.6)
+  centre: [25, 50],     // the blast where it stood …
+  blasts: 7,            // … and seven more round it (OpenDUNE)
+  blast: [75, 150],
+  scatter: 1.5,         // tiles from the centre
+  radius: 1.5,          // each blast's reach
+};

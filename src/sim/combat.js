@@ -209,7 +209,7 @@ export function destroyStructure(world, s, attacker = null) {
 }
 
 export function updateCombat(world) {
-  for (const u of world.units.values()) if (u.isGround && !u.inside && isArmed(u.type)) unitCombat(world, u);
+  for (const u of world.units.values()) if (u.isGround && !u.inside && u.destructAt === undefined && isArmed(u.type)) unitCombat(world, u);   // a Devastator counting down holds its fire
   for (const s of world.structures.values()) if (s.type.weapon) structureCombat(world, s);
 }
 
@@ -355,7 +355,7 @@ function aimAndFire(world, u, t, p, dist) {
 
 /** An idle armed unit that is shot at from close by answers fire (busy units keep their orders). */
 export function retaliate(world, victim, attacker) {
-  if (victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
+  if (victim.destructAt !== undefined || victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
   if (victim.order.type !== 'idle' || victim.target) return;
   const t = { kind: attacker.kind, id: attacker.id };
   const p = targetPoint(world, t);

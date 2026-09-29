@@ -25,7 +25,7 @@ import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
-import { deviate, updateDeviations } from './specials.js';
+import { deviate, updateDeviations, destruct } from './specials.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -134,6 +134,7 @@ export class World {
     for (const u of [...this.units.values()]) {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
       if (!u.isGround) { updateAircraft(this, u); continue; }
+      if (u.destructAt !== undefined && this.time >= u.destructAt) { destruct(this, u); continue; }
       if (u.harvest) updateHarvester(this, u);
       if (u.order.type === 'repairAt') updateRepairOrder(this, u);
       if (u.order.type === 'capture') { updateCapture(this, u); if (!this.units.has(u.id)) continue; }   // a squad that walked in is gone

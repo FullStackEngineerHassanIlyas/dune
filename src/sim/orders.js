@@ -9,15 +9,17 @@ import { WEAPONS } from '../data/weapons.js';
 import { orderRepairAt } from './repair-bay.js';
 import { orderCapture } from './capture.js';
 import { orderStarport, cancelStarport } from './starport.js';
+import { orderDestruct } from './specials.js';
 
 export function applyCommand(world, houseId, cmd) {
-  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous);   // nor do units held in a bay or a Carryall, nor Carryalls
+  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous && u.destructAt === undefined);   // nor do units held in a bay or a Carryall, nor Carryalls, nor a Devastator counting down
   switch (cmd?.type) {
     case 'move': orderMove(world, units, cmd.x, cmd.y); return;
     case 'stop': units.forEach(stopUnit); return;
     case 'guard': units.forEach((u) => { stopUnit(u); u.order = { type: 'guard', x: u.tx, y: u.ty }; }); return;
     case 'scatter': scatter(world, units); return;
-    case 'deploy': units.forEach((u) => orderDeploy(world, u)); return;
+    case 'deploy': units.forEach((u) => (u.type.destructs ? orderDestruct(world, u) : orderDeploy(world, u))); return;   // D: Deploy or Destruct (spec §5.6)
+    case 'destruct': units.forEach((u) => orderDestruct(world, u)); return;
     case 'build': orderBuild(world, houseId, cmd.typeId, cmd.count ?? 1); return;
     case 'hold': orderHold(world, houseId, cmd.typeId); return;
     case 'place': orderPlace(world, houseId, cmd.typeId, cmd.x, cmd.y); return;
