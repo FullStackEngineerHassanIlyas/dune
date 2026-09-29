@@ -1,6 +1,6 @@
 // Player settings: defaults ← localStorage ← URL overrides. Only whitelisted keys and values survive.
 const KEY = 'dune2-3d.settings';
-export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal' };
+export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal', sound: true, volume: 0.8 };
 const CHOICES = {
   quality: ['low', 'medium', 'high'],
   scheme: ['classic', 'modern'],

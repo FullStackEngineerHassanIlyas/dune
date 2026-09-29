@@ -27,6 +27,8 @@ try {
   await page.click(s.x, s.y);
   await sleep(150);
   check('click selects a tank', JSON.stringify(await ev('__dune.selection()')) === JSON.stringify([tank.id]));
+  const snd = await ev('__dune.sound()');
+  check('the first click starts the sound engine with every effect ready', snd.ready && snd.buffers >= 18, JSON.stringify(snd));
 
   const target = await ev(`__dune.freeTileNear(${tank.tx + 4}, ${tank.ty + 1})`);
   const ts = await ev(`__dune.screenOfTile(${target.x}, ${target.y})`);

@@ -117,3 +117,11 @@ test('settings survive a browser that blocks site storage', () => {
     if (desc) Object.defineProperty(globalThis, 'localStorage', desc); else delete globalThis.localStorage;
   }
 });
+
+import { sanitize as sanitizeSettings } from '../src/core/settings.js';
+
+test('sound settings: on by default, volume kept in range', () => {
+  const s = sanitizeSettings({});
+  assert.deepEqual([s.sound, s.volume], [true, 0.8]);
+  assert.deepEqual([sanitizeSettings({ sound: 'false' }).sound, sanitizeSettings({ volume: '0.5' }).volume, sanitizeSettings({ volume: '9' }).volume], [false, 0.5, 0.8]);
+});

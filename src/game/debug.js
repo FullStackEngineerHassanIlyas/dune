@@ -36,5 +36,6 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     tick: () => world.tick,
     paused: () => !!view?.paused,
     outcome: () => world.outcome,
+    sound: () => ({ ready: !!view?.sound?.ctx, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0 }),
   };
 }

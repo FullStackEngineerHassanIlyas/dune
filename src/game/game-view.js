@@ -11,6 +11,8 @@ import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
+import { SoundEngine } from '../audio/engine.js';
+import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
@@ -67,12 +69,14 @@ export class GameView {
     this.cameraControl = new CameraControl(this.rig, canvas, settings);
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
+    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
+    const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
       iconFor: (typeId) => this.icons.forItem(typeId, house),
-      onCommand: (cmd) => world.issue(house, cmd),
-      onPlace: (typeId) => this.controller.startPlacement(typeId),
-      onTool: (tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool }),
+      onCommand: click((cmd) => world.issue(house, cmd)),
+      onPlace: click((typeId) => this.controller.startPlacement(typeId)),
+      onTool: click((tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool })),
     });
     this.sidebar.el.style.setProperty('--house', `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`);
     this.radar = new Radar(this.sidebar.radarEl, {
@@ -84,7 +88,7 @@ export class GameView {
     });
     this.panel = new SelectionPanel(document.getElementById('ui'), {
       iconFor: (typeId, houseId) => this.icons.forItem(typeId, houseId),
-      onButton: (id) => this.panelAction(id),
+      onButton: click((id) => this.panelAction(id)),
     });
     this.endScreen = new EndScreen(document.getElementById('ui'), {
       onReplay: () => {
@@ -142,6 +146,10 @@ export class GameView {
   }
 
   onEvent(e) {
+    if (!this.catchingUp) {
+      const cue = cueFor(e, this.house, (x, z) => this.seen(x, z));
+      if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null, rate: 0.94 + Math.random() * 0.12 });
+    }
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
@@ -244,6 +252,10 @@ export class GameView {
       if (!mods.repeat) this.togglePause();
       return true;
     }
+    if (key === 'm' && !mods.ctrl) {
+      if (!mods.repeat) this.hud.message(this.sound.toggleMute() ? 'Sound off' : 'Sound on', 1.5);
+      return true;
+    }
     return this.controller.onKey(key, code, mods);
   }
 
@@ -273,6 +285,8 @@ export class GameView {
     this.cameraControl.update(dt);
     this.rig.update(dt, this.heightAt);
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
+    const e = r3d.camera.matrixWorld.elements;
+    this.sound.setListener(this.rig.target.x, this.rig.target.z, e[0], e[2], this.rig.distance);
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
@@ -292,6 +306,8 @@ export class GameView {
     const sidebar = sidebarModel(world, this.house);
     this.sidebar.update(sidebar, dt);
     this.radar.update(dt, { online: sidebar.radar, view: this.viewQuad() });
+    if (this.radarWas !== undefined && sidebar.radar !== this.radarWas) this.sound.play('static');
+    this.radarWas = sidebar.radar;
     if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
     this.fps?.frame();
   }
