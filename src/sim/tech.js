@@ -75,6 +75,7 @@ export function canBuildStructure(house, typeId, owned, { implied = true } = {})
   if (!t || !t.requires || DEFERRED.has(typeId)) return false;
   if (!t.houses.includes(house.id) || structureTechLevel(t, house.id) > house.techLevel) return false;
   if (!Object.entries(t.requiresUpgrade ?? {}).every(([k, level]) => upgradeLevel(house, k) >= level)) return false;   // e.g. Rocket Turrets need yard level 2
+  if (t.unique && owned.has(typeId)) return false;   // one Starport per house (original)
   if (implied && typeId !== 'windtrap' && !t.isConcrete && !owned.has('windtrap')) return false;   // a Wind Trap is implied for everything (spec §4.5)
   return owned.has('constructionYard') && t.requires.every((r) => owned.has(r));
 }

@@ -22,6 +22,6 @@ export const UNITS = {
   mcv:         { name: 'MCV', houses: ALL, builtAt: 'heavyFactory', upgrade: 1, cost: 900, buildTime: 80, hp: 150, move: MOVE.TRACKED, speed: 20, turn: 1, turret: false, weapon: null, sight: 2, explodes: true, carriable: true, deploysTo: 'constructionYard' },
   carryall:    { name: 'Carryall', houses: ALL, builtAt: 'hiTech', upgrade: 0, cost: 800, buildTime: 64, hp: 100, move: MOVE.AIR, speed: 200, turn: 3, turret: false, weapon: null, sight: 0, autonomous: true },
   ornithopter: { name: 'Ornithopter', houses: ['atreides', 'ordos'], builtAt: 'hiTech', upgrade: 1, requires: ['ix'], cost: 600, buildTime: 96, hp: 25, move: MOVE.AIR, speed: 150, turn: 2, turret: false, weapon: 'miniRocket', damage: 50, range: 4, fireDelay: 50, firesTwice: true, sight: 5 },
-  frigate:     { name: 'Frigate', houses: [], builtAt: null, upgrade: 0, cost: 0, buildTime: 0, hp: 100, move: MOVE.AIR, speed: 130, turn: 2, turret: false, weapon: null, sight: 0 },
+  frigate:     { name: 'Frigate', houses: [], builtAt: null, upgrade: 0, cost: 0, buildTime: 0, hp: 100, move: MOVE.AIR, speed: 130, turn: 2, turret: false, weapon: null, sight: 0, autonomous: true, untargetable: true },
   sandworm:    { name: 'Sandworm', houses: [], builtAt: null, upgrade: 0, cost: 0, buildTime: 0, hp: 1000, move: MOVE.WORM, speed: 35, turn: 3, turret: false, weapon: 'swallow', damage: 0, range: 1, fireDelay: 20, sight: 0 },
 };

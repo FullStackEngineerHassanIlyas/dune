@@ -58,3 +58,14 @@ export const AIR = {
   guardRadius: 4,       // … a guarding one this far beyond its weapon range
   cargoDrop: 0.35,      // a carried unit hangs this far below its Carryall
 };
+
+export const STARPORT = {
+  wares: ['trike', 'raider', 'quad', 'combatTank', 'missileTank', 'siegeTank', 'harvester', 'mcv', 'carryall', 'ornithopter'],   // standard vehicles and aircraft (spec §4.5)
+  extra: { missileTank: ['ordos'] },   // the Ordos buy the Missile Tank they cannot build
+  stock: [2, 6],        // each type starts with 2–6 …
+  restock: 90,          // … gains one every 90 s …
+  maxStock: 10,         // … up to ten
+  reprice: 60,          // seconds between price re-rolls (40–160 % of the cost)
+  delivery: 30,         // seconds from the first order of a batch to the Frigate landing
+  load: 9,              // a Frigate carries at most nine units
+};

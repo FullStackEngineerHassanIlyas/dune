@@ -20,7 +20,7 @@ test('each prerequisite opens the next buildings', () => {
   assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost']);
   const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'lightFactory']);
   assert.deepEqual(buildOptions(more, 'atreides').structure,
-    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret']);
+    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'starport']);
 });
 
 test('infantry buildings follow the house', () => {
@@ -75,4 +75,27 @@ test('the Hi-Tech Factory builds Carryalls; Ornithopters need its upgrade and a 
   world.spawnStructure('ix', 'atreides', 30, 30);
   assert.deepEqual(buildOptions(world, 'atreides').air, ['carryall', 'ornithopter']);
   assert.equal(lineOfItem('ornithopter'), 'air');
+});
+
+test('a Starport opens after a Refinery, one per house; a House of IX needs it; losing IX cancels an Ornithopter', () => {
+  const world = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery']);
+  assert.ok(buildOptions(world, 'atreides').structure.includes('starport'));
+  assert.ok(!buildOptions(world, 'atreides').structure.includes('ix'));
+  world.spawnStructure('starport', 'atreides', 30, 30);
+  const o = buildOptions(world, 'atreides').structure;
+  assert.ok(o.includes('ix') && !o.includes('starport'), 'one Starport at a time');
+  const h = world.houses.get('atreides');
+  h.credits = 5000;
+  h.startBuffer = 100000;
+  const hq = world.spawnStructure('hiTech', 'atreides', 20, 20);
+  const ix = world.spawnStructure('ix', 'atreides', 26, 20);
+  h.upgrades.hiTech = 1;
+  world.issue('atreides', { type: 'build', typeId: 'ornithopter' });
+  for (let k = 0; k < 100; k++) world.step();
+  assert.equal(h.lines.air.current?.typeId, 'ornithopter');
+  world.removeStructure(ix);
+  for (let k = 0; k < 22; k++) world.step();
+  assert.equal(h.lines.air.current, null, 'no House of IX: cancelled');
+  assert.ok(Math.abs(h.credits - 5000) < 1e-6, 'refunded');
+  assert.ok(hq);
 });
