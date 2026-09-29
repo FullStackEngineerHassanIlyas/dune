@@ -4,7 +4,8 @@ import { orderDeploy } from './deploy.js';
 import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './production.js';
 import { orderSell, orderRepair } from './structure-actions.js';
 import { orderHarvest, orderReturn } from './harvest.js';
-import { isArmed } from './combat.js';
+import { isArmed, deviatable } from './combat.js';
+import { WEAPONS } from '../data/weapons.js';
 import { orderRepairAt } from './repair-bay.js';
 import { orderCapture } from './capture.js';
 import { orderStarport, cancelStarport } from './starport.js';
@@ -95,6 +96,7 @@ export function orderAttack(world, units, cmd) {
   const ids = [];
   for (const u of units) {
     if (!isArmed(u.type) || entity === u) continue;
+    if (WEAPONS[u.type.weapon]?.gas && entity && !deviatable(entity)) continue;   // gas is wasted on buildings, Harvesters and MCVs
     if (entity?.kind === 'unit' && !entity.isGround && !u.type.targetAir) continue;   // only anti-air reaches aircraft
     if (entity && entity.house === u.house && !force) continue;
     u.order = { type: 'attack', target: { ...target }, force };

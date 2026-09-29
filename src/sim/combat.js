@@ -7,13 +7,16 @@
 // order chases its target and gives up when it gets no closer. The player's side engages only what its
 // fog shows; the AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR, SONIC } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR, SONIC, DEVIATOR } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
 const SCAN_TICKS = 4;   // targets are looked for five times a second
 
-export const isArmed = (t) => !!(t && t.weapon && WEAPONS[t.weapon] && t.damage > 0);
+export const isArmed = (t) => !!(t && t.weapon && WEAPONS[t.weapon] && (t.damage > 0 || WEAPONS[t.weapon].gas));   // the Deviator's gas does no harm but is its weapon
+const GAS_IMMUNE = new Set(DEVIATOR.immune);
+/** Deviator gas turns ground units that can change sides: not aircraft, Harvesters, MCVs, Deviators or worms, nor anything held inside. */
+export const deviatable = (u) => !!u && u.kind === 'unit' && u.isGround && !u.inside && !GAS_IMMUNE.has(u.typeId);
 export const onTheMove = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
 
 export function targetPoint(world, t) {
@@ -36,10 +39,10 @@ export function distanceTo(x, y, t, p) {
 const seesAll = (world, houseId) => { const h = world.houses.get(houseId); return !h || h.isAI || !world.fogOfWar; };
 export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
 
-export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false } = {}) {
+export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false, only = null } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude) continue;   // aircraft only for anti-air; never the Frigate
+    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -93,7 +96,7 @@ export function fireAt(world, from, t, p, dist, stats) {
     x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx: ax, ty: ay,
     speed: projectileSpeed(shot.speed), damage: Math.round(stats.damage * shot.damageScale),
     accurate: shot.accurate || air, homing: shot.homing || air, target: (shot.accurate || air) && hits && t.kind !== 'tile' ? { kind: t.kind, id: t.id } : null,
-    airburst: air && !hits, fromAlt: from.alt ?? 0, toAlt: p.entity?.alt ?? 0,
+    airburst: air && !hits, fromAlt: from.alt ?? 0, toAlt: p.entity?.alt ?? 0, gas: !!shot.gas,
   });
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx: ax, ty: ay });
 }
@@ -151,6 +154,11 @@ export function updateProjectiles(world) {
 }
 
 function impact(world, p) {
+  if (p.gas) {   // Deviator gas: a cloud that turns units instead of hurting them
+    world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: false, alt: 0 });
+    world.onGas?.(p);
+    return;
+  }
   const map = world.map;
   let victim = p.target ? targetPoint(world, p.target)?.entity ?? null : null;   // an accurate shot hits its target if it still exists
   if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
@@ -271,7 +279,8 @@ function unitCombat(world, u) {
       const r = scanRadius(u);
       const from = o.type === 'guard' ? { x: o.x + 0.5, y: o.y + 0.5 } : u;   // a guard watches the area around its post
       const exclude = u.abandoned && world.time < u.abandoned.until ? u.abandoned.id : 0;   // no second go at what it gave up on
-      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude, air: !!u.type.targetAir }) : null;
+      const gas = !!WEAPONS[u.type.weapon]?.gas;   // a Deviator looks only for units it can turn
+      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude, air: !!u.type.targetAir, structures: !gas, only: gas ? deviatable : null }) : null;
     }
   }
   if (!t) { u.aiming = false; u.secondShot = 0; resume(world, u); return; }

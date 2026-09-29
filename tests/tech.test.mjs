@@ -39,7 +39,7 @@ test('factories offer their house roster, the House of IX specials included', ()
     return buildOptions(world, house);
   };
   assert.deepEqual(opts('atreides').heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank']);
-  assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv']);
+  assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv', 'deviator']);
   assert.deepEqual(opts('harkonnen').light, ['quad']);
   assert.deepEqual(opts('ordos').light, ['raider', 'quad']);
   assert.deepEqual(opts('ordos').infantry, ['soldier', 'infantry', 'trooper', 'troopers']);

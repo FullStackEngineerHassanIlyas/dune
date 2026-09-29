@@ -25,6 +25,7 @@ import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
+import { deviate, updateDeviations } from './specials.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -57,6 +58,7 @@ export class World {
     this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
     this.onStructureKilled = (s, attacker) => { emptyBay(this, s, 'destroyed', attacker); aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
+    this.onGas = (p) => deviate(this, p);
     this.onDamaged = (victim, attacker) => { retaliate(this, victim, attacker); alertDamage(this, victim, attacker); };
   }
 
@@ -144,6 +146,7 @@ export class World {
     updateRepairBays(this);
     updateStarports(this);
     if (this.tick % 10 === 0) updatePower(this);
+    if (this.tick % 10 === 5) updateDeviations(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);

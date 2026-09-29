@@ -71,3 +71,9 @@ export const STARPORT = {
 };
 
 export const SONIC = { fade: 0.5 };             // the Sonic Tank's wave has lost half its strength by the end of its 8 tiles
+
+export const DEVIATOR = {
+  radius: 1.5,          // units this close to where the gas bursts change sides …
+  seconds: 40,          // … for this long, then go home (spec §4.6, tunable)
+  immune: ['harvester', 'mcv', 'deviator', 'sandworm'],   // and aircraft: the gas stays on the ground
+};
