@@ -82,6 +82,7 @@ export class GameView {
       onCommand: click((cmd) => world.issue(house, cmd)),
       onPlace: click((typeId) => this.controller.startPlacement(typeId)),
       onTool: click((tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool })),
+      onSpecial: click((special) => (special.aim ? this.controller.setMode({ kind: 'palace' }) : world.issue(house, { type: 'palace' }))),
     });
     this.sidebar.el.style.setProperty('--house', `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`);
     this.radar = new Radar(this.sidebar.radarEl, {
@@ -297,7 +298,7 @@ export class GameView {
     const units = this.controller.ownSelected();
     const s = this.world.structures.get(this.selection.structureId);
     const issue = (cmd) => this.world.issue(this.house, cmd);
-    if (['stop', 'guard', 'scatter', 'deploy'].includes(id) && units.length) issue({ type: id, ids: units.map((u) => u.id) });
+    if (['stop', 'guard', 'scatter', 'deploy', 'destruct'].includes(id) && units.length) issue({ type: id, ids: units.map((u) => u.id) });
     else if (id === 'return') issue({ type: 'returnToBase', ids: units.filter((u) => u.harvest).map((u) => u.id) });
     else if (s && id === 'repair') issue({ type: 'repair', structureId: s.id });
     else if (s && id === 'sell') issue({ type: 'sell', structureId: s.id });

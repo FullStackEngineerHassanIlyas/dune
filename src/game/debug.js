@@ -39,6 +39,7 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     },
     arrowRect: (strip, dir) => rect(document.querySelector(`.sidebar .sb-strip[data-strip="${strip}"] .sb-arrow[data-dir="${dir}"]`)),
     upgradeLevel: (type) => world.houses.get(house).upgrades?.[type] ?? 0,
+    weaponRect: () => rect(document.querySelector('.sidebar .sb-weapon')),
     toolRect: (tool) => rect(document.querySelector(`.sidebar .sb-tool[data-tool="${tool}"]`)),
     lookAt: (x, z) => rig.lookAt(x, z, true),
     tick: () => world.tick,

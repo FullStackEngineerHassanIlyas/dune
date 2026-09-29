@@ -1,12 +1,13 @@
 // Pure view-model of the C&C sidebar (spec §4.4, §5.6): credits and storage, the power bar's level,
-// radar availability and the two build strips — structures and factory upgrades, then the units of every line — with each
+// radar availability, the Palace weapon with its charge and the two build strips — structures and factory upgrades, then the units of every line — with each
 // icon's state, progress and queue count. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { buildSeconds, UPGRADE_BUILD_TIME, STARPORT } from '../data/tuning.js';
+import { buildSeconds, UPGRADE_BUILD_TIME, STARPORT, PALACE } from '../data/tuning.js';
 import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
+import { palaceOf, palaceWeapon } from '../sim/palace.js';
 
 const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
 
@@ -21,6 +22,14 @@ function itemState(l, typeId, line) {
   if (cur?.typeId === typeId) return { state: cur.state, progress: cur.progress, count: queued + 1, starved: cur.starved };
   if (queued) return { state: 'queued', progress: 0, count: queued, starved: false };
   return { state: line === 'structure' && cur ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
+}
+
+/** The Palace weapon (spec §4.7): what it is, how far it has charged, whether it needs a target. */
+function specialOf(world, houseId) {
+  const s = palaceOf(world, houseId), weapon = palaceWeapon(houseId), full = PALACE.recharge[weapon];
+  if (!s || !full) return null;
+  const left = Math.max(0, s.readyAt - world.time);
+  return { weapon, icon: `palace:${weapon}`, name: PALACE.names[weapon], ready: left === 0, progress: 1 - left / full, seconds: Math.ceil(left), aim: weapon !== 'saboteur' };
 }
 
 export function sidebarModel(world, houseId) {
@@ -58,6 +67,7 @@ export function sidebarModel(world, houseId) {
     storage: Math.max(builtStorage(world, houseId), house.startBuffer ?? 0),
     power: { ...power, level: powerLevel(power) },
     radar: radarOnline(world, houseId),
+    special: specialOf(world, houseId),
     structures: [...options.structure.map(entry('structure')), ...options.upgrades.map(upgrade)],
     units: [...UNIT_LINES.flatMap((line) => options[line].map(entry(line))), ...(open ? Object.keys(m.stock).map(ware) : [])],
   };
@@ -68,4 +78,13 @@ export function rollCredits(shown, target, dt) {
   const diff = target - shown;
   const step = Math.max(300, Math.abs(diff) * 4) * dt;
   return Math.abs(diff) <= step ? target : shown + Math.sign(diff) * step;
+}
+
+export const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+/** The line under an icon's name in its tooltip. */
+export function tipText(item) {
+  if (item.weapon) return item.ready ? `Ready — ${item.aim ? 'click, then pick a target' : 'click to send it out'}` : `Charging — ready in ${clock(item.seconds)}`;
+  if (item.state === 'ready') return 'Ready — click to place';
+  return [`Cost ${item.cost} · ${item.seconds} s`, item.note].filter(Boolean).join(' · ');
 }

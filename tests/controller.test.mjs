@@ -418,3 +418,36 @@ test('over an enemy aircraft the cursor tells whether the selection can shoot up
   c.frame();
   assert.equal(cursors.at(-1), 'attack');
 });
+
+test('the Palace weapon aims where the player clicks; the aim ends if the Palace falls', () => {
+  const { world, c, issued, cursors } = setup();
+  const s = world.spawnStructure('palace', 'atreides', 1, 12);
+  s.readyAt = 0;
+  c.setMode({ kind: 'palace' });
+  c.frame();
+  assert.equal(cursors.at(-1), 'target');
+  c.onClick(px(12), px(5), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'palace', x: 12, y: 5 });
+  assert.equal(c.mode, null);
+  c.setMode({ kind: 'palace' });
+  c.onClick(px(3), px(3), 2, NONE, false);
+  assert.equal(c.mode, null, 'right click cancels');
+  assert.equal(issued.length, 1);
+  c.setMode({ kind: 'palace' });
+  world.removeStructure(s);
+  c.frame();
+  assert.equal(c.mode, null, 'no Palace, no aim');
+});
+
+test('a Saboteur clicked onto an enemy building goes in to blow it up while the rest attack; the cursor shows a bomb', () => {
+  const { world, tank, c, issued, cursors } = setup();
+  const sab = world.spawnUnit('saboteur', 'atreides', 3, 8);
+  const silo = world.spawnStructure('silo', 'harkonnen', 12, 9);
+  c.selection.set([sab.id, tank.id]);
+  c.onMove(px(12), px(9));
+  c.frame();
+  assert.equal(cursors.at(-1), 'sabotage');
+  c.onClick(px(12), px(9), 0, NONE, false);
+  assert.deepEqual(issued.at(-2), { type: 'sabotage', ids: [sab.id], structureId: silo.id });
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: silo.id, force: false });
+});

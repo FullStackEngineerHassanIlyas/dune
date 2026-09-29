@@ -5,6 +5,8 @@ const svg = (body, hx, hy) =>
 const BRACKETS = 'M4 11V4h7M21 4h7v7M28 21v7h-7M11 28H4v-7';
 export const CURSORS = {
   default: 'default',
+  target: svg(`<g fill='none' stroke='#000' stroke-width='4' opacity='.5'><circle cx='16' cy='16' r='11'/><circle cx='16' cy='16' r='4'/></g><g fill='none' stroke='#ffd24a' stroke-width='2'><circle cx='16' cy='16' r='11'/><circle cx='16' cy='16' r='4'/><path d='M16 1v8M16 23v8M1 16h8M23 16h8'/></g>`, 16, 16),
+  sabotage: svg(`<circle cx='14' cy='19' r='9' fill='#1d1408' stroke='#ffd24a' stroke-width='2'/><path d='M19 12l4-4' stroke='#ffd24a' stroke-width='2.5'/><path d='M23 8l3-2M24 9l3 1M22 6l1-3' stroke='#ff4a36' stroke-width='1.6'/>`, 14, 19),
   select: svg(`<path d='${BRACKETS}' fill='none' stroke='#000' stroke-width='4' opacity='.5'/><path d='${BRACKETS}' fill='none' stroke='#fff' stroke-width='2'/>`, 16, 16),
   move: svg(`<path d='M16 2l5 6h-3v6h6v-3l6 5-6 5v-3h-6v6h3l-5 6-5-6h3v-6H8v3l-6-5 6-5v3h6V8h-3z' fill='#7dff7a' stroke='#000' stroke-width='1.2'/>`, 16, 16),
   noMove: svg(`<circle cx='16' cy='16' r='11' fill='none' stroke='#000' stroke-width='5' opacity='.5'/><circle cx='16' cy='16' r='11' fill='none' stroke='#ff4a3a' stroke-width='3'/><path d='M8 24L24 8' stroke='#ff4a3a' stroke-width='3'/>`, 16, 16),

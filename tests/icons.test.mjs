@@ -67,3 +67,12 @@ test('Starport icon keys name the unit on sale', () => {
   assert.equal(starportIconKey('quad'), null);
   assert.equal(starportIconKey('starport:windtrap'), null);
 });
+
+import { palaceIconKey } from '../src/render/icons.js';
+
+test('Palace weapon icon keys name the weapon', () => {
+  assert.deepEqual(palaceIconKey('palace:deathHand'), { weapon: 'deathHand' });
+  assert.deepEqual(palaceIconKey('palace:fremen'), { weapon: 'fremen' });
+  assert.equal(palaceIconKey('palace:nuke'), null);
+  assert.equal(palaceIconKey('palace'), null);
+});

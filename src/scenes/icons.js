@@ -13,7 +13,7 @@ export async function start({ search }) {
   const icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
   const sheet = document.createElement('div');
   sheet.style.cssText = 'position:absolute;inset:0;padding:16px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;overflow:auto;background:#140e08;pointer-events:auto';
-  for (const typeId of [...Object.keys(STRUCTURE_MODEL), ...Object.keys(UNIT_MODEL), 'upgrade:constructionYard:2', 'upgrade:lightFactory:1', 'upgrade:heavyFactory:3', 'starport:quad', 'starport:carryall']) {
+  for (const typeId of [...Object.keys(STRUCTURE_MODEL), ...Object.keys(UNIT_MODEL), 'upgrade:constructionYard:2', 'upgrade:lightFactory:1', 'upgrade:heavyFactory:3', 'starport:quad', 'starport:carryall', 'palace:deathHand', 'palace:fremen', 'palace:saboteur']) {
     const fig = document.createElement('figure');
     fig.style.cssText = 'margin:0;text-align:center;font:11px sans-serif;color:#f2d7a0';
     const img = new Image();
