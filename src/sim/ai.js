@@ -1,7 +1,9 @@
 // Computer opponent (spec §4.10): one brain per AI house, thinking once a second. It sees the whole map,
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
-// and add silos when storage runs full. Then an army, rally points, base defence and attack waves.
+// and add silos when storage runs full. Then an army, rally points, base defence and attack waves. A
+// charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot, the Saboteur
+// into the most valuable enemy building.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
@@ -12,12 +14,16 @@ import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
+import { palaceReady, palaceWeapon } from './palace.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
   normal: { buildSpeed: 1, income: 1, firstAttack: 300, waveEvery: 150, waveBase: 4, waveGrow: 1.5, waveMax: 14, armyCap: 20, turrets: 2, reserve: 200 },
   hard:   { buildSpeed: 1.25, income: 1.5, firstAttack: 210, waveEvery: 120, waveBase: 5, waveGrow: 2, waveMax: 18, armyCap: 28, turrets: 4, reserve: 100 },
 };
+
+/** Units the AI commands in its army: Fremen hunt on their own and Saboteurs have their own work. */
+const fighter = (u) => isArmed(u.type) && !u.type.autonomous && !u.type.sabotage;
 
 export const BUILD_ORDER = {
   atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
@@ -72,6 +78,8 @@ function think(world, house) {
   const repairing = sendForRepairs(world, house, view);
   defend(world, house, view, repairing);
   attack(world, house, view);
+  usePalace(world, house, view);
+  sabotage(world, house, view);
 }
 
 function deployMcv(world, house, view) {
@@ -155,9 +163,10 @@ function nextStructure(world, house, view) {
     if (can('turret')) return 'turret';
   }
   if (has('refinery') < 3 && view.units.filter((u) => u.typeId === 'harvester').length >= 2 * has('refinery') && can('refinery')) return 'refinery';
-  if (ixOpensSomething(id) && has('heavyFactory') && has('turret') + has('rocketTurret') >= d.turrets) {   // defences first; the Starport only as the way to IX
-    if (!has('starport') && can('starport')) return 'starport';
-    if (has('starport') && !has('ix') && can('ix')) return 'ix';
+  if (has('heavyFactory') && has('turret') + has('rocketTurret') >= d.turrets) {   // defences first; the Starport only as the way to IX and the Palace
+    if (ixOpensSomething(id) && !has('starport') && can('starport')) return 'starport';
+    if (ixOpensSomething(id) && has('starport') && !has('ix') && can('ix')) return 'ix';
+    if (has('ix') && !has('palace') && can('palace')) return 'palace';
   }
   return null;
 }
@@ -184,7 +193,7 @@ function keepCarryall(world, house, view) {
   issue(world, house, { type: 'build', typeId: 'carryall' });
 }
 
-const ARMY_WEIGHTS = { ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
+export const ARMY_WEIGHTS = { sonicTank: 3, devastator: 2, deviator: 2, ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
 const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory'];
 
 function weightedPick(rng, pool) {
@@ -195,7 +204,7 @@ function weightedPick(rng, pool) {
 
 function buildArmy(world, house, view) {
   const d = DIFFICULTY[house.brain.difficulty];
-  if (view.units.filter((u) => isArmed(u.type)).length >= d.armyCap) return;
+  if (view.units.filter(fighter).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
   for (const line of ['heavy', 'light', 'infantry', 'air']) {
     const l = house.lines[line];
@@ -243,7 +252,7 @@ function defend(world, house, view, repairing = []) {
   }
   if (!intruder) return;
   const ids = view.units
-    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !repairing.includes(u.id) && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
+    .filter((u) => fighter(u) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !repairing.includes(u.id) && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
     .map((u) => u.id);
   if (ids.length) issue(world, house, { type: 'attack', ids, targetKind: 'unit', targetId: intruder.id });
 }
@@ -270,7 +279,7 @@ function sendForRepairs(world, house, view) {
 
 function attack(world, house, view) {
   const b = house.brain, d = DIFFICULTY[b.difficulty];
-  b.wave = b.wave.filter((id) => world.units.has(id));
+  b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target (at most every 10 s)
     b.huntAt = world.time + 10;
@@ -283,7 +292,7 @@ function attack(world, house, view) {
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
-  const ready = view.units.filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));
+  const ready = view.units.filter((u) => fighter(u) && !b.wave.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));
   if (ready.length < size) { b.nextAttack = world.time + 15; return; }
   const target = nearestEnemyTarget(world, house.id, view.home.x, view.home.y);
   if (!target) return;
@@ -312,4 +321,42 @@ function rebuildMcv(world, house, view) {
   if (canBuild(world, house.id, 'mcv')) { issue(world, house, { type: 'build', typeId: 'mcv' }); return; }   // queued behind the current item and paid as it builds
   const up = upgradeId('heavyFactory');
   if (upgradeLevel(house, 'heavyFactory') < 1 && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
+}
+
+/** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles. */
+export function richestTarget(world, houseId) {
+  const things = [];
+  for (const s of world.structures.values()) if (s.house !== houseId && !s.type.isWall) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
+  for (const u of world.units.values()) if (u.house !== houseId && u.isGround && !u.inside) things.push({ x: u.x, y: u.y, value: u.type.cost });
+  let best = null, bestValue = 0;
+  for (const c of things) {
+    let v = 0;
+    for (const o of things) if (Math.hypot(o.x - c.x, o.y - c.y) <= 2.5) v += o.value;
+    if (v > bestValue) { bestValue = v; best = c; }
+  }
+  return best && { x: Math.floor(best.x), y: Math.floor(best.y) };
+}
+
+/** A charged Palace fires at once (spec §4.10); a launch that was refused is tried again after ten seconds. */
+function usePalace(world, house, view) {
+  const b = house.brain, s = view.mine.find((x) => x.typeId === 'palace');
+  if (!palaceReady(world, s) || world.time < (b.palaceAt ?? 0)) return;
+  b.palaceAt = world.time + 10;
+  if (palaceWeapon(house.id) === 'saboteur') { issue(world, house, { type: 'palace' }); return; }
+  const t = richestTarget(world, house.id);
+  if (t) issue(world, house, { type: 'palace', x: t.x, y: t.y });
+}
+
+/** Saboteurs head for the most valuable enemy building, the nearest of equals. */
+function sabotage(world, house, view) {
+  for (const u of view.units) {
+    if (!u.type.sabotage || u.order.type === 'sabotage') continue;
+    let best = null, bestD = Infinity;
+    for (const s of world.structures.values()) {
+      if (s.house === house.id || s.type.isWall) continue;
+      const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y);
+      if (!best || s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD)) { best = s; bestD = d; }
+    }
+    if (best) issue(world, house, { type: 'sabotage', ids: [u.id], structureId: best.id });
+  }
 }
