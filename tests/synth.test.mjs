@@ -30,3 +30,7 @@ test('the building blocks behave', () => {
   assert.ok(e[1] > 0.9 && e[99] < 0.01);
   assert.equal(tone(1, 440).length, RATE);
 });
+
+test('the specials\' sounds are there: sonic hum, gas hiss, Destruct alarm', () => {
+  for (const id of ['sonic', 'gas', 'alarm']) assert.ok(RECIPES[id] && render(id).length > 0, id);
+});

@@ -1,7 +1,8 @@
 // Particle effects (spec §5.4): pools of camera-facing soft sprites, one InstancedMesh each — additive
 // for fire, flashes, tracers and sparks, alpha-blended for smoke — simulated on the CPU within the
 // quality preset's particle budget. Recipes turn combat events into muzzle flashes, projectile trails,
-// impacts, explosions, smoke and flames. Muzzle flashes also borrow one of a fixed set of point lights
+// impacts, explosions, smoke and flames, the sonic ripple, Deviator gas and the Death Hand's trail and
+// shockwave. Muzzle flashes also borrow one of a fixed set of point lights
 // (none on Low), so the lighting setup — and every compiled shader — never changes mid-game.
 import * as THREE from 'three';
 
@@ -161,12 +162,19 @@ export class Effects {
     if (kind === 'rocket') {
       this.glow.emit({ x, y, z, life: 0.06, size: [0.22, 0.1], color: [8, 5, 2], alpha: [1, 0] });
       this.smoke.emit({ x, y, z, vx: rnd(-0.08, 0.08), vy: rnd(0.05, 0.2), vz: rnd(-0.08, 0.08), life: rnd(0.6, 1.0), size: [0.12, 0.5], color: [0.62, 0.6, 0.57], alpha: [0.55, 0], drag: 1 });
+    } else if (kind === 'gas') {
+      this.smoke.emit({ x, y, z, vx: rnd(-0.08, 0.08), vy: rnd(0.05, 0.2), vz: rnd(-0.08, 0.08), life: rnd(0.5, 0.9), size: [0.12, 0.45], color: [0.4, 0.75, 0.3], alpha: [0.5, 0], drag: 1 });
+      this.glow.emit({ x, y, z, life: 0.06, size: [0.2, 0.1], color: [2.5, 6, 1.5], alpha: [1, 0] });
+    } else if (kind === 'deathHand') {
+      this.glow.emit({ x, y, z, life: 0.1, size: [0.5, 0.2], color: [9, 5, 2], alpha: [1, 0] });
+      for (let k = 0; k < 2; k++) this.smoke.emit({ x, y, z, vx: rnd(-0.15, 0.15), vy: rnd(0, 0.2), vz: rnd(-0.15, 0.15), life: rnd(1.5, 2.5), size: [0.25, 1.1], color: [0.8, 0.78, 0.74], alpha: [0.6, 0], drag: 0.8 });
     } else if (kind === 'shell') this.glow.emit({ x, y, z, life: 0.05, size: [0.16, 0.08], color: [6, 3, 0.8], alpha: [1, 0] });
     else this.glow.emit({ x, y, z, life: 0.04, size: [0.09, 0.05], color: [6, 5, 2], alpha: [1, 0] });
   }
 
   impact(x, y, z, kind, hit) {
     if (kind === 'rocket') { this.explosion(x, y, z, 'small'); return; }
+    if (kind === 'gas') { this.gasCloud(x, y, z); return; }
     const sparks = kind === 'shell' ? 6 : 2;
     for (let k = 0; k < sparks; k++) this.glow.emit({ x, y, z, vx: rnd(-1.5, 1.5), vy: rnd(0.5, 2), vz: rnd(-1.5, 1.5), life: rnd(0.15, 0.3), size: [0.07, 0.03], color: [6, 4, 1.5], alpha: [1, 0], gravity: 6 });
     if (kind === 'shell') this.smoke.emit({ x, y, z, vy: 0.3, life: 0.9, size: [0.2, 0.7], color: hit ? [0.3, 0.28, 0.26] : [0.62, 0.5, 0.36], alpha: [0.6, 0], drag: 1 });
@@ -198,6 +206,32 @@ export class Effects {
 
   weld(x, y, z) {
     for (let k = 0; k < 3; k++) this.glow.emit({ x, y, z, vx: rnd(-1.2, 1.2), vy: rnd(0.2, 1.4), vz: rnd(-1.2, 1.2), life: rnd(0.12, 0.28), size: [0.05, 0.02], color: [5, 6, 8], alpha: [1, 0], gravity: 7 });
+  }
+
+  /** The sonic wave's front: a pale shimmer across its path, drifting on. */
+  sonic(x, y, z, dir) {
+    const sx = -Math.sin(dir), sz = Math.cos(dir);
+    for (let k = -2; k <= 2; k++) this.glow.emit({ x: x + sx * k * 0.16, y: y + rnd(-0.05, 0.05), z: z + sz * k * 0.16, vx: Math.cos(dir) * 0.6, vz: Math.sin(dir) * 0.6, life: 0.3, size: [0.22, 0.55], color: [0.7, 0.95, 1.5], alpha: [0.45, 0] });
+  }
+
+  /** Deviator gas bursting: a green cloud that lingers. */
+  gasCloud(x, y, z) {
+    for (let k = 0; k < 16; k++) this.smoke.emit({ x: x + rnd(-0.3, 0.3), y, z: z + rnd(-0.3, 0.3), vx: rnd(-0.7, 0.7), vy: rnd(0.1, 0.4), vz: rnd(-0.7, 0.7), life: rnd(1.6, 2.6), size: [0.4, 1.6], color: [0.33, 0.8, 0.2], color2: [0.55, 0.72, 0.4], alpha: [0.6, 0], drag: 1.2 });
+  }
+
+  /** Where the Death Hand comes down: a ring of dust racing outward and a white-hot flash. */
+  shockwave(x, y, z) {
+    for (let k = 0; k < 36; k++) {
+      const a = (k / 36) * Math.PI * 2;
+      this.smoke.emit({ x, y, z, vx: Math.cos(a) * 7, vy: 0.2, vz: Math.sin(a) * 7, life: 0.9, size: [0.4, 1.4], color: [0.8, 0.66, 0.46], alpha: [0.55, 0], drag: 2.5 });
+    }
+    this.glow.emit({ x, y: y + 0.3, z, life: 0.35, size: [2, 6], color: [8, 5, 2.5], alpha: [1, 0] });
+    this.flash(x, y, z, 14);
+  }
+
+  /** Fremen rising out of the sand. */
+  rise(x, y, z) {
+    for (let k = 0; k < 5; k++) this.dust(x + rnd(-0.3, 0.3), y, z + rnd(-0.3, 0.3), 1.3);
   }
 
   update(dt) {

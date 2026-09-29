@@ -11,6 +11,7 @@ import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
+import { MissileViews, arcHeight } from '../render/views/missile-views.js';
 import { SoundEngine } from '../audio/engine.js';
 import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
@@ -62,6 +63,7 @@ export class GameView {
     this.shroud = new ShroudSync(world.map.w * world.map.h);
     this.ghost = new PlacementGhost(r3d.scene, hf);
     this.effects = new Effects(r3d.scene, r3d.quality);
+    this.missiles = new MissileViews(r3d.scene);
     this.smokeClock = 0;
     this.dustClock = 0;
     this.weldClock = 0;
@@ -179,7 +181,13 @@ export class GameView {
         if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size);
         if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
         break;
+      case 'deathHandBlast':
+        if (!this.catchingUp && this.seen(e.x, e.y)) { this.effects.shockwave(e.x, this.heightAt(e.x, e.y) + 0.2, e.y); this.rig.shake = Math.max(this.rig.shake, 1.2); }
+        break;
+      case 'fremenRose': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.rise(e.x, this.heightAt(e.x, e.y) + 0.05, e.y); break;
+      case 'unitReverted': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.gasCloud(e.x, this.heightAt(e.x, e.y) + 0.3, e.y); break;
       case 'unitDestroyed':
+        if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.rig.shake = Math.max(this.rig.shake, 0.6);
         if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
         break;
     }
@@ -206,7 +214,8 @@ export class GameView {
     const reach = e.kind === 'unit' ? 0.38 : 0.45;
     x += Math.cos(dir) * reach;
     z += Math.sin(dir) * reach;
-    this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
+    if (e.projectile === 'sonic') this.effects.sonic(x, this.heightAt(x, z) + lift, z, dir);
+    else this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
   }
 
   /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
@@ -217,9 +226,10 @@ export class GameView {
       if (!this.seen(x, z)) continue;
       const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
       const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
-      const arc = p.projectile === 'rocket' ? 4 * t * (1 - t) * Math.min(1.2, 0.15 + total * 0.06) : 0;
       const from = 0.35 + (p.fromAlt ?? 0), to = 0.2 + (p.toAlt ?? 0);   // from a flying gun, up to an aircraft
-      this.effects.trail(p.projectile, x, this.heightAt(x, z) + from + (to - from) * t + arc, z);
+      const y = this.heightAt(x, z) + from + (to - from) * t + arcHeight(p.projectile, t, total);
+      if (p.projectile === 'sonic') this.effects.sonic(x, y, z, Math.atan2(p.ty - p.sy, p.tx - p.sx));
+      else this.effects.trail(p.projectile, x, y, z);
     }
     this.smokeClock += dt;
     if (this.smokeClock < 0.12) return;
@@ -349,6 +359,7 @@ export class GameView {
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
+    this.missiles.sync(world, alpha, this.heightAt, (x, z) => this.seen(x, z));
     this.ambient(dt);
     this.effects.update(dt);
     this.terrain.update(now);

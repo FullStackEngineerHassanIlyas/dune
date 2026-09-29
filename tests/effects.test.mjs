@@ -76,3 +76,15 @@ test('welding throws a few short-lived sparks and no smoke', () => {
   fx.update(0.016);
   assert.equal(fx.glow.n, 0, '… and is gone within a moment');
 });
+
+test('the sonic wave, Deviator gas and the Death Hand each have their own look, within the budget', () => {
+  const fx = new Effects(new THREE.Scene(), { particles: 400, flashLights: 0 });
+  const count = () => fx.glow.n + fx.smoke.n;
+  const looks = { sonic: () => fx.sonic(0, 0, 0, 0), gasTrail: () => fx.trail('gas', 0, 0, 0), gasCloud: () => fx.impact(0, 0, 0, 'gas', false), deathHand: () => fx.trail('deathHand', 0, 0, 0), shockwave: () => fx.shockwave(0, 0, 0), rise: () => fx.rise(0, 0, 0) };
+  for (const [name, make] of Object.entries(looks)) {
+    const before = count();
+    make();
+    assert.ok(count() > before, name);
+  }
+  assert.ok(fx.glow.n <= fx.glow.capacity && fx.smoke.n <= fx.smoke.capacity);
+});

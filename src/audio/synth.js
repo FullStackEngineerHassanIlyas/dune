@@ -99,6 +99,13 @@ export const RECIPES = {
   click: () => normalize(envelope(tone(0.035, 1300, 900), 0.0005, 5), 0.35),
   error: () => normalize(envelope(lowpass(tone(0.28, 110, 104, 'square'), 1200), 0.004, 1.2), 0.45),
   beep: () => normalize(mix([[envelope(tone(0.07, 1250), 0.002, 1.5), 1], [envelope(tone(0.07, 950), 0.002, 1.5), 1, 0.08]]), 0.3),
+  sonic: () => {   // the Sonic Tank: a deep warbling hum that swells and fades
+    const a = mix([[tone(0.7, 110, 70), 1], [tone(0.7, 220, 150, 'triangle'), 0.5], [tone(0.7, 55, 50), 0.8]]);
+    for (let i = 0; i < a.length; i++) a[i] *= 0.6 + 0.4 * Math.sin(i / 180);
+    return normalize(envelope(a, 0.08, 1.4), 0.8);
+  },
+  gas: () => normalize(envelope(lowpass(highpass(noise(0.9, 40), 900), 5200, 2400), 0.05, 1.8), 0.5),   // Deviator gas hissing out
+  alarm: () => normalize(mix([0, 1, 2].map((k) => [envelope(tone(0.22, 700, 1100, 'square'), 0.01, 1.2), 0.5, k * 0.3])), 0.4),   // a Devastator about to go
   static: () => {
     const a = highpass(noise(0.5, 13), 1800);
     for (let i = 0; i < a.length; i++) a[i] *= 0.5 + 0.5 * Math.sin(i / 90) * Math.sin(i / 530);

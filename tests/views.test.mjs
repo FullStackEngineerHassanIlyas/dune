@@ -249,3 +249,19 @@ test('a Saboteur crossing a wall walks on top of it', () => {
   const y = pos(views.views.get(sab.id).handles[0].matrix).y;
   assert.ok(Math.abs(y - (hf.heightAt(5.5, 2.5) + 0.364)) < 0.01, `y ${y}`);
 });
+
+import { MissileViews, arcHeight } from '../src/render/views/missile-views.js';
+
+test('the Death Hand flies as a missile high over its path and is gone when it lands', () => {
+  assert.equal(arcHeight('bullet', 0.5, 10), 0);
+  assert.ok(arcHeight('rocket', 0.5, 10) > 0 && arcHeight('rocket', 0.5, 10) <= 1.2);
+  assert.ok(arcHeight('deathHand', 0.5, 30) >= 10 && arcHeight('deathHand', 0, 30) === 0);
+  const views = new MissileViews(new THREE.Scene());
+  const world = { projectiles: new Map([[1, { id: 1, projectile: 'deathHand', house: 'harkonnen', x: 10, y: 5, px: 10, py: 5, sx: 5, sy: 5, tx: 15, ty: 5 }]]) };
+  views.sync(world, 1, () => 0);
+  assert.ok(pos(views.handles.get(1).matrix).y > 3, 'high over the midpoint');
+  world.projectiles.delete(1);
+  views.sync(world, 1, () => 0);
+  assert.equal(views.handles.size, 0);
+  assert.equal(views.model.count, 0);
+});
