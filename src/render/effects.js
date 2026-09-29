@@ -191,6 +191,10 @@ export class Effects {
     this.glow.emit({ x: x + rnd(-0.1, 0.1), y, z: z + rnd(-0.1, 0.1), vy: rnd(0.4, 0.9), life: rnd(0.3, 0.6), size: [0.28, 0.08], color: [6, 2.4, 0.5], color2: [1.4, 0.3, 0.05], alpha: [1, 0] });
   }
 
+  dust(x, y, z, strength = 1) {
+    this.smoke.emit({ x: x + rnd(-0.1, 0.1), y, z: z + rnd(-0.1, 0.1), vx: rnd(-0.15, 0.15), vy: rnd(0.15, 0.35), vz: rnd(-0.15, 0.15), life: rnd(0.9, 1.5), size: [0.2, 0.9 * strength], color: [0.78, 0.64, 0.45], color2: [0.86, 0.75, 0.6], alpha: [0.32 * strength, 0], drag: 1.2 });
+  }
+
   update(dt) {
     this.glow.update(dt);
     this.smoke.update(dt);

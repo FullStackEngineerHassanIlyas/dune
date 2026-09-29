@@ -16,6 +16,7 @@ import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
+import { G } from '../data/terrain.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -61,6 +62,8 @@ export class GameView {
     this.ghost = new PlacementGhost(r3d.scene, hf);
     this.effects = new Effects(r3d.scene, r3d.quality);
     this.smokeClock = 0;
+    this.dustClock = 0;
+    this.trackFrom = new Map();
     this.catchingUp = true;   // the first frame drains everything a scene simulated ahead: marks yes, fireworks no
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
     const dist = params.num('dist');
@@ -157,6 +160,7 @@ export class GameView {
     if (e.type === 'structurePlaced') {
       const s = this.world.structures.get(e.id);
       if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
+      if (s && !this.catchingUp && this.seen(s.x + s.w / 2, s.y + s.h / 2)) this.constructionDust(s);
     }
     switch (e.type) {
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
@@ -225,6 +229,41 @@ export class GameView {
     }
   }
 
+  /** Dust behind vehicles on sand, tread marks and harvest dust (spec §5.4). */
+  ambient(dt) {
+    const w = this.world, map = w.map;
+    this.dustClock += dt;
+    const puff = this.dustClock >= 0.09;
+    if (puff) this.dustClock = 0;
+    for (const u of w.units.values()) {
+      if (u.move === 'foot') continue;
+      const i = map.idx(u.tx, u.ty);
+      const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
+      const p = this.unitViews.renderPos(u);
+      const visible = this.seen(p.x, p.z);
+      if (u.step && soft) {
+        const last = this.trackFrom.get(u.id);
+        if (!last || Math.hypot(p.x - last.x, p.z - last.z) > 0.3) {
+          if (last && visible) this.terrain.decals?.track(p.x, p.z, u.heading, u.move === 'wheeled' ? 0.2 : 0.28, u.move === 'wheeled' ? 0.035 : 0.05);
+          this.trackFrom.set(u.id, { x: p.x, z: p.z });
+        }
+        if (puff && visible) this.effects.dust(p.x - Math.cos(u.heading) * 0.35, this.heightAt(p.x, p.z) + 0.08, p.z - Math.sin(u.heading) * 0.35, u.move === 'wheeled' ? 0.9 : 0.7);
+      } else if (!u.step) this.trackFrom.delete(u.id);
+      if (puff && visible && u.harvest?.state === 'harvesting') {
+        this.effects.dust(p.x + Math.cos(u.heading) * 0.45, this.heightAt(p.x, p.z) + 0.1, p.z + Math.sin(u.heading) * 0.45, 1.2);
+      }
+    }
+    for (const id of this.trackFrom.keys()) if (!w.units.has(id)) this.trackFrom.delete(id);
+  }
+
+  constructionDust(s) {
+    for (let k = 0; k < 18; k++) {
+      const a = (k / 18) * Math.PI * 2;
+      const x = s.x + s.w / 2 + Math.cos(a) * s.w * 0.55, z = s.y + s.h / 2 + Math.sin(a) * s.h * 0.55;
+      this.effects.dust(x, this.heightAt(x, z) + 0.05, z, 1.4);
+    }
+  }
+
   /** The camera's view on the ground (tile coordinates), for the radar outline. */
   viewQuad() {
     const out = [];
@@ -290,6 +329,7 @@ export class GameView {
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
+    this.ambient(dt);
     this.effects.update(dt);
     this.terrain.update(now);
     r3d.renderer.info.reset();

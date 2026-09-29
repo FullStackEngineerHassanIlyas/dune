@@ -46,3 +46,15 @@ test('short-lived flashes are drawn at least once even at low frame rates', () =
   pool.update(1 / 15);
   assert.equal(pool.n, 0);
 });
+
+test('dust is sand-coloured smoke that rises and fades', () => {
+  const fx = new Effects(new THREE.Scene(), { particles: 400, flashLights: 0 });
+  fx.dust(1, 0, 2, 1);
+  assert.equal(fx.smoke.n, 1);
+  assert.equal(fx.glow.n, 0);
+  const y0 = fx.smoke.pos[1];
+  fx.update(0.5);
+  assert.ok(fx.smoke.pos[1] > y0, 'rises');
+  fx.update(2);
+  assert.equal(fx.smoke.n, 0, 'fades away');
+});
