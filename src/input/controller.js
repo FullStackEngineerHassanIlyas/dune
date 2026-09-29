@@ -6,6 +6,7 @@ import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
 import { checkPlacement } from '../sim/placement.js';
 import { LINE_FACTORIES } from '../sim/tech.js';
+import { isArmed } from '../sim/combat.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
@@ -71,6 +72,18 @@ export class Controller {
 
   modeClick(x, y, button) {
     if (button === 2) { this.setMode(null); return; }
+    if (this.mode.kind === 'attackMove') {
+      const hit = this.hitTest(x, y);
+      this.setMode(null);
+      const ids = this.ownSelected().map((u) => u.id);
+      if (!hit || !ids.length) return;
+      const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
+      if (entity && entity.house !== this.house) { this.order(hit); return; }
+      const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
+      this.issue({ type: 'attackMove', ids, x: tx, y: ty });
+      this.onMarker(tx + 0.5, ty + 0.5);
+      return;
+    }
     const m = this.mode;
     if (m.kind === 'place') {
       const p = this.placementAt(x, y);
@@ -98,9 +111,10 @@ export class Controller {
     const hit = this.hitTest(x, y);
     if (button === 2) {
       if (classic) this.selection.clear();
-      else if (!this.rally(hit)) this.order(hit);
+      else if (!this.rally(hit)) this.order(hit, mods);
       return;
     }
+    if (mods.ctrl && hit && this.ownSelected().some((u) => isArmed(u.type))) { this.order(hit, mods); return; }   // force fire
     if (hit?.kind === 'unit' && hit.unit.house === this.house) {
       const u = hit.unit;
       // a second click on the selected MCV deploys it, even when the two clicks were quick enough to count as a double click
@@ -120,7 +134,7 @@ export class Controller {
     const units = this.ownSelected();
     if (classic && units.length) {
       if (s.house === this.house && s.typeId === 'refinery' && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return; }
-      if (s.house !== this.house) return;   // attacking structures arrives with combat (plan 1c)
+      if (s.house !== this.house) { this.order({ kind: 'structure', structure: s, tx: s.x, ty: s.y }); return; }
     }
     if (double && s.house === this.house && UNIT_FACTORIES.has(s.typeId)) this.issue({ type: 'setPrimary', structureId: s.id });
     this.selection.setStructure(s.id);
@@ -141,11 +155,20 @@ export class Controller {
   }
 
 
-  order(hit) {
+  order(hit, mods = {}) {
     const units = this.ownSelected();
     if (!units.length || !hit) return;
     if (hit.kind === 'unit' && units.length === 1 && units[0].id === hit.unit.id && units[0].type.deploysTo) {
       this.issue({ type: 'deploy', ids: [units[0].id] });
+      return;
+    }
+    const armed = units.filter((u) => isArmed(u.type));
+    const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
+    const enemy = !!entity && entity.house !== this.house;
+    if (armed.length && (enemy || mods.ctrl)) {
+      const ids = armed.map((u) => u.id);
+      if (entity) this.issue({ type: 'attack', ids, targetKind: entity.kind, targetId: entity.id, force: !enemy });
+      else this.issue({ type: 'attack', ids, x: hit.tx, y: hit.ty, force: true });
       return;
     }
     const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
@@ -192,6 +215,10 @@ export class Controller {
       if (this.groups.tap(digit, performance.now()) === 'center' || mods.alt) this.centerOn(ids);
       return true;
     }
+    if (key === 'a' && !mods.ctrl) {
+      if (this.ownSelected().some((u) => isArmed(u.type))) this.setMode({ kind: 'attackMove' });
+      return true;
+    }
     if (HOTKEYS[key]) {
       const ids = this.ownSelected().map((u) => u.id);
       if (ids.length) this.issue({ type: HOTKEYS[key], ids });
@@ -232,6 +259,7 @@ export class Controller {
 
   cursorFor(hit) {
     if (this.mode) {
+      if (this.mode.kind === 'attackMove') return 'attack';
       if (this.mode.kind === 'place') return 'default';
       const s = hit?.kind === 'structure' && hit.structure?.house === this.house ? hit.structure : null;
       if (this.mode.kind === 'sell') return s ? 'sell' : 'noSell';
@@ -247,7 +275,8 @@ export class Controller {
     if (hit.kind === 'structure') {
       const s = hit.structure;
       if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
-      return own.length && s?.house !== this.house ? 'noMove' : 'select';
+      if (own.length && s?.house !== this.house) return own.some((u) => isArmed(u.type)) ? 'attack' : 'noMove';
+      return 'select';
     }
     if (!own.length) return this.rallyTarget() ? 'move' : 'default';
     const i = this.world.map.idx(hit.tx, hit.ty);

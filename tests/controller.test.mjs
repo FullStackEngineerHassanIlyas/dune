@@ -293,3 +293,48 @@ test('structures the player has not seen cannot be hovered or selected', () => {
   c.onClick(px(14), px(12), 0, NONE, false);
   assert.equal(c.selection.structureId, 0);
 });
+
+test('clicking an enemy with units selected attacks it (classic left click, modern right click)', () => {
+  const { tank, enemy, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.onClick(px(12), px(5), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: enemy.id, force: false });
+  const m = setup('modern');
+  m.c.selection.set([m.tank.id]);
+  m.c.onClick(px(12), px(5), 2, NONE, false);
+  assert.equal(m.issued.at(-1).type, 'attack');
+});
+
+test('enemy buildings are attacked, and the cursor says so', () => {
+  const { world, tank, c, issued } = setup();
+  const trap = world.spawnStructure('windtrap', 'harkonnen', 14, 12);
+  c.selection.set([tank.id]);
+  assert.equal(c.cursorFor(c.hitTest(px(14), px(12))), 'attack');
+  c.onClick(px(14), px(12), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: trap.id, force: false });
+});
+
+test('Ctrl + click forces fire on a friend or on the ground', () => {
+  const { tank, tank2, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.onClick(px(7), px(5), 0, { ...NONE, ctrl: true }, false);
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: tank2.id, force: true });
+  c.onClick(px(10), px(10), 0, { ...NONE, ctrl: true }, false);
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], x: 10, y: 10, force: true });
+  assert.deepEqual(c.selection.list(), [tank.id], 'the selection stays');
+});
+
+test('A then a click attack-moves the selection; Escape cancels', () => {
+  const { tank, c, issued } = setup();
+  c.selection.set([tank.id]);
+  c.onKey('a', 'KeyA', NONE);
+  assert.equal(c.mode.kind, 'attackMove');
+  assert.equal(c.cursorFor(c.hitTest(px(10), px(10))), 'attack');
+  c.onClick(px(10), px(10), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'attackMove', ids: [tank.id], x: 10, y: 10 });
+  assert.equal(c.mode, null);
+  c.onKey('a', 'KeyA', NONE);
+  c.onKey('Escape', 'Escape', NONE);
+  assert.equal(c.mode, null);
+  assert.equal(issued.length, 1);
+});
