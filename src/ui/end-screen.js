@@ -1,9 +1,11 @@
 // End of a skirmish (spec §4.11, §7): "Mission accomplished", "Mission failed" or a draw, the player's
-// statistics against everyone else, the game time, and buttons to play again or keep watching.
+// statistics against everyone else, the game time, and buttons to play again, keep watching or go
+// back to the main menu.
 export const formatTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export class EndScreen {
-  constructor(root, { onReplay }) {
+  constructor(root, { onReplay, onMenu = null }) {
+    this.hasMenu = !!onMenu;
     this.el = document.createElement('div');
     this.el.className = 'end-screen';
     root.appendChild(this.el);
@@ -11,6 +13,7 @@ export class EndScreen {
       const act = e.target.closest('button')?.dataset.act;
       if (act === 'replay') onReplay();
       else if (act === 'close') this.hide();
+      else if (act === 'menu') onMenu?.();
     });
   }
 
@@ -31,7 +34,7 @@ export class EndScreen {
     time.textContent = `Game time ${formatTime(stats.seconds)}`;
     const buttons = document.createElement('div');
     buttons.className = 'end-buttons';
-    for (const [act, text] of [['replay', 'Play again'], ['close', 'Keep watching']]) {
+    for (const [act, text] of [['replay', 'Play again'], ['close', 'Keep watching'], ...(this.hasMenu ? [['menu', 'Main menu']] : [])]) {
       const b = document.createElement('button');
       b.dataset.act = act;
       b.textContent = text;
