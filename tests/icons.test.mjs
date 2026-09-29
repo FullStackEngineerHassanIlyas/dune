@@ -51,3 +51,11 @@ test('bounds and icons use every node\'s rest pose, pivots included', () => {
   const p = new THREE.Vector3().setFromMatrixPosition(rest.barrel);
   assert.deepEqual([+p.x.toFixed(2), +p.y.toFixed(2)], [0.14, 0.44]);
 });
+
+import { upgradeIconKey } from '../src/render/icons.js';
+
+test('upgrade icon keys name the building and the level it reaches', () => {
+  assert.deepEqual(upgradeIconKey('upgrade:heavyFactory:2'), { structureType: 'heavyFactory', level: 2 });
+  assert.equal(upgradeIconKey('heavyFactory'), null);
+  assert.equal(upgradeIconKey('upgrade:windtrap:1'), null, 'wind traps have no upgrades');
+});

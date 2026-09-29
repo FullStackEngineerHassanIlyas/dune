@@ -1,5 +1,5 @@
 // C&C sidebar (spec §5.6, §5.7): rolling credits with a storage gauge, the radar slot, a vertical
-// power bar, Repair and Sell toggles and two build strips (structures | units) with model icons,
+// power bar, Repair and Sell toggles and two build strips (structures | units) — factory upgrades close the structure strip — with model icons,
 // clock-wipe progress, READY / ON HOLD and queue badges, scroll arrows and a tooltip. Left click
 // builds, resumes or (when READY) starts placement; right click holds, then cancels with a refund;
 // Shift + left click queues five.
@@ -62,7 +62,7 @@ export class Sidebar {
   }
 
   fill(strip, items) {
-    const key = items.map((i) => i.typeId).join(',');
+    const key = items.map((i) => i.icon).join(',');   // an upgrade that levels up gets its new icon
     if (key !== strip.key) {   // rebuild only when the set of buildable items changes
       strip.key = key;
       strip.list.textContent = '';
@@ -89,7 +89,7 @@ export class Sidebar {
     b.dataset.type = item.typeId;
     b.item = item;
     const img = new Image();
-    img.src = this.iconFor(item.typeId);
+    img.src = this.iconFor(item.icon);
     img.alt = item.name;
     img.draggable = false;
     b.stateEl = document.createElement('span');
@@ -113,7 +113,7 @@ export class Sidebar {
   showTip(b) {
     const i = b.item;
     this.tip.querySelector('b').textContent = i.name;
-    this.tip.querySelector('span').textContent = i.state === 'ready' ? 'Ready — click to place' : `Cost ${i.cost} · ${i.seconds} s`;
+    this.tip.querySelector('span').textContent = i.state === 'ready' ? 'Ready — click to place' : [`Cost ${i.cost} · ${i.seconds} s`, i.note].filter(Boolean).join(' · ');
     this.tip.style.top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
     this.tip.classList.add('show');
   }

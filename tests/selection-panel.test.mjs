@@ -49,7 +49,9 @@ test('an own factory offers Repair, Sell and Set primary', () => {
   m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual(m.buttons.map((b) => b.id), ['repair', 'sell']);
   assert.equal(m.buttons[0].disabled, false);
-  assert.deepEqual(m.details, ['Power use 20', 'Primary factory', 'Rally point set']);
+  assert.deepEqual(m.details, ['Power use 20', 'Upgrade level 0 of 1', 'Primary factory', 'Rally point set']);
+  world.houses.get('atreides').upgrades.lightFactory = 1;
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Upgrade level 1 of 1'));
   assert.equal(selectionPanelModel(world, new Selection(), 'atreides'), null);
 });
 

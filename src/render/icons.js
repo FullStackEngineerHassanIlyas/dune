@@ -54,6 +54,37 @@ export function flipRows(src, w, h) {
   return out;
 }
 
+/** 'upgrade:<structure>:<level>' → the upgrade icon it names, or null. */
+export function upgradeIconKey(key) {
+  const m = /^upgrade:(\w+):(\d+)$/.exec(key);
+  return m && STRUCTURES[m[1]]?.upgrades ? { structureType: m[1], level: Number(m[2]) } : null;
+}
+
+/** Upgrade icons: the building with a gold arrow and the level it reaches in the top right corner. */
+function drawUpgradeBadge(ctx, level) {
+  const x = ICON_W - 46, y = 4;
+  ctx.save();
+  ctx.fillStyle = 'rgba(20, 14, 6, 0.85)';
+  ctx.strokeStyle = '#e8b84a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, 42, 30, 6); else ctx.rect(x, y, 42, 30);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#ffd24a';
+  ctx.beginPath();
+  ctx.moveTo(x + 6, y + 24);
+  ctx.lineTo(x + 14, y + 6);
+  ctx.lineTo(x + 22, y + 24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.font = 'bold 19px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(level), x + 32, y + 16);
+  ctx.restore();
+}
+
 export class IconFactory {
   constructor(renderer, { environment = null } = {}) {
     this.renderer = renderer;
@@ -79,18 +110,20 @@ export class IconFactory {
 
   forItem(typeId, houseId) {
     const color = HOUSES[houseId]?.color ?? 0xffffff;
+    const up = upgradeIconKey(typeId);
+    if (up) { const t = STRUCTURES[up.structureType]; return this.get(structureModelId(up.structureType, t.w, t.h), color, 0, up.level); }
     const s = STRUCTURES[typeId];
     return s ? this.get(structureModelId(typeId, s.w, s.h), color) : this.get(unitModelId(typeId), color, UNIT_ICON_YAW);
   }
 
-  get(modelId, color, yaw = 0) {
-    const key = `${modelId}|${color}|${yaw}`;
+  get(modelId, color, yaw = 0, badge = 0) {
+    const key = `${modelId}|${color}|${yaw}|${badge}`;
     let url = this.cache.get(key);
-    if (!url) { url = this.render(modelId, color, yaw); this.cache.set(key, url); }
+    if (!url) { url = this.render(modelId, color, yaw, badge); this.cache.set(key, url); }
     return url;
   }
 
-  render(modelId, color, yaw) {
+  render(modelId, color, yaw, badge = 0) {
     const def = modelDef(modelId);
     const matrix = new THREE.Matrix4().makeRotationY(yaw);
     const rest = nodeMatricesAtRest(def, matrix);
@@ -121,6 +154,7 @@ export class IconFactory {
     r.setClearColor(prevColor, prevAlpha);
     for (const mesh of meshes) { this.scene.remove(mesh); mesh.dispose(); }
     this.ctx.putImageData(new ImageData(flipRows(this.pixels, ICON_W, ICON_H), ICON_W, ICON_H), 0, 0);
+    if (badge) drawUpgradeBadge(this.ctx, badge);
     return this.canvas.toDataURL();
   }
 }

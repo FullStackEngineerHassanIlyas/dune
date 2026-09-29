@@ -1,10 +1,10 @@
 // Pure view-model of the C&C sidebar (spec §4.4, §5.6): credits and storage, the power bar's level,
-// radar availability and the two build strips — structures, then the units of every line — with each
+// radar availability and the two build strips — structures and factory upgrades, then the units of every line — with each
 // icon's state, progress and queue count. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { buildSeconds } from '../data/tuning.js';
-import { buildOptions } from '../sim/tech.js';
+import { buildSeconds, UPGRADE_BUILD_TIME } from '../data/tuning.js';
+import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 
 const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
@@ -27,7 +27,18 @@ export function sidebarModel(world, houseId) {
   const options = buildOptions(world, houseId);
   const entry = (line) => (typeId) => {
     const t = STRUCTURES[typeId] ?? UNITS[typeId];
-    return { typeId, line, name: t.name, cost: t.cost, seconds: Math.round(buildSeconds(t.buildTime)), ...itemState(house.lines[line], typeId, line) };
+    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(buildSeconds(t.buildTime)), ...itemState(house.lines[line], typeId, line) };
+  };
+  const upgrade = (typeId) => {
+    const target = upgradeTarget(typeId), line = lineOfItem(typeId);
+    const cur = house.lines[line].current?.typeId === typeId ? house.lines[line].current : null;
+    const level = cur?.level ?? upgradeResult(house, target);
+    const opens = upgradeUnlocks(houseId, target, upgradeLevel(house, target), level);
+    return {
+      typeId, line, icon: `${typeId}:${level}`, name: `${STRUCTURES[target].name} upgrade`, cost: cur?.cost ?? upgradeCost(house, target),
+      seconds: Math.round(buildSeconds(UPGRADE_BUILD_TIME)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
+      ...itemState(house.lines[line], typeId, line),
+    };
   };
   const power = computePower(world, houseId);
   return {
@@ -35,7 +46,7 @@ export function sidebarModel(world, houseId) {
     storage: Math.max(builtStorage(world, houseId), house.startBuffer ?? 0),
     power: { ...power, level: powerLevel(power) },
     radar: radarOnline(world, houseId),
-    structures: options.structure.map(entry('structure')),
+    structures: [...options.structure.map(entry('structure')), ...options.upgrades.map(upgrade)],
     units: UNIT_LINES.flatMap((line) => options[line].map(entry(line))),
   };
 }

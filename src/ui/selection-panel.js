@@ -2,7 +2,7 @@
 // points and what the selection is doing, with order buttons: Stop / Guard / Scatter / Deploy /
 // Return for units, Repair / Sell / Set primary for own structures. The model part is pure.
 import { UNITS } from '../data/units.js';
-import { LINE_FACTORIES } from '../sim/tech.js';
+import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
@@ -15,6 +15,7 @@ function structureModel(world, s, houseId) {
   if (t.power < 0) details.push(`Power output ${Math.round(-t.power * Math.max(0.5, Math.min(1, s.hp / s.maxHp)))}`);
   else if (t.power > 0) details.push(`Power use ${t.power}`);
   if (t.storage) details.push(`Storage ${t.storage}`);
+  if (t.upgrades) details.push(`Upgrade level ${upgradeLevel(world.houses.get(houseId), s.typeId)} of ${t.upgrades.length}`);
   if (UNIT_FACTORIES.has(s.typeId)) {
     if (s.primary) details.push('Primary factory');
     if (s.rally) details.push('Rally point set');
