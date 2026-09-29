@@ -12,6 +12,14 @@ export function updateAircraft(world, u) {
   else if (u.typeId === 'ornithopter') updateOrnithopter(world, u);
 }
 
+/** The nearest point on the map edge (tile coordinates): where visiting aircraft come from and leave to. */
+export function nearestEdge(map, x, y) {
+  const tx = Math.max(0, Math.min(map.w - 1, Math.floor(x))), ty = Math.max(0, Math.min(map.h - 1, Math.floor(y)));
+  const edges = [[tx, 0], [tx, map.h - 1], [0, ty], [map.w - 1, ty]];
+  const [ex, ey] = edges.reduce((a, b) => (Math.hypot(b[0] - x, b[1] - y) < Math.hypot(a[0] - x, a[1] - y) ? b : a));
+  return { x: ex, y: ey };
+}
+
 /** Keep a flying unit over the map and its tile indices current (fog, radar and picking read them). */
 export function track(world, u) {
   const map = world.map;

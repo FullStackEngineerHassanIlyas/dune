@@ -8,7 +8,7 @@
 // Whatever a Carryall carries dies with it.
 import { AIR } from '../data/tuning.js';
 import { findFreeTile } from './spawn.js';
-import { hoverTo, climb } from './air.js';
+import { hoverTo, climb, nearestEdge } from './air.js';
 
 const VEHICLES = new Set(['tracked', 'wheeled', 'harvester']);
 
@@ -48,8 +48,7 @@ export function callCarryall(world, u, to) {
 /** A visiting Carryall brings a new unit in from the nearest map edge, sets it down on tile `to` and flies off. */
 export function deliverByAir(world, houseId, typeId, to, announce = null) {
   const map = world.map;
-  const edges = [[to.x, 0], [to.x, map.h - 1], [0, to.y], [map.w - 1, to.y]];
-  const [ex, ey] = edges.reduce((a, b) => (Math.hypot(b[0] - to.x, b[1] - to.y) < Math.hypot(a[0] - to.x, a[1] - to.y) ? b : a));
+  const { x: ex, y: ey } = nearestEdge(map, to.x, to.y);
   const c = world.spawnUnit('carryall', houseId, ex, ey, { heading: Math.atan2(to.y - ey, to.x - ex) });
   c.visitor = true;
   const u = world.spawnUnit(typeId, houseId, ex, ey, { inside: c.id });

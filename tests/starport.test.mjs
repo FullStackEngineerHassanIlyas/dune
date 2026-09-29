@@ -1,0 +1,102 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { G } from '../src/data/terrain.js';
+import { UNITS } from '../src/data/units.js';
+import { flatWorld, run } from './helpers.mjs';
+
+export function port(house = 'atreides', credits = 5000) {
+  const world = flatWorld(48, 32, G.ROCK);
+  const h = world.houses.get(house);
+  h.credits = credits;
+  h.startBuffer = 100000;
+  world.spawnStructure('windtrap', house, 1, 1);
+  const s = world.spawnStructure('starport', house, 20, 12);
+  world.step();   // the market opens
+  return { world, h, s };
+}
+
+test('a Starport opens a market of the house\'s vehicles and aircraft at 40–160 % of their cost', () => {
+  const { h } = port();
+  assert.deepEqual(Object.keys(h.starport.stock), ['trike', 'quad', 'combatTank', 'missileTank', 'siegeTank', 'harvester', 'mcv', 'carryall', 'ornithopter']);
+  for (const [t, n] of Object.entries(h.starport.stock)) {
+    assert.ok(n >= 2 && n <= 6, `${t} stock ${n}`);
+    const price = h.starport.price[t], cost = UNITS[t].cost, tenth = Math.floor(cost / 10);
+    assert.ok(price >= 4 * tenth && price <= Math.min(999, 16 * tenth) && (price === 999 || price % tenth === 0), `${t} at ${price}`);
+  }
+  assert.deepEqual(Object.keys(port('ordos').h.starport.stock), ['raider', 'quad', 'combatTank', 'missileTank', 'siegeTank', 'harvester', 'mcv', 'carryall', 'ornithopter']);
+  assert.deepEqual(Object.keys(port('harkonnen').h.starport.stock), ['quad', 'combatTank', 'missileTank', 'siegeTank', 'harvester', 'mcv', 'carryall']);
+});
+
+test('prices change every minute; stock grows by one every 90 s, up to ten', () => {
+  const { world, h } = port();
+  const before = { ...h.starport.price };
+  run(world, 61);
+  assert.notDeepEqual(h.starport.price, before);
+  const stock = { ...h.starport.stock };
+  run(world, 30);
+  for (const t of Object.keys(stock)) assert.equal(h.starport.stock[t], Math.min(10, stock[t] + 1));
+  run(world, 90 * 8);
+  assert.ok(Object.values(h.starport.stock).every((n) => n === 10));
+});
+
+test('an order is paid at once and books a Frigate for 30 s later; later orders join its load', () => {
+  const { world, h } = port();
+  const price = h.starport.price.quad, stock = h.starport.stock.quad;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(Math.abs(h.credits - (5000 - price)) < 1e-6);
+  assert.equal(h.starport.stock.quad, stock - 1);
+  const b = h.starport.batch;
+  assert.ok(Math.abs(b.landAt - (world.time - 0.05 + 30)) < 1e-6, `lands at ${b.landAt}`);
+  assert.ok(b.spawnAt > world.time && b.spawnAt < b.landAt, 'the Frigate sets off in time to land then');
+  run(world, 10);
+  world.issue('atreides', { type: 'starportOrder', typeId: 'combatTank', count: 2 });
+  world.step();
+  assert.deepEqual(b.items.map((i) => i.typeId), ['quad', 'combatTank', 'combatTank']);
+  assert.equal(h.starport.batch, b, 'the same batch');
+});
+
+test('an order can be cancelled for a refund until the Frigate lands', () => {
+  const { world, h } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'trike', count: 2 });
+  world.step();
+  const credits = h.credits, stock = h.starport.stock.trike;
+  world.issue('atreides', { type: 'starportCancel', typeId: 'trike' });
+  world.step();
+  assert.ok(h.credits > credits);
+  assert.equal(h.starport.stock.trike, stock + 1);
+  assert.equal(h.starport.batch.items.length, 1);
+  world.issue('atreides', { type: 'starportCancel', typeId: 'trike' });
+  world.step();
+  assert.equal(h.starport.batch, null, 'nothing left to bring');
+  assert.ok(Math.abs(h.credits - 5000) < 1e-6);
+});
+
+test('no Starport, no stock, no money, a full hold: no order', () => {
+  const { world, h, s } = port();
+  h.starport.stock.mcv = 0;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'mcv' });
+  world.issue('atreides', { type: 'starportOrder', typeId: 'raider' });   // an Ordos ware
+  world.step();
+  const events = world.events.drain();
+  assert.equal(h.starport.batch, null);
+  assert.ok(events.some((e) => e.type === 'eva' && e.key === 'soldOut'));
+  assert.ok(events.some((e) => e.type === 'commandRejected' && e.typeId === 'raider'));
+  h.credits = 10;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.equal(h.starport.batch, null);
+  assert.equal(h.credits, 10, 'nothing charged');
+  h.credits = 20000;
+  for (const t of Object.keys(h.starport.stock)) h.starport.stock[t] = 10;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad', count: 5 });
+  world.issue('atreides', { type: 'starportOrder', typeId: 'trike', count: 5 });
+  world.step();
+  assert.equal(h.starport.batch.items.length, 9, 'a Frigate carries nine');
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'frigateFull'));
+  world.removeStructure(s);
+  const credits = h.credits;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.equal(h.credits, credits, 'no Starport: no order');
+});

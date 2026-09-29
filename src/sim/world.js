@@ -24,6 +24,7 @@ import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.j
 import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
+import { updateStarports } from './starport.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -137,6 +138,7 @@ export class World {
     updateProduction(this);
     updateRepairs(this);
     updateRepairBays(this);
+    updateStarports(this);
     if (this.tick % 10 === 0) updatePower(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);

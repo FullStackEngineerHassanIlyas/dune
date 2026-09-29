@@ -7,6 +7,7 @@ import { orderHarvest, orderReturn } from './harvest.js';
 import { isArmed } from './combat.js';
 import { orderRepairAt } from './repair-bay.js';
 import { orderCapture } from './capture.js';
+import { orderStarport, cancelStarport } from './starport.js';
 
 export function applyCommand(world, houseId, cmd) {
   const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous);   // nor do units held in a bay or a Carryall, nor Carryalls
@@ -27,6 +28,8 @@ export function applyCommand(world, houseId, cmd) {
     case 'returnToBase': orderReturn(world, units); return;
     case 'repairAt': orderRepairAt(world, houseId, units, cmd.structureId); return;
     case 'capture': orderCapture(world, houseId, units, cmd.structureId); return;
+    case 'starportOrder': orderStarport(world, houseId, cmd.typeId, cmd.count ?? 1); return;
+    case 'starportCancel': cancelStarport(world, houseId, cmd.typeId); return;
     case 'attack': orderAttack(world, units, cmd); return;
     case 'attackMove': orderAttackMove(world, units, cmd.x, cmd.y); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });
