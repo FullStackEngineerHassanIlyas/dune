@@ -67,8 +67,8 @@ function think(world, house) {
   const rebuilding = !view.yard && !view.units.some((u) => u.type.deploysTo);
   if (!rebuilding) { buyUpgrades(world, house, view); buildArmy(world, house, view); }   // the new MCV comes first
   rally(world, house, view);
-  sendForRepairs(world, house, view);
-  defend(world, house, view);
+  const repairing = sendForRepairs(world, house, view);
+  defend(world, house, view, repairing);
   attack(world, house, view);
 }
 
@@ -222,7 +222,7 @@ function rally(world, house, view) {
   }
 }
 
-function defend(world, house, view) {
+function defend(world, house, view, repairing = []) {
   const b = house.brain;
   let intruder = null, best = 10;
   for (const u of world.units.values()) {
@@ -234,7 +234,7 @@ function defend(world, house, view) {
   }
   if (!intruder) return;
   const ids = view.units
-    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
+    .filter((u) => isArmed(u.type) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !repairing.includes(u.id) && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
     .map((u) => u.id);
   if (ids.length) issue(world, house, { type: 'attack', ids, targetKind: 'unit', targetId: intruder.id });
 }
@@ -244,7 +244,7 @@ const REPAIR_BELOW = 0.5, RETREAT_BELOW = 0.3;
 /** Worn vehicles go to the Repair Facility: resting ones below half health, any below 30 % (they leave their wave). */
 function sendForRepairs(world, house, view) {
   const bay = view.mine.find((s) => s.typeId === 'repair');
-  if (!bay) return;
+  if (!bay) return [];
   const b = house.brain;
   const ids = [];
   for (const u of view.units) {
@@ -253,9 +253,10 @@ function sendForRepairs(world, house, view) {
     const resting = u.order.type === 'idle' || u.order.type === 'guard' || u.order.type === 'harvest';
     if (worn < RETREAT_BELOW || (resting && worn < REPAIR_BELOW)) ids.push(u.id);
   }
-  if (!ids.length) return;
+  if (!ids.length) return ids;
   b.wave = b.wave.filter((id) => !ids.includes(id));
   issue(world, house, { type: 'repairAt', ids, structureId: bay.id });
+  return ids;
 }
 
 function attack(world, house, view) {

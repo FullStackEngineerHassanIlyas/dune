@@ -83,6 +83,7 @@ export function transferStructure(world, s, to) {
   s.primary = false;
   s.rally = null;
   s.target = null;
+  if (from) s.seenBy = (s.seenBy ?? 0) | (1 << from.slot);   // its former owner keeps it on the map as last seen
   for (const id of [s.dockedBy, s.occupant]) if (id && world.units.has(id)) transferUnit(world, world.units.get(id), to);
   if (s.type.storage) {
     if (from) loseStorageShare(world, from, s.type.storage);

@@ -31,7 +31,7 @@ test('a damaged tank drives into the bay, is repaired for its damage and drives 
   assert.ok(t > 15 && t < 18, `half a repair takes half the build time (14.4 s) plus driving on and off: ${t}`);
   assert.equal(u.hp, 200);
   assert.ok(Math.abs(before - h.credits - 37.5) < 0.5, `paid ${before - h.credits}`);
-  assert.equal(u.order.type, 'idle');
+  assert.equal(u.order.type, 'move', 'it drives clear of the doorway');
   assert.equal(world.map.unit[world.map.idx(u.tx, u.ty)], u.id);
   assert.deepEqual(checkInvariants(world), []);
 });
@@ -193,4 +193,15 @@ test('a vehicle driving out of the bay is not nudged off its way', () => {
   Object.assign(t, { path: [map.idx(11, 12), map.idx(12, 12)], pathIndex: 0, pathState: 'ready', goal: map.idx(12, 12), order: { type: 'move', x: 12, y: 12 } });
   assert.ok(runUntil(world, () => !hv.inside, 5) > 0);
   assert.equal(hv.order.type, 'harvest');
+});
+
+test('a repaired vehicle with no rally point drives clear of the door', () => {
+  const { world, s } = bay();
+  const u = tank(world, 11, 14, 180);
+  sendIn(world, [u], s);
+  assert.ok(runUntil(world, () => u.inside === s.id, 20) > 0);
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0);
+  run(world, 4);
+  const gap = Math.max(s.x - u.tx, u.tx - (s.x + s.w - 1), s.y - u.ty, u.ty - (s.y + s.h - 1));
+  assert.ok(gap >= 2, `waits ${gap} tiles out, not in the doorway`);
 });

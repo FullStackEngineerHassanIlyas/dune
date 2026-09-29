@@ -218,3 +218,17 @@ test('the AI builds a Hi-Tech Factory and keeps exactly one Carryall', () => {
   run(world, 90);
   assert.equal(own(), 1, 'and no more');
 });
+
+test('the AI does not pull a worn vehicle it just sent for repairs into its defence', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['repair', 8, 2]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const h = world.houses.get('harkonnen');
+  h.credits = 1000;
+  h.startBuffer = 5000;
+  const worn = world.spawnUnit('combatTank', 'harkonnen', 12, 12);
+  worn.hp = 80;   // 40 %: sent when resting
+  world.spawnUnit('quad', 'atreides', 6, 9);   // an intruder by the base
+  createBrain(world, 'harkonnen', 'normal');
+  run(world, 1.2);
+  assert.equal(worn.order.type, 'repairAt');
+});

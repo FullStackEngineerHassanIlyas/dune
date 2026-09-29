@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { captureStructure } from '../src/sim/capture.js';
+import { updateFog, structureVisibleTo } from '../src/sim/fog.js';
 import { flatWorld, run, runUntil } from './helpers.mjs';
 
 const capture = (world, units, s) => world.issue(units[0].house, { type: 'capture', ids: units.map((u) => u.id), structureId: s.id });
@@ -112,4 +113,15 @@ test('the old owner loses what the captured factory was building, refunded', () 
   run(world, 1.1);
   assert.equal(hk.lines.heavy.current, null);
   assert.ok(Math.abs(hk.credits - 5000) < 1e-6);
+});
+
+test('a captured building stays on its former owner\'s map as last seen', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  world.spawnStructure('constructionYard', 'harkonnen', 2, 2);
+  const far = world.spawnStructure('silo', 'harkonnen', 30, 20);
+  far.hp = 20;
+  updateFog(world);
+  captureStructure(world, far, world.spawnUnit('soldier', 'atreides', 30, 23));
+  updateFog(world);
+  assert.equal(structureVisibleTo(world, 'harkonnen', far), true);
 });

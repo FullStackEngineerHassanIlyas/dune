@@ -11,6 +11,7 @@ import { DT, buildSeconds, UNIT_REPAIR_COST, BAY_DRIVE_SECONDS } from '../data/t
 import { spend } from './economy.js';
 import { dockTile, clearDock } from './harvest.js';
 import { callCarryall } from './carryall.js';
+import { findFreeTile } from './spawn.js';
 import { orderMove, stopUnit } from './orders.js';
 import { killUnit } from './combat.js';
 import { turnToward } from './geometry.js';
@@ -182,6 +183,11 @@ function release(world, s, u) {
   s.bay = null;
   standDown(u);
   if (u.order.type !== 'harvest' && s.rally) orderMove(world, [u], s.rally.x, s.rally.y);
+  else if (u.order.type !== 'harvest') {   // no rally point: clear the doorway for the next one
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2, d = Math.hypot(u.x - cx, u.y - cy) || 1;
+    const spot = findFreeTile(world, Math.round(u.x + ((u.x - cx) / d) * 2 - 0.5), Math.round(u.y + ((u.y - cy) / d) * 2 - 0.5), u.move, 2);
+    if (spot) orderMove(world, [u], spot.x, spot.y);
+  }
   world.events.push('bayLeft', { id: u.id, structureId: s.id, house: s.house });
 }
 
