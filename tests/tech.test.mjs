@@ -20,7 +20,7 @@ test('each prerequisite opens the next buildings', () => {
   assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost']);
   const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'lightFactory']);
   assert.deepEqual(buildOptions(more, 'atreides').structure,
-    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'repair', 'wall', 'turret']);
+    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret']);
 });
 
 test('infantry buildings follow the house', () => {
@@ -64,4 +64,15 @@ test('lines and direct checks', () => {
   assert.equal(canBuild(world, 'atreides', 'windtrap'), true);
   assert.equal(canBuild(world, 'atreides', 'hiTech'), false);
   assert.equal(canBuild(world, 'atreides', 'combatTank'), false);
+});
+
+test('the Hi-Tech Factory builds Carryalls; Ornithopters need its upgrade and a House of IX', () => {
+  const world = withStructures('atreides', ['constructionYard', 'hiTech']);
+  const h = world.houses.get('atreides');
+  assert.deepEqual(buildOptions(world, 'atreides').air, ['carryall']);
+  h.upgrades.hiTech = 1;
+  assert.deepEqual(buildOptions(world, 'atreides').air, ['carryall'], 'no House of IX yet');
+  world.spawnStructure('ix', 'atreides', 30, 30);
+  assert.deepEqual(buildOptions(world, 'atreides').air, ['carryall', 'ornithopter']);
+  assert.equal(lineOfItem('ornithopter'), 'air');
 });

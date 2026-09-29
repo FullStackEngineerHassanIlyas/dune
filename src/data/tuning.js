@@ -44,3 +44,17 @@ export const UNIT_REPAIR_COST = 0.25;           // a full repair at the Repair F
 export const BAY_DRIVE_SECONDS = 1;             // driving onto or off the repair pad
 
 export const CAPTURE_BELOW = 0.25;              // infantry take a conquerable building below a quarter of its hit points (spec §4.6)
+
+export const AIR = {
+  cruise: 1.6,          // flying height above the ground (tiles)
+  low: 0.45,            // a Carryall's height as it picks up or sets down
+  climb: 1.5,           // tiles per second up or down
+  orbit: 1.5,           // an Ornithopter's turning radius (tiles)
+  ferryDistance: 16,    // a trip this long is worth a Carryall (tiles)
+  ferryCancel: 6,       // … and no longer once the unit is this close to its goal
+  hitChance: 0.5,       // inaccurate rockets that reach an aircraft hit it this often
+  aimCone: 0.35,        // an Ornithopter fires within this angle of its nose (radians)
+  huntRadius: 96,       // an idle Ornithopter looks this far for prey (tiles)
+  guardRadius: 4,       // … a guarding one this far beyond its weapon range
+  cargoDrop: 0.35,      // a carried unit hangs this far below its Carryall
+};

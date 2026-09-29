@@ -45,6 +45,7 @@ export function upgradeCost(house, structureType) { return STRUCTURES[structureT
 export function canUpgrade(house, structureType, owned) {
   const t = STRUCTURES[structureType];
   if (!t?.upgrades || DEFERRED.has(structureType) || !owned.has(structureType)) return false;
+  if (house.id === 'harkonnen' && structureType === 'hiTech') return false;   // never, as in the original
   const level = upgradeLevel(house, structureType);
   if (level >= t.upgrades.length) return false;
   const tech = t.upgradeTechByHouse?.[house.id] ?? t.upgradeTech ?? [];
