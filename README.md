@@ -15,9 +15,9 @@ sound, melody and line of text is made from scratch in code; no original game fi
 Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
 effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
-upgrades, the Repair Facility, infantry capture and aircraft (Carryall, Ornithopter) are in; the
-House of IX specials, sandworms, the Starport and Palace, music and announcer voices follow; phase 3
-brings the campaign and menus.
+upgrades, the Repair Facility, infantry capture, aircraft (Carryall, Ornithopter), the Starport and
+the House of IX are in; the House of IX specials, sandworms, the Palace, music and announcer voices
+follow; phase 3 brings the campaign and menus.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -72,6 +72,11 @@ The Hi-Tech Factory builds Carryalls — unarmed lifters that fly each new Refin
 map edge, ferry Harvesters on long trips and fly damaged vehicles to a distant Repair Facility — and,
 with its upgrade and a House of IX, Ornithopters that hunt on their own and take attack and move orders.
 Only Troopers, Missile Tanks and turrets can shoot at aircraft.
+
+A Starport sells the house's vehicles and aircraft at prices that change every minute (40–160 % of
+the usual cost) while stock lasts; orders are paid at once, a Frigate lands them on the pad 30 s after
+the first order, and right-clicking an order before it lands cancels it for a refund. A House of IX
+opens the Ornithopter.
 
 ## The computer opponent
 

@@ -1,7 +1,8 @@
 // Base showcase: a skirmish map with a built-up base for one house — every structure built so far placed
 // by the placement rules next to the deployed yard, harvesters out on the nearest spice — for
 // screenshots and real-GPU frame-rate checks (?scene=base&fps=1). Flags: damaged=1 adds a worn tank by
-// the Repair Facility (repair=1 also sends it in), capture=1 a ruined enemy silo with a squad to take it.
+// the Repair Facility (repair=1 also sends it in), capture=1 a ruined enemy silo with a squad to take it;
+// frigate=1 orders from the Starport at the start.
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -12,7 +13,7 @@ import { findFreeTile } from '../sim/spawn.js';
 import { G } from '../data/terrain.js';
 import { INFANTRY } from '../data/houses.js';
 
-const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
+const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'starport', 'ix', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
 
 export async function start({ search }) {
   const params = readParams(search);
@@ -57,6 +58,12 @@ export async function start({ search }) {
   }
   const hq = [...world.structures.values()].find((s) => s.house === house && s.typeId === 'hiTech');
   if (hq) world.spawnUnit('carryall', house, hq.x + 1, hq.y + 1).home = hq.id;   // the base's own lifter, ready to ferry
+  if (params.bool('frigate')) {   // an order at the start: the Frigate comes down after 30 s
+    world.issue(house, { type: 'starportOrder', typeId: 'quad' });
+    world.issue(house, { type: 'starportOrder', typeId: 'combatTank' });
+    const port = [...world.structures.values()].find((s) => s.house === house && s.typeId === 'starport');
+    if (port) focus = { x: port.x + 1.5, z: port.y + 3.5 };
+  }
   for (let i = 0, n = params.num('ticks', 600); i < n; i++) world.step();
   const view = new GameView({ world, house, settings, params, focus });
   view.start();

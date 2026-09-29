@@ -33,5 +33,6 @@ export const SCENARIOS = {
   'battle-aftermath': { query: 'scene=battle&dist=26&ticks=900', settleMs: 2500 },
   'battle-air': { query: 'scene=battle&air=1&dist=24&ticks=80', settleMs: 1500 },
   'base-air': { query: 'scene=base&house=ordos&fog=0&ticks=40&dist=34', settleMs: 1500 },
+  'base-frigate': { query: 'scene=base&house=atreides&fog=0&frigate=1&ticks=585&dist=14', settleMs: 1200 },
   'skirmish-ai-base': { query: 'scene=skirmish&seed=11&house=atreides&fog=0&ticks=6000&dist=34&focus=rival', settleMs: 1500 },
 };

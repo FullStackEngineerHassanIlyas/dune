@@ -213,6 +213,18 @@ try {
   let taken = false;
   for (let i = 0; i < 600 && !taken; i++) { await sleep(200); taken = (await bv(`__dune.structures('silo')`)).some((s) => s.id === silo.id && s.house === 'atreides'); }
   check('infantry clicked onto a ruined enemy silo capture it', taken);
+  let ware = await bv(`__dune.buttonRect('starport:quad')`);
+  for (let i = 0; i < 30 && ware && !ware.visible; i++) {   // scroll the unit strip down to the Starport's wares
+    const down = await bv(`__dune.arrowRect('units', 1)`);
+    await base.click(down.x, down.y);
+    await sleep(150);
+    ware = await bv(`__dune.buttonRect('starport:quad')`);
+  }
+  const quads = (await bv(`__dune.units('quad')`)).length;
+  if (ware?.visible) await base.click(ware.x, ware.y);
+  let landed = false;
+  for (let i = 0; i < 600 && !landed; i++) { await sleep(200); landed = (await bv(`__dune.units('quad')`)).length > quads; }
+  check('buying a Quad at the Starport brings it by Frigate', landed);
   const baseErrors = base.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
   check('no console errors in the base', baseErrors.length === 0, baseErrors.join(' | '));
   base.close();
