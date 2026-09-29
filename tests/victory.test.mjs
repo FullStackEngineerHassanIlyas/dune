@@ -89,3 +89,24 @@ test('walls alone do not keep a house in the game', () => {
   assert.equal(world.houses.get('harkonnen').defeated, true);
   assert.equal(world.outcome.winner, 'atreides');
 });
+
+test('a draw is announced as a draw', () => {
+  const { world, a, h } = duel();
+  run(world, 1.05);
+  destroyStructure(world, a, null);
+  destroyStructure(world, h, null);
+  run(world, 1);
+  const said = events(world, 'eva').map((e) => e.key);
+  assert.ok(said.includes('draw') && !said.includes('missionFailed'), said.join());
+});
+
+test('end statistics are frozen at the end and the end comes quickly', () => {
+  const { world, h } = duel();
+  destroyStructure(world, h, { house: 'atreides', id: 0, kind: 'unit' });
+  run(world, 0.3);
+  assert.ok(world.outcome, 'decided within a third of a second');
+  const before = endStats(world, 'atreides');
+  world.houses.get('atreides').stats.unitsKilled += 5;
+  run(world, 3);
+  assert.deepEqual(endStats(world, 'atreides'), before);
+});

@@ -55,7 +55,10 @@ function survey(world, house) {
 
 function think(world, house) {
   const view = survey(world, house);
-  if (!view.yard) deployMcv(world, house, view);
+  if (!view.yard) {
+    if (view.units.some((u) => u.type.deploysTo)) deployMcv(world, house, view);
+    else rebuildMcv(world, house, view);
+  }
   else buildBase(world, house, view);
   keepHarvesters(world, house, view);
   if (!view.home) return;
@@ -135,7 +138,7 @@ function nextStructure(world, house, view) {
     need[t] = (need[t] ?? 0) + 1;
     if (has(t) < need[t] && can(t)) return t;
   }
-  if (house.credits > Math.max(builtStorage(world, id), house.startBuffer ?? 0) * 0.8 && can('silo')) return 'silo';
+  if (house.credits > Math.max(builtStorage(world, id), house.startBuffer ?? 0) * 0.8 && has('silo') < 4 && can('silo')) return 'silo';
   if (has('heavyFactory') && has('turret') + has('rocketTurret') < d.turrets) {
     if (can('rocketTurret')) return 'rocketTurret';
     if (can('turret')) return 'turret';
@@ -236,4 +239,11 @@ function nearestEnemyWall(world, houseId, x, y, radius) {
     if (d < bestD) { bestD = d; best = s; }
   }
   return best;
+}
+
+/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV and deploy it. */
+function rebuildMcv(world, house, view) {
+  const heavy = house.lines.heavy;
+  if (!view.count.heavyFactory || heavy.current || heavy.queue.includes('mcv') || house.credits < 900 || !canBuild(world, house.id, 'mcv')) return;
+  issue(world, house, { type: 'build', typeId: 'mcv' });
 }

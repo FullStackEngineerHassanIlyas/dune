@@ -15,23 +15,26 @@ export function updateVictory(world) {
   }
   if (standing.length > 1) return;
   const winner = standing[0] ?? null;
-  world.outcome = { winner, tick: world.tick };
+  const stats = Object.fromEntries([...world.houses.values()].map((h) => [h.id, { ...h.stats }]));
+  world.outcome = { winner, tick: world.tick, seconds: world.time, stats };
   world.events.push('gameOver', { winner });
   for (const house of world.houses.values()) {
-    if (house.id === winner) announce(world, house.id, 'missionAccomplished', 'Mission accomplished.');
+    if (winner === null) announce(world, house.id, 'draw', 'The battle is a draw.');
+    else if (house.id === winner) announce(world, house.id, 'missionAccomplished', 'Mission accomplished.');
     else announce(world, house.id, 'missionFailed', 'Mission failed.');
   }
 }
 
 export function endStats(world, houseId) {
-  const me = world.houses.get(houseId);
-  const others = [...world.houses.values()].filter((h) => h.id !== houseId);
-  const sum = (k) => others.reduce((n, h) => n + h.stats[k], 0);
-  const row = (label, k) => ({ label, you: Math.round(me.stats[k]), enemy: Math.round(sum(k)) });
+  const statsOf = (h) => world.outcome?.stats?.[h.id] ?? h.stats;   // frozen at the end
+  const me = statsOf(world.houses.get(houseId));
+  const others = [...world.houses.values()].filter((h) => h.id !== houseId).map(statsOf);
+  const sum = (k) => others.reduce((n, s) => n + s[k], 0);
+  const row = (label, k) => ({ label, you: Math.round(me[k]), enemy: Math.round(sum(k)) });
   return {
     won: world.outcome?.winner === houseId,
     draw: !!world.outcome && world.outcome.winner === null,
-    seconds: Math.round(world.time),
+    seconds: Math.round(world.outcome?.seconds ?? world.time),
     rows: [
       row('Spice harvested', 'spiceHarvested'),
       row('Units destroyed', 'unitsKilled'),

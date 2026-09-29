@@ -4,7 +4,7 @@ import { G } from '../src/data/terrain.js';
 import { setupSkirmish } from '../src/game/setup.js';
 import { createBrain } from '../src/sim/ai.js';
 import { computePower } from '../src/sim/economy.js';
-import { flatWorld, run } from './helpers.mjs';
+import { flatWorld, run, runUntil } from './helpers.mjs';
 
 const owned = (world, houseId) => {
   const n = {};
@@ -116,4 +116,31 @@ test('an AI wave breaks through a wall ring to reach the buildings inside', () =
   run(world, 300);
   assert.ok(!world.structures.has(yard.id) || yard.hp < yard.maxHp, 'the wave got at the yard');
   assert.ok(brain.commands < 120, `${brain.commands} commands in five minutes`);
+});
+
+test('an AI that lost its yard builds and deploys a new MCV', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  for (const [t, x, y] of [['windtrap', 2, 2], ['windtrap', 5, 2], ['refinery', 2, 6], ['heavyFactory', 8, 6]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const h = world.houses.get('harkonnen');
+  h.credits = 3000;
+  h.startBuffer = 5000;
+  createBrain(world, 'harkonnen', 'normal');
+  const hasYard = () => [...world.structures.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'constructionYard');
+  assert.ok(runUntil(world, hasYard, 150) > 0, 'a new yard stands');
+});
+
+import { builtStorage } from '../src/sim/economy.js';
+
+test('the AI stops building silos at four', () => {
+  const world = flatWorld(48, 32, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const h = world.houses.get('harkonnen');
+  const brain = createBrain(world, 'harkonnen', 'hard');
+  brain.nextAttack = 1e9;
+  for (let k = 0; k < 20 * 900; k++) {   // fifteen minutes with the stores always nearly full
+    h.credits = Math.max(h.credits, 0.95 * Math.max(builtStorage(world, 'harkonnen'), h.startBuffer ?? 0));
+    world.step();
+  }
+  const silos = [...world.structures.values()].filter((s) => s.house === 'harkonnen' && s.typeId === 'silo').length;
+  assert.ok(silos <= 4, `${silos} silos`);
 });

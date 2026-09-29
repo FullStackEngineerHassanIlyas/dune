@@ -132,7 +132,7 @@ export class World {
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);
-    if (this.tick % 20 === 0) updateVictory(this);
+    if (this.tick % 5 === 0) updateVictory(this);
     this.tick++;
     this.time = this.tick * DT;
   }
