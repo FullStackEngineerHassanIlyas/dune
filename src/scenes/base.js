@@ -12,7 +12,7 @@ import { findFreeTile } from '../sim/spawn.js';
 import { G } from '../data/terrain.js';
 import { INFANTRY } from '../data/houses.js';
 
-const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
+const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
 
 export async function start({ search }) {
   const params = readParams(search);
@@ -55,6 +55,8 @@ export async function start({ search }) {
       focus = { x: spot.x + 1, z: spot.y + 3 };
     }
   }
+  const hq = [...world.structures.values()].find((s) => s.house === house && s.typeId === 'hiTech');
+  if (hq) world.spawnUnit('carryall', house, hq.x + 1, hq.y + 1).home = hq.id;   // the base's own lifter, ready to ferry
   for (let i = 0, n = params.num('ticks', 600); i < n; i++) world.step();
   const view = new GameView({ world, house, settings, params, focus });
   view.start();

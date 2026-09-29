@@ -1,12 +1,15 @@
 // Battle: two small armies with turrets on open rock, fog off, fighting within seconds — for
 // screenshots of combat effects and for the end-to-end attack check (?scene=battle&idle=1 keeps
-// both sides waiting for orders).
+// both sides waiting for orders). air=1 adds three Atreides Ornithopters (guarding their corner with
+// idle=1, hunting otherwise); aa=0 leaves the Harkonnen without anti-air (no Troopers, Missile Tank
+// or turret) so the end-to-end check can watch the Ornithopters strafe.
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { GameMap } from '../sim/map.js';
 import { World } from '../sim/world.js';
 import { G } from '../data/terrain.js';
 import { GameView } from '../game/game-view.js';
+import { UNITS } from '../data/units.js';
 
 const ARMIES = {
   atreides: { units: [['combatTank', 6, 9], ['combatTank', 6, 12], ['combatTank', 6, 15], ['siegeTank', 4, 12], ['quad', 8, 10], ['quad', 8, 14], ['infantry', 9, 12]], turret: [11, 5], yard: [1, 3], windtrap: [1, 6] },
@@ -27,9 +30,16 @@ export async function start({ search }) {
   for (const [house, a] of Object.entries(ARMIES)) {
     world.spawnStructure('constructionYard', house, ...a.yard);
     world.spawnStructure('windtrap', house, ...a.windtrap);
-    world.spawnStructure(house === 'atreides' ? 'turret' : 'rocketTurret', house, ...a.turret);
-    const ids = a.units.map(([typeId, x, y]) => world.spawnUnit(typeId, house, x, y, { heading: house === 'atreides' ? 0 : Math.PI }).id);
+    const noAA = house === 'harkonnen' && !params.bool('aa', true);
+    if (!noAA) world.spawnStructure(house === 'atreides' ? 'turret' : 'rocketTurret', house, ...a.turret);
+    const ids = a.units.filter(([typeId]) => !noAA || !UNITS[typeId].targetAir).map(([typeId, x, y]) => world.spawnUnit(typeId, house, x, y, { heading: house === 'atreides' ? 0 : Math.PI }).id);
     if (!params.bool('idle')) world.issue(house, { type: 'attackMove', ids, x: house === 'atreides' ? 30 : 8, y: 12 });
+  }
+  if (params.bool('air')) {
+    for (const [x, y] of [[3, 2], [5, 3], [3, 4]]) {
+      const o = world.spawnUnit('ornithopter', 'atreides', x, y, { heading: 0 });
+      if (params.bool('idle')) o.order = { type: 'guard', x: 4, y: 3 };
+    }
   }
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   const view = new GameView({ world, house: 'atreides', settings, params, focus: { x: 19, z: 13 } });

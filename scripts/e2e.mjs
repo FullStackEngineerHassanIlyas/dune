@@ -139,6 +139,33 @@ try {
   check('a tank sent at an enemy tank drives up and hits it', hurt);
   const battleErrors = battle.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
   check('no console errors in the battle', battleErrors.length === 0, battleErrors.join(' | '));
+  const air = await openPage(chrome, `http://localhost:${PORT}/?scene=battle&idle=1&air=1&aa=0&quality=low&dist=22&gameSpeed=fastest`);
+  await air.waitFor('window.__dune && window.__dune.ready === true', 120000);
+  await sleep(600);
+  const av = (expr) => air.eval(expr);
+  await av('__dune.lookAt(4.5, 3.5)');
+  await sleep(600);
+  await air.key('p', { code: 'KeyP' });   // hold them still: they never stop flying
+  await sleep(500);
+  const seen = await Promise.all((await av(`__dune.units('ornithopter')`)).map((u) => av(`__dune.screenOfUnit(${u.id})`)));
+  const xs = seen.map((p) => p.x), ys = seen.map((p) => p.y);
+  await air.drag(Math.min(...xs) - 40, Math.min(...ys) - 40, Math.max(...xs) + 40, Math.max(...ys) + 40);
+  await sleep(300);
+  const orni = (await av(`__dune.units('ornithopter')`)).map((u) => u.id).sort();
+  const picked = (await av('__dune.selection()')).slice().sort();
+  check('a drag box picks up the Ornithopters', orni.length === 3 && JSON.stringify(picked) === JSON.stringify(orni), JSON.stringify(picked));
+  await air.key('p', { code: 'KeyP' });
+  const prey = (await av(`__dune.units('combatTank', 'harkonnen')`)).sort((a, b) => a.x - b.x)[0];
+  await av(`__dune.lookAt(${prey.x}, ${prey.y})`);
+  await sleep(600);
+  const ps2 = await av(`__dune.screenOfUnit(${prey.id})`);
+  await air.click(ps2.x, ps2.y);
+  let strafed = false;
+  for (let i = 0; i < 300 && !strafed; i++) { await sleep(200); const p = await av(`__dune.unit(${prey.id})`); strafed = !p || p.hp < 200; }
+  check('Ornithopters sent at an enemy tank strafe it', strafed);
+  const airErrors = air.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
+  check('no console errors in the air battle', airErrors.length === 0, airErrors.join(' | '));
+  air.close();
   battle.close();
   const base = await openPage(chrome, `http://localhost:${PORT}/?scene=base&house=atreides&fog=0&damaged=1&capture=1&quality=low&gameSpeed=fastest`);
   await base.waitFor('window.__dune && window.__dune.ready === true', 120000);
