@@ -44,7 +44,7 @@ export async function start({ search }) {
   };
   const heading = Math.PI / 2 + 0.55;   // three-quarter view toward the camera
   ROWS.forEach((row, r) => row.forEach((id, c) => place(id, 2.2 + c * 1.45, 3.3 + r * 1.6, heading, id === 'soldier' || id === 'trooper' ? 3 : 1)));
-  ['carryall', 'ornithopter'].forEach((id, c) => place(id, 5 + c * 2.6, 6.6, heading, 1, 0.9));   // aircraft, flying
+  ['carryall', 'ornithopter', 'frigate'].forEach((id, c) => place(id, 5 + c * 2.8, 6.6, heading, 1, 0.9));   // aircraft, flying
   place('constructionYard', 12.6, 4.4, 0);
   for (const m of models.values()) m.update();
   const rig = new CameraRig(r3d.camera, map.w, map.h);
