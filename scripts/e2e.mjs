@@ -103,6 +103,41 @@ try {
   check('sell mode sells the Wind Trap for a refund', sold && (await ev('__dune.credits()')) > credits);
   await deselect();
   check('right click leaves sell mode', (await ev('__dune.mode()')) === null);
+  await page.key('p', { code: 'KeyP' });
+  await sleep(300);
+  const pausedAt = await ev('__dune.tick()');
+  await sleep(1200);
+  check('P pauses the simulation', (await ev('__dune.paused()')) && (await ev('__dune.tick()')) === pausedAt);
+  await page.key('p', { code: 'KeyP' });
+  await sleep(1200);
+  check('P again resumes it', (await ev('__dune.tick()')) > pausedAt);
+
+  const battle = await openPage(chrome, `http://localhost:${PORT}/?scene=battle&idle=1&quality=low&dist=24&gameSpeed=fastest`);
+  await battle.waitFor('window.__dune && window.__dune.ready === true', 120000);
+  await sleep(600);
+  const bev = (expr) => battle.eval(expr);
+  const [mine] = await bev(`__dune.units('combatTank')`);
+  const foes = await bev(`__dune.units('combatTank', 'harkonnen')`);
+  const foe = foes.sort((a, b) => Math.abs(a.ty - mine.ty) - Math.abs(b.ty - mine.ty))[0];
+  await bev(`__dune.lookAt(${mine.x}, ${mine.y})`);   // click each unit in mid-screen, clear of the scrolling edges
+  await sleep(500);
+  const ms = await bev(`__dune.screenOfUnit(${mine.id})`);
+  await battle.click(ms.x, ms.y);
+  await sleep(300);
+  await bev(`__dune.lookAt(${foe.x}, ${foe.y})`);
+  await sleep(500);
+  const fs = await bev(`__dune.screenOfUnit(${foe.id})`);
+  await battle.click(fs.x, fs.y);
+  let hurt = false;
+  for (let i = 0; i < 600 && !hurt; i++) {   // the tanks start 26 tiles apart; headless GL runs ~2 fps
+    await sleep(200);
+    const f = await bev(`__dune.unit(${foe.id})`);
+    hurt = !f || f.hp < 200;
+  }
+  check('a tank sent at an enemy tank drives up and hits it', hurt);
+  const battleErrors = battle.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
+  check('no console errors in the battle', battleErrors.length === 0, battleErrors.join(' | '));
+  battle.close();
   await sleep(1500);
   await mkdir(path.join(root, 'screenshots'), { recursive: true });
   await page.screenshot(path.join(root, 'screenshots', 'e2e-final.png'));

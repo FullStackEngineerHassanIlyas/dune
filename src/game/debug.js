@@ -4,7 +4,7 @@ import { STRUCTURES } from '../data/structures.js';
 import { findPlacement } from '../sim/placement.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 
-export function createDebugApi({ world, house, selection, project, positionOf, rig, controller }) {
+export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view }) {
   const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp };
   const screen = (x, z, lift) => { const s = project(x, z, lift); return { x: Math.round(s.x), y: Math.round(s.y), visible: s.visible }; };
   const rect = (el) => {
@@ -33,5 +33,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     buttonRect: (typeId) => rect(document.querySelector(`.sidebar .sb-item[data-type="${typeId}"]`)),
     toolRect: (tool) => rect(document.querySelector(`.sidebar .sb-tool[data-tool="${tool}"]`)),
     lookAt: (x, z) => rig.lookAt(x, z, true),
+    tick: () => world.tick,
+    paused: () => !!view?.paused,
+    outcome: () => world.outcome,
   };
 }

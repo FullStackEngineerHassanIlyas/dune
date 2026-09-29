@@ -302,7 +302,7 @@ export class GameView {
       this.last = now;
       this.rig.update(1, this.heightAt);
       if (!tick(now)) return;
-      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller });
+      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller, view: this });
       window.__dune.ready = true;
       requestAnimationFrame(loop);
     });
