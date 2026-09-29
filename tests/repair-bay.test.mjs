@@ -148,3 +148,49 @@ test('a harvester goes back to its routine after the repair', () => {
   assert.equal(hv.order.type, 'harvest');
   assert.equal(hv.hp, hv.maxHp);
 });
+
+test('a repaired vehicle never drives out into a closed pocket', () => {
+  const { world, s } = bay();
+  world.spawnStructure('silo', 'atreides', 9, 12);
+  world.spawnStructure('silo', 'atreides', 12, 12);
+  world.spawnStructure('wall', 'atreides', 11, 13);   // 11,12 is a closed pocket
+  const a = tank(world, 16, 11), b = tank(world, 17, 11);
+  sendIn(world, [a], s);
+  assert.ok(runUntil(world, () => a.inside === s.id, 30) > 0);
+  sendIn(world, [b], s);   // b waits on the tile a came in by
+  assert.ok(runUntil(world, () => !a.inside, 40) > 0, 'a is out');
+  assert.notDeepEqual([a.tx, a.ty], [11, 12], 'not into the pocket');
+  assert.ok(world.reach.connected(world.map.idx(a.tx, a.ty), world.map.idx(20, 20), 'tracked'), 'a can drive away');
+});
+
+test('a harvester sent for repairs goes back to harvesting however the trip ends', () => {
+  const one = bay();
+  const h1 = one.world.spawnUnit('harvester', 'atreides', 11, 20);
+  h1.hp = 75;
+  sendIn(one.world, [h1], one.s);
+  run(one.world, 1);
+  one.world.removeStructure(one.s);   // the bay is gone before it gets there
+  run(one.world, 1);
+  assert.equal(h1.order.type, 'harvest');
+  const two = bay();
+  const h2 = two.world.spawnUnit('harvester', 'atreides', 11, 14);
+  h2.hp = 75;
+  sendIn(two.world, [h2], two.s);
+  assert.ok(runUntil(two.world, () => h2.inside === two.s.id, 20) > 0);
+  two.world.issue('atreides', { type: 'sell', structureId: two.s.id });   // pushed out unfinished
+  two.world.step();
+  assert.equal(h2.order.type, 'harvest');
+});
+
+test('a vehicle driving out of the bay is not nudged off its way', () => {
+  const { world, s } = bay();
+  const hv = world.spawnUnit('harvester', 'atreides', 11, 13);
+  hv.hp = 140;
+  sendIn(world, [hv], s);
+  assert.ok(runUntil(world, () => s.bay?.state === 'leaving', 30) > 0);
+  const map = world.map;
+  const t = world.spawnUnit('combatTank', 'atreides', 10, 12, { heading: 0 });   // about to drive through the tile it holds
+  Object.assign(t, { path: [map.idx(11, 12), map.idx(12, 12)], pathIndex: 0, pathState: 'ready', goal: map.idx(12, 12), order: { type: 'move', x: 12, y: 12 } });
+  assert.ok(runUntil(world, () => !hv.inside, 5) > 0);
+  assert.equal(hv.order.type, 'harvest');
+});

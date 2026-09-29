@@ -1,14 +1,14 @@
-// Repair Facility (spec §4.6; research: structures.md "Repair Facility"): vehicles ordered to it drive up
-// beside it — to the entrance south of the pad when that is free and reachable, else to any other side —
-// and, one at a time, onto the pad under the gantry. Inside they are off the tile grid: they cannot be
-// shot or splashed and take no orders. A full repair takes as long as building the unit and costs a
-// quarter of its price, both in proportion to the damage; low power slows it like production and it
-// pauses without credits. Then the vehicle drives out the way it came (or by the nearest free tile)
-// and heads for the facility's rally point, or back to harvesting. The others wait close by. Infantry and aircraft cannot use it. The vehicle shares the bay's fate: destroyed with it,
-// pushed out when the facility is sold, captured along with it.
+// Repair Facility (spec §4.6; research: structures.md "Repair Facility"): vehicles ordered to it
+// drive up beside it — to the entrance south of the pad when that is free and reachable, else to any
+// other side — and, one at a time, onto the pad under the gantry. Inside they are off the tile grid:
+// they cannot be shot or splashed and take no orders. A full repair takes as long as building the
+// unit and costs a quarter of its price, both in proportion to the damage; low power slows it like
+// production and it pauses without credits. Then the vehicle drives out the way it came (or by the
+// nearest free tile on the same ground) and heads for the facility's rally point, or back to
+// harvesting. The others wait close by. Infantry and aircraft cannot use it. The vehicle shares the
+// bay's fate: destroyed with it, pushed out when the facility is sold, captured along with it.
 import { DT, buildSeconds, UNIT_REPAIR_COST, BAY_DRIVE_SECONDS } from '../data/tuning.js';
 import { spend } from './economy.js';
-import { exitTile, findFreeTile } from './spawn.js';
 import { dockTile, clearDock } from './harvest.js';
 import { orderMove, stopUnit } from './orders.js';
 import { killUnit } from './combat.js';
@@ -49,13 +49,13 @@ export function orderRepairAt(world, houseId, units, structureId) {
 export function updateRepairOrder(world, u) {
   const o = u.order, map = world.map;
   const s = world.structures.get(o.structureId);
-  if (!s || s.house !== u.house || u.hp >= u.maxHp) { stopUnit(u); return; }   // gone, taken or repaired some other way
+  if (!s || s.house !== u.house || u.hp >= u.maxHp) { standDown(u); return; }   // gone, taken or repaired some other way
   if (moving(u)) return;
   const busy = !!s.occupant && world.units.has(s.occupant);
   if (gap(u, s) === 1 && !busy) { enter(world, u, s); return; }   // beside the facility: drive onto the pad
   if (busy && gap(u, s) <= 3) return;   // wait close by for the bay
   if (world.tick < o.retryAt) return;
-  if (++o.tries > GIVE_UP_TRIES) { stopUnit(u); world.events.push('moveFailed', { id: u.id }); return; }
+  if (++o.tries > GIVE_UP_TRIES) { standDown(u); world.events.push('moveFailed', { id: u.id }); return; }
   o.retryAt = world.tick + 20;
   const goal = besideTile(world, u, s);
   if (goal >= 0) { world.requestPath(u, goal); return; }
@@ -78,11 +78,31 @@ function besideTile(world, u, s) {
   return best;
 }
 
-/** The tile the vehicle came in by if it is free, else the usual factory-style exit. */
-function wayOut(world, s, u) {
-  const map = world.map, d = s.bay?.door ?? -1;
-  if (d >= 0 && !map.unit[d] && !map.structure[d]) return { x: map.xOf(d), y: map.yOf(d) };
-  return exitTile(world, s, u.move);
+/**
+ * A free tile to drive out to on the ground the vehicle came from: its way in when free, else the nearest
+ * such tile around the building, up to `radius` tiles out (never a closed pocket); null when there is none.
+ */
+function wayOut(world, s, u, radius = 1) {
+  const map = world.map, door = s.bay?.door ?? -1;
+  const ok = (i) => !map.unit[i] && !map.structure[i] && map.moveFactor(i, u.move) > 0 && (door < 0 || world.reach.connected(door, i, u.move));
+  if (door >= 0 && ok(door)) return { x: map.xOf(door), y: map.yOf(door) };
+  for (let r = 1; r <= radius; r++) {
+    let best = null, bestD = Infinity;
+    for (let y = s.y - r; y <= s.y + s.h - 1 + r; y++) for (let x = s.x - r; x <= s.x + s.w - 1 + r; x++) {
+      if (!map.inBounds(x, y) || (x > s.x - r && x < s.x + s.w - 1 + r && y > s.y - r && y < s.y + s.h - 1 + r) || !ok(map.idx(x, y))) continue;
+      const d = door >= 0 ? Math.hypot(x - map.xOf(door), y - map.yOf(door)) : 0;
+      if (d < bestD) { bestD = d; best = { x, y }; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
+/** The trip ends, repaired or not: a harvester goes back to its routine, anything else stands where it is. */
+function standDown(u) {
+  const resume = u.order.resume;
+  stopUnit(u);
+  if (resume === 'harvest' && u.harvest) { u.order = { type: 'harvest' }; u.harvest.state = 'seek'; u.harvest.wait = 0; }
 }
 
 function enter(world, u, s) {
@@ -157,24 +177,22 @@ function release(world, s, u) {
   u.y = s.bay.toY;
   s.occupant = 0;
   s.bay = null;
-  const resume = u.order.resume;
-  stopUnit(u);
-  if (resume === 'harvest' && u.harvest) { u.order = { type: 'harvest' }; u.harvest.state = 'seek'; u.harvest.wait = 0; }
-  else if (s.rally) orderMove(world, [u], s.rally.x, s.rally.y);
+  standDown(u);
+  if (u.order.type !== 'harvest' && s.rally) orderMove(world, [u], s.rally.x, s.rally.y);
   world.events.push('bayLeft', { id: u.id, structureId: s.id, house: s.house });
 }
 
 /** The facility is going: 'destroyed' takes the vehicle inside with it, 'sold' pushes it out unfinished. */
 export function emptyBay(world, s, how, attacker = null) {
   const u = s.occupant ? world.units.get(s.occupant) : null;
-  const out = u?.inside === s.id && how !== 'destroyed' ? wayOut(world, s, u) : null;
+  const out = u?.inside === s.id && how !== 'destroyed' ? wayOut(world, s, u, 8) : null;
   s.occupant = 0;
   s.bay = null;
   if (!u || u.inside !== s.id) return;
   if (how === 'destroyed') { killUnit(world, u, attacker); return; }
   const map = world.map;
   const held = map.unit[map.idx(u.tx, u.ty)] === u.id;   // already on its way out
-  const spot = held ? { x: u.tx, y: u.ty } : out ?? findFreeTile(world, s.x + 1, s.y + s.h, u.move, 8, 1);
+  const spot = held ? { x: u.tx, y: u.ty } : out;
   if (!spot) { killUnit(world, u, null); return; }
   map.unit[map.idx(spot.x, spot.y)] = u.id;
   u.inside = 0;
@@ -182,6 +200,6 @@ export function emptyBay(world, s, how, attacker = null) {
   u.ty = spot.y;
   u.x = spot.x + 0.5;
   u.y = spot.y + 0.5;
-  stopUnit(u);
+  standDown(u);
   world.events.push('bayLeft', { id: u.id, structureId: s.id, house: s.house });
 }

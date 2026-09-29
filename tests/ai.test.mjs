@@ -187,3 +187,21 @@ test('the AI builds a repair facility and sends worn vehicles to it', () => {
   assert.ok(runUntil(world, () => tank.order.type === 'repairAt' || !!tank.inside, 3) >= 0, 'sent for repairs');
   assert.ok(runUntil(world, () => { h.credits = Math.max(h.credits, 1000); return tank.hp === tank.maxHp; }, 120) > 0, 'repaired');   // the repair, not the AI's wallet, is under test
 });
+
+test('the AI does not take a vehicle in a repair bay for an intruder', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  world.spawnStructure('constructionYard', 'harkonnen', 2, 2);
+  const at = world.houses.get('atreides');
+  at.credits = 1000;
+  at.startBuffer = 5000;
+  world.spawnStructure('windtrap', 'atreides', 30, 20);
+  const bayS = world.spawnStructure('repair', 'atreides', 8, 2);   // e.g. a captured bay next to the computer's yard
+  const inBay = world.spawnUnit('combatTank', 'atreides', 9, 5);
+  inBay.hp = 50;
+  world.issue('atreides', { type: 'repairAt', ids: [inBay.id], structureId: bayS.id });
+  assert.ok(runUntil(world, () => inBay.inside === bayS.id, 10) > 0);
+  const guard = world.spawnUnit('combatTank', 'harkonnen', 4, 8);
+  const raider = world.spawnUnit('quad', 'atreides', 2, 12);
+  createBrain(world, 'harkonnen', 'normal');
+  assert.ok(runUntil(world, () => guard.order.type === 'attack' && guard.order.target?.id === raider.id, 5) > 0, 'the guard goes for the real intruder');
+});

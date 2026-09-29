@@ -215,7 +215,7 @@ function defend(world, house, view) {
   const b = house.brain;
   let intruder = null, best = 10;
   for (const u of world.units.values()) {
-    if (u.house === house.id || !u.isGround) continue;
+    if (u.house === house.id || !u.isGround || u.inside) continue;   // a vehicle in a repair bay is no intruder
     for (const s of view.mine) {
       const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
       if (d < best) { best = d; intruder = u; }

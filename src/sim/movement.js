@@ -88,7 +88,7 @@ function blocked(world, u, occupantId) {
 
 // Ask an idle friendly unit to step onto a free neighbouring tile that is not on our way.
 function nudge(world, other, requester) {
-  if (world.tick - other.nudgedAt < 30 || other.noNudge) return;
+  if (world.tick - other.nudgedAt < 30 || other.noNudge || other.inside) return;   // a vehicle driving out of a repair bay keeps its way
   const map = world.map;
   const onPath = new Set(requester.path.slice(requester.pathIndex, requester.pathIndex + 4));
   const options = [];
