@@ -12,6 +12,7 @@ export class House {
     this.startBuffer = credits;          // starting credits count as storage until built storage exceeds them
     this.power = { produced: 0, used: 0, ratio: 1 };
     this.lines = createLines();
+    this.upgrades = { ...(HOUSES[id].startUpgrades ?? {}) };   // factory upgrade levels, house-wide (spec §4.5)
     this.isAI = ai;
     this.techLevel = techLevel;
     this.stats = { spiceHarvested: 0, unitsKilled: 0, unitsLost: 0, structuresKilled: 0, structuresLost: 0 };
