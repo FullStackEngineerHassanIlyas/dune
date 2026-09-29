@@ -16,6 +16,7 @@ import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
 import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
 import { updateFog } from './fog.js';
+import { updateCombat, updateProjectiles } from './combat.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -27,6 +28,8 @@ export class World {
     this.houses = new Map();
     this.units = new Map();
     this.structures = new Map();
+    this.projectiles = new Map();
+    this.nextProjectileId = 1;
     this.nextId = 1;
     this.events = new EventQueue();
     this.pending = [];
@@ -108,6 +111,8 @@ export class World {
       if (u.harvest) updateHarvester(this, u);
       updateMovement(this, u);
     }
+    updateCombat(this);
+    updateProjectiles(this);
     updateProduction(this);
     updateRepairs(this);
     if (this.tick % 10 === 0) updatePower(this);

@@ -18,5 +18,8 @@ export function checkInvariants(world) {
       if (map.structure[map.idx(s.x + dx, s.y + dy)] !== s.id) problems.push(`structure ${s.id} lost tile ${s.x + dx},${s.y + dy}`);
     }
   }
+  for (const p of world.projectiles?.values() ?? []) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.tx) || !Number.isFinite(p.ty)) problems.push(`projectile ${p.id} has a non-finite position`);
+  }
   return problems;
 }
