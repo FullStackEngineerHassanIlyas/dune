@@ -154,3 +154,31 @@ test('the heavy factory door opens when a vehicle is built there, and turrets re
   views.sync(world, 8000);
   assert.equal(views.views.get(hf1.id).handles[0].params.door, 0);
 });
+
+import { runUntil } from './helpers.mjs';
+
+test('a vehicle in the repair bay stands on the pad while the hoist works and welds', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 1000;
+  h.startBuffer = 5000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  const bay = world.spawnStructure('repair', 'atreides', 8, 8);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const units = new UnitViews(new THREE.Scene(), hf);
+  const structures = new StructureViews(new THREE.Scene(), hf);
+  const t = world.spawnUnit('combatTank', 'atreides', 9, 12);
+  t.hp = 100;
+  structures.sync(world, 0);
+  assert.equal(structures.weldPoint(bay.id, 0), null, 'nothing to weld');
+  world.issue('atreides', { type: 'repairAt', ids: [t.id], structureId: bay.id });
+  assert.ok(runUntil(world, () => bay.bay?.state === 'repairing', 20) > 0);
+  structures.sync(world, 5000);
+  units.sync(world, 1, 0.016);
+  const p = pos(units.views.get(t.id).handles[0].matrix);
+  assert.deepEqual([+p.x.toFixed(2), +p.z.toFixed(2)], [9.5, 9]);
+  assert.ok(p.y > hf.heightAt(9.5, 9) + 0.05, 'on the pad plate');
+  const w = structures.weldPoint(bay.id, 5000);
+  assert.ok(w && Math.abs(w.x - 9.5) < 1e-9 && w.y > hf.heightAt(9.5, 9) + 0.3);
+  assert.notEqual(structures.views.get(bay.id).handles[0].params.arm, 0);
+});

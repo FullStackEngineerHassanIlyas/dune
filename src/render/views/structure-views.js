@@ -1,6 +1,6 @@
 // One view per structure (spec §5.3): standing on its flattened footprint, rising out of the ground
 // when placed, sinking away when sold or destroyed, hidden until the viewer has seen it, with its
-// animated parts (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads).
+// animated parts (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads, the repair hoist).
 // Walls get a post plus an arm towards each walled neighbour.
 import { HOUSES } from '../../data/houses.js';
 import { structureVisibleTo } from '../../sim/fog.js';
@@ -9,6 +9,7 @@ import { modelDef, structureModelId } from '../models/index.js';
 
 const ARMS = [[1, 0, 0], [0, 1, -Math.PI / 2], [-1, 0, Math.PI], [0, -1, Math.PI / 2]];   // E, S, W, N and their yaw
 const RISE_MS = 900, SINK_MS = 700, DOOR_MS = 2000;
+const armOffset = (now) => Math.sin(now * 0.0015) * 0.3;   // the repair hoist runs up and down the gantry
 
 export class StructureViews {
   constructor(scene, hf, { viewer = null } = {}) {
@@ -66,7 +67,8 @@ export class StructureViews {
     p.fan = now * 0.004;
     p.dish = now * 0.0012;
     p.flag = Math.sin(now * 0.002) * 0.3;
-    p.padLights = s.dockedBy ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+    p.padLights = s.dockedBy || s.occupant ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+    p.arm = s.bay?.state === 'repairing' && !s.bay.stalled ? armOffset(now) : 0;
     p.door = now < v.doorUntil ? 0.4 : 0;
     p.turret = s.turret === undefined ? Math.PI / 2 : -s.turret;
     if (!arms.length) return;
@@ -78,5 +80,12 @@ export class StructureViews {
       h.visible = visible && !!other?.type.isWall;
       h.matrix.makeRotationY(yaw).scale({ x: 1, y: Math.max(0.02, scale), z: 1 }).setPosition(v.cx, v.y, v.cz);
     });
+  }
+
+  /** Where the welding head is over an occupied repair pad, in world units; null when nothing is being repaired. */
+  weldPoint(id, now) {
+    const v = this.views.get(id), s = v?.last;
+    if (s?.bay?.state !== 'repairing' || s.bay.stalled) return null;
+    return { x: v.cx, y: v.y + 0.37, z: v.cz + 0.1 + armOffset(now) };
   }
 }

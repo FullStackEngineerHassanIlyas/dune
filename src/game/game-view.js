@@ -64,6 +64,7 @@ export class GameView {
     this.effects = new Effects(r3d.scene, r3d.quality);
     this.smokeClock = 0;
     this.dustClock = 0;
+    this.weldClock = 0;
     this.trackFrom = new Map();
     this.catchingUp = true;   // the first frame drains everything a scene simulated ahead: marks yes, fireworks no
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
@@ -261,6 +262,15 @@ export class GameView {
       }
     }
     for (const id of this.trackFrom.keys()) if (!w.units.has(id)) this.trackFrom.delete(id);
+    this.weldClock += dt;
+    if (this.weldClock >= 0.12) {   // welding sparks over occupied repair pads the player can see
+      this.weldClock = 0;
+      for (const s of w.structures.values()) {
+        if (!s.bay || !nearCamera(s.x + s.w / 2, s.y + s.h / 2, this.rig.target.x, this.rig.target.z, this.rig.distance) || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
+        const p = this.structureViews.weldPoint(s.id, performance.now());
+        if (p) this.effects.weld(p.x, p.y, p.z);
+      }
+    }
   }
 
   constructionDust(s) {

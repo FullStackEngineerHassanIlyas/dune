@@ -1,4 +1,4 @@
-// Structure gallery: every plan-1b structure in one house's colours on concrete, with animations
+// Structure gallery: every structure built so far in one house's colours on concrete, with animations
 // running, for visual review against docs/research/refs/pc-structure-*.
 import * as THREE from 'three';
 import { Renderer3D } from '../render/renderer.js';
@@ -14,14 +14,14 @@ import { HOUSES } from '../data/houses.js';
 import { readParams } from '../core/params.js';
 
 const LAYOUT = [
-  ['constructionYard', 1, 1], ['windtrap', 4, 1], ['refinery', 7, 1], ['silo', 11, 1], ['outpost', 14, 1],
+  ['constructionYard', 1, 1], ['windtrap', 4, 1], ['refinery', 7, 1], ['silo', 11, 1], ['outpost', 14, 1], ['repair', 17, 1],
   ['barracks', 1, 5], ['wor', 4, 5], ['lightFactory', 7, 5], ['heavyFactory', 10, 5], ['turret', 14, 5], ['rocketTurret', 16, 5],
 ];
 
 export async function start({ search }) {
   const params = readParams(search);
   const house = HOUSES[params.str('house', 'atreides')] ?? HOUSES.atreides;
-  const map = new GameMap(19, 9);
+  const map = new GameMap(21, 9);
   map.ground.fill(G.ROCK);
   map.concrete.fill(1);
   map.concreteRevision++;
@@ -42,13 +42,13 @@ export async function start({ search }) {
     handles.push(h);
   }
   const rig = new CameraRig(r3d.camera, map.w, map.h);
-  rig.goalDistance = rig.distance = params.num('dist', 13);
+  rig.goalDistance = rig.distance = params.num('dist', 15.5);
   rig.goalPitch = rig.pitch = THREE.MathUtils.degToRad(params.num('pitch', 42));
-  rig.lookAt(params.num('x', 9.5), params.num('z', 5), true);
+  rig.lookAt(params.num('x', 10.5), params.num('z', 5), true);
   rig.update(1, (x, z) => hf.heightAt(x, z));
   r3d.follow(rig.target.x, rig.target.z, 16);
   const frame = (now) => {
-    for (const h of handles) { h.params.fan = now * 0.004; h.params.dish = now * 0.0012; h.params.padLights = 1 + 0.25 * Math.sin(now * 0.006); h.params.flag = Math.sin(now * 0.002) * 0.3; h.params.crane = now * 0.00025; h.params.door = 0.2; }
+    for (const h of handles) { h.params.fan = now * 0.004; h.params.dish = now * 0.0012; h.params.padLights = 1 + 0.25 * Math.sin(now * 0.006); h.params.flag = Math.sin(now * 0.002) * 0.3; h.params.crane = now * 0.00025; h.params.door = 0.2; h.params.arm = Math.sin(now * 0.0015) * 0.3; }
     for (const m of models.values()) m.update();
     terrain.update(now);
     r3d.render();

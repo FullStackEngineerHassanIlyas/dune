@@ -67,3 +67,12 @@ test('empty pools do not re-upload their buffers', () => {
   pool.update(0.1);
   assert.equal(pool.alphaAttr.version, v);
 });
+
+test('welding throws a few short-lived sparks and no smoke', () => {
+  const fx = new Effects(new THREE.Scene(), { particles: 400, flashLights: 0 });
+  fx.weld(0, 0.4, 0);
+  assert.ok(fx.glow.n >= 2 && fx.smoke.n === 0);
+  fx.update(0.4);   // every particle shows for at least one frame …
+  fx.update(0.016);
+  assert.equal(fx.glow.n, 0, '… and is gone within a moment');
+});

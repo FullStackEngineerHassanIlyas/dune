@@ -19,6 +19,7 @@ import { barracks } from './structures/barracks.js';
 import { wor } from './structures/wor.js';
 import { lightFactory } from './structures/light-factory.js';
 import { heavyFactory } from './structures/heavy-factory.js';
+import { repairFacility } from './structures/repair.js';
 import { gunTurret, rocketTurret } from './structures/turret.js';
 import { wallPost, wallArm } from './structures/wall.js';
 import { concreteSlab } from './structures/concrete.js';
@@ -26,7 +27,7 @@ import { placeholderStructure, placeholderUnit } from './structures/placeholder.
 
 const BUILDERS = {
   combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper,
-  constructionYard, windtrap, refinery, silo, outpost, barracks, wor, lightFactory, heavyFactory,
+  constructionYard, windtrap, refinery, silo, outpost, barracks, wor, lightFactory, heavyFactory, repairFacility,
   turret: gunTurret, rocketTurret, wallPost, wallArm, concrete: concreteSlab(1), concrete4: concreteSlab(2), placeholderUnit,
 };
 
@@ -38,7 +39,7 @@ export const UNIT_MODEL = {
 };
 export const STRUCTURE_MODEL = {
   constructionYard: 'constructionYard', windtrap: 'windtrap', refinery: 'refinery', silo: 'silo', outpost: 'outpost',
-  barracks: 'barracks', wor: 'wor', lightFactory: 'lightFactory', heavyFactory: 'heavyFactory',
+  barracks: 'barracks', wor: 'wor', lightFactory: 'lightFactory', heavyFactory: 'heavyFactory', repair: 'repairFacility',
   turret: 'turret', rocketTurret: 'rocketTurret', wall: 'wallPost', concrete: 'concrete', concrete4: 'concrete4',
 };
 

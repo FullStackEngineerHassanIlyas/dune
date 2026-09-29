@@ -196,6 +196,10 @@ export class Effects {
     this.smoke.emit({ x: x + rnd(-0.1, 0.1), y, z: z + rnd(-0.1, 0.1), vx: rnd(-0.15, 0.15), vy: rnd(0.15, 0.35), vz: rnd(-0.15, 0.15), life: rnd(0.9, 1.5), size: [0.2, 0.9 * strength], color: [0.78, 0.64, 0.45], color2: [0.86, 0.75, 0.6], alpha: [0.32 * strength, 0], drag: 1.2 });
   }
 
+  weld(x, y, z) {
+    for (let k = 0; k < 3; k++) this.glow.emit({ x, y, z, vx: rnd(-1.2, 1.2), vy: rnd(0.2, 1.4), vz: rnd(-1.2, 1.2), life: rnd(0.12, 0.28), size: [0.05, 0.02], color: [5, 6, 8], alpha: [1, 0], gravity: 7 });
+  }
+
   update(dt) {
     this.glow.update(dt);
     this.smoke.update(dt);
