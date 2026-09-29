@@ -5,9 +5,10 @@ import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './p
 import { orderSell, orderRepair } from './structure-actions.js';
 import { orderHarvest, orderReturn } from './harvest.js';
 import { isArmed } from './combat.js';
+import { orderRepairAt } from './repair-bay.js';
 
 export function applyCommand(world, houseId, cmd) {
-  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId);
+  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside);   // a vehicle in a repair bay takes no orders
   switch (cmd?.type) {
     case 'move': orderMove(world, units, cmd.x, cmd.y); return;
     case 'stop': units.forEach(stopUnit); return;
@@ -23,6 +24,7 @@ export function applyCommand(world, houseId, cmd) {
     case 'repair': orderRepair(world, houseId, cmd.structureId, cmd.on); return;
     case 'harvest': orderHarvest(world, units, cmd.x, cmd.y); return;
     case 'returnToBase': orderReturn(world, units); return;
+    case 'repairAt': orderRepairAt(world, houseId, units, cmd.structureId); return;
     case 'attack': orderAttack(world, units, cmd); return;
     case 'attackMove': orderAttackMove(world, units, cmd.x, cmd.y); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });

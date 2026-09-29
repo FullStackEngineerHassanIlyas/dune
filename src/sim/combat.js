@@ -38,7 +38,7 @@ const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind ===
 export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0 } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || !u.isGround || u.id === exclude) continue;
+    if (u.house === houseId || !u.isGround || u.inside || u.id === exclude) continue;
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -60,7 +60,7 @@ function validTarget(world, houseId, t, force) {
   if (t.kind === 'tile') return true;
   const e = t.kind === 'unit' ? world.units.get(t.id) : world.structures.get(t.id);
   if (!e || e.hp <= 0) return false;
-  if (t.kind === 'unit' && !e.isGround) return false;   // aircraft arrive in plan 2
+  if (t.kind === 'unit' && (!e.isGround || e.inside)) return false;   // aircraft arrive in plan 2b; vehicles in a repair bay are safe
   return !!force || e.house !== houseId;
 }
 
@@ -161,7 +161,7 @@ export function destroyStructure(world, s, attacker = null) {
 }
 
 export function updateCombat(world) {
-  for (const u of world.units.values()) if (u.isGround && isArmed(u.type)) unitCombat(world, u);
+  for (const u of world.units.values()) if (u.isGround && !u.inside && isArmed(u.type)) unitCombat(world, u);
   for (const s of world.structures.values()) if (s.type.weapon) structureCombat(world, s);
 }
 

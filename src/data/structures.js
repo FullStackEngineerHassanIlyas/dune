@@ -16,7 +16,7 @@ export const STRUCTURES = {
   lightFactory:     { name: 'Light Factory', w: 2, h: 2, cost: 400, buildTime: 96, hp: 350, power: 20, sight: 3, requires: ['refinery'], houses: ALL, tech: 3, techByHouse: { atreides: 2, ordos: 2 }, produces: 'light', upgrades: [200], upgradeTech: [3], conquerable: true },
   heavyFactory:     { name: 'Heavy Factory', w: 3, h: 2, cost: 600, buildTime: 144, hp: 200, power: 35, sight: 3, requires: ['lightFactory', 'outpost'], houses: ALL, tech: 4, produces: 'heavy', upgrades: [300, 300, 300], upgradeTech: [4, 5, 6], conquerable: true },
   hiTech:           { name: 'Hi-Tech Factory', w: 3, h: 2, cost: 500, buildTime: 120, hp: 400, power: 35, sight: 3, requires: ['lightFactory', 'outpost'], houses: ALL, tech: 5, produces: 'air', upgrades: [250], upgradeTech: [7], conquerable: true },
-  repair:           { name: 'Repair Facility', w: 3, h: 2, cost: 700, buildTime: 80, hp: 200, power: 20, sight: 3, requires: ['lightFactory', 'outpost'], houses: ALL, tech: 5, conquerable: true },
+  repair:           { name: 'Repair Facility', w: 3, h: 2, cost: 700, buildTime: 80, hp: 200, power: 20, sight: 3, requires: ['lightFactory', 'outpost'], houses: ALL, tech: 5, conquerable: true, entrance: [1, 2], pad: [1.5, 1] },
   ix:               { name: 'House of IX', w: 2, h: 2, cost: 500, buildTime: 120, hp: 400, power: 40, sight: 3, requires: ['starport'], houses: ALL, tech: 7 },
   starport:         { name: 'Starport', w: 3, h: 3, cost: 500, buildTime: 120, hp: 500, power: 50, sight: 6, requires: ['refinery'], houses: ALL, tech: 6, conquerable: true },
   palace:           { name: 'Palace', w: 3, h: 3, cost: 999, buildTime: 130, hp: 1000, power: 80, sight: 5, requires: ['starport'], houses: ALL, tech: 8 },

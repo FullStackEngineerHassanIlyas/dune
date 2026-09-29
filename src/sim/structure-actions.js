@@ -2,6 +2,7 @@
 // the structure in about twelve seconds from zero for 40 % of its price, pausing without credits.
 import { DT } from '../data/tuning.js';
 import { spend, clampToStorage, addCredits } from './economy.js';
+import { emptyBay } from './repair-bay.js';
 
 export const REPAIR_SECONDS = 12;
 export const REPAIR_COST_FRACTION = 0.4;
@@ -11,6 +12,7 @@ export function orderSell(world, houseId, structureId) {
   if (!s || s.house !== houseId) return;
   const house = world.houses.get(houseId);
   const refund = Math.floor(0.5 * s.type.cost * (s.hp / s.maxHp));
+  emptyBay(world, s, 'sold');   // a vehicle in the bay drives out unfinished
   world.removeStructure(s, 'sold');
   clampToStorage(world, house);        // a sold store takes its share of the credits with it
   addCredits(world, house, refund);    // the refund fills what room is left (warns when it cannot)

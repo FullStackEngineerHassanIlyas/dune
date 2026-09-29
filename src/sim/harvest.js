@@ -19,14 +19,16 @@ export function initHarvester(u) {
 }
 
 /**
- * The tile a harvester unloads on: south of the pad column, or, when terrain or a building blocks it,
- * the nearest open ground around that tile. Units standing about never move it (a dock that moved
- * whenever a harvester reached it could never be reached); it is cached until the map changes.
+ * The tile a vehicle docks on — a refinery's unloading spot south of the pad column, a repair bay's
+ * entrance — or, when terrain or a building blocks it, the nearest open ground around that tile. Units
+ * standing about never move it (a dock that moved whenever a harvester reached it could never be
+ * reached); it is cached until the map changes.
  */
 export function dockTile(world, ref) {
   const map = world.map;
   if (ref.dock?.rev === map.revision) return ref.dock.tile;
-  const x = ref.x + ref.w - 1, y = ref.y + ref.h;
+  const [dx, dy] = ref.type?.entrance ?? [ref.w - 1, ref.h];
+  const x = ref.x + dx, y = ref.y + dy;
   const open = (tx, ty) => map.inBounds(tx, ty) && map.moveFactor(map.idx(tx, ty), 'harvester') > 0;
   let tile = open(x, y) ? map.idx(x, y) : -1;
   for (let r = 1; r <= 3 && tile < 0; r++) {
@@ -47,7 +49,7 @@ function onOwnDock(world, u) {
 const onTheMove = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
 
 /** Send a parked friendly unit off a dock (an idle harvester keeps its routine). */
-function clearDock(world, id, requester) {
+export function clearDock(world, id, requester) {
   const o = world.units.get(id);
   if (!o || o.house !== requester.house || onTheMove(o) || o.harvest?.state === 'unloading') return;
   const spot = findFreeTile(world, o.tx, o.ty, o.move, 4, 2);

@@ -1,5 +1,6 @@
-// Debug-mode consistency checks (spec §9): positions are finite, every ground unit holds its tile(s),
-// no tile is held by a missing unit, structures own their footprint. Returns a list of problems.
+// Debug-mode consistency checks (spec §9): positions are finite, every ground unit holds its tile(s)
+// (a vehicle in a repair bay none, or the one it drives out to), no tile is held by a missing unit,
+// structures own their footprint. Returns a list of problems.
 export function checkInvariants(world) {
   const problems = [];
   const map = world.map;
@@ -9,6 +10,12 @@ export function checkInvariants(world) {
     if (!Number.isFinite(u.x) || !Number.isFinite(u.y) || !Number.isFinite(u.heading)) problems.push(`unit ${u.id} has a non-finite position`);
     if (!u.isGround) continue;
     const n = held.get(u.id) ?? 0;
+    if (u.inside) {
+      const s = world.structures.get(u.inside);
+      if (!s || s.occupant !== u.id) problems.push(`unit ${u.id} is inside a structure that does not hold it`);
+      if (n > 1) problems.push(`unit ${u.id} in a bay holds ${n} tiles`);
+      continue;
+    }
     if (n < 1 || n > 2) problems.push(`unit ${u.id} holds ${n} tiles`);
     if (map.unit[map.idx(u.tx, u.ty)] !== u.id && !(u.step && u.step.released)) problems.push(`unit ${u.id} lost its tile ${u.tx},${u.ty}`);
   }

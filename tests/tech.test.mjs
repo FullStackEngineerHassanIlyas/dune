@@ -20,7 +20,7 @@ test('each prerequisite opens the next buildings', () => {
   assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost']);
   const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'lightFactory']);
   assert.deepEqual(buildOptions(more, 'atreides').structure,
-    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'wall', 'turret']);
+    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'repair', 'wall', 'turret']);
 });
 
 test('infantry buildings follow the house', () => {

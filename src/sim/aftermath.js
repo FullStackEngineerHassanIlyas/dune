@@ -11,7 +11,7 @@ import { HARVEST_CAPACITY } from './harvest.js';
 export function splash(world, x, y, amount, radius, attacker, size = 'medium') {
   world.events.push('explosion', { x, y, size });
   for (const u of [...world.units.values()]) {
-    if (!u.isGround) continue;
+    if (!u.isGround || u.inside) continue;
     const d = Math.hypot(u.x - x, u.y - y);
     if (d <= radius) damage(world, u, Math.round(amount * (1 - d / (radius + 0.5))), attacker);
   }

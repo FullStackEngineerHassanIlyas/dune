@@ -21,6 +21,7 @@ import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
 import { updateVictory } from './victory.js';
 import { updateAI } from './ai.js';
 import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.js';
+import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -51,7 +52,7 @@ export class World {
       if (s.typeId === 'refinery') spawnFreeHarvester(this, s);
     };
     this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
-    this.onStructureKilled = (s, attacker) => { aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
+    this.onStructureKilled = (s, attacker) => { emptyBay(this, s, 'destroyed', attacker); aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
     this.onDamaged = (victim, attacker) => { retaliate(this, victim, attacker); alertDamage(this, victim, attacker); };
   }
@@ -120,14 +121,16 @@ export class World {
     this.processPathQueue();
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
     for (const u of [...this.units.values()]) {
-      if (!this.units.has(u.id)) continue;
+      if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
       if (u.harvest) updateHarvester(this, u);
+      if (u.order.type === 'repairAt') updateRepairOrder(this, u);
       updateMovement(this, u);
     }
     updateCombat(this);
     updateProjectiles(this);
     updateProduction(this);
     updateRepairs(this);
+    updateRepairBays(this);
     if (this.tick % 10 === 0) updatePower(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);

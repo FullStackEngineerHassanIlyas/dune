@@ -39,3 +39,6 @@ export const LOW_POWER_TURRET_RATE = 0.5;       // turrets fire at half rate on 
 export const CHASE_GIVEUP_SECONDS = 8;          // an attacker that gets no closer for this long gives up
 
 export const UPGRADE_BUILD_TIME = 20;           // original steps per upgrade level (a countdown of 100 in steps of 5): 9 s
+
+export const UNIT_REPAIR_COST = 0.25;           // a full repair at the Repair Facility costs a quarter of the unit (original: build rate ÷ 4)
+export const BAY_DRIVE_SECONDS = 1;             // driving onto or off the repair pad
