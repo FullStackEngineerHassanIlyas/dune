@@ -12,10 +12,11 @@ sound, melody and line of text is made from scratch in code; no original game fi
 
 ## Status
 
-Plans 1a–1c are done: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
-base, harvest spice, raise an army, fight with the original weapons (cannons always hit, rockets
-scatter, tanks crush infantry, turrets guard the base) and win or lose. Sound and more effects arrive
-with plan 1d; the House of IX specials, air units, sandworms and the Palace with plan 2.
+Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
+base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
+effects synthesized in code, placed in stereo around the camera. Phase 2 adds the House of IX
+specials, aircraft, sandworms, the Starport and Palace, music and announcer voices; phase 3 the
+campaign and menus.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -43,6 +44,7 @@ with plan 1d; the House of IX specials, air units, sandworms and the Palace with
 | Ctrl + click | Force fire at a unit, building or the ground |
 | G | Area guard: engage what comes near, then return |
 | P | Pause and resume |
+| M | Sound on and off |
 
 Browsers may keep Ctrl + digit for switching tabs; Ctrl + Shift + digit always works.
 `?scheme=modern` swaps to right-click orders.
@@ -65,6 +67,13 @@ keeps its power up, runs two harvesters per refinery, defends its base and sends
 also builds faster and earns half again as much from spice. Like the original, it ignores fog of war.
 The game ends when one side has no buildings and no MCV left.
 
+## Sound
+
+Every sound — rifles, machine guns, cannons, rockets, explosions, construction and the interface — is
+synthesized in the browser at start-up; nothing is loaded from files. Browsers only allow sound after
+a click or key press, so the game is silent until then. Sounds are panned towards where they happen
+and fade with distance from the camera; what fog hides is not heard.
+
 ## Scenes and URL flags
 
 Scenes: `?scene=skirmish` (default game) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`)
@@ -74,7 +83,7 @@ Scenes: `?scene=skirmish` (default game) · `base` (a built-up base: `?scene=bas
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
 (skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `gameSpeed=slowest…fastest` ·
-`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base).
+`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5`.
 
 ## Docs
 
