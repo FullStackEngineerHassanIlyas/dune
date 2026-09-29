@@ -26,6 +26,7 @@ export function updateMovement(world, u) {
   if (off > DRIVE_ANGLE[u.move]) return;
   const occupant = map.unit[next];
   if (occupant && occupant !== u.id) { blocked(world, u, occupant); return; }
+  if (nx !== u.tx && ny !== u.ty && crossing(world, u, nx, ny)) return;   // wait: someone is crossing the other diagonal
   map.unit[next] = u.id;
   const dist = nx !== u.tx && ny !== u.ty ? Math.SQRT2 : 1;
   u.step = { from: map.idx(u.tx, u.ty), to: next, dist, progress: u.carry / dist, released: false };
@@ -137,4 +138,14 @@ function arrive(world, u) {
   } else if (u.order.type === 'deploy') {
     world.onDeploy?.(u);
   }
+}
+
+/** Another unit mid-step along the other diagonal of the same 2 × 2 square would pass through this one. */
+function crossing(world, u, nx, ny) {
+  const map = world.map, a = map.idx(nx, u.ty), b = map.idx(u.tx, ny);
+  for (const i of [a, b]) {
+    const o = world.units.get(map.unit[i]);
+    if (o && o !== u && o.step && ((o.step.from === a && o.step.to === b) || (o.step.from === b && o.step.to === a))) return true;
+  }
+  return false;
 }

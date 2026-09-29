@@ -27,6 +27,7 @@ export function canBuildStructure(house, typeId, owned) {
   const t = STRUCTURES[typeId];
   if (!t || !t.requires || DEFERRED.has(typeId)) return false;
   if (!t.houses.includes(house.id) || structureTechLevel(t, house.id) > house.techLevel) return false;
+  if (typeId !== 'windtrap' && !t.isConcrete && !owned.has('windtrap')) return false;   // a Wind Trap is implied for everything (spec §4.5)
   return owned.has('constructionYard') && t.requires.every((r) => owned.has(r));
 }
 

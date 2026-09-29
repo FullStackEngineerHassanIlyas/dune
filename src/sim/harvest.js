@@ -119,6 +119,7 @@ export function updateHarvester(world, u) {
   const h = u.harvest;
   const map = world.map;
   const here = map.idx(u.tx, u.ty);
+  u.speedMul = (255 - (100 * h.load) / HARVEST_CAPACITY) / 256;   // the original: a full load is noticeably slower
   if (u.order.type === 'idle' && u.resumeOrder?.type === 'harvest') { u.order = u.resumeOrder; u.resumeOrder = null; }   // a failed nudge must not end the routine
   if (u.order.type !== 'harvest') {
     if (h.state === 'unloading') { releaseDock(world, u); h.state = 'toRefinery'; h.target = -1; }
@@ -207,8 +208,7 @@ export function updateHarvester(world, u) {
       if (!ref || ref.dockedBy !== u.id) { u.noNudge = false; h.state = 'toRefinery'; h.target = -1; return; }
       const house = world.houses.get(u.house);
       const amount = Math.min(UNLOAD_RATE * DT, h.load);
-      addCredits(world, house, amount * (house.incomeRate ?? 1));   // Hard AIs earn half again as much (spec §4.10)
-      house.stats.spiceHarvested += amount;
+      house.stats.spiceHarvested += addCredits(world, house, amount * (house.incomeRate ?? 1));   // banked credits; Hard AIs earn half again
       h.load -= amount;
       if (h.load <= 1e-6) {
         h.load = 0;

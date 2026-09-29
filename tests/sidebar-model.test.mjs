@@ -52,8 +52,8 @@ test('icons carry production state, progress and queue counts', () => {
 
 test('the sidebar reads storage, power and radar without touching the house', () => {
   const { world, h } = base();
-  h.startBuffer = 500;
   factories(world);
+  h.startBuffer = 500;   // set after building: the simulation ends the allowance itself when storage passes it
   const m = sidebarModel(world, 'atreides');
   assert.equal(m.storage, 1005);
   assert.equal(h.startBuffer, 500, 'revoking the start buffer is the simulation\'s business');

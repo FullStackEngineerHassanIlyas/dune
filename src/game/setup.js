@@ -5,6 +5,7 @@ import { World } from '../sim/world.js';
 import { LIGHT_VEHICLE, INFANTRY, PLAYABLE_HOUSES } from '../data/houses.js';
 import { UNITS } from '../data/units.js';
 import { createBrain } from '../sim/ai.js';
+import { updateFog } from '../sim/fog.js';
 import { findFreeTile } from '../sim/spawn.js';
 
 export { findFreeTile };
@@ -31,5 +32,6 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   spawnStartingForces(world, rival, starts[1]);
   createBrain(world, rival, difficulty);
   if (aiPlayer) createBrain(world, house, difficulty);
+  if (fog) updateFog(world);   // shroud from the very first frame
   return { world, starts, house, rival };
 }

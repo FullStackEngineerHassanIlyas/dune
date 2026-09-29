@@ -80,6 +80,7 @@ export function orderHold(world, houseId, typeId) {
 export function orderPlace(world, houseId, typeId, x, y) {
   const house = world.houses.get(houseId);
   const l = house?.lines.structure;
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
   if (!l?.current || l.current.typeId !== typeId || l.current.state !== 'ready') return null;
   const placed = placeStructure(world, houseId, typeId, x, y);
   if (!placed) { eva(world, house, 'cannotPlace', 'Cannot build there.'); return null; }

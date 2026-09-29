@@ -16,6 +16,11 @@ export function storageCapacity(world, house) {
   return Math.max(built, house.startBuffer ?? 0);
 }
 
+/** The starting allowance ends for good the moment built storage passes it (not lazily at the next payment). */
+export function revokeStartBuffer(world, house) {
+  if (house?.startBuffer && builtStorage(world, house.id) > house.startBuffer) house.startBuffer = 0;
+}
+
 /** Adds credits up to the storage limit; the rest is lost with a warning. Returns what was added. */
 export function addCredits(world, house, amount) {
   if (!(amount > 0)) return 0;

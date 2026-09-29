@@ -11,7 +11,7 @@ import { createStructure, footprint } from './structure.js';
 import { updateMovement } from './movement.js';
 import { applyCommand } from './orders.js';
 import { tryDeploy } from './deploy.js';
-import { updatePower } from './economy.js';
+import { updatePower, revokeStartBuffer } from './economy.js';
 import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
 import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
@@ -46,7 +46,10 @@ export class World {
     this.pathSearchCap = 10000;    // expansions for any single search; longer ones return a partial path
     this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
-    this.onStructurePlaced = (s) => { if (s.typeId === 'refinery') spawnFreeHarvester(this, s); };
+    this.onStructurePlaced = (s) => {
+      if (s.type.storage) revokeStartBuffer(this, this.houses.get(s.house));
+      if (s.typeId === 'refinery') spawnFreeHarvester(this, s);
+    };
     this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
     this.onStructureKilled = (s, attacker) => { aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
