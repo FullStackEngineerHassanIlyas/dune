@@ -154,6 +154,7 @@ export function updateProjectiles(world) {
 }
 
 function impact(world, p) {
+  if (p.deathHand) { world.onDeathHand?.(p); return; }   // palace.js: the cluster blast
   if (p.gas) {   // Deviator gas: a cloud that turns units instead of hurting them
     world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: false, alt: 0 });
     world.onGas?.(p);

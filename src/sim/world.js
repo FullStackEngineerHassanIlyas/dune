@@ -26,6 +26,7 @@ import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
 import { deviate, updateDeviations, destruct } from './specials.js';
+import { armPalace, updatePalaces, deathHandBlast } from './palace.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -54,11 +55,13 @@ export class World {
     this.onStructurePlaced = (s) => {
       if (s.type.storage) revokeStartBuffer(this, this.houses.get(s.house));
       if (s.typeId === 'refinery') spawnFreeHarvester(this, s);
+      if (s.typeId === 'palace') armPalace(this, s);
     };
     this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
     this.onStructureKilled = (s, attacker) => { emptyBay(this, s, 'destroyed', attacker); aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
     this.onGas = (p) => deviate(this, p);
+    this.onDeathHand = (p) => deathHandBlast(this, p);
     this.onDamaged = (victim, attacker) => { retaliate(this, victim, attacker); alertDamage(this, victim, attacker); };
   }
 
@@ -148,6 +151,7 @@ export class World {
     updateStarports(this);
     if (this.tick % 10 === 0) updatePower(this);
     if (this.tick % 10 === 5) updateDeviations(this);
+    if (this.tick % 20 === 5) updatePalaces(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);

@@ -86,3 +86,16 @@ export const DESTRUCT = {
   scatter: 1.5,         // tiles from the centre
   radius: 1.5,          // each blast's reach
 };
+
+export const PALACE = {
+  recharge: { deathHand: 420, fremen: 240, saboteur: 240 },   // seconds (spec §4.7)
+  names: { deathHand: 'Death Hand', fremen: 'Fremen', saboteur: 'Saboteur' },
+};
+
+export const DEATH_HAND = {
+  speed: 6,             // tiles per second
+  scatter: 2,           // it comes down up to this far from the aim
+  damage: 150,          // each of its 17 blasts, falling off over …
+  radius: 1,            // … a tile
+  pattern: [[0, 0], [0, 1], [0, -1], [0.78, 0.78], [-0.78, 0.78], [0.78, -0.78], [-0.78, -0.78], [1, 0], [-1, 0], [0, 2], [0, -2], [1.56, 1.56], [-1.56, 1.56], [1.56, -1.56], [-1.56, -1.56], [2, 0], [-2, 0]],   // a diamond out to 2 tiles (OpenDUNE)
+};
