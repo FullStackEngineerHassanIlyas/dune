@@ -1,11 +1,13 @@
 // Harvesters (spec §4.3): find the nearest unclaimed spice, fill up (700 credits in about 20 s),
 // drive to the dock just south of a refinery's pad, unload (about 5 s) and return to the field.
-// A refinery comes with a free harvester. A player's move or stop suspends the routine; a harvest
+// A refinery comes with a free harvester (flown in by a Carryall in real games); Carryalls also ferry
+// harvesters on long trips. A player's move or stop suspends the routine; a harvest
 // order (or being left idle on spice) resumes it.
 import { DT } from '../data/tuning.js';
 import { addCredits } from './economy.js';
 import { findFreeTile } from './spawn.js';
 import { orderMove } from './orders.js';
+import { callCarryall, deliverByAir } from './carryall.js';
 
 export const HARVEST_CAPACITY = 700;
 export const HARVEST_RATE = 35;
@@ -148,6 +150,7 @@ export function updateHarvester(world, u) {
       if (tile === here) { h.state = 'harvesting'; return; }
       h.state = 'toField';
       world.requestPath(u, tile);
+      callCarryall(world, u, { x: map.xOf(tile), y: map.yOf(tile) });   // a long way: a Carryall may fly it there
       return;
     }
     case 'toField': {
@@ -192,6 +195,7 @@ export function updateHarvester(world, u) {
       }
       h.target = dock;
       world.requestPath(u, dock);
+      callCarryall(world, u, { x: map.xOf(dock), y: map.yOf(dock) });
       return;
     }
     case 'queued': {
@@ -226,6 +230,9 @@ export function updateHarvester(world, u) {
 export function spawnFreeHarvester(world, ref) {
   const map = world.map;
   const dock = dockTile(world, ref);
+  if (world.rules.airDelivery && dock >= 0) {   // flown in from the map edge by a Carryall (spec §4.3)
+    return deliverByAir(world, ref.house, 'harvester', { x: map.xOf(dock), y: map.yOf(dock) }, { key: 'harvesterDeployed', text: 'Harvester deployed.' });
+  }
   const spot = dock >= 0 && !map.unit[dock] ? { x: map.xOf(dock), y: map.yOf(dock) } : findFreeTile(world, ref.x + 1, ref.y + ref.h, 'harvester', 5, 1);
   if (!spot) return null;
   const u = world.spawnUnit('harvester', ref.house, spot.x, spot.y, { heading: Math.PI / 2 });

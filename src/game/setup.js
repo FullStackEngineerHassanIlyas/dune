@@ -25,6 +25,7 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   const world = new World({ map, seed });
   world.fogOfWar = fog;
   world.rules.victory = true;
+  world.rules.airDelivery = true;   // Refineries get their Harvester by Carryall
   const rival = enemy && enemy !== house ? enemy : PLAYABLE_HOUSES.find((h) => h !== house);
   world.addHouse(house, { credits });
   world.addHouse(rival, { credits, ai: true });

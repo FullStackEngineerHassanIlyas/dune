@@ -10,6 +10,7 @@
 import { DT, buildSeconds, UNIT_REPAIR_COST, BAY_DRIVE_SECONDS } from '../data/tuning.js';
 import { spend } from './economy.js';
 import { dockTile, clearDock } from './harvest.js';
+import { callCarryall } from './carryall.js';
 import { orderMove, stopUnit } from './orders.js';
 import { killUnit } from './combat.js';
 import { turnToward } from './geometry.js';
@@ -40,6 +41,8 @@ export function orderRepairAt(world, houseId, units, structureId) {
     u.order = { type: 'repairAt', structureId: s.id, tries: 0, retryAt: 0, wait: 0, resume };
     u.target = null;
     u.aiming = false;
+    const entrance = dockTile(world, s);
+    if (entrance >= 0) callCarryall(world, u, { x: world.map.xOf(entrance), y: world.map.yOf(entrance) });   // a long way: a Carryall may fly it over
     ids.push(u.id);
   }
   if (ids.length) world.events.push('repairOrdered', { ids, structureId: s.id, house: houseId });
