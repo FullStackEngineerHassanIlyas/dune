@@ -50,13 +50,25 @@ test('a second vehicle waits by the entrance and goes in when the bay is free', 
   assert.equal(second.hp, second.maxHp);
 });
 
-test('a unit parked on the entrance is moved off it', () => {
+test('a unit parked on the entrance does not keep others out', () => {
   const { world, s } = bay();
-  const parked = world.spawnUnit('combatTank', 'atreides', 11, 12);
+  world.spawnUnit('combatTank', 'atreides', 11, 12);
   const u = tank(world, 11, 18);
   sendIn(world, [u], s);
   assert.ok(runUntil(world, () => u.inside === s.id, 40) > 0);
-  assert.notDeepEqual([parked.tx, parked.ty], [11, 12]);
+});
+
+test('with the entrance walled in, vehicles go in and out by another side', () => {
+  const { world, s } = bay();
+  world.spawnStructure('silo', 'atreides', 9, 12);
+  world.spawnStructure('silo', 'atreides', 12, 12);
+  world.spawnStructure('wall', 'atreides', 11, 13);   // 11,12 is now a closed pocket
+  const u = tank(world, 16, 11);
+  sendIn(world, [u], s);
+  assert.ok(runUntil(world, () => u.inside === s.id, 30) > 0, 'in from the side');
+  assert.ok(runUntil(world, () => !u.inside, 40) > 0, 'out again');
+  assert.notDeepEqual([u.tx, u.ty], [11, 12], 'not into the pocket');
+  assert.equal(u.hp, u.maxHp);
 });
 
 test('only damaged vehicles of the owner go in', () => {

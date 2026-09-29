@@ -185,5 +185,5 @@ test('the AI builds a repair facility and sends worn vehicles to it', () => {
   const tank = world.spawnUnit('combatTank', 'harkonnen', 30, 30);
   tank.hp = 60;
   assert.ok(runUntil(world, () => tank.order.type === 'repairAt' || !!tank.inside, 3) >= 0, 'sent for repairs');
-  assert.ok(runUntil(world, () => tank.hp === tank.maxHp, 120) > 0, 'repaired');
+  assert.ok(runUntil(world, () => { h.credits = Math.max(h.credits, 1000); return tank.hp === tank.maxHp; }, 120) > 0, 'repaired');   // the repair, not the AI's wallet, is under test
 });

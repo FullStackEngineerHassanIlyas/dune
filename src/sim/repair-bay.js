@@ -1,10 +1,10 @@
-// Repair Facility (spec §4.6; research: structures.md "Repair Facility"): vehicles ordered to it drive
-// to the entrance south of the pad and, one at a time, onto the pad under the gantry. Inside they are
-// off the tile grid: they cannot be shot or splashed and take no orders. A full repair takes as long
-// as building the unit and costs a quarter of its price, both in proportion to the damage; low power
-// slows it like production and it pauses without credits. Then the vehicle drives out by the nearest
-// free tile and heads for the facility's rally point, or back to harvesting. The others wait near the
-// entrance. Infantry and aircraft cannot use it. The vehicle shares the bay's fate: destroyed with it,
+// Repair Facility (spec §4.6; research: structures.md "Repair Facility"): vehicles ordered to it drive up
+// beside it — to the entrance south of the pad when that is free and reachable, else to any other side —
+// and, one at a time, onto the pad under the gantry. Inside they are off the tile grid: they cannot be
+// shot or splashed and take no orders. A full repair takes as long as building the unit and costs a
+// quarter of its price, both in proportion to the damage; low power slows it like production and it
+// pauses without credits. Then the vehicle drives out the way it came (or by the nearest free tile)
+// and heads for the facility's rally point, or back to harvesting. The others wait close by. Infantry and aircraft cannot use it. The vehicle shares the bay's fate: destroyed with it,
 // pushed out when the facility is sold, captured along with it.
 import { DT, buildSeconds, UNIT_REPAIR_COST, BAY_DRIVE_SECONDS } from '../data/tuning.js';
 import { spend } from './economy.js';
@@ -21,7 +21,7 @@ const TURN_ON_PAD = 4;   // radians per second while driving on or off
 
 export const needsRepair = (u) => u.isGround && VEHICLES.has(u.move) && !u.inside && u.hp < u.maxHp;
 const moving = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
-const near = (map, u, i, r) => Math.max(Math.abs(u.tx - map.xOf(i)), Math.abs(u.ty - map.yOf(i))) <= r;
+const gap = (u, s) => Math.max(s.x - u.tx, u.tx - (s.x + s.w - 1), s.y - u.ty, u.ty - (s.y + s.h - 1), 0);   // tiles from a unit to a footprint
 
 /** Where a vehicle stands in the bay (tile units). */
 export function padPoint(s) {
@@ -49,22 +49,40 @@ export function orderRepairAt(world, houseId, units, structureId) {
 export function updateRepairOrder(world, u) {
   const o = u.order, map = world.map;
   const s = world.structures.get(o.structureId);
-  const dock = s && s.house === u.house && u.hp < u.maxHp ? dockTile(world, s) : -1;
-  if (dock < 0) { stopUnit(u); return; }   // gone, taken, repaired some other way, or walled in
+  if (!s || s.house !== u.house || u.hp >= u.maxHp) { stopUnit(u); return; }   // gone, taken or repaired some other way
   if (moving(u)) return;
   const busy = !!s.occupant && world.units.has(s.occupant);
-  if (map.idx(u.tx, u.ty) === dock && !busy) { enter(world, u, s); return; }
-  const parked = map.unit[dock] && map.unit[dock] !== u.id ? world.units.get(map.unit[dock]) : null;
-  if ((busy || parked) && near(map, u, dock, 3)) {   // wait close by, and move a parked friend off the entrance
-    if ((o.wait -= DT) > 0) return;
-    o.wait = 1;
-    if (parked && parked.order.type !== 'repairAt') clearDock(world, parked.id, u);
-    return;
-  }
+  if (gap(u, s) === 1 && !busy) { enter(world, u, s); return; }   // beside the facility: drive onto the pad
+  if (busy && gap(u, s) <= 3) return;   // wait close by for the bay
   if (world.tick < o.retryAt) return;
   if (++o.tries > GIVE_UP_TRIES) { stopUnit(u); world.events.push('moveFailed', { id: u.id }); return; }
   o.retryAt = world.tick + 20;
-  world.requestPath(u, dock);
+  const goal = besideTile(world, u, s);
+  if (goal >= 0) { world.requestPath(u, goal); return; }
+  const entrance = dockTile(world, s), parked = entrance >= 0 ? world.units.get(map.unit[entrance]) : null;
+  if (parked && parked.order.type !== 'repairAt') clearDock(world, parked.id, u);   // every way in is taken: ask a parked friend to make room
+}
+
+/** The free tile beside the facility the vehicle can reach, nearest first, the entrance south of the pad preferred; -1 if none. */
+function besideTile(world, u, s) {
+  const map = world.map, start = map.idx(u.tx, u.ty), entrance = dockTile(world, s);
+  let best = -1, bestCost = Infinity;
+  for (let y = s.y - 1; y <= s.y + s.h; y++) for (let x = s.x - 1; x <= s.x + s.w; x++) {
+    if (!map.inBounds(x, y) || (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h)) continue;
+    const i = map.idx(x, y);
+    if (map.structure[i] || map.moveFactor(i, u.move) <= 0 || (map.unit[i] && map.unit[i] !== u.id)) continue;
+    if (!world.reach.connected(start, i, u.move)) continue;
+    const cost = Math.hypot(x - u.tx, y - u.ty) - (i === entrance ? 3 : 0);
+    if (cost < bestCost) { bestCost = cost; best = i; }
+  }
+  return best;
+}
+
+/** The tile the vehicle came in by if it is free, else the usual factory-style exit. */
+function wayOut(world, s, u) {
+  const map = world.map, d = s.bay?.door ?? -1;
+  if (d >= 0 && !map.unit[d] && !map.structure[d]) return { x: map.xOf(d), y: map.yOf(d) };
+  return exitTile(world, s, u.move);
 }
 
 function enter(world, u, s) {
@@ -76,7 +94,7 @@ function enter(world, u, s) {
   u.tx = Math.floor(pad.x);
   u.ty = Math.floor(pad.y);
   s.occupant = u.id;
-  s.bay = { state: 'entering', t: 0, fromX: u.x, fromY: u.y, toX: pad.x, toY: pad.y, stalled: false };
+  s.bay = { state: 'entering', t: 0, door: here, fromX: u.x, fromY: u.y, toX: pad.x, toY: pad.y, stalled: false };
   world.events.push('bayEntered', { id: u.id, structureId: s.id, house: s.house, x: pad.x, y: pad.y });
 }
 
@@ -123,7 +141,7 @@ function repair(world, s, u, bay) {
     u.hp = u.maxHp - u.hp - hp < 1e-6 ? u.maxHp : u.hp + hp;
     if (u.hp < u.maxHp) return;
   }
-  const spot = exitTile(world, s, u.move);
+  const spot = wayOut(world, s, u);
   if (!spot) return;   // boxed in: wait for room
   const map = world.map;
   map.unit[map.idx(spot.x, spot.y)] = u.id;   // hold the way out
@@ -149,13 +167,14 @@ function release(world, s, u) {
 /** The facility is going: 'destroyed' takes the vehicle inside with it, 'sold' pushes it out unfinished. */
 export function emptyBay(world, s, how, attacker = null) {
   const u = s.occupant ? world.units.get(s.occupant) : null;
+  const out = u?.inside === s.id && how !== 'destroyed' ? wayOut(world, s, u) : null;
   s.occupant = 0;
   s.bay = null;
   if (!u || u.inside !== s.id) return;
   if (how === 'destroyed') { killUnit(world, u, attacker); return; }
   const map = world.map;
   const held = map.unit[map.idx(u.tx, u.ty)] === u.id;   // already on its way out
-  const spot = held ? { x: u.tx, y: u.ty } : exitTile(world, s, u.move) ?? findFreeTile(world, s.x + 1, s.y + s.h, u.move, 8, 1);
+  const spot = held ? { x: u.tx, y: u.ty } : out ?? findFreeTile(world, s.x + 1, s.y + s.h, u.move, 8, 1);
   if (!spot) { killUnit(world, u, null); return; }
   map.unit[map.idx(spot.x, spot.y)] = u.id;
   u.inside = 0;
