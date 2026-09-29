@@ -29,3 +29,13 @@ test('the ghost shows green on own concrete, yellow on bare rock and red when it
   ghost.show(null);
   assert.equal(ghost.group.visible, false);
 });
+
+test('next to the base only the blocked cells turn red', () => {
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const ghost = new PlacementGhost(new THREE.Scene(), hf);
+  world.spawnStructure('constructionYard', 'atreides', 4, 4);
+  world.spawnUnit('soldier', 'atreides', 7, 5);
+  ghost.show({ typeId: 'windtrap', x: 6, y: 4, check: checkPlacement(world, 'atreides', 'windtrap', 6, 4) });
+  assert.equal(colours(ghost), 'yyyr');
+});

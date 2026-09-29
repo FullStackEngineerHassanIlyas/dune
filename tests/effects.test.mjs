@@ -58,3 +58,12 @@ test('dust is sand-coloured smoke that rises and fades', () => {
   fx.update(2);
   assert.equal(fx.smoke.n, 0, 'fades away');
 });
+
+test('empty pools do not re-upload their buffers', () => {
+  const pool = new ParticlePool(new THREE.Scene(), 16, { additive: true });
+  pool.update(0.1);
+  const v = pool.alphaAttr.version;
+  pool.update(0.1);
+  pool.update(0.1);
+  assert.equal(pool.alphaAttr.version, v);
+});

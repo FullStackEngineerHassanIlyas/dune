@@ -30,6 +30,7 @@ export class Radar {
     this.age = 0;
     this.timer = 0;
     this.size = 0;
+    addEventListener('resize', () => { this.size = 0; });
     this.dragging = false;
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.canvas.addEventListener('pointerdown', (e) => this.pointer(e, true));
@@ -58,11 +59,10 @@ export class Radar {
   }
 
   resize() {
-    const size = this.canvas.clientWidth || 220;
-    if (size === this.size) return;
+    if (this.size) return;   // measured at start and after window resizes, not every frame
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    this.size = size;
-    this.canvas.width = this.canvas.height = Math.round(size * dpr);
+    this.size = this.canvas.clientWidth || 220;
+    this.canvas.width = this.canvas.height = Math.round(this.size * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 

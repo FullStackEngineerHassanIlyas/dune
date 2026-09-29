@@ -137,7 +137,12 @@ export class GameView {
     this.lost = false;
     this.last = performance.now();
     document.addEventListener('visibilitychange', () => { this.paused = document.hidden || this.lost || this.userPaused; this.last = performance.now(); });
-    r3d.onContextLost = () => { this.lost = true; this.paused = true; this.hud.message('The graphics device was reset — restoring…', 3600); };
+    r3d.onContextLost = () => {
+      this.lost = true;
+      this.paused = true;
+      this.hud.message('The graphics device was reset — restoring…', 3600);
+      setTimeout(() => { if (this.lost) showCrash(new Error('The graphics device was lost and did not come back.')); }, 5000);
+    };
     r3d.onContextRestored = () => location.reload();
     this.onFrame = null;
     this.nextInvariantCheck = 0;
@@ -301,7 +306,8 @@ export class GameView {
   togglePause() {
     this.userPaused = !this.userPaused;
     this.paused = document.hidden || this.lost || this.userPaused;
-    this.hud.message(this.userPaused ? 'Paused — press P to continue' : 'Resumed', this.userPaused ? 1e9 : 1.5);
+    if (this.userPaused) this.hud.hold('Paused — press P to continue');
+    else { this.hud.release(); this.hud.message('Resumed', 1.5); }
   }
 
   frame(now) {

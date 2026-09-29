@@ -96,6 +96,7 @@ export class ParticlePool {
   }
 
   update(dt) {
+    if (this.n === 0 && this.mesh.count === 0) return;   // nothing alive and nothing left on screen: no upload
     const m = this.mesh.instanceMatrix.array, c = this.mesh.instanceColor.array, a = this.alphaAttr.array;
     let i = 0;
     while (i < this.n) {

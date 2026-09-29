@@ -60,7 +60,7 @@ export class PlacementGhost {
       sum += h;
       cell.position.set(tile.x + 0.5, h + 0.04, tile.y + 0.5);
       const state = t.isConcrete && tile.state === 'bare' ? 'concrete' : tile.state;
-      cell.material = this.cellMaterials[check.ok ? state : 'blocked'];
+      cell.material = this.cellMaterials[check.adjacent ? state : 'blocked'];   // away from the base everything is red
     });
     this.body.position.set(x + t.w / 2, sum / check.tiles.length + 0.02, y + t.h / 2);
     this.group.visible = true;
