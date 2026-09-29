@@ -100,7 +100,7 @@ export function updateProjectiles(world) {
   for (const p of [...world.projectiles.values()]) {
     p.px = p.x;
     p.py = p.y;
-    if (p.homing && p.target) { const tp = targetPoint(world, p.target); if (tp) { p.tx = tp.x; p.ty = tp.y; } }
+    if (p.homing && p.target) { const tp = targetPoint(world, p.target); if (tp && !tp.entity?.inside) { p.tx = tp.x; p.ty = tp.y; } }   // not into a bay or a Carryall
     const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy), step = p.speed * DT;
     if (d <= step) {
       p.x = p.tx;

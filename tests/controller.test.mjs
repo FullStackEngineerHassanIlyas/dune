@@ -404,3 +404,17 @@ test('aircraft are picked at their flying height; a selected Carryall takes no o
   c.onClick(px(8), px(12), 0, NONE, false);
   assert.equal(issued.length, before, 'nothing ordered');
 });
+
+test('over an enemy aircraft the cursor tells whether the selection can shoot upwards', () => {
+  const { world, tank, c, cursors } = setup();
+  const o = world.spawnUnit('ornithopter', 'harkonnen', 14, 12);
+  c.project = (x, z) => ({ x: x * 40, y: z * 40, visible: true, pxPerUnit: 40 });
+  c.selection.set([tank.id]);
+  c.onMove(o.x * 40, o.y * 40);
+  c.frame();
+  assert.equal(cursors.at(-1), 'noMove', 'a tank cannot shoot upwards');
+  const troopers = world.spawnUnit('troopers', 'atreides', 3, 3);
+  c.selection.set([tank.id, troopers.id]);
+  c.frame();
+  assert.equal(cursors.at(-1), 'attack');
+});

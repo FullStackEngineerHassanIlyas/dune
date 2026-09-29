@@ -94,3 +94,16 @@ test('a shot at an aircraft that is gone before it lands bursts in the air', () 
   world.step();
   assert.equal(silo.hp, hp, 'the silo below is not hit');
 });
+
+test('a homing rocket stops following a unit that is lifted away and lands where it was aimed', () => {
+  const world = flatWorld(30, 30, G.ROCK);
+  const t = world.spawnUnit('combatTank', 'harkonnen', 10, 10);
+  world.projectiles.set(1, { id: 1, weapon: 'turretRocket', projectile: 'rocket', house: 'atreides', sourceId: 0, sourceKind: 'structure', x: 4.5, y: 10.5, px: 4.5, py: 10.5, sx: 4.5, sy: 10.5, tx: 10.5, ty: 10.5, speed: 1, damage: 30, accurate: true, homing: true, target: { kind: 'unit', id: t.id }, airburst: false, fromAlt: 0, toAlt: 0 });
+  const c = world.spawnUnit('carryall', 'harkonnen', 20, 10);   // lifted away and carried off to 20,10
+  world.map.unit[world.map.idx(10, 10)] = 0;
+  t.inside = c.id;
+  c.cargo = t.id;
+  world.step();
+  const p = world.projectiles.get(1);
+  assert.deepEqual([p.tx, p.ty], [10.5, 10.5], 'it keeps to where it was aimed');
+});

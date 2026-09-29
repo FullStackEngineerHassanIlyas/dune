@@ -289,7 +289,7 @@ export class Controller {
     const own = this.ownSelected();
     if (!hit) return own.length ? 'noMove' : 'default';
     if (hit.kind === 'unit') {
-      if (hit.unit.house !== this.house) return own.length ? 'attack' : 'select';
+      if (hit.unit.house !== this.house) return !own.length ? 'select' : hit.unit.isGround || own.some((u) => u.type.targetAir) ? 'attack' : 'noMove';   // aircraft: anti-air only
       if (own.length === 1 && own[0].id === hit.unit.id && hit.unit.type.deploysTo) return deploySpot(this.world, hit.unit) ? 'deploy' : 'noDeploy';
       return 'select';
     }
