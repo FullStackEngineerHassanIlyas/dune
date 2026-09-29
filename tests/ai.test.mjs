@@ -153,8 +153,22 @@ test('an AI that loses its yard mid-game orders a new MCV at once and redeploys'
   assert.ok(runUntil(world, () => !!has('heavyFactory'), 900) > 0, 'a heavy factory went up');
   run(world, 60);
   destroyStructure(world, has('constructionYard'), null);
-  const mcvOrdered = () => { const l = world.houses.get(rival).lines.heavy; return l.current?.typeId === 'mcv' || l.queue.includes('mcv') || [...world.units.values()].some((u) => u.house === rival && u.typeId === 'mcv'); };
+  const mcvOrdered = () => { const l = world.houses.get(rival).lines.heavy; return [l.current?.typeId, ...l.queue].some((t) => t === 'mcv' || t === 'upgrade:heavyFactory') || [...world.units.values()].some((u) => u.house === rival && u.typeId === 'mcv'); };
   const t = runUntil(world, mcvOrdered, 30);
   assert.ok(t >= 0 && t < 5, `ordered after ${t} s`);
   assert.ok(runUntil(world, () => !!has('constructionYard'), 300) > 0, 'a new yard stands');
+});
+
+import { upgradeLevel } from '../src/sim/tech.js';
+
+test('an AI buys factory upgrades and fields the units they open', () => {
+  const world = flatWorld(48, 40, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['lightFactory', 9, 6], ['heavyFactory', 12, 6]]) world.spawnStructure(t, 'atreides', x, y);
+  const h = world.houses.get('atreides');
+  h.credits = 20000;
+  h.startBuffer = 40000;
+  createBrain(world, 'atreides', 'normal');
+  assert.ok(runUntil(world, () => upgradeLevel(h, 'heavyFactory') >= 3, 400) > 0, `heavy factory level ${upgradeLevel(h, 'heavyFactory')}`);
+  assert.ok(runUntil(world, () => upgradeLevel(h, 'lightFactory') >= 1, 120) >= 0, 'the light factory too');
+  assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && (u.typeId === 'siegeTank' || u.typeId === 'missileTank')), 300) > 0, 'a missile or siege tank rolled out');
 });

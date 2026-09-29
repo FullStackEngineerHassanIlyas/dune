@@ -12,15 +12,15 @@ function withStructures(house, types) {
 
 test('a bare Construction Yard offers concrete and wind traps', () => {
   const world = withStructures('atreides', ['constructionYard']);
-  assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'concrete4']);
+  assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap']);
 });
 
 test('each prerequisite opens the next buildings', () => {
   const world = withStructures('atreides', ['constructionYard', 'windtrap']);
-  assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost', 'concrete4']);
+  assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost']);
   const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'lightFactory']);
   assert.deepEqual(buildOptions(more, 'atreides').structure,
-    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'wall', 'turret', 'rocketTurret', 'concrete4']);
+    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'wall', 'turret']);
 });
 
 test('infantry buildings follow the house', () => {
@@ -33,7 +33,11 @@ test('infantry buildings follow the house', () => {
 });
 
 test('factories offer their house roster; plan-2 items stay hidden', () => {
-  const opts = (house) => buildOptions(withStructures(house, ['constructionYard', 'heavyFactory', 'lightFactory', 'barracks', 'wor', 'ix']), house);
+  const opts = (house) => {
+    const world = withStructures(house, ['constructionYard', 'heavyFactory', 'lightFactory', 'barracks', 'wor', 'ix']);
+    world.houses.get(house).upgrades = { heavyFactory: 3, lightFactory: 1, barracks: 1, wor: 1 };
+    return buildOptions(world, house);
+  };
   assert.deepEqual(opts('atreides').heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv']);
   assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv']);
   assert.deepEqual(opts('harkonnen').light, ['quad']);

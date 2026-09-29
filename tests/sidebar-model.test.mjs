@@ -22,11 +22,11 @@ function factories(world) {
 test('the strips list what the house can build, in display order', () => {
   const { world } = base();
   let m = sidebarModel(world, 'atreides');
-  assert.deepEqual(m.structures.map((i) => i.typeId), ['concrete', 'windtrap', 'concrete4']);
+  assert.deepEqual(m.structures.map((i) => i.typeId), ['concrete', 'windtrap']);
   assert.deepEqual(m.units, []);
   factories(world);
   m = sidebarModel(world, 'atreides');
-  assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'quad']);
+  assert.deepEqual(m.units.map((i) => i.typeId), ['trike']);
   const wt = m.structures.find((i) => i.typeId === 'windtrap');
   assert.deepEqual([wt.name, wt.cost, wt.seconds, wt.line, wt.state], ['Wind Trap', 300, 22, 'structure', 'idle']);
 });
@@ -44,7 +44,6 @@ test('icons carry production state, progress and queue counts', () => {
   assert.equal(m.structures.find((i) => i.typeId === 'concrete').state, 'locked', 'the yard is busy');
   const trike = m.units.find((i) => i.typeId === 'trike');
   assert.deepEqual([trike.state, trike.count], ['building', 3]);
-  assert.equal(m.units.find((i) => i.typeId === 'quad').state, 'idle');
   world.issue('atreides', { type: 'hold', typeId: 'windtrap' });
   world.step();
   assert.equal(sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'windtrap').state, 'hold');

@@ -147,3 +147,22 @@ test('an upgrade the house cannot buy is rejected', () => {
   world.step();
   assert.equal(world.events.drain().filter((e) => e.type === 'commandRejected').length, 3);
 });
+
+test('units and structures wait for the upgrades they need', () => {
+  const world = withStructures('atreides', ['constructionYard', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'heavyFactory']);
+  const h = world.houses.get('atreides');
+  let o = buildOptions(world, 'atreides');
+  assert.deepEqual([o.heavy, o.light, o.infantry], [['harvester', 'combatTank'], ['trike'], ['soldier']]);
+  assert.ok(!o.structure.includes('concrete4') && !o.structure.includes('rocketTurret'));
+  h.upgrades = { constructionYard: 1, barracks: 1, lightFactory: 1, heavyFactory: 1 };
+  o = buildOptions(world, 'atreides');
+  assert.deepEqual([o.heavy, o.light, o.infantry], [['harvester', 'combatTank', 'mcv'], ['trike', 'quad'], ['soldier', 'infantry']]);
+  assert.ok(o.structure.includes('concrete4') && !o.structure.includes('rocketTurret'));
+  h.upgrades = { constructionYard: 2, heavyFactory: 3 };
+  o = buildOptions(world, 'atreides');
+  assert.deepEqual(o.heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv']);
+  assert.ok(o.structure.includes('rocketTurret'));
+  world.issue('atreides', { type: 'build', typeId: 'quad' });
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'commandRejected' && e.typeId === 'quad'), 'no Quad without the light factory upgrade');
+});

@@ -71,6 +71,7 @@ export function canBuildStructure(house, typeId, owned, { implied = true } = {})
   const t = STRUCTURES[typeId];
   if (!t || !t.requires || DEFERRED.has(typeId)) return false;
   if (!t.houses.includes(house.id) || structureTechLevel(t, house.id) > house.techLevel) return false;
+  if (!Object.entries(t.requiresUpgrade ?? {}).every(([k, level]) => upgradeLevel(house, k) >= level)) return false;   // e.g. Rocket Turrets need yard level 2
   if (implied && typeId !== 'windtrap' && !t.isConcrete && !owned.has('windtrap')) return false;   // a Wind Trap is implied for everything (spec §4.5)
   return owned.has('constructionYard') && t.requires.every((r) => owned.has(r));
 }
@@ -78,6 +79,7 @@ export function canBuildStructure(house, typeId, owned, { implied = true } = {})
 export function canBuildUnit(house, typeId, owned) {
   const u = UNITS[typeId];
   if (!u || !LINE_OF_FACTORY[u.builtAt] || DEFERRED.has(typeId) || !u.houses.includes(house.id)) return false;
+  if (upgradeLevel(house, u.builtAt) < (u.upgrade ?? 0)) return false;   // e.g. the Quad needs the Light Factory upgrade
   return owned.has(u.builtAt) && (u.requires ?? []).every((r) => owned.has(r));
 }
 

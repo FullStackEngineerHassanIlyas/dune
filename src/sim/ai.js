@@ -5,7 +5,7 @@
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild, buildOptions } from './tech.js';
+import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost } from './tech.js';
 import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
@@ -63,7 +63,7 @@ function think(world, house) {
   keepHarvesters(world, house, view);
   if (!view.home) return;
   const rebuilding = !view.yard && !view.units.some((u) => u.type.deploysTo);
-  if (!rebuilding) buildArmy(world, house, view);   // the new MCV comes first
+  if (!rebuilding) { buyUpgrades(world, house, view); buildArmy(world, house, view); }   // the new MCV comes first
   rally(world, house, view);
   defend(world, house, view);
   attack(world, house, view);
@@ -125,7 +125,12 @@ function buildBase(world, house, view) {
   }
   if (item) return;
   const next = nextStructure(world, house, view);
-  if (next && house.credits >= Math.min(STRUCTURES[next].cost, 150)) issue(world, house, { type: 'build', typeId: next });
+  if (next) {
+    if (house.credits >= Math.min(STRUCTURES[next].cost, 150)) issue(world, house, { type: 'build', typeId: next });
+    return;
+  }
+  const yardUp = upgradeId('constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
+  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
 function nextStructure(world, house, view) {
@@ -175,6 +180,22 @@ function buildArmy(world, house, view) {
     if (l.current || l.queue.length || house.credits < d.reserve) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
     if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, pool) });
+  }
+}
+
+const FACTORY_UPGRADES = ['heavyFactory', 'lightFactory', 'barracks', 'wor'];   // what the army needs, most useful first
+
+/** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
+function buyUpgrades(world, house, view) {
+  const d = DIFFICULTY[house.brain.difficulty];
+  for (const type of FACTORY_UPGRADES) {
+    const id = upgradeId(type);
+    if (!view.count[type] || !canBuild(world, house.id, id)) continue;
+    const l = house.lines[lineOfItem(id)];
+    if (l.current?.typeId === id || l.queue.includes(id)) continue;   // already under way
+    if (house.credits < upgradeCost(house, type) + d.reserve) return;
+    issue(world, house, { type: 'build', typeId: id });
+    return;
   }
 }
 
@@ -242,9 +263,11 @@ function nearestEnemyWall(world, houseId, x, y, radius) {
   return best;
 }
 
-/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV and deploy it. */
+/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV (after the upgrade that opens it) and deploy it. */
 function rebuildMcv(world, house, view) {
   const heavy = house.lines.heavy;
-  if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv') || !canBuild(world, house.id, 'mcv')) return;
-  issue(world, house, { type: 'build', typeId: 'mcv' });   // queued behind the current item and paid as it builds
+  if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv')) return;
+  if (canBuild(world, house.id, 'mcv')) { issue(world, house, { type: 'build', typeId: 'mcv' }); return; }   // queued behind the current item and paid as it builds
+  const up = upgradeId('heavyFactory');
+  if (upgradeLevel(house, 'heavyFactory') < 1 && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
 }
