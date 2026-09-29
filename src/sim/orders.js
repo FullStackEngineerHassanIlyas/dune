@@ -9,7 +9,7 @@ import { WEAPONS } from '../data/weapons.js';
 import { orderRepairAt } from './repair-bay.js';
 import { orderCapture } from './capture.js';
 import { orderStarport, cancelStarport } from './starport.js';
-import { orderDestruct } from './specials.js';
+import { orderDestruct, orderSabotage } from './specials.js';
 import { orderPalace } from './palace.js';
 
 export function applyCommand(world, houseId, cmd) {
@@ -32,6 +32,7 @@ export function applyCommand(world, houseId, cmd) {
     case 'returnToBase': orderReturn(world, units); return;
     case 'repairAt': orderRepairAt(world, houseId, units, cmd.structureId); return;
     case 'capture': orderCapture(world, houseId, units, cmd.structureId); return;
+    case 'sabotage': orderSabotage(world, houseId, units, cmd.structureId); return;
     case 'starportOrder': orderStarport(world, houseId, cmd.typeId, cmd.count ?? 1); return;
     case 'starportCancel': cancelStarport(world, houseId, cmd.typeId); return;
     case 'palace': orderPalace(world, houseId, cmd.x, cmd.y); return;

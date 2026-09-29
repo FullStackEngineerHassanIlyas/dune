@@ -99,3 +99,6 @@ export const DEATH_HAND = {
   radius: 1,            // … a tile
   pattern: [[0, 0], [0, 1], [0, -1], [0.78, 0.78], [-0.78, 0.78], [0.78, -0.78], [-0.78, -0.78], [1, 0], [-1, 0], [0, 2], [0, -2], [1.56, 1.56], [-1.56, 1.56], [1.56, -1.56], [-1.56, -1.56], [2, 0], [-2, 0]],   // a diamond out to 2 tiles (OpenDUNE)
 };
+
+export const FREMEN = { squads: 5, reach: 8 };   // five squads rise from the sand within eight tiles of the chosen spot
+export const SABOTEUR = { blast: 500, splash: 300, radius: 1.5 };   // into the building it reaches; round it (also when it is killed)

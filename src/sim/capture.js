@@ -11,7 +11,7 @@ import { orderAttack, stopUnit } from './orders.js';
 import { announce } from './announce.js';
 
 const GIVE_UP_TRIES = 8;
-const INFANTRY = new Set(['soldier', 'infantry', 'trooper', 'troopers']);   // the Saboteur has its own mission (plan 2c)
+const INFANTRY = new Set(['soldier', 'infantry', 'trooper', 'troopers']);   // the Saboteur has its own mission (specials.js)
 
 export const canCapture = (u) => INFANTRY.has(u.typeId);
 export const capturable = (s, houseId) => !!s && s.house !== houseId && !!s.type.conquerable && s.hp < s.maxHp * CAPTURE_BELOW;
@@ -31,7 +31,7 @@ export function orderCapture(world, houseId, units, structureId) {
   if (ids.length) world.events.push('captureOrdered', { ids, structureId: s.id, house: houseId });
 }
 
-const beside = (u, s) => u.tx >= s.x - 1 && u.tx <= s.x + s.w && u.ty >= s.y - 1 && u.ty <= s.y + s.h;
+export const beside = (u, s) => u.tx >= s.x - 1 && u.tx <= s.x + s.w && u.ty >= s.y - 1 && u.ty <= s.y + s.h;
 
 /** The free tile next to the building nearest to the unit, or -1. */
 function besideTile(world, u, s) {

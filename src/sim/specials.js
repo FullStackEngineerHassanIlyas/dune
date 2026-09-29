@@ -2,10 +2,11 @@
 // they go home. A unit taken twice keeps its first owner on record, and gas from that owner brings it
 // home at once. Units held in a bay or a Carryall are not gassed, and go home only once they are out.
 // Destruct: a Devastator stops, glows for three seconds and blows itself apart.
-import { DEVIATOR, DESTRUCT } from '../data/tuning.js';
-import { deviatable, killUnit } from './combat.js';
+// Saboteurs walk into an enemy building (over its walls) and blow it up; one that is killed goes off where it falls.
+import { DEVIATOR, DESTRUCT, SABOTEUR } from '../data/tuning.js';
+import { deviatable, killUnit, damage, onTheMove } from './combat.js';
 import { splash } from './aftermath.js';
-import { transferUnit } from './capture.js';
+import { transferUnit, beside } from './capture.js';
 import { stopUnit } from './orders.js';
 
 /** A gas cloud bursts at p: enemy ground units close by change sides, except the immune. */
@@ -53,4 +54,56 @@ export function destruct(world, u) {
     const a = world.rng.range(0, Math.PI * 2), r = DESTRUCT.scatter * Math.sqrt(world.rng.next());
     splash(world, x + Math.cos(a) * r, y + Math.sin(a) * r, world.rng.range(DESTRUCT.blast[0], DESTRUCT.blast[1]), DESTRUCT.radius, by, 'medium');
   }
+}
+
+const GIVE_UP_TRIES = 8;
+
+/** Saboteurs sent into an enemy building (never a wall: they walk over those). */
+export function orderSabotage(world, houseId, units, structureId) {
+  const s = world.structures.get(structureId);
+  if (!s || s.house === houseId || s.type.isWall) return;
+  const ids = [];
+  for (const u of units) {
+    if (!u.type.sabotage) continue;
+    stopUnit(u);
+    u.order = { type: 'sabotage', structureId: s.id, tries: 0 };
+    u.target = null;
+    u.aiming = false;
+    ids.push(u.id);
+  }
+  if (ids.length) world.events.push('sabotageOrdered', { ids, structureId: s.id, house: houseId });
+}
+
+/** A Saboteur on its way (runs before movement): beside the building it goes off, else it walks on. */
+export function updateSabotage(world, u) {
+  const o = u.order, s = world.structures.get(o.structureId);
+  if (!s || s.house === u.house) { stopUnit(u); return; }   // gone, or taken by a friend
+  if (onTheMove(u)) return;
+  if (beside(u, s)) { detonate(world, u, s); return; }
+  const goal = ++o.tries > GIVE_UP_TRIES ? -1 : approachTile(world, u, s);
+  if (goal < 0) { stopUnit(u); world.events.push('moveFailed', { id: u.id }); return; }
+  world.requestPath(u, goal);
+}
+
+/** The nearest free tile touching the building that the Saboteur can stand on (a wall will do). */
+function approachTile(world, u, s) {
+  const map = world.map;
+  let best = -1, bestD = Infinity;
+  for (let y = s.y - 1; y <= s.y + s.h; y++) for (let x = s.x - 1; x <= s.x + s.w; x++) {
+    if (!map.inBounds(x, y) || (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h)) continue;
+    const i = map.idx(x, y);
+    if (map.moveFactor(i, u.move) <= 0 || (map.unit[i] && map.unit[i] !== u.id)) continue;
+    const d = Math.hypot(x - u.tx, y - u.ty);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+/** 500 into the building and the blast round it; the Saboteur is spent, not lost. */
+function detonate(world, u, s) {
+  const by = { house: u.house, id: u.id, kind: 'unit' };
+  world.removeUnit(u, 'detonated');
+  world.events.push('unitDestroyed', { id: u.id, typeId: u.typeId, house: u.house, x: u.x, y: u.y, by: null, cause: 'detonated' });
+  damage(world, s, SABOTEUR.blast, by);
+  splash(world, u.x, u.y, SABOTEUR.splash, SABOTEUR.radius, by, 'large');
 }

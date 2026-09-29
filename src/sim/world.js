@@ -25,8 +25,8 @@ import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
-import { deviate, updateDeviations, destruct } from './specials.js';
-import { armPalace, updatePalaces, deathHandBlast } from './palace.js';
+import { deviate, updateDeviations, destruct, updateSabotage } from './specials.js';
+import { armPalace, updatePalaces, deathHandBlast, updateHunters } from './palace.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -141,6 +141,7 @@ export class World {
       if (u.harvest) updateHarvester(this, u);
       if (u.order.type === 'repairAt') updateRepairOrder(this, u);
       if (u.order.type === 'capture') { updateCapture(this, u); if (!this.units.has(u.id)) continue; }   // a squad that walked in is gone
+      if (u.order.type === 'sabotage') { updateSabotage(this, u); if (!this.units.has(u.id)) continue; }   // a Saboteur that went off is gone
       updateMovement(this, u);
     }
     updateCombat(this);
@@ -152,6 +153,7 @@ export class World {
     if (this.tick % 10 === 0) updatePower(this);
     if (this.tick % 10 === 5) updateDeviations(this);
     if (this.tick % 20 === 5) updatePalaces(this);
+    if (this.tick % 20 === 15) updateHunters(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);
