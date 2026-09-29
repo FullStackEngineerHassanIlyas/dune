@@ -205,3 +205,16 @@ test('the AI does not take a vehicle in a repair bay for an intruder', () => {
   createBrain(world, 'harkonnen', 'normal');
   assert.ok(runUntil(world, () => guard.order.type === 'attack' && guard.order.target?.id === raider.id, 5) > 0, 'the guard goes for the real intruder');
 });
+
+test('the AI builds a Hi-Tech Factory and keeps exactly one Carryall', () => {
+  const world = flatWorld(48, 40, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
+  const h = world.houses.get('harkonnen');
+  h.credits = 8000;
+  h.startBuffer = 20000;
+  createBrain(world, 'harkonnen', 'normal');
+  const own = () => [...world.units.values()].filter((u) => u.house === 'harkonnen' && u.typeId === 'carryall' && !u.visitor).length;
+  assert.ok(runUntil(world, () => own() === 1, 200) > 0, 'one Carryall');
+  run(world, 90);
+  assert.equal(own(), 1, 'and no more');
+});

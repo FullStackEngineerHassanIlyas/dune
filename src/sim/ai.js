@@ -18,9 +18,9 @@ export const DIFFICULTY = {
 };
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'windtrap'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -62,6 +62,7 @@ function think(world, house) {
   }
   else buildBase(world, house, view);
   keepHarvesters(world, house, view);
+  keepCarryall(world, house, view);
   if (!view.home) return;
   const rebuilding = !view.yard && !view.units.some((u) => u.type.deploysTo);
   if (!rebuilding) { buyUpgrades(world, house, view); buildArmy(world, house, view); }   // the new MCV comes first
@@ -164,7 +165,17 @@ function keepHarvesters(world, house, view) {
   if (have + queued < Math.min(6, 2 * refineries) && house.credits >= 300 && canBuild(world, house.id, 'harvester')) issue(world, house, { type: 'build', typeId: 'harvester' });
 }
 
-const ARMY_WEIGHTS = { combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
+/** One Carryall of its own for ferrying, never more (the original's AI rule). */
+function keepCarryall(world, house, view) {
+  if (!view.count.hiTech) return;
+  const air = house.lines.air;
+  const queued = (air.current?.typeId === 'carryall' ? 1 : 0) + air.queue.filter((t) => t === 'carryall').length;
+  const have = view.units.filter((u) => u.typeId === 'carryall' && !u.visitor).length;
+  if (have + queued >= 1 || house.credits < 800 + DIFFICULTY[house.brain.difficulty].reserve || !canBuild(world, house.id, 'carryall')) return;
+  issue(world, house, { type: 'build', typeId: 'carryall' });
+}
+
+const ARMY_WEIGHTS = { ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
 const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory'];
 
 function weightedPick(rng, pool) {
@@ -177,7 +188,7 @@ function buildArmy(world, house, view) {
   const d = DIFFICULTY[house.brain.difficulty];
   if (view.units.filter((u) => isArmed(u.type)).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
-  for (const line of ['heavy', 'light', 'infantry']) {
+  for (const line of ['heavy', 'light', 'infantry', 'air']) {
     const l = house.lines[line];
     if (l.current || l.queue.length || house.credits < d.reserve) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
@@ -185,7 +196,7 @@ function buildArmy(world, house, view) {
   }
 }
 
-const FACTORY_UPGRADES = ['heavyFactory', 'lightFactory', 'barracks', 'wor'];   // what the army needs, most useful first
+const FACTORY_UPGRADES = ['heavyFactory', 'lightFactory', 'barracks', 'wor', 'hiTech'];   // what the army needs, most useful first
 
 /** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
 function buyUpgrades(world, house, view) {
