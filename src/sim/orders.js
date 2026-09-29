@@ -91,7 +91,8 @@ export function orderAttack(world, units, cmd) {
   if (!target) return;
   const ids = [];
   for (const u of units) {
-    if (!u.isGround || !isArmed(u.type) || entity === u) continue;
+    if (!isArmed(u.type) || entity === u) continue;
+    if (entity?.kind === 'unit' && !entity.isGround && !u.type.targetAir) continue;   // only anti-air reaches aircraft
     if (entity && entity.house === u.house && !force) continue;
     u.order = { type: 'attack', target: { ...target }, force };
     u.target = null;

@@ -6,7 +6,7 @@
 // target and gives up when it gets no closer. The player's side engages only what its fog shows; the
 // AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
@@ -33,12 +33,12 @@ export function distanceTo(x, y, t, p) {
 }
 
 const seesAll = (world, houseId) => { const h = world.houses.get(houseId); return !h || h.isAI || !world.fogOfWar; };
-const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
+export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
 
-export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0 } = {}) {
+export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || !u.isGround || u.inside || u.id === exclude) continue;
+    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.id === exclude) continue;   // aircraft only for anti-air
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -55,12 +55,12 @@ export function findTarget(world, houseId, x, y, radius, { structures = true, ig
   return best;
 }
 
-function validTarget(world, houseId, t, force) {
+export function validTarget(world, houseId, t, force, canHitAir = false) {
   if (!t) return false;
   if (t.kind === 'tile') return true;
   const e = t.kind === 'unit' ? world.units.get(t.id) : world.structures.get(t.id);
   if (!e || e.hp <= 0) return false;
-  if (t.kind === 'unit' && (!e.isGround || e.inside)) return false;   // aircraft arrive in plan 2b; vehicles in a repair bay are safe
+  if (t.kind === 'unit' && (e.inside || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall: safe; aircraft: anti-air only
   return !!force || e.house !== houseId;
 }
 
@@ -75,20 +75,23 @@ export function stopMoving(u) {
 export function fireAt(world, from, t, p, dist, stats) {
   const shot = shotFor(stats.weapon, dist);
   if (!shot) return;
+  const air = t.kind === 'unit' && !!p.entity && !p.entity.isGround;
   let ax = p.x, ay = p.y;
-  if (!shot.accurate) {
+  if (!shot.accurate && !air) {
     const wild = world.rng.chance(SCATTER.wildChance);
     const r = (wild ? SCATTER.wildBase + dist * SCATTER.wildPerTile : SCATTER.base + dist * SCATTER.perTile) * world.rng.next();
     const a = world.rng.range(0, Math.PI * 2);
     ax += Math.cos(a) * r;
     ay += Math.sin(a) * r;
   }
+  const hits = !air || shot.accurate || world.rng.chance(AIR.hitChance);   // at aircraft everything homes in; loose rockets may still miss
   const id = world.nextProjectileId++;
   world.projectiles.set(id, {
     id, weapon: stats.weapon, projectile: shot.projectile, house: from.house, sourceId: from.id, sourceKind: from.kind,
     x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx: ax, ty: ay,
     speed: projectileSpeed(shot.speed), damage: Math.round(stats.damage * shot.damageScale),
-    accurate: shot.accurate, homing: shot.homing, target: shot.accurate && t.kind !== 'tile' ? { kind: t.kind, id: t.id } : null,
+    accurate: shot.accurate || air, homing: shot.homing || air, target: (shot.accurate || air) && hits && t.kind !== 'tile' ? { kind: t.kind, id: t.id } : null,
+    airburst: air && !hits, fromAlt: from.alt ?? 0, toAlt: p.entity?.alt ?? 0,
   });
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx: ax, ty: ay });
 }
@@ -114,11 +117,12 @@ export function updateProjectiles(world) {
 function impact(world, p) {
   const map = world.map;
   let victim = p.target ? targetPoint(world, p.target)?.entity ?? null : null;   // an accurate shot hits its target if it still exists
-  if (!victim) {
+  if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
+  if (!victim && !p.airburst) {
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
     if (map.inBounds(tx, ty)) { const i = map.idx(tx, ty); victim = world.units.get(map.unit[i]) ?? world.structures.get(map.structure[i]) ?? null; }
   }
-  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim });
+  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim, alt: p.airburst || (victim && victim.kind === 'unit' && !victim.isGround) ? p.toAlt : 0 });
   if (victim) damage(world, victim, p.damage, { house: p.house, id: p.sourceId, kind: p.sourceKind });
 }
 
@@ -174,11 +178,11 @@ function structureCombat(world, s) {
   const x = s.x + s.w / 2, y = s.y + s.h / 2;
   let tgt = s.target;
   if (tgt) {
-    const p = validTarget(world, s.house, tgt, false) ? targetPoint(world, tgt) : null;
+    const p = validTarget(world, s.house, tgt, false, !!t.targetAir) ? targetPoint(world, tgt) : null;
     if (!p || distanceTo(x, y, tgt, p) > t.range + 0.25) tgt = s.target = null;
   }
   // turrets see further than their fog radius (a gun turret uncovers two tiles but shoots five): they ignore fog
-  if (!tgt && (world.tick + s.id) % SCAN_TICKS === 0) tgt = s.target = findTarget(world, s.house, x, y, t.range + 0.25, { structures: false, ignoreFog: true });
+  if (!tgt && (world.tick + s.id) % SCAN_TICKS === 0) tgt = s.target = findTarget(world, s.house, x, y, t.range + 0.25, { structures: false, ignoreFog: true, air: !!t.targetAir });
   if (!tgt) return;
   const p = targetPoint(world, tgt), dist = distanceTo(x, y, tgt, p);
   const want = Math.atan2(p.y - y, p.x - x);
@@ -199,7 +203,7 @@ function scanRadius(u) {
 }
 
 function stillWorthIt(world, u, t) {
-  if (!validTarget(world, u.house, t, false)) return false;
+  if (!validTarget(world, u.house, t, false, !!u.type.targetAir)) return false;
   const p = targetPoint(world, t);
   if (!canSee(world, u.house, t.kind, p.entity)) return false;
   const o = u.order, d = distanceTo(u.x, u.y, t, p);
@@ -220,7 +224,7 @@ function unitCombat(world, u) {
   let t;
   if (o.type === 'attack') {
     t = o.target;
-    if (!validTarget(world, u.house, t, o.force)) { endAttack(u); stopMoving(u); return; }   // do not drive on to where it died
+    if (!validTarget(world, u.house, t, o.force, !!u.type.targetAir)) { endAttack(u); stopMoving(u); return; }   // do not drive on to where it died
   } else {
     t = u.target;
     if (t && !stillWorthIt(world, u, t)) {
@@ -231,7 +235,7 @@ function unitCombat(world, u) {
       const r = scanRadius(u);
       const from = o.type === 'guard' ? { x: o.x + 0.5, y: o.y + 0.5 } : u;   // a guard watches the area around its post
       const exclude = u.abandoned && world.time < u.abandoned.until ? u.abandoned.id : 0;   // no second go at what it gave up on
-      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude }) : null;
+      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude, air: !!u.type.targetAir }) : null;
     }
   }
   if (!t) { u.aiming = false; u.secondShot = 0; resume(world, u); return; }
@@ -310,6 +314,7 @@ export function retaliate(world, victim, attacker) {
   if (victim.order.type !== 'idle' || victim.target) return;
   const t = { kind: attacker.kind, id: attacker.id };
   const p = targetPoint(world, t);
+  if (p?.entity && p.entity.kind === 'unit' && !p.entity.isGround && !victim.type.targetAir) return;   // nothing to answer an aircraft with
   if (!p || distanceTo(victim.x, victim.y, t, p) > RETALIATE_RANGE) return;
   victim.order = { type: 'attack', target: t, retaliation: true };
   victim.chaseAt = 0;

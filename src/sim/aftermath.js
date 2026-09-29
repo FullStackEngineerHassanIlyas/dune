@@ -4,7 +4,7 @@
 // death; nobody is ever credited for killing their own.
 import { G } from '../data/terrain.js';
 import { DEATH_SPLASH, SPICE_PER_TILE } from '../data/tuning.js';
-import { damage, distanceTo } from './combat.js';
+import { damage, distanceTo, killUnit } from './combat.js';
 import { loseStorageShare } from './economy.js';
 import { HARVEST_CAPACITY } from './harvest.js';
 
@@ -35,7 +35,10 @@ export function spillSpice(world, tx, ty, load) {
 }
 
 export function aftermathOfUnit(world, u, attacker) {
+  const cargo = u.cargo ? world.units.get(u.cargo) : null;
+  if (cargo) killUnit(world, cargo, attacker);   // a Carryall's load falls with it
   if (u.harvest?.load > 0) spillSpice(world, u.tx, u.ty, u.harvest.load);
+  if (!u.isGround) { world.events.push('explosion', { x: u.x, y: u.y, size: 'small', alt: u.alt ?? 0 }); return; }   // blown up in the air
   if (u.type.explodes) splash(world, u.x, u.y, DEATH_SPLASH.damage, DEATH_SPLASH.radius, attacker);
   else if (u.move !== 'foot') world.events.push('explosion', { x: u.x, y: u.y, size: 'small' });
 }
