@@ -8,7 +8,8 @@ import { UNITS } from '../data/units.js';
 import { STARPORT, AIR, airSpeed } from '../data/tuning.js';
 import { DEFERRED } from '../data/phase.js';
 import { spend, addCredits } from './economy.js';
-import { nearestEdge } from './air.js';
+import { nearestEdge, hoverTo, climb } from './air.js';
+import { findFreeTile } from './spawn.js';
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
 
@@ -50,6 +51,12 @@ export function updateStarports(world) {
       m.repriceAt += STARPORT.reprice;
       for (const t of Object.keys(m.price)) m.price[t] = priceOf(world, t);
     }
+    const b = m.batch;
+    if (b && !b.frigate && world.time >= b.spawnAt) {   // off it goes, timed to land on the dot
+      const f = world.spawnUnit('frigate', house.id, b.edge.x, b.edge.y, { heading: Math.atan2(b.pad.y - b.edge.y, b.pad.x - b.edge.x) });
+      f.job = { stage: 'in' };
+      b.frigate = f.id;
+    }
   }
 }
 
@@ -90,5 +97,46 @@ export function cancelStarport(world, houseId, typeId) {
   addCredits(world, house, item.paid);
   m.stock[typeId] = Math.min(STARPORT.maxStock, m.stock[typeId] + 1);
   eva(world, house, 'cancelled', 'Cancelled.');
-  if (!b.items.length) m.batch = null;   // nothing left to bring
+  if (!b.items.length) {   // nothing left to bring: the Frigate turns back
+    const f = world.units.get(b.frigate);
+    if (f) f.job = { stage: 'out', exit: b.edge };
+    m.batch = null;
+  }
+}
+
+/** The Frigate: in over the pad, down, every unit of the batch set down around it, up and away. */
+export function updateFrigate(world, f) {
+  const house = world.houses.get(f.house), m = house?.starport, b = m?.batch;
+  const job = f.job ?? { stage: 'out', exit: nearestEdge(world.map, f.x, f.y) };
+  if (job.stage === 'in') {
+    if (!b || b.frigate !== f.id) { f.job = { stage: 'out', exit: nearestEdge(world.map, f.x, f.y) }; return; }
+    if (!hoverTo(world, f, b.pad.x, b.pad.y)) { climb(f, AIR.cruise); return; }
+    if (!climb(f, AIR.low)) return;
+    b.landed = true;
+    f.job = { stage: 'unload' };
+    world.events.push('eva', { house: f.house, key: 'frigateArrived', text: 'Frigate has arrived.' });
+    world.events.push('frigateLanded', { id: f.id, house: f.house, x: f.x, y: f.y });
+    return;
+  }
+  if (job.stage === 'unload') {
+    while (b?.items.length) {
+      if (!unload(world, f, b.items[0].typeId, b)) return;   // no room yet: they wait aboard
+      b.items.shift();
+    }
+    if (m) m.batch = null;
+    f.job = { stage: 'out', exit: b?.edge ?? nearestEdge(world.map, f.x, f.y) };
+    return;
+  }
+  climb(f, AIR.cruise);
+  if (hoverTo(world, f, job.exit.x + 0.5, job.exit.y + 0.5)) world.removeUnit(f, 'left');
+}
+
+function unload(world, f, typeId, b) {
+  const t = UNITS[typeId];
+  const air = t.move === 'air';
+  const spot = air ? { x: Math.floor(b.pad.x), y: Math.floor(b.pad.y) } : findFreeTile(world, Math.floor(b.pad.x), Math.floor(b.pad.y), t.move, 5, 1);
+  if (!spot) return false;
+  const u = world.spawnUnit(typeId, f.house, spot.x, spot.y, air ? { heading: f.heading, alt: AIR.low } : { heading: Math.PI / 2 });
+  world.events.push('unitDelivered', { id: u.id, house: f.house, unitType: typeId, x: u.x, y: u.y });
+  return true;
 }

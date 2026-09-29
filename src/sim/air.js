@@ -6,10 +6,12 @@ import { DT, TURN_RATE, airSpeed, AIR } from '../data/tuning.js';
 import { turnToward } from './geometry.js';
 import { updateCarryall } from './carryall.js';
 import { updateOrnithopter } from './ornithopter.js';
+import { updateFrigate } from './starport.js';
 
 export function updateAircraft(world, u) {
   if (u.typeId === 'carryall') updateCarryall(world, u);
   else if (u.typeId === 'ornithopter') updateOrnithopter(world, u);
+  else if (u.typeId === 'frigate') updateFrigate(world, u);
 }
 
 /** The nearest point on the map edge (tile coordinates): where visiting aircraft come from and leave to. */

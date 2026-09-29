@@ -100,3 +100,83 @@ test('no Starport, no stock, no money, a full hold: no order', () => {
   world.step();
   assert.equal(h.credits, credits, 'no Starport: no order');
 });
+
+import { runUntil } from './helpers.mjs';
+import { checkInvariants } from '../src/sim/invariants.js';
+import { findTarget } from '../src/sim/combat.js';
+
+const units = (world, typeId) => [...world.units.values()].filter((u) => u.typeId === typeId);
+
+test('the Frigate flies in from the map edge, lands on the pad 30 s after the first order, unloads and leaves', () => {
+  const { world, h, s } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.issue('atreides', { type: 'starportOrder', typeId: 'carryall' });
+  world.step();
+  world.events.drain();
+  const t = runUntil(world, () => units(world, 'quad').length > 0, 40);
+  assert.ok(t > 28.5 && t < 30.5, `delivered after ${t + 0.05} s`);
+  const events = world.events.drain();
+  assert.ok(events.some((e) => e.type === 'eva' && e.key === 'frigateArrived'));
+  const [quad] = units(world, 'quad'), [carry] = units(world, 'carryall');
+  assert.ok(Math.hypot(quad.x - (s.x + 1.5), quad.y - (s.y + 1.5)) < 5, 'set down around the pad');
+  assert.ok(carry && !carry.isGround, 'the Carryall lifts off the pad');
+  assert.deepEqual(checkInvariants(world), []);
+  assert.ok(runUntil(world, () => units(world, 'frigate').length === 0, 30) > 0, 'the Frigate leaves');
+  assert.equal(h.starport.batch, null);
+  world.issue('atreides', { type: 'starportOrder', typeId: 'trike' });
+  world.step();
+  assert.ok(h.starport.batch && h.starport.batch.items.length === 1, 'a new batch');
+});
+
+test('a Frigate cannot be targeted, picked or ordered', () => {
+  const { world } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(runUntil(world, () => units(world, 'frigate').length > 0, 30) > 0);
+  const [f] = units(world, 'frigate');
+  assert.equal(findTarget(world, 'harkonnen', f.x, f.y, 5, { air: true }), null);
+  world.issue('atreides', { type: 'move', ids: [f.id], x: 2, y: 2 });
+  world.step();
+  assert.notEqual(f.order.type, 'move');
+});
+
+test('if the Starport falls before the Frigate lands, it still lands where it stood', () => {
+  const { world, s } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  run(world, 5);
+  world.removeStructure(s);
+  assert.ok(runUntil(world, () => units(world, 'quad').length > 0, 30) > 0);
+  const [quad] = units(world, 'quad');
+  assert.ok(Math.hypot(quad.x - (s.x + 1.5), quad.y - (s.y + 1.5)) < 5);
+});
+
+test('units wait aboard until there is room around the pad', () => {
+  const { world, h, s } = port();
+  const map = world.map;
+  const blockers = [];
+  for (let y = s.y - 5; y <= s.y + s.h + 4; y++) for (let x = s.x - 5; x <= s.x + s.w + 4; x++) {
+    if (!map.inBounds(x, y) || map.structure[map.idx(x, y)] || map.unit[map.idx(x, y)]) continue;
+    blockers.push(world.spawnUnit('soldier', 'atreides', x, y));   // own troops everywhere around the pad
+  }
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  run(world, 32);
+  assert.equal(units(world, 'quad').length, 0, 'no room: still aboard');
+  assert.ok(h.starport.batch?.landed);
+  world.removeUnit(blockers.find((u) => u.tx === s.x - 1 && u.ty === s.y));   // one steps aside next to the pad
+  assert.ok(runUntil(world, () => units(world, 'quad').length === 1, 2) >= 0);
+  assert.deepEqual(checkInvariants(world), []);
+});
+
+test('a cancel that empties the batch sends the Frigate away', () => {
+  const { world, h } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(runUntil(world, () => units(world, 'frigate').length > 0, 30) > 0);
+  world.issue('atreides', { type: 'starportCancel', typeId: 'quad' });
+  world.step();
+  assert.equal(h.starport.batch, null);
+  assert.ok(runUntil(world, () => units(world, 'frigate').length === 0, 30) >= 0, 'it turns back (here at once: it was still at the edge)');
+  assert.equal(units(world, 'quad').length, 0);
+});

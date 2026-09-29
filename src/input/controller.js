@@ -29,7 +29,7 @@ export class Controller {
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
-      if (u.inside || !this.canSee(u)) continue;   // vehicles in a repair bay cannot be picked
+      if (u.inside || u.type.untargetable || !this.canSee(u)) continue;   // held units and the Frigate cannot be picked
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;

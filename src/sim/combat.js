@@ -38,7 +38,7 @@ export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (k
 export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.id === exclude) continue;   // aircraft only for anti-air
+    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude) continue;   // aircraft only for anti-air; never the Frigate
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -60,7 +60,7 @@ export function validTarget(world, houseId, t, force, canHitAir = false) {
   if (t.kind === 'tile') return true;
   const e = t.kind === 'unit' ? world.units.get(t.id) : world.structures.get(t.id);
   if (!e || e.hp <= 0) return false;
-  if (t.kind === 'unit' && (e.inside || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall: safe; aircraft: anti-air only
+  if (t.kind === 'unit' && (e.inside || e.type.untargetable || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall: safe; aircraft: anti-air only
   return !!force || e.house !== houseId;
 }
 
