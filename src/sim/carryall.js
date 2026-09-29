@@ -3,7 +3,8 @@
 // leaves again. A house's own Carryalls hover over their Hi-Tech Factory until a Harvester or a
 // damaged vehicle has a long way to go (16 tiles or more); then the nearest idle one flies over,
 // comes down, lifts it and sets it down on the nearest free tile to where it was heading. A pickup is
-// given up when the unit gets another order, dies, is held elsewhere or gets close by itself.
+// given up when the unit gets another order (even one of the same kind), dies, is held elsewhere or
+// gets close by itself.
 // Whatever a Carryall carries dies with it.
 import { AIR } from '../data/tuning.js';
 import { findFreeTile } from './spawn.js';
@@ -23,9 +24,14 @@ export function updateCarryall(world, c) {
 /** A long trip for a harvester or a damaged vehicle: the nearest idle Carryall of the house flies it to tile `to`. */
 export function callCarryall(world, u, to) {
   if (!u.isGround || !VEHICLES.has(u.move) || u.inside) return false;
-  if (world.units.get(u.ferry)?.job?.unit === u.id) return true;   // one is on its way
+  const far = Math.hypot(u.tx - to.x, u.ty - to.y) >= AIR.ferryDistance;
+  const coming = world.units.get(u.ferry);
+  if (coming?.job?.unit === u.id && coming.job.stage === 'fetch') {
+    if (far && coming.job.order === u.order) { coming.job.to = { x: to.x, y: to.y }; return true; }   // on its way: to the latest destination
+    coming.job = null;   // a new order, or a trip short enough to drive
+  }
   u.ferry = 0;
-  if (Math.hypot(u.tx - to.x, u.ty - to.y) < AIR.ferryDistance) return false;
+  if (!far) return false;
   let best = null, bestD = Infinity;
   for (const c of world.units.values()) {
     if (c.house !== u.house || c.typeId !== 'carryall' || c.job || c.cargo || c.visitor) continue;
@@ -33,7 +39,7 @@ export function callCarryall(world, u, to) {
     if (d < bestD) { bestD = d; best = c; }
   }
   if (!best) return false;
-  best.job = { stage: 'fetch', unit: u.id, orderType: u.order.type, to: { x: to.x, y: to.y } };
+  best.job = { stage: 'fetch', unit: u.id, order: u.order, to: { x: to.x, y: to.y } };
   u.ferry = best.id;
   world.events.push('ferryCalled', { id: u.id, carrier: best.id, house: u.house });
   return true;
@@ -73,7 +79,7 @@ function homePoint(world, c) {
 
 function fetch(world, c, job) {
   const u = world.units.get(job.unit);
-  if (!u || u.inside || u.house !== c.house || u.order.type !== job.orderType || Math.hypot(u.x - job.to.x - 0.5, u.y - job.to.y - 0.5) < AIR.ferryCancel) {
+  if (!u || u.inside || u.house !== c.house || u.order !== job.order || Math.hypot(u.x - job.to.x - 0.5, u.y - job.to.y - 0.5) < AIR.ferryCancel) {
     if (u?.ferry === c.id) u.ferry = 0;
     c.job = null;   // not needed any more
     return;

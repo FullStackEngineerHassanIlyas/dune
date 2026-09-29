@@ -83,3 +83,14 @@ test('a shot at a vehicle that drives into a repair bay hits the building instea
   assert.ok(t.hp >= hp, 'the vehicle in the bay is safe');
   assert.ok(bay.hp < bayHp, 'the building took the shell');
 });
+
+test('a shot at an aircraft that is gone before it lands bursts in the air', () => {
+  const world = flatWorld(30, 30, G.ROCK);
+  const silo = world.spawnStructure('silo', 'atreides', 10, 10);
+  const c = world.spawnUnit('carryall', 'harkonnen', 10, 10);   // hovering over the silo
+  world.projectiles.set(1, { id: 1, weapon: 'turretGun', projectile: 'shell', house: 'atreides', sourceId: 0, sourceKind: 'structure', x: 10.4, y: 10.5, px: 10.4, py: 10.5, sx: 10.4, sy: 10.5, tx: 10.5, ty: 10.5, speed: 12, damage: 20, accurate: true, homing: true, target: { kind: 'unit', id: c.id }, airburst: false, fromAlt: 0, toAlt: c.alt });
+  world.removeUnit(c);   // brought down by another shot first
+  const hp = silo.hp;
+  world.step();
+  assert.equal(silo.hp, hp, 'the silo below is not hit');
+});

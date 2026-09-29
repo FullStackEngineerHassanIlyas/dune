@@ -50,16 +50,18 @@ export function canUpgrade(house, structureType, owned) {
   if (level >= t.upgrades.length) return false;
   const tech = t.upgradeTechByHouse?.[house.id] ?? t.upgradeTech ?? [];
   if ((tech[upgradeResult(house, structureType) - 1] ?? 0) > house.techLevel) return false;   // the Ordos wait for level 3
-  return (t.upgradeRequires?.[level] ?? []).every((r) => owned.has(r));
+  if (!(t.upgradeRequires?.[level] ?? []).every((r) => owned.has(r))) return false;
+  return upgradeUnlocks(house.id, structureType, level, upgradeResult(house, structureType)).length > 0;   // on sale only when it opens something
 }
 
 /** Names of what going from level `from` to `to` opens for the house (sidebar tooltips). */
 export function upgradeUnlocks(houseId, structureType, from, to) {
   const opens = (need) => need > from && need <= to;
+  const waiting = (requires) => (requires ?? []).some((r) => DEFERRED.has(r));   // e.g. the Ornithopter needs the House of IX (plan 2c)
   const names = [];
   for (const id of UNIT_ORDER) {
     const u = UNITS[id];
-    if (u.builtAt === structureType && opens(u.upgrade ?? 0) && u.houses.includes(houseId) && !DEFERRED.has(id)) names.push(u.name);
+    if (u.builtAt === structureType && opens(u.upgrade ?? 0) && u.houses.includes(houseId) && !DEFERRED.has(id) && !waiting(u.requires)) names.push(u.name);
   }
   for (const id of STRUCTURE_ORDER) {
     const t = STRUCTURES[id];

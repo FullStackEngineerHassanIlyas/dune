@@ -118,7 +118,7 @@ function impact(world, p) {
   const map = world.map;
   let victim = p.target ? targetPoint(world, p.target)?.entity ?? null : null;   // an accurate shot hits its target if it still exists
   if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
-  if (!victim && !p.airburst) {
+  if (!victim && !p.airburst && !(p.toAlt > 0)) {   // a shot at an aircraft that is gone bursts in the air
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
     if (map.inBounds(tx, ty)) { const i = map.idx(tx, ty); victim = world.units.get(map.unit[i]) ?? world.structures.get(map.structure[i]) ?? null; }
   }

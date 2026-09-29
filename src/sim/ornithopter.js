@@ -52,7 +52,11 @@ function keep(world, u, t) {
 function attackRun(world, u, t) {
   u.loiter = null;
   const p = targetPoint(world, t);
-  flyAt(world, u, p.x, p.y);
+  const off = Math.abs(angleDiff(u.heading, Math.atan2(p.y - u.y, p.x - u.x))), near = Math.hypot(p.x - u.x, p.y - u.y);
+  if (off > AIR.aimCone && near < 2 * AIR.orbit) u.extend = true;   // inside its turning circle: fly on, then come round
+  else if (near > 2 * AIR.orbit + 1) u.extend = false;
+  if (u.extend) flyAt(world, u, u.x + Math.cos(u.heading) * 4, u.y + Math.sin(u.heading) * 4);
+  else flyAt(world, u, p.x, p.y);
   const d = distanceTo(u.x, u.y, t, p);
   if (u.cooldown > 0 || d > u.type.range + 0.25 || Math.abs(angleDiff(u.heading, Math.atan2(p.y - u.y, p.x - u.x))) > AIR.aimCone) return;
   fireAt(world, gun(u), t, p, d, u.type);

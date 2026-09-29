@@ -99,3 +99,19 @@ test('short trips, busy Carryalls and infantry get no ferry', () => {
   assert.equal(callCarryall(world, b, { x: 8, y: 20 }), false, 'the only Carryall is taken');
   assert.equal(c.job.unit, a.id);
 });
+
+test('a new order drops a pending pickup, even one of the same kind', () => {
+  const { world, c } = airfield(64, 32);
+  const map = world.map;
+  const spice = (x0, y0) => { for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) { map.ground[map.idx(x, y)] = G.SAND; map.setSpice(map.idx(x, y), 500); } };
+  spice(40, 24);
+  spice(12, 24);
+  const h = world.spawnUnit('harvester', 'atreides', 6, 26);
+  world.issue('atreides', { type: 'harvest', ids: [h.id], x: 41, y: 25 });
+  assert.ok(runUntil(world, () => c.job?.unit === h.id, 5) >= 0, 'a Carryall is called for the long trip');
+  world.issue('atreides', { type: 'harvest', ids: [h.id], x: 13, y: 25 });
+  run(world, 1);
+  assert.equal(c.job, null, 'the new, short trip needs no Carryall');
+  assert.ok(runUntil(world, () => h.harvest.state === 'harvesting', 30) > 0);
+  assert.ok(h.tx < 20, `harvesting at the new field (${h.tx},${h.ty})`);
+});

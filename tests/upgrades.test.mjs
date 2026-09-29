@@ -167,10 +167,10 @@ test('units and structures wait for the upgrades they need', () => {
   assert.ok(world.events.drain().some((e) => e.type === 'commandRejected' && e.typeId === 'quad'), 'no Quad without the light factory upgrade');
 });
 
-test('the Harkonnen never upgrade their Hi-Tech Factory', () => {
-  const hk = withStructures('harkonnen', ['constructionYard', 'hiTech']);
+test('the Hi-Tech upgrade waits until it opens something: the Ornithopter needs the House of IX (plan 2c)', () => {
   const at = withStructures('atreides', ['constructionYard', 'hiTech']);
-  assert.equal(canBuild(hk, 'harkonnen', upgradeId('hiTech')), false);
-  assert.equal(canBuild(at, 'atreides', upgradeId('hiTech')), true);
-  assert.deepEqual(upgradeUnlocks('atreides', 'hiTech', 0, 1), ['Ornithopter']);
+  assert.deepEqual(upgradeUnlocks('atreides', 'hiTech', 0, 1), []);
+  assert.equal(canBuild(at, 'atreides', upgradeId('hiTech')), false, 'nothing to buy yet');
+  const hk = withStructures('harkonnen', ['constructionYard', 'hiTech']);
+  assert.equal(canBuild(hk, 'harkonnen', upgradeId('hiTech')), false, 'and never for the Harkonnen');
 });

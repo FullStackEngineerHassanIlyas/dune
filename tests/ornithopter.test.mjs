@@ -68,3 +68,17 @@ test('an Ornithopter that loses its target goes back to hunting', () => {
   world.removeUnit(a);
   assert.ok(runUntil(world, () => hurt(b), 25) > 0, 'on to the next one');
 });
+
+test('a target inside its turning circle is still hit: it flies on and comes round', () => {
+  const { world } = field();
+  const t = world.spawnUnit('combatTank', 'harkonnen', 5, 6);   // just off its right wing
+  assert.ok(runUntil(world, () => hurt(t), 20) > 0);
+});
+
+test('it works through a pack of targets without circling one for ever', () => {
+  const { world } = field();
+  const pack = [];
+  for (let k = 0; k < 6; k++) pack.push(world.spawnUnit('combatTank', 'harkonnen', 20 + (k % 3), 12 + Math.floor(k / 3)));
+  for (const t of pack) t.hp = 60;   // two hits each
+  assert.ok(runUntil(world, () => pack.every((t) => !world.units.has(t.id)), 120) > 0, `${pack.filter((t) => world.units.has(t.id)).length} left`);
+});
