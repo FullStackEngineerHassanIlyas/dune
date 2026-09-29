@@ -5,7 +5,7 @@ import { findPlacement } from '../sim/placement.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 
 export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view }) {
-  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp };
+  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0 };
   const screen = (x, z, lift) => { const s = project(x, z, lift); return { x: Math.round(s.x), y: Math.round(s.y), visible: s.visible }; };
   const rect = (el) => {
     if (!el) return null;
@@ -30,7 +30,15 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     credits: () => Math.floor(world.houses.get(house).credits),
     sidebar: () => sidebarModel(world, house),
     mode: () => controller?.mode?.kind ?? null,
-    buttonRect: (typeId) => rect(document.querySelector(`.sidebar .sb-item[data-type="${typeId}"]`)),
+    buttonRect: (typeId) => {   // visible only when not scrolled out of its strip
+      const b = document.querySelector(`.sidebar .sb-item[data-type="${typeId}"]`);
+      const r = rect(b);
+      const box = b?.closest('.sb-slots')?.getBoundingClientRect(), br = b?.getBoundingClientRect();
+      if (r && box) r.visible = r.visible && br.top >= box.top - 1 && br.bottom <= box.bottom + 1;
+      return r;
+    },
+    arrowRect: (strip, dir) => rect(document.querySelector(`.sidebar .sb-strip[data-strip="${strip}"] .sb-arrow[data-dir="${dir}"]`)),
+    upgradeLevel: (type) => world.houses.get(house).upgrades?.[type] ?? 0,
     toolRect: (tool) => rect(document.querySelector(`.sidebar .sb-tool[data-tool="${tool}"]`)),
     lookAt: (x, z) => rig.lookAt(x, z, true),
     tick: () => world.tick,

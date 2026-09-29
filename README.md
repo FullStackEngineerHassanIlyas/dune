@@ -14,9 +14,10 @@ sound, melody and line of text is made from scratch in code; no original game fi
 
 Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
-effects synthesized in code, placed in stereo around the camera. Phase 2 adds the House of IX
-specials, aircraft, sandworms, the Starport and Palace, music and announcer voices; phase 3 the
-campaign and menus.
+effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
+upgrades, the Repair Facility and infantry capture are in; the House of IX specials, aircraft,
+sandworms, the Starport and Palace, music and announcer voices follow; phase 3 brings the campaign
+and menus.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -40,6 +41,8 @@ campaign and menus.
 | Click a factory, then the ground | Set its rally point (Modern: right click); double-click a factory to make it primary |
 | Radar | Left click or drag jumps the camera; with own units selected a left click (Modern: right click) orders them there |
 | Left click an enemy (with units selected) | Attack it (Modern: right click) |
+| Left click an own Repair Facility (damaged vehicles selected) | Drive in for repairs, one at a time (Modern: right click) |
+| Left click a badly damaged enemy building (infantry selected) | Capture it — the cursor shows a flag; other units attack |
 | A, then click | Attack-move: go there and fight whatever is met on the way |
 | Ctrl + click | Force fire at a unit, building or the ground |
 | G | Area guard: engage what comes near, then return |
@@ -58,6 +61,12 @@ production and switches the radar off. Every Refinery comes with a Harvester; fu
 credits, Refineries and Silos store them. Selling refunds half the price times the health left;
 repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
+
+Factory upgrades show up at the end of the structure strip with a gold arrow and the level they reach:
+they are paid and timed like a build on the factory's own line and open better units (Quad, squads,
+MCV, Missile and Siege Tanks) and the Large Concrete Slab and Rocket Turret. A Repair Facility fixes one
+vehicle at a time for a quarter of its price by the damage; badly damaged enemy buildings (red health)
+can be captured by walking infantry in — except Barracks, WOR, Outposts, the House of IX and Palaces.
 
 ## The computer opponent
 

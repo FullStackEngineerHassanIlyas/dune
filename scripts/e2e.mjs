@@ -140,6 +140,55 @@ try {
   const battleErrors = battle.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
   check('no console errors in the battle', battleErrors.length === 0, battleErrors.join(' | '));
   battle.close();
+  const base = await openPage(chrome, `http://localhost:${PORT}/?scene=base&house=atreides&fog=0&damaged=1&capture=1&quality=low&gameSpeed=fastest`);
+  await base.waitFor('window.__dune && window.__dune.ready === true', 120000);
+  await sleep(600);
+  const bv = (expr) => base.eval(expr);
+  let up = await bv(`__dune.buttonRect('upgrade:heavyFactory')`);
+  for (let i = 0; i < 24 && up && !up.visible; i++) {   // scroll the structure strip down to the upgrades
+    const down = await bv(`__dune.arrowRect('structures', 1)`);
+    await base.click(down.x, down.y);
+    await sleep(150);
+    up = await bv(`__dune.buttonRect('upgrade:heavyFactory')`);
+  }
+  if (up?.visible) await base.click(up.x, up.y);
+  let level = 0;
+  for (let i = 0; i < 300 && level < 1; i++) { await sleep(200); level = await bv(`__dune.upgradeLevel('heavyFactory')`); }
+  check('clicking the Heavy Factory upgrade icon upgrades it', level === 1, `level ${level}`);
+
+  const [bayS] = (await bv(`__dune.structures('repair')`)).filter((s) => s.house === 'atreides');
+  const worn = (await bv(`__dune.units('combatTank')`)).find((u) => u.hp < 200);
+  await bv(`__dune.lookAt(${bayS.x + 1.5}, ${bayS.y + 2.5})`);
+  await sleep(500);
+  const ws = await bv(`__dune.screenOfUnit(${worn.id})`);
+  await base.click(ws.x, ws.y);
+  await sleep(300);
+  const bs = await bv(`__dune.screenOfFootprint('repair', ${bayS.x}, ${bayS.y})`);
+  await base.click(bs.x, bs.y);
+  let wentIn = false, fixed = false;
+  for (let i = 0; i < 600 && !fixed; i++) {
+    await sleep(200);
+    const u = await bv(`__dune.unit(${worn.id})`);
+    wentIn ||= !!u?.inside;
+    fixed = !!u && u.hp === 200 && !u.inside;
+  }
+  check('a damaged tank clicked onto the Repair Facility goes in and comes out repaired', wentIn && fixed);
+
+  const silo = (await bv(`__dune.structures('silo')`)).find((s) => s.house !== 'atreides');
+  const squad = (await bv(`__dune.units('infantry')`)).sort((a, b) => b.id - a.id)[0];
+  await bv(`__dune.lookAt(${silo.x + 1}, ${silo.y + 3})`);
+  await sleep(500);
+  const qs = await bv(`__dune.screenOfUnit(${squad.id})`);
+  await base.click(qs.x, qs.y);
+  await sleep(300);
+  const ss = await bv(`__dune.screenOfFootprint('silo', ${silo.x}, ${silo.y})`);
+  await base.click(ss.x, ss.y);
+  let taken = false;
+  for (let i = 0; i < 600 && !taken; i++) { await sleep(200); taken = (await bv(`__dune.structures('silo')`)).some((s) => s.id === silo.id && s.house === 'atreides'); }
+  check('infantry clicked onto a ruined enemy silo capture it', taken);
+  const baseErrors = base.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
+  check('no console errors in the base', baseErrors.length === 0, baseErrors.join(' | '));
+  base.close();
   await sleep(1500);
   await mkdir(path.join(root, 'screenshots'), { recursive: true });
   await page.screenshot(path.join(root, 'screenshots', 'e2e-final.png'));
