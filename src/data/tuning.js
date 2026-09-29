@@ -25,3 +25,15 @@ export const STUCK_GIVEUP_SECONDS = 5;
 
 export const SPICE_PER_TILE = 250;
 export const THICK_SPICE_PER_TILE = 750;
+
+/** Projectile speed (original units) → tiles per second: bullets and shells ≈ 16, rockets 11–12.5. */
+export function projectileSpeed(speed) { return speed / 16; }
+export const SECOND_SHOT_DELAY = 0.35;          // seconds between the two shots of units that fire twice
+export const SCATTER = { base: 0.4, perTile: 0.12, wildChance: 1 / 16, wildBase: 1.5, wildPerTile: 0.35 };   // rocket miss radius, tiles
+export const DEATH_SPLASH = { damage: 30, radius: 1.6 };   // Trikes, Missile Tanks, Harvesters and MCVs blow up
+export const AIM_TOLERANCE = 0.12;              // radians: close enough to fire
+export const GUARD_RADIUS = 3;                  // idle and guarding units look this far beyond weapon range …
+export const GUARD_LEASH = 6;                   // … and a guard chases at most this far from its post
+export const RETALIATE_RANGE = 8;               // idle units answer fire from this close
+export const LOW_POWER_TURRET_RATE = 0.5;       // turrets fire at half rate on low power (spec §4.4)
+export const CHASE_GIVEUP_SECONDS = 8;          // an attacker that gets no closer for this long gives up
