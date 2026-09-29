@@ -6,7 +6,7 @@
 // target and gives up when it gets no closer. The player's side engages only what its fog shows; the
 // AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
@@ -226,7 +226,8 @@ function unitCombat(world, u) {
     if (t && !stillWorthIt(world, u, t)) t = u.target = null;
     if (!t && (world.tick + u.id) % SCAN_TICKS === 0) {
       const r = scanRadius(u);
-      t = u.target = r ? findTarget(world, u.house, u.x, u.y, r + 0.25) : null;
+      const from = o.type === 'guard' ? { x: o.x + 0.5, y: o.y + 0.5 } : u;   // a guard watches the area around its post
+      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25) : null;
     }
   }
   if (!t) { u.aiming = false; u.secondShot = 0; resume(world, u); return; }
@@ -295,4 +296,17 @@ function aimAndFire(world, u, t, p, dist) {
   fireAt(world, gun, t, p, dist, u.type);
   u.cooldown = fireDelaySeconds(u.type.fireDelay);
   if (u.type.firesTwice && u.hp > u.maxHp / 2) u.secondShot = SECOND_SHOT_DELAY;
+}
+
+/** An idle armed unit that is shot at from close by answers fire (busy units keep their orders). */
+export function retaliate(world, victim, attacker) {
+  if (victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
+  if (victim.order.type !== 'idle' || victim.target) return;
+  const t = { kind: attacker.kind, id: attacker.id };
+  const p = targetPoint(world, t);
+  if (!p || distanceTo(victim.x, victim.y, t, p) > RETALIATE_RANGE) return;
+  victim.order = { type: 'attack', target: t, retaliation: true };
+  victim.chaseAt = 0;
+  victim.chaseBest = Infinity;
+  victim.chaseStall = 0;
 }

@@ -4,6 +4,7 @@ import { orderDeploy } from './deploy.js';
 import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './production.js';
 import { orderSell, orderRepair } from './structure-actions.js';
 import { orderHarvest, orderReturn } from './harvest.js';
+import { isArmed } from './combat.js';
 
 export function applyCommand(world, houseId, cmd) {
   const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId);
@@ -22,6 +23,8 @@ export function applyCommand(world, houseId, cmd) {
     case 'repair': orderRepair(world, houseId, cmd.structureId, cmd.on); return;
     case 'harvest': orderHarvest(world, units, cmd.x, cmd.y); return;
     case 'returnToBase': orderReturn(world, units); return;
+    case 'attack': orderAttack(world, units, cmd); return;
+    case 'attackMove': orderAttackMove(world, units, cmd.x, cmd.y); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });
   }
 }
@@ -64,5 +67,39 @@ function scatter(world, units) {
     u.order = { type: 'move', x: map.xOf(goal), y: map.yOf(goal) };
     u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
     world.requestPath(u, goal);
+  }
+}
+
+export function orderAttack(world, units, cmd) {
+  const force = cmd.force === true;
+  const map = world.map;
+  let entity = null, target = null;
+  if (cmd.targetKind === 'unit') entity = world.units.get(cmd.targetId) ?? null;
+  else if (cmd.targetKind === 'structure') entity = world.structures.get(cmd.targetId) ?? null;
+  if (entity) target = { kind: cmd.targetKind, id: entity.id };
+  else if (force && Number.isFinite(cmd.x) && Number.isFinite(cmd.y)) {
+    target = { kind: 'tile', x: Math.max(0, Math.min(map.w - 1, Math.floor(cmd.x))), y: Math.max(0, Math.min(map.h - 1, Math.floor(cmd.y))) };
+  }
+  if (!target) return;
+  const ids = [];
+  for (const u of units) {
+    if (!u.isGround || !isArmed(u.type) || entity === u) continue;
+    if (entity && entity.house === u.house && !force) continue;
+    u.order = { type: 'attack', target: { ...target }, force };
+    u.target = null;
+    u.chaseAt = 0;
+    u.chaseBest = Infinity;
+    u.chaseStall = 0;
+    ids.push(u.id);
+  }
+  if (ids.length) world.events.push('attackOrdered', { ids, target });
+}
+
+export function orderAttackMove(world, units, x, y) {
+  orderMove(world, units, x, y);   // slots, paths and the moveOrdered event
+  for (const u of units) {
+    if (u.order.type !== 'move' || !isArmed(u.type)) continue;   // unarmed units simply move
+    u.order = { type: 'attackMove', x: u.order.x, y: u.order.y, goal: u.goal };
+    u.target = null;
   }
 }

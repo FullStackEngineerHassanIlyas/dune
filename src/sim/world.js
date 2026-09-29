@@ -16,7 +16,7 @@ import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
 import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
 import { updateFog } from './fog.js';
-import { updateCombat, updateProjectiles, killUnit } from './combat.js';
+import { updateCombat, updateProjectiles, killUnit, retaliate } from './combat.js';
 import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
 
 export class World {
@@ -45,6 +45,7 @@ export class World {
     this.onUnitKilled = (u, attacker) => aftermathOfUnit(this, u, attacker);
     this.onStructureKilled = (s) => aftermathOfStructure(this, s);
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
+    this.onDamaged = (victim, attacker) => retaliate(this, victim, attacker);
   }
 
   addHouse(id, opts = {}) {
