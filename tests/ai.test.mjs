@@ -232,3 +232,28 @@ test('the AI does not pull a worn vehicle it just sent for repairs into its defe
   run(world, 1.2);
   assert.equal(worn.order.type, 'repairAt');
 });
+
+test('the AI puts up a Starport and a House of IX and then flies Ornithopters', () => {
+  const world = flatWorld(56, 44, G.ROCK);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['barracks', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, 'atreides', x, y);
+  const h = world.houses.get('atreides');
+  h.credits = 20000;
+  h.startBuffer = 40000;
+  createBrain(world, 'atreides', 'normal');
+  const has = (t) => [...world.structures.values()].some((s) => s.house === 'atreides' && s.typeId === t);
+  assert.ok(runUntil(world, () => has('starport') && has('ix'), 300) > 0, 'Starport and House of IX');
+  assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && u.typeId === 'ornithopter'), 300) > 0, 'an Ornithopter');
+  assert.equal(h.starport?.batch ?? null, null, 'it never buys at the Starport');
+});
+
+test('aircraft of a wave that end up guarding are sent on to the next target', () => {
+  const world = flatWorld(48, 32, G.ROCK);
+  world.spawnStructure('constructionYard', 'harkonnen', 2, 2);
+  world.spawnStructure('silo', 'atreides', 40, 24);
+  const o = world.spawnUnit('ornithopter', 'harkonnen', 20, 12);
+  o.order = { type: 'guard', x: 20, y: 12 };
+  const brain = createBrain(world, 'harkonnen', 'normal');
+  brain.wave.push(o.id);
+  brain.nextAttack = 1e9;
+  assert.ok(runUntil(world, () => o.order.type === 'attackMove', 3) > 0);
+});
