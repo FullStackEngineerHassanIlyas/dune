@@ -80,3 +80,13 @@ test('aircraft have real models with wings that flap and claws that grip', () =>
   assert.equal(UNIT_MODEL.frigate, 'frigate');
   assert.ok(modelDef('starport').nodes.padLights);
 });
+
+test('the Palace, the Saboteur, the Fremen and the Death Hand have real models', () => {
+  assert.equal(STRUCTURE_MODEL.palace, 'palace');
+  assert.equal(UNIT_MODEL.saboteur, 'saboteur');
+  assert.equal(UNIT_MODEL.fremen, 'fremen');
+  for (const id of ['palace', 'saboteur', 'fremen', 'deathHandMissile']) assert.ok(modelDef(id).parts.length > 0, id);
+  assert.ok(modelDef('saboteur').nodes.legL && modelDef('fremen').nodes.legR, 'they walk');
+  const warn = modelDef('devastator').nodes.warn;
+  assert.ok(warn && warn.kind === 'scale' && warn.value === 0, 'the Destruct glow is hidden until it counts down');
+});

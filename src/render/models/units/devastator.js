@@ -1,5 +1,5 @@
-// Devastator: huge armoured tank with hull-fixed twin plasma cannons and glowing reactor vents.
-import { ModelBuilder, MAT, box, rbox, cyl, prism } from '../kit.js';
+// Devastator: huge armoured tank with hull-fixed twin plasma cannons, glowing reactor vents and red warning lights for Destruct.
+import { ModelBuilder, MAT, box, rbox, cyl, prism, sphere } from '../kit.js';
 import { PAL } from '../palette.js';
 import { tankChassis } from './tank-chassis.js';
 
@@ -16,5 +16,7 @@ export function devastator() {
   }
   for (const z of [-0.12, 0.12]) b.add(MAT.LIGHT, box(0.05, 0.04, 0.08, { p: [-0.34, top + 0.1, z], color: PAL.orangeGlow, glow: 1.6 }));
   b.add(MAT.DARK, box(0.1, 0.02, 0.36, { p: [-0.28, top + 0.155, 0], color: PAL.gunmetal }));
+  b.node('warn', { pivot: [0, top + 0.16, 0], kind: 'scale', value: 0 });   // Destruct: hidden until it counts down
+  for (const [x, z] of [[0.12, -0.2], [0.12, 0.2], [-0.3, -0.2], [-0.3, 0.2], [0.3, 0]]) b.add(MAT.LIGHT, sphere(0.035, 8, { p: [x, 0, z], color: PAL.redGlow, glow: 3 }), 'warn');
   return b.build({ radius: 0.52, muzzle: [0.6, top + 0.09, 0] });
 }

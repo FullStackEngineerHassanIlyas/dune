@@ -11,6 +11,7 @@ export const SCENARIOS = {
   'gallery-harkonnen': { query: 'scene=gallery&house=harkonnen' },
   'gallery-ordos': { query: 'scene=gallery&house=ordos' },
   'gallery-closeup': { query: 'scene=gallery&house=atreides&dist=4.5&x=5&z=3.6&pitch=30' },
+  'gallery-infantry': { query: 'scene=gallery&house=ordos&dist=2.6&x=2.8&z=6.4&pitch=28' },
   'skirmish-atreides': { query: 'scene=skirmish&seed=11&house=atreides' },
   'skirmish-harkonnen': { query: 'scene=skirmish&seed=5&house=harkonnen' },
   'skirmish-ordos-close': { query: 'scene=skirmish&seed=8&house=ordos&dist=12' },
