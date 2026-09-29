@@ -5,7 +5,7 @@
 // books a Frigate that lands on the pad 30 s later and unloads the whole batch (at most nine units);
 // until it lands, an order can be cancelled for a refund. One Starport per house.
 import { UNITS } from '../data/units.js';
-import { STARPORT, AIR, airSpeed } from '../data/tuning.js';
+import { DT, STARPORT, AIR, airSpeed } from '../data/tuning.js';
 import { DEFERRED } from '../data/phase.js';
 import { spend, addCredits } from './economy.js';
 import { nearestEdge, hoverTo, climb } from './air.js';
@@ -64,19 +64,23 @@ export function orderStarport(world, houseId, typeId, count = 1) {
   const house = world.houses.get(houseId);
   const s = house ? starportOf(world, houseId) : null;
   const m = s ? market(world, house) : null;
-  if (!m || !(typeId in m.stock)) { world.events.push('commandRejected', { house: houseId, command: 'starportOrder', typeId }); return; }
+  if (!m || !Object.hasOwn(m.stock, typeId)) { world.events.push('commandRejected', { house: houseId, command: 'starportOrder', typeId }); return; }
   const n = Math.max(1, Math.min(5, Math.floor(count) || 1));
-  for (let k = 0; k < n; k++) {
-    if (m.batch?.landed) { eva(world, house, 'busy', 'Unable to comply, the Frigate is unloading.'); return; }
-    if (m.batch && m.batch.items.length >= STARPORT.load) { eva(world, house, 'frigateFull', 'The Frigate is fully loaded.'); return; }
-    if (m.stock[typeId] <= 0) { eva(world, house, 'soldOut', 'Sold out.'); return; }
+  let placed = 0, refusal = null;
+  for (let k = 0; k < n && !refusal; k++) {
+    if (m.batch?.landed) { refusal = ['busy', 'Unable to comply, the Frigate is unloading.']; break; }
+    if (m.batch && m.batch.items.length >= STARPORT.load) { refusal = ['frigateFull', 'The Frigate is fully loaded.']; break; }
+    if (m.stock[typeId] <= 0) { refusal = ['soldOut', 'Sold out.']; break; }
     const price = m.price[typeId];
-    if (!spend(house, price)) { eva(world, house, 'insufficientFunds', 'Insufficient funds.'); return; }
+    if (!spend(house, price)) { refusal = ['insufficientFunds', 'Insufficient funds.']; break; }
     m.stock[typeId]--;
     m.batch ??= book(world, s);
     m.batch.items.push({ typeId, paid: price });
     world.events.push('starportOrdered', { house: houseId, typeId, price });
+    placed++;
   }
+  if (placed) eva(world, house, 'ordered', placed > 1 ? `${placed} units ordered.` : 'Order placed.');   // money has gone: say so
+  if (refusal) eva(world, house, ...refusal);
 }
 
 /** A new batch: the Frigate is timed to land on the pad STARPORT.delivery seconds from now. */
@@ -120,7 +124,7 @@ export function updateFrigate(world, f) {
   }
   if (job.stage === 'unload') {
     while (b?.items.length) {
-      if (!unload(world, f, b.items[0].typeId, b)) return;   // no room yet: they wait aboard
+      if (!unload(world, f, b.items[0].typeId, b)) { f.waited = (f.waited ?? 0) + DT; return; }   // no room yet: they wait aboard
       b.items.shift();
     }
     if (m) m.batch = null;
@@ -134,7 +138,8 @@ export function updateFrigate(world, f) {
 function unload(world, f, typeId, b) {
   const t = UNITS[typeId];
   const air = t.move === 'air';
-  const spot = air ? { x: Math.floor(b.pad.x), y: Math.floor(b.pad.y) } : findFreeTile(world, Math.floor(b.pad.x), Math.floor(b.pad.y), t.move, 5, 1);
+  const reach = (f.waited ?? 0) > 5 ? 12 : 5;   // the ring round the pad is full: look further out
+  const spot = air ? { x: Math.floor(b.pad.x), y: Math.floor(b.pad.y) } : findFreeTile(world, Math.floor(b.pad.x), Math.floor(b.pad.y), t.move, reach, 1);
   if (!spot) return false;
   const u = world.spawnUnit(typeId, f.house, spot.x, spot.y, air ? { heading: f.heading, alt: AIR.low } : { heading: Math.PI / 2 });
   world.events.push('unitDelivered', { id: u.id, house: f.house, unitType: typeId, x: u.x, y: u.y });

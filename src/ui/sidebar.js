@@ -79,7 +79,7 @@ export class Sidebar {
       if (b.style.getPropertyValue('--p') !== p) b.style.setProperty('--p', p);
       const label = item.state === 'ready' ? 'READY' : item.state === 'hold' ? 'ON HOLD' : '';
       if (b.stateEl.textContent !== label) b.stateEl.textContent = label;
-      const count = item.count > 1 ? String(item.count) : '';
+      const count = item.count > (item.order ? 0 : 1) ? String(item.count) : '';   // a single Starport order shows too
       if (b.countEl.textContent !== count) b.countEl.textContent = count;
     }
   }

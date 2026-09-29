@@ -5,7 +5,9 @@
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost } from './tech.js';
+import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, UNIT_ORDER } from './tech.js';
+import { UNITS } from '../data/units.js';
+import { DEFERRED } from '../data/phase.js';
 import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
@@ -18,9 +20,9 @@ export const DIFFICULTY = {
 };
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap', 'starport', 'ix'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap', 'starport', 'ix'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap', 'starport', 'ix'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -153,8 +155,15 @@ function nextStructure(world, house, view) {
     if (can('turret')) return 'turret';
   }
   if (has('refinery') < 3 && view.units.filter((u) => u.typeId === 'harvester').length >= 2 * has('refinery') && can('refinery')) return 'refinery';
+  if (ixOpensSomething(id) && has('heavyFactory') && has('turret') + has('rocketTurret') >= d.turrets) {   // defences first; the Starport only as the way to IX
+    if (!has('starport') && can('starport')) return 'starport';
+    if (has('starport') && !has('ix') && can('ix')) return 'ix';
+  }
   return null;
 }
+
+/** The House of IX is worth building only when it opens a unit the house can use (the AI never shops at the Starport). */
+const ixOpensSomething = (houseId) => UNIT_ORDER.some((t) => UNITS[t].requires?.includes('ix') && UNITS[t].houses.includes(houseId) && !DEFERRED.has(t));
 
 function keepHarvesters(world, house, view) {
   const refineries = view.count.refinery ?? 0;

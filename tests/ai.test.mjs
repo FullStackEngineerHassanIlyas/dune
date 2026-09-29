@@ -242,6 +242,7 @@ test('the AI puts up a Starport and a House of IX and then flies Ornithopters', 
   createBrain(world, 'atreides', 'normal');
   const has = (t) => [...world.structures.values()].some((s) => s.house === 'atreides' && s.typeId === t);
   assert.ok(runUntil(world, () => has('starport') && has('ix'), 300) > 0, 'Starport and House of IX');
+  for (const u of [...world.units.values()]) if (u.house === 'atreides' && u.isGround && u.type.damage > 0) world.removeUnit(u);   // the defences went up first and the army is full by now: losses make room
   assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && u.typeId === 'ornithopter'), 300) > 0, 'an Ornithopter');
   assert.equal(h.starport?.batch ?? null, null, 'it never buys at the Starport');
 });
@@ -256,4 +257,24 @@ test('aircraft of a wave that end up guarding are sent on to the next target', (
   brain.wave.push(o.id);
   brain.nextAttack = 1e9;
   assert.ok(runUntil(world, () => o.order.type === 'attackMove', 3) > 0);
+});
+
+test('the AI puts its turrets up before a Starport, and builds none where a House of IX would open nothing', () => {
+  const base = (house, infantry) => {
+    const world = flatWorld(56, 44, G.ROCK);
+    for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], [infantry, 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, house, x, y);
+    const h = world.houses.get(house);
+    h.credits = 20000;
+    h.startBuffer = 40000;
+    createBrain(world, house, 'normal');
+    return world;
+  };
+  const at = base('atreides', 'barracks');
+  const order = [];
+  for (let k = 0; k < 20 * 300; k++) { at.step(); for (const e of at.events.drain()) if (e.type === 'structurePlaced') order.push(e.structureType); }
+  assert.ok(order.includes('starport'), JSON.stringify(order));
+  assert.ok(order.indexOf('turret') >= 0 && order.indexOf('turret') < order.indexOf('starport'), `turrets first: ${order.join(', ')}`);
+  const hk = base('harkonnen', 'wor');
+  run(hk, 300);
+  assert.ok(![...hk.structures.values()].some((s) => s.typeId === 'starport' || s.typeId === 'ix'), 'nothing for the Harkonnen to open yet');
 });

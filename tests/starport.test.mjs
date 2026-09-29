@@ -180,3 +180,43 @@ test('a cancel that empties the batch sends the Frigate away', () => {
   assert.ok(runUntil(world, () => units(world, 'frigate').length === 0, 30) >= 0, 'it turns back (here at once: it was still at the edge)');
   assert.equal(units(world, 'quad').length, 0);
 });
+
+test('an order says so; a malformed ware is refused without touching the credits', () => {
+  const { world, h } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'ordered'));
+  const credits = h.credits;
+  world.issue('atreides', { type: 'starportOrder', typeId: 'constructor' });
+  world.step();
+  assert.equal(h.credits, credits);
+  assert.ok(world.events.drain().some((e) => e.type === 'commandRejected' && e.typeId === 'constructor'));
+});
+
+test('when the ring round the pad is full, the Frigate looks further out after a while', () => {
+  const { world, s } = port();
+  const map = world.map;
+  for (let y = s.y - 4; y <= s.y + s.h + 3; y++) for (let x = s.x - 4; x <= s.x + s.w + 3; x++) {
+    if (map.inBounds(x, y) && !map.structure[map.idx(x, y)] && !map.unit[map.idx(x, y)]) world.spawnUnit('soldier', 'atreides', x, y);
+  }
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(runUntil(world, () => units(world, 'quad').length === 1, 45) > 0, 'delivered further out');
+  const [quad] = units(world, 'quad');
+  assert.ok(Math.max(Math.abs(quad.tx - (s.x + 1)), Math.abs(quad.ty - (s.y + 1))) > 5);
+});
+
+test('a Frigate on its way turns back when its last order is cancelled', () => {
+  const { world, h } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  world.step();
+  assert.ok(runUntil(world, () => units(world, 'frigate').some((f) => f.y > 4), 30) > 0, 'well on its way');
+  const [f] = units(world, 'frigate');
+  const y = f.y;
+  world.issue('atreides', { type: 'starportCancel', typeId: 'quad' });
+  run(world, 1);
+  assert.ok(world.units.has(f.id) && f.y < y, 'heading back to the edge');
+  assert.ok(runUntil(world, () => !world.units.has(f.id), 20) > 0);
+  assert.equal(units(world, 'quad').length, 0);
+  assert.equal(h.starport.batch, null);
+});
