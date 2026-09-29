@@ -18,6 +18,8 @@ import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js
 import { updateFog } from './fog.js';
 import { updateCombat, updateProjectiles, killUnit, retaliate } from './combat.js';
 import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
+import { updateVictory } from './victory.js';
+import { alertDamage, alertUnitKilled, alertStructureKilled } from './announce.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -25,6 +27,8 @@ export class World {
     this.rng = new Rng(seed);
     this.tick = 0;
     this.fogOfWar = true;    // skirmish option; false reveals everything
+    this.rules = { victory: false };   // skirmish and campaign switch victory checks on
+    this.outcome = null;
     this.time = 0;
     this.houses = new Map();
     this.units = new Map();
@@ -42,10 +46,10 @@ export class World {
     this.onDeploy = (u) => tryDeploy(this, u);
     this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
     this.onStructurePlaced = (s) => { if (s.typeId === 'refinery') spawnFreeHarvester(this, s); };
-    this.onUnitKilled = (u, attacker) => aftermathOfUnit(this, u, attacker);
-    this.onStructureKilled = (s) => aftermathOfStructure(this, s);
+    this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
+    this.onStructureKilled = (s, attacker) => { aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
-    this.onDamaged = (victim, attacker) => retaliate(this, victim, attacker);
+    this.onDamaged = (victim, attacker) => { retaliate(this, victim, attacker); alertDamage(this, victim, attacker); };
   }
 
   addHouse(id, opts = {}) {
@@ -123,6 +127,7 @@ export class World {
     if (this.tick % 10 === 0) updatePower(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
+    if (this.tick % 20 === 0) updateVictory(this);
     this.tick++;
     this.time = this.tick * DT;
   }

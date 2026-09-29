@@ -22,6 +22,7 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 2 });
   const world = new World({ map, seed });
   world.fogOfWar = fog;
+  world.rules.victory = true;
   const rival = enemy && enemy !== house ? enemy : PLAYABLE_HOUSES.find((h) => h !== house);
   world.addHouse(house, { credits });
   world.addHouse(rival, { credits, ai: true });
