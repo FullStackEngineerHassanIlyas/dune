@@ -7,7 +7,7 @@ import { UNITS } from '../data/units.js';
 import { DT, buildSeconds } from '../data/tuning.js';
 import { LINE_FACTORIES, lineOfItem, canBuild } from './tech.js';
 import { placeStructure } from './placement.js';
-import { spend } from './economy.js';
+import { spend, addCredits } from './economy.js';
 import { exitTile } from './spawn.js';
 import { orderMove } from './orders.js';
 
@@ -67,7 +67,7 @@ export function orderHold(world, houseId, typeId) {
   const l = house.lines[line];
   if (l.current?.typeId === typeId) {
     if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'On hold.'); return; }
-    house.credits += l.current.paid;   // second press, or a ready structure: cancel with a full refund
+    addCredits(world, house, l.current.paid);   // second press, or a ready structure: cancel with a refund (up to the storage)
     l.current = null;
     eva(world, house, 'cancelled', 'Cancelled.');
     world.events.push('productionCancelled', { house: houseId, typeId });
@@ -160,8 +160,8 @@ export function revalidateProduction(world) {
   for (const house of world.houses.values()) {
     for (const line of LINES) {
       const l = house.lines[line];
-      if (l.current && l.current.state !== 'ready' && !canBuild(world, house.id, l.current.typeId)) {
-        house.credits += l.current.paid;
+      if (l.current && !canBuild(world, house.id, l.current.typeId)) {   // a READY structure too: its yard may be gone
+        addCredits(world, house, l.current.paid);
         world.events.push('productionCancelled', { house: house.id, typeId: l.current.typeId });
         l.current = null;
       }

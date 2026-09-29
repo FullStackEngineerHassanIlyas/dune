@@ -82,3 +82,14 @@ test('a second repair command switches repair off', () => {
   world.step();
   assert.equal(trap.repairing, false);
 });
+
+test('selling at full storage warns that the refund could not be stored', () => {
+  const { world, h } = world1(1005);
+  h.startBuffer = 0;
+  world.spawnStructure('refinery', 'atreides', 4, 4);
+  const trap = world.spawnStructure('windtrap', 'atreides', 10, 4);
+  world.issue('atreides', { type: 'sell', structureId: trap.id });
+  world.step();
+  assert.equal(h.credits, 1005);
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'storageFull'));
+});

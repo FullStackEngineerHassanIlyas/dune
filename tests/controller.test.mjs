@@ -284,3 +284,12 @@ test('harvesters clicked onto an own refinery go back to base; enemy structures 
   assert.deepEqual(c.selection.list(), [tank.id]);
   assert.equal(c.selection.structureId, 0);
 });
+
+test('structures the player has not seen cannot be hovered or selected', () => {
+  const { world, c } = setup();
+  world.spawnStructure('windtrap', 'harkonnen', 14, 12);
+  c.canSeeStructure = (s) => s.house === 'atreides';
+  assert.equal(c.hitTest(px(14), px(12)).kind, 'ground');
+  c.onClick(px(14), px(12), 0, NONE, false);
+  assert.equal(c.selection.structureId, 0);
+});

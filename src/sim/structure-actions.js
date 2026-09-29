@@ -1,7 +1,7 @@
 // Sell and repair (spec §4.3): selling refunds half the price scaled by health; repairing restores
 // the structure in about twelve seconds from zero for 40 % of its price, pausing without credits.
 import { DT } from '../data/tuning.js';
-import { spend, clampToStorage } from './economy.js';
+import { spend, clampToStorage, addCredits } from './economy.js';
 
 export const REPAIR_SECONDS = 12;
 export const REPAIR_COST_FRACTION = 0.4;
@@ -12,8 +12,8 @@ export function orderSell(world, houseId, structureId) {
   const house = world.houses.get(houseId);
   const refund = Math.floor(0.5 * s.type.cost * (s.hp / s.maxHp));
   world.removeStructure(s, 'sold');
-  house.credits += refund;
-  clampToStorage(world, house);
+  clampToStorage(world, house);        // a sold store takes its share of the credits with it
+  addCredits(world, house, refund);    // the refund fills what room is left (warns when it cannot)
   world.events.push('sold', { id: s.id, house: houseId, refund, typeId: s.typeId, x: s.x, y: s.y, w: s.w, h: s.h });
 }
 

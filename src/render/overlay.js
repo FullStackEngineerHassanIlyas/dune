@@ -22,7 +22,7 @@ export class Overlay {
   setDragBox(box) { this.dragBox = box; }
   marker(x, z) { this.markers.push({ x, z, t: 0 }); }
 
-  draw({ world, selection, hoverId, hoverStructureId = null, project, positionOf, groups, dt, healthBars = 'selected', canSee = () => true }) {
+  draw({ world, selection, hoverId, hoverStructureId = null, project, positionOf, groups, dt, healthBars = 'selected', canSee = () => true, canSeeStructure = () => true }) {
     const c = this.ctx;
     c.clearRect(0, 0, this.w, this.h);
     for (const u of world.units.values()) {
@@ -46,6 +46,7 @@ export class Overlay {
       }
     }
     for (const s of world.structures.values()) {
+      if (!canSeeStructure(s)) continue;
       const selected = s.id === selection.structureId, hovered = s.id === hoverStructureId;
       if (!selected && !hovered && healthBars !== 'always' && !(healthBars === 'damaged' && s.hp < s.maxHp)) continue;
       const p = project(s.x + s.w / 2, s.y + s.h / 2, 0.3);

@@ -5,6 +5,7 @@
 import { DT } from '../data/tuning.js';
 import { addCredits } from './economy.js';
 import { findFreeTile } from './spawn.js';
+import { orderMove } from './orders.js';
 
 export const HARVEST_CAPACITY = 700;
 export const HARVEST_RATE = 35;
@@ -17,12 +18,42 @@ export function initHarvester(u) {
   u.order = { type: 'harvest' };
 }
 
+/**
+ * The tile a harvester unloads on: south of the pad column, or, when terrain or a building blocks it,
+ * the nearest open ground around that tile. Units standing about never move it (a dock that moved
+ * whenever a harvester reached it could never be reached); it is cached until the map changes.
+ */
 export function dockTile(world, ref) {
   const map = world.map;
+  if (ref.dock?.rev === map.revision) return ref.dock.tile;
   const x = ref.x + ref.w - 1, y = ref.y + ref.h;
-  if (map.inBounds(x, y) && map.moveFactor(map.idx(x, y), 'harvester') > 0) return map.idx(x, y);
-  const t = findFreeTile(world, ref.x + 1, ref.y + ref.h, 'harvester', 3, 1);
-  return t ? map.idx(t.x, t.y) : -1;
+  const open = (tx, ty) => map.inBounds(tx, ty) && map.moveFactor(map.idx(tx, ty), 'harvester') > 0;
+  let tile = open(x, y) ? map.idx(x, y) : -1;
+  for (let r = 1; r <= 3 && tile < 0; r++) {
+    for (let dy = -r; dy <= r && tile < 0; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && open(x + dx, y + dy)) { tile = map.idx(x + dx, y + dy); break; }
+    }
+  }
+  ref.dock = { rev: map.revision, tile };
+  return tile;
+}
+
+function onOwnDock(world, u) {
+  const here = world.map.idx(u.tx, u.ty);
+  for (const s of world.structures.values()) if (s.house === u.house && s.typeId === 'refinery' && dockTile(world, s) === here) return true;
+  return false;
+}
+
+const onTheMove = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
+
+/** Send a parked friendly unit off a dock (an idle harvester keeps its routine). */
+function clearDock(world, id, requester) {
+  const o = world.units.get(id);
+  if (!o || o.house !== requester.house || onTheMove(o) || o.harvest?.state === 'unloading') return;
+  const spot = findFreeTile(world, o.tx, o.ty, o.move, 4, 2);
+  if (!spot) return;
+  if (o.harvest && o.order.type === 'harvest') { o.harvest.wait = Math.max(o.harvest.wait, 3); world.requestPath(o, world.map.idx(spot.x, spot.y)); }
+  else orderMove(world, [o], spot.x, spot.y);
 }
 
 function claimedFields(world, self) {
@@ -67,7 +98,9 @@ function chooseRefinery(world, u) {
   let best = null, bestScore = Infinity;
   for (const s of world.structures.values()) {
     if (s.house !== u.house || s.typeId !== 'refinery') continue;
-    const score = Math.hypot(s.x + s.w - 1 - u.tx, s.y + s.h - u.ty) + (s.dockedBy && s.dockedBy !== u.id ? 6 : 0);
+    const dock = dockTile(world, s);
+    if (dock < 0) continue;
+    const score = Math.hypot(world.map.xOf(dock) - u.tx, world.map.yOf(dock) - u.ty) + (s.dockedBy && s.dockedBy !== u.id ? 6 : 0);
     if (score < bestScore) { best = s; bestScore = score; }
   }
   return best;
@@ -104,7 +137,8 @@ export function updateHarvester(world, u) {
       const tile = findSpice(world, u);
       if (tile < 0) {
         h.wait = 3;
-        if (h.load > 0) { h.state = 'toRefinery'; h.target = -1; }
+        if (h.load > 0) { h.state = 'toRefinery'; h.target = -1; return; }
+        if (!moving && onOwnDock(world, u)) clearDock(world, u.id, u);   // nothing to do: do not block the pad
         return;
       }
       h.field = tile;
@@ -147,7 +181,12 @@ export function updateHarvester(world, u) {
         return;
       }
       if (moving) return;
-      if (h.target === dock && ref.dockedBy && ref.dockedBy !== u.id && near(map, u, dock, 2)) { h.state = 'queued'; return; }
+      if (ref.dockedBy && !world.units.has(ref.dockedBy)) ref.dockedBy = 0;
+      const occupant = map.unit[dock];
+      if (occupant && occupant !== u.id && occupant !== ref.dockedBy) clearDock(world, occupant, u);
+      if ((ref.dockedBy && ref.dockedBy !== u.id) || (occupant && occupant !== u.id)) {
+        if (near(map, u, dock, 2)) { h.state = 'queued'; h.wait = 1; return; }
+      }
       h.target = dock;
       world.requestPath(u, dock);
       return;
@@ -155,7 +194,12 @@ export function updateHarvester(world, u) {
     case 'queued': {
       const ref = world.structures.get(h.refinery);
       if (!ref) { h.state = 'toRefinery'; h.target = -1; return; }
-      if (!ref.dockedBy || !world.units.has(ref.dockedBy)) { ref.dockedBy = 0; h.state = 'toRefinery'; h.target = -1; }
+      if (ref.dockedBy && !world.units.has(ref.dockedBy)) ref.dockedBy = 0;
+      if ((h.wait -= DT) > 0) return;
+      h.wait = 1;
+      const occupant = map.unit[dockTile(world, ref)];
+      if (!ref.dockedBy && (!occupant || occupant === u.id)) { h.state = 'toRefinery'; h.target = -1; return; }
+      if (occupant && occupant !== u.id && occupant !== ref.dockedBy) clearDock(world, occupant, u);
       return;
     }
     case 'unloading': {

@@ -118,6 +118,7 @@ export class World {
   }
 
   requestPath(u, goal, { avoidUnits = false, keepIfEmpty = false } = {}) {
+    if (goal !== u.goal) u.bestGoalDist = Infinity;   // a new destination: progress is measured afresh
     u.goal = goal;
     u.pathState = 'waiting';
     u.avoidUnits = avoidUnits;

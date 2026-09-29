@@ -75,3 +75,12 @@ test('a harvester sent elsewhere shows its order, not the paused routine', () =>
   sel.set([h.id]);
   assert.deepEqual(selectionPanelModel(world, sel, 'atreides').details, ['Spice 100 %', 'Moving']);
 });
+
+test('an enemy structure shows only its name and hit points', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const trap = world.spawnStructure('refinery', 'harkonnen', 4, 4);
+  const sel = new Selection();
+  sel.setStructure(trap.id);
+  const m = selectionPanelModel(world, sel, 'atreides');
+  assert.deepEqual([m.own, m.name, m.details, m.buttons], [false, 'Spice Refinery', [], []]);
+});

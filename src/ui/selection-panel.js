@@ -11,6 +11,7 @@ const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idl
 
 function structureModel(world, s, houseId) {
   const own = s.house === houseId, t = s.type, details = [];
+  if (!own) return { kind: 'structure', typeId: s.typeId, house: s.house, own, name: t.name, hp: s.hp, maxHp: s.maxHp, count: 1, details, buttons: [] };   // no intel on enemy buildings
   if (t.power < 0) details.push(`Power output ${Math.round(-t.power * Math.max(0.5, Math.min(1, s.hp / s.maxHp)))}`);
   else if (t.power > 0) details.push(`Power use ${t.power}`);
   if (t.storage) details.push(`Storage ${t.storage}`);

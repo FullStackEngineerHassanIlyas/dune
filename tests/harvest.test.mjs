@@ -114,3 +114,55 @@ test('a harvester whose nudge move failed picks its routine up again', () => {
   assert.equal(u.order, routine);
   assert.equal(u.resumeOrder, null);
 });
+
+// Review fix-pass tests: the dock must not move or stay blocked.
+function loaded(world, x, y) {
+  const u = world.spawnUnit('harvester', 'atreides', x, y);
+  u.harvest.load = 700;
+  u.harvest.state = 'toRefinery';
+  u.harvest.target = -1;
+  return u;
+}
+
+test('a refinery whose pad tile is covered by a silo still takes deliveries', () => {
+  const { world, h } = spiceWorld();
+  h.startBuffer = 5000;
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnStructure('silo', 'atreides', 10, 10);   // covers (10,10), the tile south of the pad column
+  loaded(world, 4, 16);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 90) > 0, `credits ${h.credits}`);
+});
+
+test('a mountain on the pad tile does not stop deliveries', () => {
+  const { world, h, m } = spiceWorld();
+  h.startBuffer = 5000;
+  m.ground[m.idx(10, 10)] = G.MOUNTAIN;
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  for (const u of harvesters(world)) world.removeUnit(u);
+  loaded(world, 4, 16);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 90) > 0, `credits ${h.credits}`);
+});
+
+test('a tank parked on the dock is moved aside and the harvester unloads', () => {
+  const { world, h } = spiceWorld();
+  h.startBuffer = 5000;
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnUnit('combatTank', 'atreides', 10, 10);
+  loaded(world, 4, 16);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 90) > 0, `credits ${h.credits}`);
+});
+
+test('when the field runs dry every harvester still delivers its load', () => {
+  const { world, h, m } = spiceWorld();
+  h.startBuffer = 50000;
+  field(m, 24, 10, 30, 11, 250);   // 1500 spice
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  world.spawnUnit('harvester', 'atreides', 22, 12);
+  world.spawnUnit('harvester', 'atreides', 22, 8);
+  run(world, 240);
+  assert.equal(spiceSum(m), 0);
+  assert.ok(harvesters(world).every((u) => u.harvest.load === 0), `loads ${harvesters(world).map((u) => u.harvest.load)}`);
+  assert.ok(Math.abs(h.credits - 1500) < 1e-6, `credits ${h.credits}`);
+});

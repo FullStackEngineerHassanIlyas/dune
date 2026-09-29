@@ -22,7 +22,7 @@ import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
 import { SelectionPanel, selectionPanelModel } from '../ui/selection-panel.js';
-import { unitVisibleTo } from '../sim/fog.js';
+import { unitVisibleTo, structureVisibleTo } from '../sim/fog.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 import { IconFactory } from '../render/icons.js';
 import { HOUSES } from '../data/houses.js';
@@ -74,7 +74,8 @@ export class GameView {
       onOrder: (tx, ty) => this.controller.orderTile(tx, ty),
       ordersOnLeft: () => settings.scheme !== 'modern' && this.controller.ownSelected().length > 0,
       ordersOnRight: () => settings.scheme === 'modern',
-    });    this.panel = new SelectionPanel(document.getElementById('ui'), {
+    });
+    this.panel = new SelectionPanel(document.getElementById('ui'), {
       iconFor: (typeId, houseId) => this.icons.forItem(typeId, houseId),
       onButton: (id) => this.panelAction(id),
     });
@@ -102,6 +103,7 @@ export class GameView {
       onNotice: (text) => this.hud.message(text),
       onMode: (mode) => this.sidebar.setTool(mode?.kind ?? null),
       canSee: (u) => unitVisibleTo(world, house, u),
+      canSeeStructure: (s) => structureVisibleTo(world, house, s),
     });
     new Pointer(canvas, this.controller);
     new Keyboard((key, code, mods) => this.controller.onKey(key, code, mods));
@@ -169,7 +171,7 @@ export class GameView {
     }
     this.handleEvents();
     if (world.fogOfWar && this.shroud.update(world.houses.get(this.house)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
-    this.selection.prune((id) => { const u = world.units.get(id); return !!u && unitVisibleTo(world, this.house, u); }, (id) => world.structures.has(id));
+    this.selection.prune((id) => { const u = world.units.get(id); return !!u && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
     this.rig.update(dt, this.heightAt);
@@ -184,6 +186,7 @@ export class GameView {
       world, selection: this.selection, hoverId: this.controller.hoverId, hoverStructureId: this.controller.hoverStructureId,
       project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars,
       canSee: (u) => unitVisibleTo(world, this.house, u),
+      canSeeStructure: (s) => structureVisibleTo(world, this.house, s),
     });
     this.panel.update(selectionPanelModel(world, this.selection, this.house));
     this.hud.update(dt);

@@ -51,8 +51,9 @@ function advance(world, u) {
     u.tx = map.xOf(s.to); u.ty = map.yOf(s.to);
     u.step = null;
     u.pathIndex++;
-    u.stuckTicks = 0;   // progress: the give-up clock measures time without progress
-    u.repaths = 0;
+    // progress means getting closer to the goal than ever before; side-steps do not reset the give-up clock
+    const d = u.goal >= 0 ? Math.max(Math.abs(u.tx - map.xOf(u.goal)), Math.abs(u.ty - map.yOf(u.goal))) : 0;
+    if (d < (u.bestGoalDist ?? Infinity)) { u.bestGoalDist = d; u.stuckTicks = 0; u.repaths = 0; }
     world.onTileEntered?.(u);
   } else {
     u.x = fx + (tx - fx) * s.progress;
@@ -77,6 +78,9 @@ function blocked(world, u, occupantId) {
   // A blocker that is parked, or waiting for our own tile (head-on), will not clear by itself: if there
   // is no way around it, stop. A blocker that is moving on will clear: keep the route and wait.
   const headOn = other && !other.step && other.path[other.pathIndex] === world.map.idx(u.tx, u.ty);
+  // Two units waiting for each other's tiles would both side-step the same way, again and again: only
+  // the one with the higher id goes round; the other holds still so the detour stays open.
+  if (headOn && u.id < other.id) return;
   replan(world, u, { avoidUnits: true, keepIfEmpty: !(parked || headOn) });
 }
 

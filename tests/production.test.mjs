@@ -149,3 +149,35 @@ test('primary factory is where new units appear', () => {
   const s = [...world.units.values()].find((u) => u.typeId === 'soldier');
   assert.ok(s.tx >= 20 && s.tx <= 21 && s.ty === 12, `soldier at ${s.tx},${s.ty}`);
 });
+
+test('a cancel refund never lifts credits above storage (the overflow is lost with a warning)', () => {
+  const { world, h } = base();
+  h.startBuffer = 0;
+  world.spawnStructure('windtrap', 'atreides', 0, 0);
+  world.spawnStructure('refinery', 'atreides', 8, 4);   // 1005 storage
+  h.credits = 1005;
+  world.issue('atreides', { type: 'build', typeId: 'windtrap' });
+  run(world, 5);
+  const paid = h.lines.structure.current.paid;
+  assert.ok(paid > 0);
+  h.credits = 1005;                                      // storage filled up meanwhile
+  world.issue('atreides', { type: 'hold', typeId: 'windtrap' });
+  world.issue('atreides', { type: 'hold', typeId: 'windtrap' });
+  world.step();
+  assert.equal(h.lines.structure.current, null);
+  assert.equal(h.credits, 1005);
+  assert.ok(world.events.drain().some((e) => e.key === 'storageFull'));
+});
+
+test('a READY structure is refunded when the Construction Yard is lost', () => {
+  const { world, h } = base();
+  const yard = [...world.structures.values()].find((s) => s.typeId === 'constructionYard');
+  world.issue('atreides', { type: 'build', typeId: 'windtrap' });
+  run(world, 22);
+  assert.equal(h.lines.structure.current.state, 'ready');
+  const before = h.credits;
+  world.removeStructure(yard, 'sold');
+  run(world, 1.1);
+  assert.equal(h.lines.structure.current, null);
+  assert.ok(Math.abs(h.credits - (before + 300)) < 1e-6, `credits ${h.credits}`);
+});

@@ -114,3 +114,31 @@ test('a unit re-plans when a structure appears on its path', () => {
   assert.ok(runUntil(world, () => tank.order.type === 'idle', 40) > 0);
   assert.deepEqual([tank.tx, tank.ty], [20, 5]);
 });
+
+test('two units meeting head-on in open ground get past each other', () => {
+  const world = flatWorld(20, 16, G.ROCK);
+  const a = world.spawnUnit('combatTank', 'atreides', 4, 7, { heading: 0 });
+  const b = world.spawnUnit('combatTank', 'atreides', 9, 7, { heading: Math.PI });
+  world.issue('atreides', { type: 'move', ids: [a.id], x: 9, y: 7 });
+  world.issue('atreides', { type: 'move', ids: [b.id], x: 4, y: 7 });
+  world.step();
+  const t = runUntil(world, () => a.order.type === 'idle' && b.order.type === 'idle', 120);
+  assert.ok(t > 0 && t < 30, `settled after ${t} s`);
+  assert.ok(Math.max(Math.abs(a.tx - 9), Math.abs(a.ty - 7)) <= 1, `a at ${a.tx},${a.ty}`);
+  assert.ok(Math.max(Math.abs(b.tx - 4), Math.abs(b.ty - 7)) <= 1, `b at ${b.tx},${b.ty}`);
+});
+
+test('two units meeting head-on in a two-lane pass get past each other', () => {
+  const world = flatWorld(20, 20, G.ROCK);
+  const m = world.map;
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) if (x !== 9 && x !== 10) m.ground[m.idx(x, y)] = G.MOUNTAIN;
+  m.revision++;
+  const a = world.spawnUnit('combatTank', 'atreides', 9, 3);
+  const b = world.spawnUnit('combatTank', 'atreides', 9, 12);
+  world.issue('atreides', { type: 'move', ids: [a.id], x: 9, y: 14 });
+  world.issue('atreides', { type: 'move', ids: [b.id], x: 9, y: 1 });
+  world.step();
+  const t = runUntil(world, () => a.order.type === 'idle' && b.order.type === 'idle', 120);
+  assert.ok(t > 0 && t < 40, `settled after ${t} s`);
+  assert.ok(a.ty >= 13 && b.ty <= 2, `a at ${a.tx},${a.ty}; b at ${b.tx},${b.ty}`);
+});

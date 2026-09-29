@@ -15,8 +15,8 @@ const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) =>
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
 export class Controller {
-  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
-    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, onMode, onGhost, onNotice });
+  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
+    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, canSeeStructure, onMode, onGhost, onNotice });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
     this.hoverStructureId = null;
@@ -42,8 +42,8 @@ export class Controller {
     if (!g) return null;
     const map = this.world.map, tx = Math.floor(g.x), ty = Math.floor(g.z);
     if (!map.inBounds(tx, ty)) return null;
-    const sid = map.structure[map.idx(tx, ty)];
-    if (sid) return { kind: 'structure', structure: this.world.structures.get(sid), tx, ty };
+    const s = this.world.structures.get(map.structure[map.idx(tx, ty)]);
+    if (s && this.canSeeStructure(s)) return { kind: 'structure', structure: s, tx, ty };
     return { kind: 'ground', tx, ty };
   }
 
