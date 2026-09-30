@@ -157,6 +157,16 @@ test('a Devastator offers Destruct on D and says when it is counting down', () =
   assert.deepEqual([m.buttons, m.details], [[], ['Self-destructing']]);
 });
 
+test('with an MCV in the selection D means Deploy: the Destruct button shows no key', () => {
+  const world = flatWorld(12, 12, G.ROCK);
+  const dev = world.spawnUnit('devastator', 'harkonnen', 3, 3);
+  const mcv = world.spawnUnit('mcv', 'harkonnen', 6, 3);
+  const sel = new Selection();
+  sel.set([dev.id, mcv.id]);
+  const keys = selectionPanelModel(world, sel, 'harkonnen').buttons.filter((b) => b.id === 'deploy' || b.id === 'destruct').map((b) => [b.id, b.key ?? null]);
+  assert.deepEqual(keys, [['deploy', 'D'], ['destruct', null]]);
+});
+
 test('a deviated unit says whose it was and when it goes back; Fremen hunt; a Saboteur on its way says so', () => {
   const world = flatWorld(24, 12, G.ROCK);
   const tank = world.spawnUnit('combatTank', 'atreides', 3, 3);
