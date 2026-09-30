@@ -48,7 +48,8 @@ export class Renderer3D {
 
     const target = q.msaa ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: q.msaa }) : undefined;
     this.composer = new EffectComposer(r, target);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
     if (q.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
       this.composer.addPass(this.bloom);
@@ -92,5 +93,11 @@ export class Renderer3D {
     this.sky.position.set(x, 0, z);
   }
 
-  render() { if (!this.lost) this.composer.render(); }
+  /** Draws `scene` through `camera` (the battlefield by default) with the whole post-processing chain. */
+  render(scene = this.scene, camera = this.camera) {
+    if (this.lost) return;
+    this.renderPass.scene = scene;
+    this.renderPass.camera = camera;
+    this.composer.render();
+  }
 }
