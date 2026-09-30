@@ -6,6 +6,7 @@
 // (visual-structures.md "Destroyed"). Also the damage states (visual-units.md §1.1, structures.md
 // FAQ): smoke past half health, flames and sparks past a quarter, from fixed points on each hull
 // and roof. Render-only: the simulation never waits on any of it.
+import { Color } from 'three';
 import { Debris } from './debris.js';
 import { Rubble } from './rubble.js';
 import { Wrecks, modelTop } from './wrecks.js';
@@ -18,6 +19,8 @@ import { HOUSES } from '../data/houses.js';
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (v) => v - Math.floor(v);
+const tone = new Color();
+const scorched = (hex) => tone.set(hex).multiplyScalar(0.5).getHex();   // house paint, blistered and sooted
 const VEHICLE_BITS = [0x1c1a18, 0x2a2826, 0x3c3f46, 0x55504a, 0x201e1c];
 const BUILDING_BITS = [0x8e8a84, 0x9c958b, 0x6e6a66, 0x3c3f46, 0xb0a898, 0x5c3c24];
 
@@ -35,6 +38,8 @@ export class Destruction {
     this.wrecks = new Wrecks(scene, hf, { cap: Math.round(6 + budget / 250), castShadow: shadows });
     this.heightAt = (x, z) => hf.heightAt(x, z);
     this.visible = (x, z) => this.near(x, z) && this.seen(x, z);
+    // smoke that only lingers yields to fresh combat effects: it stops while the pools are over two-thirds full
+    this.lingers = (x, z) => this.fx.smoke.n < this.fx.smoke.capacity * 0.68 && this.fx.glow.n < this.fx.glow.capacity * 0.8 && this.visible(x, z);
     this.crash = (w) => this.crashed(w);
     this.sites = [];     // burning ruins
     this.pending = [];   // blasts and dust still to come, in seconds of this.time
@@ -82,8 +87,8 @@ export class Destruction {
     const gy = this.hf.heightAt(w.x, w.z);
     this.decals?.scorch?.(w.x, w.z, 0.9 * w.size);
     if (!this.visible(w.x, w.z)) return;
-    this.fx.explosion(w.x, gy + 0.2, w.z, 'medium');
-    fireball(this.fx, w.x, gy + 0.1, w.z, 0.8 * w.size);
+    blast(this.fx, w.x, gy + 0.2, w.z, 1.1);
+    fireball(this.fx, w.x, gy + 0.1, w.z, 0.8 * w.size, false);
     this.throwBits(w.x, gy + 0.15, w.z, w.size, 0x55504a, VEHICLE_BITS, Math.round(6 * this.density), false);
     this.onShake(0.2);
   }
@@ -91,10 +96,10 @@ export class Destruction {
   /** Debris thrown from (x, y, z): n pieces, sized by k, some painted in the house colour, a few trailing fire. */
   throwBits(x, y, z, k, house, palette, n, building) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, s = rnd(0.8, building ? 2.6 : 3) * (building ? 1 : k);
+      const a = Math.random() * Math.PI * 2, s = rnd(0.5, building ? 2.4 : 2.2) * (building ? 1 : k);
       const plate = Math.random() < 0.6, big = building ? rnd(0.09, 0.26) : rnd(0.05, 0.14) * k;
       const size = plate ? [big, big * rnd(0.12, 0.25), big * rnd(0.6, 1)] : [big * 0.7, big * rnd(0.5, 0.8), big * 0.7];
-      const color = Math.random() < 0.28 ? house : palette[Math.floor(Math.random() * palette.length)];
+      const color = Math.random() < 0.25 ? scorched(house) : palette[Math.floor(Math.random() * palette.length)];
       this.debris.emit({ x: x + Math.cos(a) * 0.1, y, z: z + Math.sin(a) * 0.1, vx: Math.cos(a) * s, vy: rnd(2.2, building ? 5.5 : 4.8), vz: Math.sin(a) * s, size, color, rest: rnd(4, building ? 9 : 7), burn: Math.random() < 0.3 ? rnd(0.6, 1.5) : 0 });
     }
   }
@@ -145,16 +150,16 @@ export class Destruction {
     for (const u of world.units.values()) {
       if (u.inside || u.hp > u.maxHp / 2 || onFoot(u.move)) continue;
       const p = positionOf(u);
-      if (!this.visible(p.x, p.z)) continue;
+      if (!this.lingers(p.x, p.z)) continue;
       const r = modelDef(unitModelId(u.typeId)).radius ?? 0.5, crit = u.hp <= u.maxHp / 4;
-      const x = p.x - Math.cos(u.heading) * r * 0.3, z = p.z - Math.sin(u.heading) * r * 0.3;
-      const y = this.hf.heightAt(x, z) + (u.alt ?? 0) + r * 0.5;
+      const x = p.x - Math.cos(u.heading) * r * 0.42, z = p.z - Math.sin(u.heading) * r * 0.42;   // the engine deck, behind any turret
+      const y = this.hf.heightAt(x, z) + (u.alt ?? 0) + r * 0.62;
       if (Math.random() < 0.6 * rate) (crit ? blackSmoke : greySmoke)(fx, x, y, z, crit ? 0.55 : 0.7);
       if (crit && Math.random() < 0.7) fire(fx, x, y - 0.04, z, 0.5);
       if (crit && Math.random() < 0.1) sparks(fx, x, y, z, 3);
     }
     for (const s of world.structures.values()) {
-      if (s.hp > s.maxHp / 2 || s.type.isWall || !this.visible(s.x + s.w / 2, s.y + s.h / 2)) continue;
+      if (s.hp > s.maxHp / 2 || s.type.isWall || !this.lingers(s.x + s.w / 2, s.y + s.h / 2)) continue;
       const pts = this.roofPoints(s), f = s.hp / s.maxHp, crit = f <= 0.25;
       for (let i = 0, n = crit ? 3 : f <= 0.375 ? 2 : 1; i < n; i++) {
         const p = pts[i];
@@ -192,13 +197,13 @@ export class Destruction {
       this.throwBits(b.x, b.y, b.z, b.k, b.house, b.building ? BUILDING_BITS : VEHICLE_BITS, Math.round((b.building ? 3 : 2) * this.density), !!b.building);
     }
     this.debris.update(dt, this.heightAt, fx);
-    this.wrecks.update(dt, fx, this.visible, this.crash, this.density);
+    this.wrecks.update(dt, fx, this.lingers, this.crash, this.density);
     for (let i = 0; i < this.sites.length; i++) {
       const s = this.sites[i];
       if ((s.age += dt) >= s.smokeFor) { this.sites.splice(i--, 1); continue; }
       if ((s.clock -= dt) > 0) continue;
       s.clock = 0.1 / this.density;
-      if (!this.visible(s.cx, s.cz)) continue;
+      if (!this.lingers(s.cx, s.cz)) continue;
       const left = 1 - s.age / s.smokeFor;
       for (const p of s.points) {
         const gy = this.hf.heightAt(p.x, p.z) + 0.05;

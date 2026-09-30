@@ -236,6 +236,20 @@ test('damage states: smoke past half health, flames below a quarter, from fixed 
   for (const p of a) assert.ok(p.x > 10 && p.x < 12 && p.z > 10 && p.z < 12 && p.y > 0.2);
 });
 
+test('lingering fire and smoke give way when the particle pools are nearly full', () => {
+  const { d, effects } = stage({ particles: 800, shadows: 0, flashLights: 0 });
+  d.structureDestroyed({ id: 3, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 }, false);
+  d.sites.push({ x: 6, y: 6, w: 2, h: 2, cx: 7, cz: 7, points: [{ x: 7, z: 7 }], age: 0, fireFor: 30, smokeFor: 60, clock: 0 });
+  while (effects.smoke.n < effects.smoke.capacity * 0.7) effects.smokePuff(0, 0, 0);
+  const smoke = effects.smoke.n, glow = effects.glow.n;
+  steps(0.5, (dt) => d.update(dt));
+  assert.equal(effects.smoke.n, smoke);
+  assert.equal(effects.glow.n, glow);
+  effects.smoke.n = 0;
+  steps(0.5, (dt) => d.update(dt));
+  assert.ok(effects.glow.n > glow, 'burning again once there is room');
+});
+
 test('dispose takes the debris, rubble and wrecks off the scene', () => {
   const { d, scene, effects } = stage();
   d.unitDestroyed({ typeId: 'combatTank', house: 'atreides', x: 5, y: 5 }, { x: 5, z: 5, visible: true });
