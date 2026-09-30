@@ -40,6 +40,21 @@ test('an Ordos AI sends its Saboteur into the most valuable enemy building', () 
   assert.equal([...world.units.values()].find((u) => u.typeId === 'saboteur').order.structureId, factory.id);
 });
 
+test('the computer\'s Saboteur goes for the most valuable building its blast can bring down', () => {
+  const { world } = aiPalace('ordos');
+  const palace = world.spawnStructure('palace', 'atreides', 30, 20);   // 1000 hit points: the blast leaves it standing
+  const bay = world.spawnStructure('repair', 'atreides', 20, 5);
+  world.spawnStructure('windtrap', 'atreides', 10, 10);
+  const target = () => [...world.units.values()].find((u) => u.typeId === 'saboteur' && u.order.type === 'sabotage')?.order.structureId;
+  runUntil(world, () => target(), 5);
+  assert.equal(target(), bay.id);
+  const sab = [...world.units.values()].find((u) => u.typeId === 'saboteur');
+  world.issue('ordos', { type: 'stop', ids: [sab.id] });
+  palace.hp = 400;   // worn down: now it can be finished
+  run(world, 1.5);
+  assert.equal(target(), palace.id);
+});
+
 test('a Palace that cannot fire is not asked again every second', () => {
   const world = flatWorld(48, 32, G.ROCK);
   const s = world.spawnStructure('palace', 'ordos', 0, 0);

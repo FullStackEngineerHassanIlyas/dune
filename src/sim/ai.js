@@ -15,7 +15,7 @@ import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
 import { palaceReady, palaceWeapon } from './palace.js';
-import { DEATH_HAND } from '../data/tuning.js';
+import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -361,15 +361,16 @@ function usePalace(world, house, view) {
   if (t) issue(world, house, { type: 'palace', x: t.x, y: t.y });
 }
 
-/** Saboteurs head for the most valuable enemy building, the nearest of equals. */
+/** Saboteurs head for the most valuable enemy building their blast brings down (any, when none is that weak), the nearest of equals. */
 function sabotage(world, house, view) {
   for (const u of view.units) {
     if (!u.type.sabotage || u.order.type === 'sabotage') continue;
-    let best = null, bestD = Infinity;
+    let best = null, bestD = Infinity, bestFalls = false;
     for (const s of world.structures.values()) {
       if (s.house === house.id || s.type.isWall) continue;
-      const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y);
-      if (!best || s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD)) { best = s; bestD = d; }
+      const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y), falls = s.hp <= SABOTEUR.blast;
+      const better = !best || (falls !== bestFalls ? falls : s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD));
+      if (better) { best = s; bestD = d; bestFalls = falls; }
     }
     if (best) issue(world, house, { type: 'sabotage', ids: [u.id], structureId: best.id });
   }
