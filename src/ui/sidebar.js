@@ -3,16 +3,18 @@
 // clock-wipe progress, READY / ON HOLD and queue badges, scroll arrows and a tooltip. Left click
 // builds, resumes or (when READY) starts placement; right click holds, then cancels with a refund;
 // Shift + left click queues five. The tooltip follows what it describes while the pointer rests on it.
+// Above it all, the Menu and full screen buttons.
 import { rollCredits, tipText, clock } from './sidebar-model.js';
 
 const SLOT = 92;   // icon height plus gap (px)
 
 export class Sidebar {
-  constructor(root, { iconFor, onCommand, onPlace, onTool, onSpecial = () => {} }) {
+  constructor(root, { iconFor, onCommand, onPlace, onTool, onSpecial = () => {}, onMenu = () => {}, onFullscreen = () => {} }) {
     Object.assign(this, { iconFor, onCommand, onPlace, onTool, onSpecial });
     const el = (this.el = document.createElement('div'));
     el.className = 'sidebar';
     el.innerHTML = `
+      <div class="sb-top"><button class="sb-menu" title="Menu (Esc)">Menu</button><button class="sb-full" title="Full screen (Alt + Enter)" aria-label="Full screen">&#x26F6;</button></div>
       <div class="sb-credits"><span class="sb-label">Credits</span><span class="sb-digits">0</span><div class="sb-storage"><i></i></div></div>
       <div class="sb-radar"></div>
       <div class="sb-tools"><button class="sb-tool" data-tool="repair">Repair</button><button class="sb-tool" data-tool="sell">Sell</button></div>
@@ -46,6 +48,8 @@ export class Sidebar {
       node.addEventListener('wheel', (e) => { e.preventDefault(); this.scroll(strip, Math.sign(e.deltaY)); }, { passive: false });
     }
     for (const b of el.querySelectorAll('.sb-tool')) b.addEventListener('click', () => this.onTool(b.dataset.tool));
+    el.querySelector('.sb-menu').addEventListener('click', () => onMenu());
+    el.querySelector('.sb-full').addEventListener('click', () => onFullscreen());
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     this.shown = null;
   }
