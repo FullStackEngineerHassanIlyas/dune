@@ -38,7 +38,7 @@ export function updateMovement(world, u) {
 
 function advance(world, u) {
   const map = world.map, s = u.step;
-  const speed = groundSpeed(u.type.speed, map.moveFactor(s.to, u.move) || 64) * (u.speedMul ?? 1);
+  const speed = groundSpeed(u.type.speed, map.moveFactor(s.to, u.move) || 64, u.move) * (u.speedMul ?? 1);
   const fx = map.xOf(s.from) + 0.5, fy = map.yOf(s.from) + 0.5, tx = map.xOf(s.to) + 0.5, ty = map.yOf(s.to) + 0.5;
   u.heading = turnToward(u.heading, Math.atan2(ty - fy, tx - fx), TURN_RATE[u.type.turn] * DT);
   s.progress += (speed * DT) / s.dist;

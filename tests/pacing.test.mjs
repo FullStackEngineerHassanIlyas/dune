@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { G } from '../src/data/terrain.js';
+import { G, SURFACE, moveFactor } from '../src/data/terrain.js';
 import { STRUCTURES } from '../src/data/structures.js';
-import { UNITS } from '../src/data/units.js';
-import { buildSeconds } from '../src/data/tuning.js';
+import { UNITS, onFoot } from '../src/data/units.js';
+import { groundSpeed, buildSeconds } from '../src/data/tuning.js';
 import { itemSeconds } from '../src/sim/production.js';
 import { upgradeLevel } from '../src/sim/tech.js';
 import { flatWorld, run, runUntil } from './helpers.mjs';
 
-// Pacing (docs/superpowers/notes/2026-10-01-pacing.md): minor buildings and upgrades are quick.
+// Pacing (docs/superpowers/notes/2026-10-01-pacing.md): minor buildings and upgrades are quick, infantry keeps up.
 
 test('minor buildings build in seconds, not half a minute', () => {
   assert.ok(itemSeconds('windtrap') < 10, `wind trap ${itemSeconds('windtrap')} s`);
@@ -108,4 +108,34 @@ test('the yard upgrade sets aside a structure under construction, but waits for 
   world.step();
   assert.equal(h.lines.structure.current, outpost, 'a ready structure keeps the yard');
   assert.ok(world.events.drain().some((e) => e.key === 'busy'));
+});
+
+test('a Combat Tank still outruns every foot soldier but the Saboteur, on any ground they share', () => {
+  const tank = UNITS.combatTank;
+  for (const surface of Object.values(SURFACE)) {
+    const tf = moveFactor(surface, tank.move);
+    if (!tf) continue;
+    const top = groundSpeed(tank.speed, tf, tank.move);
+    for (const [id, u] of Object.entries(UNITS)) {
+      if (!onFoot(u.move) || u.sabotage) continue;
+      assert.ok(groundSpeed(u.speed, moveFactor(surface, u.move), u.move) < top, `${id} on surface ${surface}`);
+    }
+  }
+});
+
+function march(typeId, house) {
+  const world = flatWorld(24, 12, G.SAND);
+  const u = world.spawnUnit(typeId, house, 2, 5, { heading: 0 });
+  world.issue(house, { type: 'move', ids: [u.id], x: 12, y: 5 });
+  return runUntil(world, () => u.order.type === 'idle' && u.tx === 12, 60);
+}
+
+test('infantry crosses ten tiles of open sand at a pace that keeps up with the battle', () => {
+  const squad = march('infantry', 'atreides'), soldier = march('soldier', 'atreides');
+  const troopers = march('troopers', 'harkonnen'), trooper = march('trooper', 'harkonnen');
+  assert.ok(squad > 15 && squad < 23, `Infantry Squad ${squad} s (was 37 s)`);
+  assert.ok(soldier > 13 && soldier < 20, `Light Infantry ${soldier} s (was 29 s)`);
+  assert.ok(troopers > 12 && troopers < 18.5, `Trooper Squad ${troopers} s (was 26 s)`);
+  assert.ok(trooper > 10 && trooper < 15, `Heavy Trooper ${trooper} s (was 20 s)`);
+  assert.ok(march('combatTank', 'atreides') < trooper, 'the tank still gets there first');
 });

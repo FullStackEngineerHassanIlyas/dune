@@ -1,11 +1,20 @@
 // Every conversion from original Dune II numbers to real time and tiles (spec §4.1). Tune here only.
 // Pacing choices and their before/after numbers: docs/superpowers/notes/2026-10-01-pacing.md.
+import { onFoot } from './units.js';
+
 export const SIM_HZ = 20;
 export const DT = 1 / SIM_HZ;
 export const TERRAIN_REF = 192;
 
+/** A ground unit covers `(base + factor / 24) × terrain / 192` tiles per second. The base lifts the slow
+ *  original factors (infantry 5–15 against a tank's 25) so nobody crawls, yet keeps the original order
+ *  within each class. Foot soldiers get the larger base: at the vehicles' 0.25 an Infantry Squad took 37 s
+ *  over ten tiles of sand and could never keep up with a battle; at 0.6 it takes 21 s, and a Combat Tank
+ *  still outruns every foot soldier but the Saboteur on any ground they share (a base above 0.66 would not). */
+export const SPEED_BASE = { vehicle: 0.25, foot: 0.6 };
+
 /** Tiles per second for a ground unit with original speed factor on terrain value 0..255. */
-export function groundSpeed(factor, terrain) { return ((0.25 + factor / 24) * terrain) / TERRAIN_REF; }
+export function groundSpeed(factor, terrain, move) { return (((onFoot(move) ? SPEED_BASE.foot : SPEED_BASE.vehicle) + factor / 24) * terrain) / TERRAIN_REF; }
 /** Tiles per second for aircraft. */
 export function airSpeed(factor) { return factor / 40; }
 export function fireDelaySeconds(fireDelay) { return fireDelay / 40; }
