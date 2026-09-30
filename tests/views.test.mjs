@@ -282,8 +282,16 @@ test('dispose takes every unit, structure and missile mesh off the scene', () =>
   missiles.sync(world, 1, () => 0);
   assert.ok(missiles.model, 'the Death Hand is in flight');
   assert.ok(scene.children.length > 0);
+  const meshes = [...units.models.values(), ...structures.models.values(), missiles.model].flatMap((m) => m.meshes);
+  const shared = new Set(meshes.flatMap((m) => [m.material, m.geometry]));   // shared with the next battle: must stay alive
+  const freedMeshes = new Set(), freedShared = new Set();
+  for (const m of meshes) m.addEventListener('dispose', () => freedMeshes.add(m));
+  for (const o of shared) o.addEventListener('dispose', () => freedShared.add(o));
   units.dispose();
   structures.dispose();
   missiles.dispose();
   assert.equal(scene.children.length, 0);
+  assert.ok(meshes.length > 0);
+  assert.equal(freedMeshes.size, meshes.length, 'every instanced mesh is freed');
+  assert.equal(freedShared.size, 0, 'the shared geometry and materials are spared');
 });

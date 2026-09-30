@@ -41,6 +41,7 @@ export class MissileViews {
     this.model?.update();
   }
 
+  /** Frees the missile meshes (the model's shared geometry and materials stay). */
   dispose() {
     this.model?.dispose();
     this.model = null;

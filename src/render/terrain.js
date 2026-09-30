@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { injectTerrainShader } from './terrain-shader.js';
 import { rockDetailTexture } from './terrain-textures.js';
 
+let rockTexture = null;   // shared by every TerrainView, so it outlives them
+
 export function buildTerrainGeometry(hf) {
   const { vw, vh, sub } = hf;
   const n = vw * vh;
@@ -85,7 +87,7 @@ export class TerrainView {
     this.decals = new DecalMap(map.w, map.h);
     this.uniforms = {
       uSpice: { value: this.spiceTex }, uConcrete: { value: this.concreteTex }, uShroud: { value: this.shroudTex },
-      uDecals: { value: this.decals.texture }, uRockTex: { value: rockDetailTexture() }, uMapSize: { value: new THREE.Vector2(map.w, map.h) }, uTime: { value: 0 },
+      uDecals: { value: this.decals.texture }, uRockTex: { value: (rockTexture ??= rockDetailTexture()) }, uMapSize: { value: new THREE.Vector2(map.w, map.h) }, uTime: { value: 0 },
     };
     const material = injectTerrainShader(new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), this.uniforms);
     this.mesh = new THREE.Mesh(buildTerrainGeometry(hf), material);
@@ -138,7 +140,8 @@ export class TerrainView {
   dispose() {
     this.group.removeFromParent();
     for (const mesh of [this.mesh, this.apron]) { mesh.geometry.dispose(); mesh.material.dispose(); }
-    for (const t of [this.spiceTex, this.concreteTex, this.shroudTex, this.uniforms.uRockTex.value, this.decals.texture]) t?.dispose();
+    for (const t of [this.spiceTex, this.concreteTex, this.shroudTex, this.decals.texture]) t?.dispose();
+    if (this.decals.canvas) this.decals.canvas.width = 0;   // drop the 2D backing store now, not at GC
   }
 }
 

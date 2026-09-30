@@ -127,6 +127,7 @@ export class ParticlePool {
     this.alphaAttr.needsUpdate = true;
   }
 
+  /** Takes the pool off the scene and frees its geometry, material and instance buffers. */
   dispose() {
     this.mesh.removeFromParent();
     this.mesh.geometry.dispose();
