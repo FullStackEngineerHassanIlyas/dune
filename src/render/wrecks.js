@@ -121,6 +121,15 @@ export class Wrecks {
 
   get count() { return this.list.length; }
 
+  /** Takes away at once every wreck lying inside the rect (a building going up there). */
+  clear(x, y, w, h) {
+    this.list = this.list.filter((o) => {
+      const inside = !o.fall && o.x >= x - 0.2 && o.x <= x + w + 0.2 && o.z >= y - 0.2 && o.z <= y + h + 0.2;
+      if (inside) o.model.remove(o.h);
+      return !inside;
+    });
+  }
+
   pose(w) {
     const hf = this.hf;
     let y, n;

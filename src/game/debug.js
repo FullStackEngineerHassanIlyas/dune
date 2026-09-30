@@ -46,6 +46,7 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     menuOpen: () => !!view?.menu?.isOpen,
     cursor: () => ({ canvas: document.getElementById('gl').style.cursor.slice(0, 40), scrolling: document.getElementById('app').classList.contains('scrolling') }),
     tick: () => world.tick,
+    destruction: () => { const d = view?.stage?.destruction; return d ? { wrecks: d.wrecks.count, debris: d.debris.n, rubble: d.rubble.used, fires: d.sites.length, fallen: view.stage.unitViews.fallen.length } : null; },
     paused: () => !!view?.paused,
     outcome: () => world.outcome,
     sound: () => ({ ready: !!view?.sound?.ctx, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0 }),

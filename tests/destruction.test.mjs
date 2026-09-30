@@ -207,11 +207,14 @@ test('a wall falls small: a few chunks and no lingering fire', () => {
   assert.equal(d.pending.filter((b) => b.kind === 'blast').length, 1);
 });
 
-test('placing a building on old ruins clears the rubble and puts its fires out', () => {
+test('placing a building on old ruins clears the rubble and wrecks and puts the fires out', () => {
   const { d } = stage();
   d.structureDestroyed({ id: 3, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });
+  d.unitDestroyed({ typeId: 'quad', house: 'ordos', x: 7, y: 7 }, { x: 7, z: 7, heading: 0, visible: true });
+  d.unitDestroyed({ typeId: 'quad', house: 'ordos', x: 12, y: 7 }, { x: 12, z: 7, heading: 0, visible: true });
   d.structurePlaced({ x: 6, y: 6, w: 2, h: 2 });
   assert.equal(d.sites.length, 0);
+  assert.equal(d.wrecks.count, 1, 'only the wreck off the new footprint stays');
   const m = new THREE.Matrix4();
   for (let i = 0; i < d.rubble.used; i++) { d.rubble.mesh.getMatrixAt(i, m); assert.equal(scaleY(m), 0); }
 });

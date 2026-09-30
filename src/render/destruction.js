@@ -132,9 +132,10 @@ export class Destruction {
     this.sites.push({ x, y, w, h, cx, cz, points, age: 0, fireFor: 10 + area * 1.5 + rnd(0, 4), smokeFor: 26 + area * 2.5, clock: 0 });
   }
 
-  /** A new building on old ruins: the rubble and its fires go. */
+  /** A new building on old ruins: the rubble, the wrecks and the fires there go. */
   structurePlaced(s) {
     this.rubble.clear(s.x, s.y, s.w, s.h);
+    this.wrecks.clear(s.x, s.y, s.w, s.h);
     this.sites = this.sites.filter((o) => o.x >= s.x + s.w || o.x + o.w <= s.x || o.y >= s.y + s.h || o.y + o.h <= s.y);
   }
 
