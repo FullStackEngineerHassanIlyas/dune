@@ -32,18 +32,18 @@ test('infantry buildings follow the house', () => {
   assert.ok(!buildOptions(withStructures('atreides', types), 'atreides').structure.includes('wor'));
 });
 
-test('factories offer their house roster; plan-2 items stay hidden', () => {
+test('factories offer their house roster, the House of IX specials included', () => {
   const opts = (house) => {
     const world = withStructures(house, ['constructionYard', 'heavyFactory', 'lightFactory', 'barracks', 'wor', 'ix']);
     world.houses.get(house).upgrades = { heavyFactory: 3, lightFactory: 1, barracks: 1, wor: 1 };
     return buildOptions(world, house);
   };
-  assert.deepEqual(opts('atreides').heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv']);
-  assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv']);
+  assert.deepEqual(opts('atreides').heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank']);
+  assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv', 'deviator']);
   assert.deepEqual(opts('harkonnen').light, ['quad']);
   assert.deepEqual(opts('ordos').light, ['raider', 'quad']);
   assert.deepEqual(opts('ordos').infantry, ['soldier', 'infantry', 'trooper', 'troopers']);
-  assert.ok(!opts('atreides').heavy.includes('sonicTank'), 'IX specials are plan 2');
+  assert.ok(!buildOptions(withStructures('atreides', ['constructionYard', 'heavyFactory']), 'atreides').heavy.includes('sonicTank'), 'the Sonic Tank needs a House of IX');
 });
 
 test('tech level gates structures, with the per-house light factory rule', () => {

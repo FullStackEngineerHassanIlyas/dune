@@ -1,18 +1,22 @@
 // Combat (spec §4.6): targets, aiming, firing, projectiles, damage and death. Flat damage, no armour;
 // accurate weapons always hit their target, rockets scatter (1 in 16 wildly); units that fire twice do
-// so only above half health. Turreted units aim independently and fire on the move; the others turn
-// the hull and fire only while standing. Stances: idle units engage what comes into range, guards
-// chase no further than their leash, attack-move engages on the way, an attack order chases its
-// target and gives up when it gets no closer. The player's side engages only what its fog shows; the
-// AI sees everything, as in the original.
+// so only above half health. The Sonic Tank's wave runs its full range and hurts everything on its path
+// once — friend or foe, but never Sonic Tanks or walls. Turreted units aim independently and fire on the
+// move; the others turn the hull and fire only while standing. Stances: idle units engage what comes
+// into range, guards chase no further than their leash, attack-move engages on the way, an attack
+// order chases its target and gives up when it gets no closer. The player's side engages only what its
+// fog shows; the AI sees everything, as in the original.
 import { WEAPONS, shotFor } from '../data/weapons.js';
-import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR } from '../data/tuning.js';
+import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR, SONIC, DEVIATOR } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 
 const SCAN_TICKS = 4;   // targets are looked for five times a second
 
-export const isArmed = (t) => !!(t && t.weapon && WEAPONS[t.weapon] && t.damage > 0);
+export const isArmed = (t) => !!(t && t.weapon && WEAPONS[t.weapon] && (t.damage > 0 || WEAPONS[t.weapon].gas));   // the Deviator's gas does no harm but is its weapon
+const GAS_IMMUNE = new Set(DEVIATOR.immune);
+/** Deviator gas turns ground units that can change sides: not aircraft, Harvesters, MCVs, Deviators or worms, nor anything held inside. */
+export const deviatable = (u) => !!u && u.kind === 'unit' && u.isGround && !u.inside && !GAS_IMMUNE.has(u.typeId);
 export const onTheMove = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
 
 export function targetPoint(world, t) {
@@ -35,10 +39,10 @@ export function distanceTo(x, y, t, p) {
 const seesAll = (world, houseId) => { const h = world.houses.get(houseId); return !h || h.isAI || !world.fogOfWar; };
 export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
 
-export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false } = {}) {
+export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false, only = null } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude) continue;   // aircraft only for anti-air; never the Frigate
+    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -75,6 +79,7 @@ export function stopMoving(u) {
 export function fireAt(world, from, t, p, dist, stats) {
   const shot = shotFor(stats.weapon, dist);
   if (!shot) return;
+  if (shot.wave) { fireWave(world, from, p, stats, shot); return; }
   const air = t.kind === 'unit' && !!p.entity && !p.entity.isGround;
   let ax = p.x, ay = p.y;
   if (!shot.accurate && !air) {
@@ -91,9 +96,42 @@ export function fireAt(world, from, t, p, dist, stats) {
     x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx: ax, ty: ay,
     speed: projectileSpeed(shot.speed), damage: Math.round(stats.damage * shot.damageScale),
     accurate: shot.accurate || air, homing: shot.homing || air, target: (shot.accurate || air) && hits && t.kind !== 'tile' ? { kind: t.kind, id: t.id } : null,
-    airburst: air && !hits, fromAlt: from.alt ?? 0, toAlt: p.entity?.alt ?? 0,
+    airburst: air && !hits, fromAlt: from.alt ?? 0, toAlt: p.entity?.alt ?? 0, gas: !!shot.gas,
   });
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx: ax, ty: ay });
+}
+
+/** The Sonic Tank's wave (spec §4.6): a ripple straight out to the weapon's range from the gun. */
+function fireWave(world, from, p, stats, shot) {
+  const map = world.map, a = Math.atan2(p.y - from.y, p.x - from.x);
+  const tx = Math.max(0, Math.min(map.w - 0.001, from.x + Math.cos(a) * stats.range));
+  const ty = Math.max(0, Math.min(map.h - 0.001, from.y + Math.sin(a) * stats.range));
+  const id = world.nextProjectileId++;
+  world.projectiles.set(id, {
+    id, weapon: stats.weapon, projectile: shot.projectile, house: from.house, sourceId: from.id, sourceKind: from.kind,
+    x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx, ty,
+    speed: projectileSpeed(shot.speed), damage: stats.damage, accurate: true, homing: false, target: null, airburst: false, fromAlt: 0, toAlt: 0,
+    wave: { hit: [] },
+  });
+  world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx, ty });
+}
+
+/** What the wave passed over since the last tick takes its hit, once per wave and weaker the further it has
+ *  run. Units and buildings on those tiles, own ones too; never Sonic Tanks, walls or anything held inside. */
+function sweep(world, p) {
+  const map = world.map, n = Math.max(1, Math.ceil(Math.hypot(p.x - p.px, p.y - p.py) / 0.25));
+  const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1, by = { house: p.house, id: p.sourceId, kind: p.sourceKind };
+  for (let k = 0; k <= n; k++) {
+    const x = p.px + ((p.x - p.px) * k) / n, y = p.py + ((p.y - p.py) * k) / n, tx = Math.floor(x), ty = Math.floor(y);
+    if (!map.inBounds(tx, ty)) continue;
+    const i = map.idx(tx, ty);
+    const amount = Math.round(p.damage * (1 - (SONIC.fade * Math.hypot(x - p.sx, y - p.sy)) / total));
+    for (const v of [world.units.get(map.unit[i]), world.structures.get(map.structure[i])]) {
+      if (!v || v.hp <= 0 || v.inside || v.typeId === 'sonicTank' || v.type.isWall || p.wave.hit.includes(v.id)) continue;
+      p.wave.hit.push(v.id);
+      damage(world, v, amount, by);
+    }
+  }
 }
 
 export function updateProjectiles(world) {
@@ -106,15 +144,22 @@ export function updateProjectiles(world) {
       p.x = p.tx;
       p.y = p.ty;
       world.projectiles.delete(p.id);
-      impact(world, p);
+      if (p.wave) sweep(world, p); else impact(world, p);
       continue;
     }
     p.x += (dx / d) * step;
     p.y += (dy / d) * step;
+    if (p.wave) sweep(world, p);
   }
 }
 
 function impact(world, p) {
+  if (p.deathHand) { world.onDeathHand?.(p); return; }   // palace.js: the cluster blast
+  if (p.gas) {   // Deviator gas: a cloud that turns units instead of hurting them
+    world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: false, alt: 0 });
+    world.onGas?.(p);
+    return;
+  }
   const map = world.map;
   let victim = p.target ? targetPoint(world, p.target)?.entity ?? null : null;   // an accurate shot hits its target if it still exists
   if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
@@ -165,7 +210,7 @@ export function destroyStructure(world, s, attacker = null) {
 }
 
 export function updateCombat(world) {
-  for (const u of world.units.values()) if (u.isGround && !u.inside && isArmed(u.type)) unitCombat(world, u);
+  for (const u of world.units.values()) if (u.isGround && !u.inside && u.destructAt === undefined && isArmed(u.type)) unitCombat(world, u);   // a Devastator counting down holds its fire
   for (const s of world.structures.values()) if (s.type.weapon) structureCombat(world, s);
 }
 
@@ -235,7 +280,8 @@ function unitCombat(world, u) {
       const r = scanRadius(u);
       const from = o.type === 'guard' ? { x: o.x + 0.5, y: o.y + 0.5 } : u;   // a guard watches the area around its post
       const exclude = u.abandoned && world.time < u.abandoned.until ? u.abandoned.id : 0;   // no second go at what it gave up on
-      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude, air: !!u.type.targetAir }) : null;
+      const gas = !!WEAPONS[u.type.weapon]?.gas;   // a Deviator looks only for units it can turn
+      t = u.target = r ? findTarget(world, u.house, from.x, from.y, r + 0.25, { exclude, air: !!u.type.targetAir, structures: !gas, only: gas ? deviatable : null }) : null;
     }
   }
   if (!t) { u.aiming = false; u.secondShot = 0; resume(world, u); return; }
@@ -310,7 +356,7 @@ function aimAndFire(world, u, t, p, dist) {
 
 /** An idle armed unit that is shot at from close by answers fire (busy units keep their orders). */
 export function retaliate(world, victim, attacker) {
-  if (victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
+  if (victim.destructAt !== undefined || victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
   if (victim.order.type !== 'idle' || victim.target) return;
   const t = { kind: attacker.kind, id: attacker.id };
   const p = targetPoint(world, t);

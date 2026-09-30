@@ -13,6 +13,7 @@ export class GameMap {
     this.bloom = new Uint8Array(n);       // 1 = spice bloom mound
     this.rubble = new Uint8Array(n);      // 1 = rubble of a destroyed wall/structure
     this.structure = new Int32Array(n);   // structure id or 0
+    this.wall = new Uint8Array(n);        // 1 = the structure here is a wall (a Saboteur walks over it)
     this.unit = new Int32Array(n);        // ground unit id holding or reserving the tile, or 0
     this.revision = 0;                    // bumps whenever passability changes
     this.spiceRevision = 0;
@@ -26,7 +27,7 @@ export class GameMap {
   inBounds(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
 
   surface(i) {
-    if (this.structure[i]) return SURFACE.BLOCKED;
+    if (this.structure[i]) return this.wall[i] ? SURFACE.WALL : SURFACE.BLOCKED;
     if (this.concrete[i]) return SURFACE.CONCRETE;
     const g = this.ground[i];
     if (g === G.MOUNTAIN) return SURFACE.MOUNTAIN;

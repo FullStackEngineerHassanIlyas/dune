@@ -10,6 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.E2E_PORT || 8472);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
+const calm = (p) => p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });   // no sliding strips: clicks land where the page says a button is
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`); };
 
 const server = await startServer(PORT);
@@ -18,6 +19,7 @@ let page;
 try {
   page = await openPage(chrome, `http://localhost:${PORT}/?scene=skirmish&seed=11&house=atreides&quality=low&gameSpeed=fastest`);
   await page.waitFor('window.__dune && window.__dune.ready === true', 120000);
+  await calm(page);
   await sleep(600);
   const ev = (expr) => page.eval(expr);
   const deselect = async () => { await page.click(8, 400, { button: 'right' }); await sleep(120); };
@@ -167,10 +169,16 @@ try {
   check('no console errors in the air battle', airErrors.length === 0, airErrors.join(' | '));
   air.close();
   battle.close();
-  const base = await openPage(chrome, `http://localhost:${PORT}/?scene=base&house=atreides&fog=0&damaged=1&capture=1&quality=low&gameSpeed=fastest`);
+  const base = await openPage(chrome, `http://localhost:${PORT}/?scene=base&house=atreides&fog=0&damaged=1&capture=1&palace=1&quality=low&gameSpeed=fastest`);
   await base.waitFor('window.__dune && window.__dune.ready === true', 120000);
+  await calm(base);
   await sleep(600);
   const bv = (expr) => base.eval(expr);
+  const settled = async (expr) => {   // a heavy page draws slowly: wait for camera moves and strip scrolling to finish before aiming
+    let a = await bv(expr);
+    for (let i = 0; i < 30; i++) { await sleep(300); const b = await bv(expr); if (JSON.stringify(a) === JSON.stringify(b)) return b; a = b; }
+    return a;
+  };
   let up = await bv(`__dune.buttonRect('upgrade:heavyFactory')`);
   for (let i = 0; i < 24 && up && !up.visible; i++) {   // scroll the structure strip down to the upgrades
     const down = await bv(`__dune.arrowRect('structures', 1)`);
@@ -187,10 +195,10 @@ try {
   const worn = (await bv(`__dune.units('combatTank')`)).find((u) => u.hp < 200);
   await bv(`__dune.lookAt(${bayS.x + 1.5}, ${bayS.y + 2.5})`);
   await sleep(500);
-  const ws = await bv(`__dune.screenOfUnit(${worn.id})`);
+  const ws = await settled(`__dune.screenOfUnit(${worn.id})`);
   await base.click(ws.x, ws.y);
   await sleep(300);
-  const bs = await bv(`__dune.screenOfFootprint('repair', ${bayS.x}, ${bayS.y})`);
+  const bs = await settled(`__dune.screenOfFootprint('repair', ${bayS.x}, ${bayS.y})`);
   await base.click(bs.x, bs.y);
   let wentIn = false, fixed = false;
   for (let i = 0; i < 600 && !fixed; i++) {
@@ -205,10 +213,10 @@ try {
   const squad = (await bv(`__dune.units('infantry')`)).sort((a, b) => b.id - a.id)[0];
   await bv(`__dune.lookAt(${silo.x + 1}, ${silo.y + 3})`);
   await sleep(500);
-  const qs = await bv(`__dune.screenOfUnit(${squad.id})`);
+  const qs = await settled(`__dune.screenOfUnit(${squad.id})`);
   await base.click(qs.x, qs.y);
   await sleep(300);
-  const ss = await bv(`__dune.screenOfFootprint('silo', ${silo.x}, ${silo.y})`);
+  const ss = await settled(`__dune.screenOfFootprint('silo', ${silo.x}, ${silo.y})`);
   await base.click(ss.x, ss.y);
   let taken = false;
   for (let i = 0; i < 600 && !taken; i++) { await sleep(200); taken = (await bv(`__dune.structures('silo')`)).some((s) => s.id === silo.id && s.house === 'atreides'); }
@@ -220,11 +228,34 @@ try {
     await sleep(150);
     ware = await bv(`__dune.buttonRect('starport:quad')`);
   }
+  ware = await settled(`__dune.buttonRect('starport:quad')`);
   const quads = (await bv(`__dune.units('quad')`)).length;
   if (ware?.visible) await base.click(ware.x, ware.y);
+  if (ware?.visible) {   // the pointer rests on the ware: a right click cancels the order and the tooltip follows at once
+    const tip = () => bv(`document.querySelector('.sb-tip span').textContent`);
+    let before = await tip();
+    for (let i = 0; i < 80 && !/Frigate in/.test(before); i++) { await sleep(250); before = await tip(); }   // the order shows up under the pointer …
+    await base.click(ware.x, ware.y, { button: 'right' });
+    let after = before;
+    for (let i = 0; i < 80 && /Frigate in/.test(after); i++) { await sleep(250); after = await tip(); }   // … and goes again when a right click cancels it
+    check('a tooltip keeps up while the pointer rests on it', /Frigate in/.test(before) && !/Frigate in/.test(after), `${before} → ${after}`);
+    await base.click(ware.x, ware.y);   // and buy the Quad again
+  }
   let landed = false;
   for (let i = 0; i < 600 && !landed; i++) { await sleep(200); landed = (await bv(`__dune.units('quad')`)).length > quads; }
   check('buying a Quad at the Starport brings it by Frigate', landed);
+  const pal = (await bv(`__dune.structures('palace')`)).find((s) => s.house === 'atreides');
+  await bv(`__dune.lookAt(${pal.x + 1.5}, ${pal.y + 6})`);
+  await sleep(500);
+  const weapon = await settled('__dune.weaponRect()');
+  if (weapon?.visible) await base.click(weapon.x, weapon.y);
+  await sleep(250);
+  const aiming = (await bv('__dune.mode()')) === 'palace';
+  const call = await settled(`__dune.screenOfTile(${pal.x + 1}, ${pal.y + 6})`);
+  await base.click(call.x, call.y);
+  let fremen = 0;
+  for (let i = 0; i < 50 && fremen < 5; i++) { await sleep(200); fremen = (await bv(`__dune.units('fremen')`)).length; }
+  check('the Palace button and a click call the Fremen', aiming && fremen === 5, `aiming ${aiming}, ${fremen} Fremen`);
   const baseErrors = base.logs.filter((l) => l.startsWith('[error]') || l.startsWith('[exception]'));
   check('no console errors in the base', baseErrors.length === 0, baseErrors.join(' | '));
   base.close();

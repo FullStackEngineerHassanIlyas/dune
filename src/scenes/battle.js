@@ -2,7 +2,8 @@
 // screenshots of combat effects and for the end-to-end attack check (?scene=battle&idle=1 keeps
 // both sides waiting for orders). air=1 adds three Atreides Ornithopters (guarding their corner with
 // idle=1, hunting otherwise); aa=0 leaves the Harkonnen without anti-air (no Troopers, Missile Tank
-// or turret) so the end-to-end check can watch the Ornithopters strafe.
+// or turret) so the end-to-end check can watch the Ornithopters strafe. specials=1 adds two Atreides Sonic
+// Tanks, a Harkonnen Devastator and an Ordos Deviator gassing from the north.
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { GameMap } from '../sim/map.js';
@@ -40,6 +41,12 @@ export async function start({ search }) {
       const o = world.spawnUnit('ornithopter', 'atreides', x, y, { heading: 0 });
       if (params.bool('idle')) o.order = { type: 'guard', x: 4, y: 3 };
     }
+  }
+  if (params.bool('specials')) {
+    for (const [x, y] of [[4, 9], [4, 15]]) world.spawnUnit('sonicTank', 'atreides', x, y, { heading: 0 });
+    world.spawnUnit('devastator', 'harkonnen', 34, 9, { heading: Math.PI });
+    world.addHouse('ordos', { credits: 0 });
+    world.spawnUnit('deviator', 'ordos', 20, 3, { heading: Math.PI / 2 });
   }
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   const view = new GameView({ world, house: 'atreides', settings, params, focus: { x: 19, z: 13 } });

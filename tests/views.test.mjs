@@ -220,3 +220,48 @@ test('the Starport\'s pad lights pulse while its Frigate is due', () => {
   views.sync(world, 1100);
   assert.notEqual(views.views.get(s.id).handles[0].params.padLights, 1);
 });
+
+import { HOUSES } from '../src/data/houses.js';
+
+test('Fremen wear their sand colour whoever calls them; a Devastator counting down glows', () => {
+  const world = flatWorld(16, 16, G.ROCK);
+  const views = new UnitViews(new THREE.Scene(), new Heightfield(world.map, { sub: 2, seed: 1 }));
+  const f = world.spawnUnit('fremen', 'atreides', 3, 3);
+  const d = world.spawnUnit('devastator', 'harkonnen', 8, 8);
+  views.sync(world, 1, 0.016);
+  assert.equal(views.views.get(f.id).handles[0].color.getHex(), new THREE.Color(HOUSES.fremen.color).getHex());
+  assert.equal(views.views.get(d.id).handles[0].params.warn, 0);
+  world.issue('harkonnen', { type: 'destruct', ids: [d.id] });
+  world.step();
+  views.sync(world, 1, 0.016);
+  assert.ok(views.views.get(d.id).handles[0].params.warn > 0);
+});
+
+test('a Saboteur crossing a wall walks on top of it', () => {
+  const world = flatWorld(12, 6, G.ROCK);
+  world.spawnStructure('wall', 'harkonnen', 5, 2);
+  const sab = world.spawnUnit('saboteur', 'ordos', 3, 2);
+  world.issue('ordos', { type: 'move', ids: [sab.id], x: 5, y: 2 });
+  assert.ok(runUntil(world, () => sab.tx === 5 && !sab.step, 15) > 0);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new UnitViews(new THREE.Scene(), hf);
+  views.sync(world, 1, 0.016);
+  const y = pos(views.views.get(sab.id).handles[0].matrix).y;
+  assert.ok(Math.abs(y - (hf.heightAt(5.5, 2.5) + 0.364)) < 0.01, `y ${y}`);
+});
+
+import { MissileViews, arcHeight } from '../src/render/views/missile-views.js';
+
+test('the Death Hand flies as a missile high over its path and is gone when it lands', () => {
+  assert.equal(arcHeight('bullet', 0.5, 10), 0);
+  assert.ok(arcHeight('rocket', 0.5, 10) > 0 && arcHeight('rocket', 0.5, 10) <= 1.2);
+  assert.ok(arcHeight('deathHand', 0.5, 30) >= 10 && arcHeight('deathHand', 0, 30) === 0);
+  const views = new MissileViews(new THREE.Scene());
+  const world = { projectiles: new Map([[1, { id: 1, projectile: 'deathHand', house: 'harkonnen', x: 10, y: 5, px: 10, py: 5, sx: 5, sy: 5, tx: 15, ty: 5 }]]) };
+  views.sync(world, 1, () => 0);
+  assert.ok(pos(views.handles.get(1).matrix).y > 3, 'high over the midpoint');
+  world.projectiles.delete(1);
+  views.sync(world, 1, () => 0);
+  assert.equal(views.handles.size, 0);
+  assert.equal(views.model.count, 0);
+});

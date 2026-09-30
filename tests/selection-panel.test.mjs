@@ -142,3 +142,36 @@ test('a Starport tells when its Frigate is due', () => {
   world.step();
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Frigate due in 30 s · 1 ordered'));
 });
+
+import { deviate } from '../src/sim/specials.js';
+
+test('a Devastator offers Destruct on D and says when it is counting down', () => {
+  const world = flatWorld(12, 12, G.ROCK);
+  const dev = world.spawnUnit('devastator', 'harkonnen', 3, 3);
+  const sel = new Selection();
+  sel.set([dev.id]);
+  assert.deepEqual(selectionPanelModel(world, sel, 'harkonnen').buttons.map((b) => [b.id, b.key]), [['stop', 'S'], ['guard', 'G'], ['scatter', 'X'], ['destruct', 'D']]);
+  world.issue('harkonnen', { type: 'destruct', ids: [dev.id] });
+  world.step();
+  const m = selectionPanelModel(world, sel, 'harkonnen');
+  assert.deepEqual([m.buttons, m.details], [[], ['Self-destructing']]);
+});
+
+test('a deviated unit says whose it was and when it goes back; Fremen hunt; a Saboteur on its way says so', () => {
+  const world = flatWorld(24, 12, G.ROCK);
+  const tank = world.spawnUnit('combatTank', 'atreides', 3, 3);
+  deviate(world, { house: 'ordos', x: 3.5, y: 3.5 });
+  const sel = new Selection();
+  sel.set([tank.id]);
+  assert.deepEqual(selectionPanelModel(world, sel, 'ordos').details, ['Deviated · back to Atreides in 40 s', 'Idle']);
+  const f = world.spawnUnit('fremen', 'atreides', 8, 3);
+  sel.set([f.id]);
+  const fm = selectionPanelModel(world, sel, 'atreides');
+  assert.deepEqual([fm.details, fm.buttons], [['Hunting'], []]);
+  const sab = world.spawnUnit('saboteur', 'ordos', 12, 3);
+  const trap = world.spawnStructure('windtrap', 'harkonnen', 18, 3);
+  world.issue('ordos', { type: 'sabotage', ids: [sab.id], structureId: trap.id });
+  world.step();
+  sel.set([sab.id]);
+  assert.deepEqual(selectionPanelModel(world, sel, 'ordos').details, ['Moving in to sabotage']);
+});

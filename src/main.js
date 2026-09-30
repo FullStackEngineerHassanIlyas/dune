@@ -1,6 +1,10 @@
-// Entry point: checks WebGL2, then loads the scene named by ?scene= (default: skirmish).
+// Entry point: checks WebGL2, then loads the scene named by ?scene= — the main menu when the address
+// has no query at all, a skirmish when it has one without a scene (older links and flags).
+import { installCursors } from './ui/cursors.js';
+
 const SCENES = {
   boot: () => import('./scenes/boot.js'),
+  menu: () => import('./scenes/menu.js'),
   'render-test': () => import('./scenes/render-test.js'),
   terrain: () => import('./scenes/terrain.js'),
   gallery: () => import('./scenes/gallery.js'),
@@ -20,7 +24,8 @@ function fatal(message) {
 }
 
 const params = new URLSearchParams(location.search);
-const name = params.get('scene') || 'skirmish';
+const name = params.get('scene') || (location.search.length > 1 ? 'skirmish' : 'menu');
+installCursors();
 if (!document.createElement('canvas').getContext('webgl2')) {
   fatal('Dune II 3D needs WebGL 2. Please use a current Chrome, Edge or Firefox with hardware acceleration enabled.');
 } else if (!SCENES[name]) {

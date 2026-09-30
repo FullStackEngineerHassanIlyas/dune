@@ -25,6 +25,8 @@ import { updateRepairOrder, updateRepairBays, emptyBay } from './repair-bay.js';
 import { updateCapture } from './capture.js';
 import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
+import { deviate, updateDeviations, destruct, updateSabotage } from './specials.js';
+import { armPalace, updatePalaces, deathHandBlast, updateHunters } from './palace.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
@@ -53,10 +55,13 @@ export class World {
     this.onStructurePlaced = (s) => {
       if (s.type.storage) revokeStartBuffer(this, this.houses.get(s.house));
       if (s.typeId === 'refinery') spawnFreeHarvester(this, s);
+      if (s.typeId === 'palace') armPalace(this, s);
     };
     this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
     this.onStructureKilled = (s, attacker) => { emptyBay(this, s, 'destroyed', attacker); aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
+    this.onGas = (p) => deviate(this, p);
+    this.onDeathHand = (p) => deathHandBlast(this, p);
     this.onDamaged = (victim, attacker) => { retaliate(this, victim, attacker); alertDamage(this, victim, attacker); };
   }
 
@@ -90,7 +95,11 @@ export class World {
     }
     const s = createStructure(this.nextId++, typeId, houseId, x, y, opts);
     s.placedAt = this.tick;
-    for (const [fx, fy] of footprint(x, y, t.w, t.h)) this.map.structure[this.map.idx(fx, fy)] = s.id;
+    for (const [fx, fy] of footprint(x, y, t.w, t.h)) {
+      const i = this.map.idx(fx, fy);
+      this.map.structure[i] = s.id;
+      if (t.isWall) this.map.wall[i] = 1;
+    }
     this.map.revision++;
     this.structures.set(s.id, s);
     this.events.push('structurePlaced', { id: s.id, house: houseId, structureType: typeId, x, y });
@@ -110,7 +119,7 @@ export class World {
     if (!this.structures.has(s.id)) return;
     for (const [fx, fy] of footprint(s.x, s.y, s.w, s.h)) {
       const i = this.map.idx(fx, fy);
-      if (this.map.structure[i] === s.id) this.map.structure[i] = 0;
+      if (this.map.structure[i] === s.id) { this.map.structure[i] = 0; this.map.wall[i] = 0; }
     }
     this.map.revision++;
     this.structures.delete(s.id);
@@ -128,9 +137,11 @@ export class World {
     for (const u of [...this.units.values()]) {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
       if (!u.isGround) { updateAircraft(this, u); continue; }
+      if (u.destructAt !== undefined && this.time >= u.destructAt) { destruct(this, u); continue; }
       if (u.harvest) updateHarvester(this, u);
       if (u.order.type === 'repairAt') updateRepairOrder(this, u);
       if (u.order.type === 'capture') { updateCapture(this, u); if (!this.units.has(u.id)) continue; }   // a squad that walked in is gone
+      if (u.order.type === 'sabotage') { updateSabotage(this, u); if (!this.units.has(u.id)) continue; }   // a Saboteur that went off is gone
       updateMovement(this, u);
     }
     updateCombat(this);
@@ -140,6 +151,9 @@ export class World {
     updateRepairBays(this);
     updateStarports(this);
     if (this.tick % 10 === 0) updatePower(this);
+    if (this.tick % 10 === 5) updateDeviations(this);
+    if (this.tick % 20 === 5) updatePalaces(this);
+    if (this.tick % 20 === 15) updateHunters(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);

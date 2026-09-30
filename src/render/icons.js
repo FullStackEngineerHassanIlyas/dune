@@ -110,6 +110,14 @@ function drawUpgradeBadge(ctx, level) {
   ctx.restore();
 }
 
+const PALACE_ICON = { deathHand: 'deathHandMissile', fremen: 'fremen', saboteur: 'saboteur' };
+
+/** 'palace:<weapon>' → the Palace weapon it names, or null. */
+export function palaceIconKey(key) {
+  const m = /^palace:(\w+)$/.exec(key);
+  return m && PALACE_ICON[m[1]] ? { weapon: m[1] } : null;
+}
+
 export class IconFactory {
   constructor(renderer, { environment = null } = {}) {
     this.renderer = renderer;
@@ -134,7 +142,9 @@ export class IconFactory {
   }
 
   forItem(typeId, houseId) {
-    const color = HOUSES[houseId]?.color ?? 0xffffff;
+    const color = HOUSES[UNITS[typeId]?.colour ?? houseId]?.color ?? 0xffffff;   // Fremen keep their sand colour
+    const pw = palaceIconKey(typeId);
+    if (pw) return this.get(PALACE_ICON[pw.weapon], pw.weapon === 'fremen' ? HOUSES.fremen.color : color, UNIT_ICON_YAW);
     const up = upgradeIconKey(typeId);
     if (up) { const t = STRUCTURES[up.structureType]; return this.get(structureModelId(up.structureType, t.w, t.h), color, 0, up.level); }
     const ware = starportIconKey(typeId);

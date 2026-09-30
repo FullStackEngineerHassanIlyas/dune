@@ -9,6 +9,8 @@ import { LINE_FACTORIES } from '../sim/tech.js';
 import { isArmed } from '../sim/combat.js';
 import { needsRepair } from '../sim/repair-bay.js';
 import { canCapture, capturable } from '../sim/capture.js';
+import { onFoot } from '../data/units.js';
+import { palaceOf, palaceReady } from '../sim/palace.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
@@ -33,7 +35,7 @@ export class Controller {
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;
-      out.push({ id: u.id, unit: u, sx: s.x, sy: s.y, own: u.house === this.house, r: Math.max(10, s.pxPerUnit * (u.move === 'foot' ? 0.3 : 0.42)) });
+      out.push({ id: u.id, unit: u, sx: s.x, sy: s.y, own: u.house === this.house, r: Math.max(10, s.pxPerUnit * (onFoot(u.move) ? 0.3 : 0.42)) });
     }
     return out;
   }
@@ -74,6 +76,15 @@ export class Controller {
 
   modeClick(x, y, button) {
     if (button === 2) { this.setMode(null); return; }
+    if (this.mode.kind === 'palace') {   // the Palace weapon goes where the player clicks (spec §4.7)
+      const hit = this.hitTest(x, y);
+      this.setMode(null);
+      if (!hit) return;
+      const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
+      this.issue({ type: 'palace', x: tx, y: ty });
+      this.onMarker(tx + 0.5, ty + 0.5);
+      return;
+    }
     if (this.mode.kind === 'attackMove') {
       const hit = this.hitTest(x, y);
       this.setMode(null);
@@ -168,15 +179,20 @@ export class Controller {
 
 
   order(hit, mods = {}) {
-    const units = this.ownSelected();
+    let units = this.ownSelected();
     if (!units.length || !hit) return;
     if (hit.kind === 'unit' && units.length === 1 && units[0].id === hit.unit.id && units[0].type.deploysTo) {
       this.issue({ type: 'deploy', ids: [units[0].id] });
       return;
     }
-    const armed = units.filter((u) => isArmed(u.type));
     const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
     const enemy = !!entity && entity.house !== this.house;
+    if (hit.kind === 'structure' && enemy && !mods.ctrl && !entity.type.isWall && units.some((u) => u.type.sabotage)) {   // Saboteurs go in; the rest carry on
+      this.issue({ type: 'sabotage', ids: units.filter((u) => u.type.sabotage).map((u) => u.id), structureId: entity.id });
+      units = units.filter((u) => !u.type.sabotage);
+      if (!units.length) return;
+    }
+    const armed = units.filter((u) => isArmed(u.type));
     if (hit.kind === 'structure' && !mods.ctrl && capturable(entity, this.house)) {   // infantry walk in, the rest open fire
       const takers = units.filter(canCapture);
       if (takers.length) {
@@ -271,6 +287,7 @@ export class Controller {
       const item = this.world.houses.get(this.house)?.lines?.structure.current;
       if (item?.typeId !== this.mode.typeId || item.state !== 'ready') this.setMode(null);
     }
+    if (this.mode?.kind === 'palace' && !palaceReady(this.world, palaceOf(this.world, this.house))) this.setMode(null);   // it fired, or the Palace fell
     const hit = inside ? this.hitTest(x, y) : null;
     this.hoverId = hit?.kind === 'unit' ? hit.unit.id : null;
     this.hoverStructureId = hit?.kind === 'structure' ? hit.structure?.id ?? null : null;
@@ -280,6 +297,7 @@ export class Controller {
 
   cursorFor(hit) {
     if (this.mode) {
+      if (this.mode.kind === 'palace') return 'target';
       if (this.mode.kind === 'attackMove') return 'attack';
       if (this.mode.kind === 'place') return 'default';
       const s = hit?.kind === 'structure' && hit.structure?.house === this.house ? hit.structure : null;
@@ -297,6 +315,7 @@ export class Controller {
       const s = hit.structure;
       if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
       if (own.length && s?.house === this.house && s.typeId === 'repair' && own.some(needsRepair)) return 'enter';
+      if (own.length && s?.house !== this.house && !s.type.isWall && own.some((u) => u.type.sabotage)) return 'sabotage';
       if (own.length && s?.house !== this.house) return capturable(s, this.house) && own.some(canCapture) ? 'capture' : own.some((u) => isArmed(u.type)) ? 'attack' : 'noMove';
       return 'select';
     }

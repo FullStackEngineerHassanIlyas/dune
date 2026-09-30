@@ -118,3 +118,22 @@ test('the Starport\'s wares close the unit strip with their price, stock and wha
   h.starport.stock.mcv = 0;
   assert.equal(sidebarModel(world, 'atreides').units.find((i) => i.typeId === 'starport:mcv').state, 'locked');
 });
+
+import { tipText } from '../src/ui/sidebar-model.js';
+
+test('a Palace puts its weapon at the top of the sidebar with a charging clock', () => {
+  const world = flatWorld(40, 30, G.ROCK);
+  assert.equal(sidebarModel(world, 'harkonnen').special, null);
+  const s = world.spawnStructure('palace', 'harkonnen', 10, 10);
+  run(world, 210);
+  const m = sidebarModel(world, 'harkonnen').special;
+  assert.deepEqual([m.weapon, m.name, m.icon, m.ready, m.aim], ['deathHand', 'Death Hand', 'palace:deathHand', false, true]);
+  assert.ok(Math.abs(m.progress - 0.5) < 0.01 && Math.abs(m.seconds - 210) <= 1);
+  assert.equal(tipText(m), `Charging — ready in ${Math.floor(m.seconds / 60)}:${String(m.seconds % 60).padStart(2, '0')}`);
+  s.readyAt = world.time;
+  const r = sidebarModel(world, 'harkonnen').special;
+  assert.ok(r.ready && r.progress === 1);
+  assert.equal(tipText(r), 'Ready — click, then pick a target');
+  world.spawnStructure('palace', 'ordos', 20, 20);
+  assert.equal(sidebarModel(world, 'ordos').special.aim, false, 'the Saboteur needs no target');
+});

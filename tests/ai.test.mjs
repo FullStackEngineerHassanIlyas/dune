@@ -259,7 +259,7 @@ test('aircraft of a wave that end up guarding are sent on to the next target', (
   assert.ok(runUntil(world, () => o.order.type === 'attackMove', 3) > 0);
 });
 
-test('the AI puts its turrets up before a Starport, and builds none where a House of IX would open nothing', () => {
+test('the AI puts its turrets up before a Starport; the Harkonnen go for a House of IX too, for the Devastator', () => {
   const base = (house, infantry) => {
     const world = flatWorld(56, 44, G.ROCK);
     for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], [infantry, 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, house, x, y);
@@ -276,5 +276,5 @@ test('the AI puts its turrets up before a Starport, and builds none where a Hous
   assert.ok(order.indexOf('turret') >= 0 && order.indexOf('turret') < order.indexOf('starport'), `turrets first: ${order.join(', ')}`);
   const hk = base('harkonnen', 'wor');
   run(hk, 300);
-  assert.ok(![...hk.structures.values()].some((s) => s.typeId === 'starport' || s.typeId === 'ix'), 'nothing for the Harkonnen to open yet');
+  assert.ok([...hk.structures.values()].some((s) => s.typeId === 'starport'), 'a Starport on the way to the Devastator');
 });

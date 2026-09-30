@@ -52,3 +52,12 @@ test('a sold-out ware or a full Frigate sounds like an error', () => {
   assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'frigateFull' }, 'atreides', all).id, 'error');
   assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'frigateArrived' }, 'atreides', all).id, 'beep');
 });
+
+test('specials have their own sounds: sonic hum, gas hiss, the Destruct alarm; a weapon not ready buzzes', () => {
+  assert.equal(cueFor({ type: 'fired', weapon: 'sonic', projectile: 'sonic', x: 0, y: 0 }, 'atreides', all).id, 'sonic');
+  assert.equal(cueFor({ type: 'fired', weapon: 'gasRocket', projectile: 'gas', x: 0, y: 0 }, 'atreides', all).id, 'rocket');
+  assert.equal(cueFor({ type: 'fired', weapon: 'deathHand', projectile: 'deathHand', x: 0, y: 0 }, 'atreides', all).id, 'rocket');
+  assert.equal(cueFor({ type: 'impact', projectile: 'gas', x: 0, y: 0 }, 'atreides', all).id, 'gas');
+  assert.equal(cueFor({ type: 'destructArmed', house: 'harkonnen', x: 0, y: 0 }, 'atreides', all).id, 'alarm');
+  assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'notReady' }, 'atreides', all).id, 'error');
+});

@@ -11,11 +11,12 @@ import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
+import { MissileViews, arcHeight } from '../render/views/missile-views.js';
 import { SoundEngine } from '../audio/engine.js';
 import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
-import { UNITS } from '../data/units.js';
+import { UNITS, onFoot } from '../data/units.js';
 import { G } from '../data/terrain.js';
 import { nearCamera } from '../render/near-camera.js';
 import { Overlay } from '../render/overlay.js';
@@ -25,7 +26,10 @@ import { Keyboard } from '../input/keyboard.js';
 import { Selection } from '../input/selection.js';
 import { Groups } from '../input/groups.js';
 import { Controller } from '../input/controller.js';
-import { makeCursorSetter } from '../ui/cursors.js';
+import { makeCursorSetter, makeScrollCursor } from '../ui/cursors.js';
+import { GameMenu } from '../ui/game-menu.js';
+import { toggleFullscreen, isFullscreen } from '../ui/fullscreen.js';
+import { quitToMenu } from '../core/shell.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
@@ -62,6 +66,7 @@ export class GameView {
     this.shroud = new ShroudSync(world.map.w * world.map.h);
     this.ghost = new PlacementGhost(r3d.scene, hf);
     this.effects = new Effects(r3d.scene, r3d.quality);
+    this.missiles = new MissileViews(r3d.scene);
     this.smokeClock = 0;
     this.dustClock = 0;
     this.weldClock = 0;
@@ -71,7 +76,10 @@ export class GameView {
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
     this.rig.lookAt(focus.x, focus.z, true);
-    this.cameraControl = new CameraControl(this.rig, canvas, settings);
+    const anchor = document.createElement('div');
+    anchor.className = 'pull-anchor';
+    document.getElementById('ui').appendChild(anchor);
+    this.cameraControl = new CameraControl(this.rig, canvas, settings, { onScroll: makeScrollCursor(document.getElementById('app'), anchor) });
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
     this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
@@ -82,6 +90,9 @@ export class GameView {
       onCommand: click((cmd) => world.issue(house, cmd)),
       onPlace: click((typeId) => this.controller.startPlacement(typeId)),
       onTool: click((tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool })),
+      onSpecial: click((special) => (special.aim ? this.controller.setMode({ kind: 'palace' }) : world.issue(house, { type: 'palace' }))),
+      onMenu: click(() => this.openMenu()),
+      onFullscreen: click(() => toggleFullscreen()),
     });
     this.sidebar.el.style.setProperty('--house', `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`);
     this.radar = new Radar(this.sidebar.radarEl, {
@@ -101,9 +112,19 @@ export class GameView {
         q.set('seed', String((Number(q.get('seed')) || 1) + 1));
         location.search = q.toString();
       },
+      onMenu: () => quitToMenu(),
     });
     this.endAt = 0;
     this.userPaused = false;
+    this.menu = new GameMenu(document.getElementById('ui'), {
+      settings,
+      onClose: () => this.setMenuOpen(false),
+      onRestart: () => location.reload(),
+      onQuit: () => quitToMenu(),
+      onFullscreen: () => toggleFullscreen(),
+      isFullscreen: () => isFullscreen(),
+      onSettings: (key, value) => this.applySetting(key, value),
+    });
 
 
     this.fps = params.bool('fps') ? new FpsMeter(document.getElementById('ui'), r3d.renderer) : null;
@@ -131,14 +152,14 @@ export class GameView {
       canSee: (u) => unitVisibleTo(world, house, u),
       canSeeStructure: (s) => structureVisibleTo(world, house, s),
     });
-    new Pointer(canvas, this.controller);
+    new Pointer(canvas, this.controller, { rightDrag: () => settings.rightDragScroll });
     new Keyboard((key, code, mods) => this.onKey(key, code, mods));
     this.loop = new FixedLoop(DT);
     this.speed = GAME_SPEED[settings.gameSpeed] ?? 1;
     this.paused = document.hidden;
     this.lost = false;
     this.last = performance.now();
-    document.addEventListener('visibilitychange', () => { this.paused = document.hidden || this.lost || this.userPaused; this.last = performance.now(); });
+    document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); });
     r3d.onContextLost = () => {
       this.lost = true;
       this.paused = true;
@@ -178,8 +199,14 @@ export class GameView {
         if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size);
         if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
         break;
+      case 'deathHandBlast':
+        if (!this.catchingUp && this.seen(e.x, e.y)) { this.effects.shockwave(e.x, this.heightAt(e.x, e.y) + 0.2, e.y); this.rig.shake = Math.max(this.rig.shake, 1.2); }
+        break;
+      case 'fremenRose': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.rise(e.x, this.heightAt(e.x, e.y) + 0.05, e.y); break;
+      case 'unitReverted': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.gasCloud(e.x, this.heightAt(e.x, e.y) + 0.3, e.y); break;
       case 'unitDestroyed':
-        if (!this.catchingUp && UNITS[e.typeId]?.move === 'foot' && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
+        if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.rig.shake = Math.max(this.rig.shake, 0.6);
+        if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
         break;
     }
   }
@@ -199,13 +226,14 @@ export class GameView {
     let x = e.x, z = e.y, lift = 0.45;
     if (e.kind === 'unit') {
       const u = this.world.units.get(e.id);
-      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (u.move === 'foot' ? 0.2 : 0.34); }
+      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (onFoot(u.move) ? 0.2 : 0.34); }
       this.unitViews.recoil(e.id);
     }
     const reach = e.kind === 'unit' ? 0.38 : 0.45;
     x += Math.cos(dir) * reach;
     z += Math.sin(dir) * reach;
-    this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
+    if (e.projectile === 'sonic') this.effects.sonic(x, this.heightAt(x, z) + lift, z, dir);
+    else this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
   }
 
   /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
@@ -216,15 +244,16 @@ export class GameView {
       if (!this.seen(x, z)) continue;
       const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
       const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
-      const arc = p.projectile === 'rocket' ? 4 * t * (1 - t) * Math.min(1.2, 0.15 + total * 0.06) : 0;
       const from = 0.35 + (p.fromAlt ?? 0), to = 0.2 + (p.toAlt ?? 0);   // from a flying gun, up to an aircraft
-      this.effects.trail(p.projectile, x, this.heightAt(x, z) + from + (to - from) * t + arc, z);
+      const y = this.heightAt(x, z) + from + (to - from) * t + arcHeight(p.projectile, t, total);
+      if (p.projectile === 'sonic') this.effects.sonic(x, y, z, Math.atan2(p.ty - p.sy, p.tx - p.sx));
+      else this.effects.trail(p.projectile, x, y, z);
     }
     this.smokeClock += dt;
     if (this.smokeClock < 0.12) return;
     this.smokeClock = 0;
     for (const u of w.units.values()) {
-      if (u.move === 'foot' || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
+      if (onFoot(u.move) || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
       const p = this.unitViews.renderPos(u);
       this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35 + (u.alt ?? 0), p.z);
     }
@@ -244,7 +273,7 @@ export class GameView {
     const puff = this.dustClock >= 0.09;
     if (puff) this.dustClock = 0;
     for (const u of w.units.values()) {
-      if (u.move === 'foot') continue;
+      if (onFoot(u.move)) continue;
       const i = map.idx(u.tx, u.ty);
       const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
       const p = this.unitViews.renderPos(u);
@@ -297,7 +326,7 @@ export class GameView {
     const units = this.controller.ownSelected();
     const s = this.world.structures.get(this.selection.structureId);
     const issue = (cmd) => this.world.issue(this.house, cmd);
-    if (['stop', 'guard', 'scatter', 'deploy'].includes(id) && units.length) issue({ type: id, ids: units.map((u) => u.id) });
+    if (['stop', 'guard', 'scatter', 'deploy', 'destruct'].includes(id) && units.length) issue({ type: id, ids: units.map((u) => u.id) });
     else if (id === 'return') issue({ type: 'returnToBase', ids: units.filter((u) => u.harvest).map((u) => u.id) });
     else if (s && id === 'repair') issue({ type: 'repair', structureId: s.id });
     else if (s && id === 'sell') issue({ type: 'sell', structureId: s.id });
@@ -305,6 +334,9 @@ export class GameView {
   }
 
   onKey(key, code, mods) {
+    if (this.menu.isOpen) return this.menu.onKey(key);
+    if (key === 'F10' || (key === 'Escape' && !this.controller.mode)) { this.openMenu(); return true; }   // spec §5.7: Esc is the menu once no mode is left to cancel
+    if (key === 'Enter' && mods.alt) { if (!mods.repeat) toggleFullscreen(); return true; }
     if (key === 'p' && !mods.ctrl) {
       if (!mods.repeat) this.togglePause();
       return true;
@@ -318,9 +350,32 @@ export class GameView {
 
   togglePause() {
     this.userPaused = !this.userPaused;
-    this.paused = document.hidden || this.lost || this.userPaused;
+    this.updatePaused();
     if (this.userPaused) this.hud.hold('Paused — press P to continue');
     else { this.hud.release(); this.hud.message('Resumed', 1.5); }
+  }
+
+  updatePaused() { this.paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen; }
+
+  openMenu() {
+    if (this.menu.isOpen) return;
+    this.menu.open();
+    this.setMenuOpen(true);
+  }
+
+  /** The menu stops the battle, the scrolling and any half-drawn selection box. */
+  setMenuOpen(open) {
+    this.cameraControl.suspended = open;
+    if (open) { this.controller.setMode(null); this.overlay.setDragBox(null); }
+    this.updatePaused();
+    this.last = performance.now();
+  }
+
+  /** Options changed in the in-game menu: most are read live from `settings`; these need a nudge. */
+  applySetting(key, value) {
+    if (key === 'gameSpeed') this.speed = GAME_SPEED[value] ?? 1;
+    else if (key === 'volume') { this.sound.volume = value; this.sound.setMuted(this.sound.muted); }
+    else if (key === 'sound') this.sound.setMuted(!value);
   }
 
   frame(now) {
@@ -348,6 +403,7 @@ export class GameView {
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
+    this.missiles.sync(world, alpha, this.heightAt, (x, z) => this.seen(x, z));
     this.ambient(dt);
     this.effects.update(dt);
     this.terrain.update(now);

@@ -1,12 +1,13 @@
 // What destruction leaves behind (spec §4.3, §4.6): Trikes, Missile Tanks, Harvesters and MCVs blow
-// up and hurt what stands close; a Harvester spills its load as spice; a destroyed Refinery or Silo
+// up and hurt what stands close, and a Saboteur always goes off; a Harvester spills its load as spice; a destroyed Refinery or Silo
 // burns its share of the owner's credits. Kills by the blast count for whoever caused the first
 // death; nobody is ever credited for killing their own.
 import { G } from '../data/terrain.js';
-import { DEATH_SPLASH, SPICE_PER_TILE } from '../data/tuning.js';
+import { DEATH_SPLASH, SPICE_PER_TILE, SABOTEUR } from '../data/tuning.js';
 import { damage, distanceTo, killUnit } from './combat.js';
 import { loseStorageShare } from './economy.js';
 import { HARVEST_CAPACITY } from './harvest.js';
+import { onFoot } from '../data/units.js';
 
 export function splash(world, x, y, amount, radius, attacker, size = 'medium') {
   world.events.push('explosion', { x, y, size });
@@ -38,9 +39,10 @@ export function aftermathOfUnit(world, u, attacker) {
   const cargo = u.cargo ? world.units.get(u.cargo) : null;
   if (cargo) killUnit(world, cargo, attacker);   // a Carryall's load falls with it
   if (u.harvest?.load > 0) spillSpice(world, u.tx, u.ty, u.harvest.load);
+  if (u.type.sabotage) { splash(world, u.x, u.y, SABOTEUR.splash, SABOTEUR.radius, { house: u.house, id: u.id, kind: 'unit' }, 'large'); return; }   // its charge goes off where it falls
   if (!u.isGround) { world.events.push('explosion', { x: u.x, y: u.y, size: 'small', alt: u.alt ?? 0 }); return; }   // blown up in the air
   if (u.type.explodes) splash(world, u.x, u.y, DEATH_SPLASH.damage, DEATH_SPLASH.radius, attacker);
-  else if (u.move !== 'foot') world.events.push('explosion', { x: u.x, y: u.y, size: 'small' });
+  else if (!onFoot(u.move)) world.events.push('explosion', { x: u.x, y: u.y, size: 'small' });
 }
 
 export function aftermathOfStructure(world, s) {

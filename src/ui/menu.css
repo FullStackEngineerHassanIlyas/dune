@@ -1,0 +1,103 @@
+/* Menus, cursors and full screen (spec §5.6–§5.8), in the sidebar's bronze and gold. */
+
+/* the bronze arrow everywhere; the battlefield canvas sets its context cursor inline */
+html, body, #app, #app * { cursor: var(--cursor, default); }
+#app.scrolling, #app.scrolling * { cursor: var(--scroll-cursor) !important; }
+.pull-anchor { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; display: none; pointer-events: none; z-index: 40;
+  border: 2px solid #ffd24a; border-radius: 50%; box-shadow: 0 0 0 2px rgba(20,11,3,.8), inset 0 0 0 2px rgba(20,11,3,.8); }
+.pull-anchor::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ffd24a; box-shadow: 0 0 0 1px #140b03; }
+.pull-anchor.show { display: block; }
+
+/* sidebar: Menu and full screen */
+.sb-top { display: flex; gap: 6px; }
+.sb-top button { padding: 4px 0; font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #f5d48a;
+  background: linear-gradient(#4a3520, #2a1d10); border: 2px solid #8e6843; border-radius: 3px; }
+.sb-top button:hover { border-color: #d9a52e; color: #fff3c4; }
+.sb-menu { flex: 1; }
+.sb-full { width: 38px; font-size: 16px !important; line-height: 1; letter-spacing: 0 !important; }
+
+/* shared panel pieces */
+.dm-overlay { position: absolute; inset: 0; display: none; place-items: center; padding: 16px; background: rgba(8,5,2,.62); pointer-events: auto; z-index: 30; }
+.dm-overlay.show { display: grid; }
+.dm-panel { position: relative; box-sizing: border-box; min-width: min(340px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto;
+  padding: 22px 26px 20px; background: linear-gradient(#3a2a18, #1d1409); border: 3px solid #b8893a; border-radius: 4px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.75), inset 0 0 0 1px rgba(255,210,74,.12); color: #f2d7a0; }
+.dm-panel::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: repeating-linear-gradient(135deg, #d9a52e 0 6px, #1d1408 6px 12px); opacity: .85; }
+.dm-panel.wide { width: min(780px, calc(100vw - 32px)); }
+.dm-panel h2 { margin: 2px 0 16px; font: bold 22px "Trebuchet MS", sans-serif; letter-spacing: .16em; text-transform: uppercase; text-align: center; color: #ffd24a; text-shadow: 0 2px 0 #140b03; }
+.dm-panel p { margin: 0 0 10px; line-height: 1.45; color: #e2cc9c; }
+.dm-stack { display: grid; gap: 8px; min-width: 260px; }
+.dm-btn { padding: 9px 18px; font: bold 14px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #f5d48a;
+  background: linear-gradient(#4a3520, #2a1d10); border: 2px solid #8e6843; border-radius: 3px; }
+.dm-btn:hover, .dm-btn:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; box-shadow: 0 0 10px rgba(255,210,74,.3); }
+.dm-btn.primary { color: #1a1008; background: linear-gradient(#f0c050, #b07c22); border-color: #ffd98a; }
+.dm-btn.primary:hover, .dm-btn.primary:focus-visible { color: #000; background: linear-gradient(#ffd46a, #c68c2a); }
+.dm-btn.danger { color: #ffb4a0; border-color: #9a4a34; }
+.dm-btn.danger:hover, .dm-btn.danger:focus-visible { border-color: #ff6a4a; color: #ffd6ca; box-shadow: 0 0 10px rgba(255,90,60,.3); }
+.dm-btn.small { padding: 6px 12px; font-size: 12px; }
+.dm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.dm-hint { margin: 14px 0 0 !important; text-align: center; font-size: 12px; color: #a88a5c !important; }
+.dm-row { display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; padding: 9px 0; border-top: 1px solid rgba(184,137,58,.22); }
+.dm-label { padding-top: 7px; font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9a063; }
+.dm-control small { display: block; margin-top: 6px; font-size: 12px; line-height: 1.35; color: #a88a5c; }
+.dm-seg { display: inline-flex; flex-wrap: wrap; background: #120c06; border: 2px solid #8e6843; border-radius: 3px; overflow: hidden; }
+.dm-seg button { padding: 6px 13px; font: bold 13px "Trebuchet MS", sans-serif; color: #d8c29a; background: transparent; border: 0; border-left: 1px solid rgba(142,104,67,.55); }
+.dm-seg button:first-child { border-left: 0; }
+.dm-seg button:hover, .dm-seg button:focus-visible { color: #fff3c4; background: rgba(255,210,74,.1); outline: none; }
+.dm-seg button.on { color: #1a1008; background: linear-gradient(#ffd24a, #c8962e); }
+.dm-range { display: flex; align-items: center; gap: 12px; padding-top: 3px; }
+.dm-range input { width: 240px; max-width: 60vw; accent-color: #d9a52e; }
+.dm-range output { min-width: 52px; font: bold 15px Consolas, "Courier New", monospace; color: #ffb52e; }
+.dm-keys { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dm-keys th { width: 190px; padding: 7px 12px 7px 0; text-align: left; vertical-align: top; font-weight: bold; color: #c9a063; }
+.dm-keys td { padding: 7px 0; line-height: 1.4; color: #e8d3a6; }
+.dm-keys tr + tr > * { border-top: 1px solid rgba(184,137,58,.22); }
+.game-menu .dm-stack .dm-btn { text-align: left; }
+
+/* main menu over the dune flight */
+#app.in-menu #overlay { display: none; }
+.main-menu { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: auto; z-index: 10;
+  background: linear-gradient(90deg, rgba(10,6,2,.86) 0%, rgba(10,6,2,.5) 38%, rgba(10,6,2,.08) 68%), radial-gradient(ellipse at 70% 40%, transparent 40%, rgba(10,6,2,.55)); }
+.main-menu[hidden] { display: none; }
+.mm-title-screen { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr auto; gap: 24px; padding: 7vh 7vw 4vh; }
+.mm-kicker { font: bold 13px "Trebuchet MS", sans-serif; letter-spacing: .42em; text-transform: uppercase; color: #d9a52e; }
+.mm-brand h1 { margin: 6px 0 0; font: 900 clamp(64px, 11vw, 150px)/.92 "Trebuchet MS", "Segoe UI", sans-serif; letter-spacing: .05em; text-transform: uppercase;
+  background: linear-gradient(#fff3c4 8%, #f0b64a 46%, #8f5716 54%, #e3a445 88%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 3px 0 #2a1706) drop-shadow(0 12px 26px rgba(0,0,0,.65)); }
+.mm-brand h1 span { margin-left: .28em; }
+.mm-sub { margin-top: 10px; font: italic 22px Georgia, "Times New Roman", serif; letter-spacing: .08em; color: #f2d7a0; text-shadow: 0 2px 8px #000; }
+.mm-nav { align-self: center; display: grid; gap: 10px; width: min(380px, 100%); }
+.mm-item { padding: 12px 18px 11px; text-align: left; font: bold 18px "Trebuchet MS", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #f5d48a;
+  background: linear-gradient(90deg, rgba(58,42,24,.94), rgba(34,23,12,.82)); border: 2px solid #8e6843; border-left-width: 6px; border-radius: 3px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: transform .12s, border-color .12s, color .12s; }
+.mm-item small { display: block; margin-top: 3px; font: normal 12px "Trebuchet MS", sans-serif; letter-spacing: .03em; text-transform: none; color: #b89a6a; }
+.mm-item:hover:not(:disabled), .mm-item:focus-visible { transform: translateX(6px); border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-item.primary { border-left-color: #ffd24a; }
+.mm-item:disabled { opacity: .5; }
+.mm-foot { font-size: 12px; color: #a88a5c; text-shadow: 0 1px 3px #000; }
+.mm-fs { position: absolute; top: 16px; right: 16px; z-index: 2; padding: 7px 14px; font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase;
+  color: #f5d48a; background: rgba(34,23,12,.85); border: 2px solid #8e6843; border-radius: 3px; }
+.mm-fs span { font-size: 15px; letter-spacing: 0; }
+.mm-fs:hover, .mm-fs:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-houses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.mm-house { display: grid; justify-items: center; gap: 5px; padding: 14px 8px 12px; color: #f2d7a0; background: linear-gradient(#2e2114, #1a1209); border: 2px solid #6e5236; border-radius: 4px; transition: border-color .12s, box-shadow .12s; }
+.mm-house:hover, .mm-house:focus-visible { border-color: #b8893a; outline: none; }
+.mm-crest { display: grid; place-items: center; width: 46px; height: 54px; font: bold 26px Georgia, serif; color: #fff; text-shadow: 0 2px 2px rgba(0,0,0,.55);
+  background: linear-gradient(rgba(255,255,255,.25), rgba(0,0,0,.25)), var(--house); clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); }
+.mm-house b { font: bold 15px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.mm-house small { font-size: 12px; color: #b89a6a; text-align: center; }
+.mm-house.on { border-color: var(--house); box-shadow: 0 0 0 1px var(--house), 0 0 18px color-mix(in srgb, var(--house) 45%, transparent);
+  background: linear-gradient(color-mix(in srgb, var(--house) 24%, #2e2114), #1a1209); }
+.mm-seed { display: flex; gap: 8px; align-items: center; }
+.mm-seed input { width: 130px; padding: 6px 8px; font: bold 15px Consolas, "Courier New", monospace; color: #ffb52e; background: #120c06; border: 2px solid #8e6843; border-radius: 3px; }
+.mm-seed input::placeholder { color: #6e5a3c; font-weight: normal; }
+.mm-seed input:focus { outline: none; border-color: #ffd24a; }
+.game-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; z-index: 50; background: #000; }
+
+@media (max-width: 620px) {
+  .dm-row { grid-template-columns: 1fr; gap: 6px; }
+  .mm-houses { grid-template-columns: 1fr; }
+}
+.mm-loading { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: #000; pointer-events: none;
+  font: bold 15px "Trebuchet MS", sans-serif; letter-spacing: .3em; text-transform: uppercase; color: #d9a52e; animation: mm-pulse 1.4s ease-in-out infinite; }
+@keyframes mm-pulse { 50% { color: #7a5a24; } }

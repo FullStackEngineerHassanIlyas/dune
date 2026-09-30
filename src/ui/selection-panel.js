@@ -1,13 +1,14 @@
 // Selection panel (spec §5.6): bottom-left of the battlefield — portrait (model icon), name, hit
 // points and what the selection is doing, with order buttons: Stop / Guard / Scatter / Deploy /
-// Return for units, Repair / Sell / Set primary for own structures. The model part is pure.
+// Destruct / Return for units, Repair / Sell / Set primary for own structures. The model part is pure.
 import { UNITS } from '../data/units.js';
+import { HOUSES } from '../data/houses.js';
 import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
 const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', unloading: 'Unloading' };
-const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idle', repairAt: 'Going for repairs', capture: 'Moving in to capture' };
+const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idle', repairAt: 'Going for repairs', capture: 'Moving in to capture', sabotage: 'Moving in to sabotage' };
 
 function structureModel(world, s, houseId) {
   const own = s.house === houseId, t = s.type, details = [];
@@ -39,15 +40,18 @@ function structureModel(world, s, houseId) {
 }
 
 function unitButtons(own) {
-  own = own.filter((u) => !u.type.autonomous);
+  own = own.filter((u) => !u.type.autonomous && u.destructAt === undefined);   // Carryalls, Fremen and a Devastator counting down take no orders
   if (!own.length) return [];
   const b = [{ id: 'stop', label: 'Stop', key: 'S' }, { id: 'guard', label: 'Guard', key: 'G' }, { id: 'scatter', label: 'Scatter', key: 'X' }];
   if (own.some((u) => u.type.deploysTo)) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
+  if (own.some((u) => u.type.destructs)) b.push({ id: 'destruct', label: 'Destruct', key: 'D' });
   if (own.some((u) => u.harvest)) b.push({ id: 'return', label: 'Return' });
   return b;
 }
 
 function unitText(world, u) {
+  if (u.destructAt !== undefined) return 'Self-destructing';
+  if (u.type.hunts) return 'Hunting';
   if (u.typeId === 'carryall') {
     const load = world.units.get(u.cargo) ?? world.units.get(u.job?.unit);
     if (u.job?.stage === 'leave') return 'Leaving';
@@ -68,6 +72,7 @@ export function selectionPanelModel(world, selection, houseId) {
   if (units.length === 1) {
     const u = units[0], details = [];
     if (u.harvest) details.push(`Spice ${Math.round((u.harvest.load / HARVEST_CAPACITY) * 100)} %`);
+    if (u.deviated) details.push(`Deviated · back to ${HOUSES[u.deviated.from]?.name ?? 'its side'} in ${Math.max(0, Math.ceil(u.deviated.until - world.time))} s`);
     details.push(unitText(world, u));
     return { kind: 'unit', typeId: u.typeId, house: u.house, own: u.house === houseId, name: u.type.name, hp: u.hp, maxHp: u.maxHp, count: 1, details, buttons };
   }

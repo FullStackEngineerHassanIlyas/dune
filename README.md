@@ -5,10 +5,11 @@ built with Three.js and played with a Command & Conquer style mouse interface. E
 sound, melody and line of text is made from scratch in code; no original game files are included.
 
     npm install     # dev dependency only: three (Node tests + vendoring)
-    npm start       # http://localhost:8080
+    npm start       # http://localhost:8080 — the main menu
     npm test        # simulation, data and render-logic tests (Node)
     npm run smoke   # screenshots of the test scenes via headless Chrome → screenshots/
     npm run e2e     # plays the opening of a skirmish with real mouse input
+    npm run e2e:menu  # main menu, in-game menu, edge and right-drag scrolling in real Chrome
 
 ## Status
 
@@ -16,8 +17,10 @@ Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
 effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
 upgrades, the Repair Facility, infantry capture, aircraft (Carryall, Ornithopter), the Starport and
-the House of IX are in; the House of IX specials, sandworms, the Palace, music and announcer voices
-follow; phase 3 brings the campaign and menus.
+the House of IX with its specials and the Palace with its weapons are in; sandworms, music and
+announcer voices follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
+(house, opponent, difficulty, map size and seed, credits, fog, speed), options, controls, credits and
+full screen, over a slow flight across the dunes; Esc in battle opens the game menu.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -30,9 +33,10 @@ follow; phase 3 brings the campaign and menus.
 | Double click | Select all visible units of that type |
 | Ctrl + 1–9 (or Ctrl + Shift + 1–9) | Assign a control group |
 | 1–9, tap twice | Select a group, centre on it |
-| S · G · X · D | Stop · guard · scatter · deploy |
+| S · G · X · D | Stop · guard · scatter · deploy (a Devastator: Destruct) |
 | H · Home | Centre on the Construction Yard · reset the camera and centre |
-| Screen edges, arrow keys, middle drag | Scroll |
+| Screen edges, arrow keys, middle drag | Scroll; a pointer pushed out past the edge keeps scrolling until it comes back |
+| Hold the right button and pull | Scroll that way, faster the further you pull (a still right click is still a right click) |
 | Mouse wheel · Alt + middle drag | Zoom · rotate and tilt |
 | Sidebar icon: left click | Build; resume when on hold; place when READY |
 | Sidebar icon: right click | Put on hold; a second right click cancels with a full refund |
@@ -46,6 +50,8 @@ follow; phase 3 brings the campaign and menus.
 | A, then click | Attack-move: go there and fight whatever is met on the way |
 | Ctrl + click | Force fire at a unit, building or the ground |
 | G | Area guard: engage what comes near, then return |
+| Esc · F10 · sidebar Menu | Game menu: resume, options, controls, full screen, restart, quit (Esc first leaves a mode) |
+| Alt + Enter · sidebar ⛶ | Full screen (hold Esc to leave it) |
 | P | Pause and resume |
 | M | Sound on and off |
 
@@ -78,6 +84,18 @@ the usual cost) while stock lasts; orders are paid at once, a Frigate lands them
 the first order, and right-clicking an order before it lands cancels it for a refund. A House of IX
 opens the Ornithopter.
 
+The House of IX opens each house's special tank. The Atreides Sonic Tank sends a wave eight tiles out
+that hurts everything on its path — your own units too — except Sonic Tanks and walls. The Ordos
+Deviator's gas turns enemy ground units to your side for 40 seconds (not aircraft, Harvesters or
+MCVs). The Harkonnen Devastator is the toughest tank; its Destruct order (D or the panel button) glows
+for three seconds, then blows it apart in eight blasts.
+
+The Palace adds its house weapon at the top of the sidebar, with a charging clock. The Harkonnen Death
+Hand (every 7 minutes) is a missile that comes down near where you click in 17 blasts; the Atreides
+call five Fremen squads out of the sand near where you click (every 4 minutes) — they hunt on their
+own; the Ordos get a Saboteur by the Palace (every 4 minutes) that walks over walls and blows up the
+building you send it into. The computer uses its Palace as soon as it is charged.
+
 ## The computer opponent
 
 `?ai=easy|normal|hard` (default Normal). The computer deploys its MCV, builds in its house's order,
@@ -95,13 +113,13 @@ and fade with distance from the camera; what fog hides is not heard.
 
 ## Scenes and URL flags
 
-Scenes: `?scene=skirmish` (default game) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`)
-· `battle` (two armies fighting; `&idle=1` waits for orders, `&ticks=300` skips ahead) · `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
+Scenes: `?scene=menu` (the default with no query) · `skirmish` (the default when the query names no scene) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`; `&palace=1` charges the Palace)
+· `battle` (two armies fighting; `&idle=1` waits for orders, `&ticks=300` skips ahead, `&specials=1` brings in the House of IX tanks) · `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
 `&fps=1` for the meter) · `terrain` · `gallery` (unit models) · `render-test`.
 
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
-(skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `gameSpeed=slowest…fastest` ·
+(skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `credits=5000` · `gameSpeed=slowest…fastest` ·
 `debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5`.
 
 ## Docs

@@ -1,21 +1,24 @@
 // C&C sidebar (spec §5.6, §5.7): rolling credits with a storage gauge, the radar slot, a vertical
-// power bar, Repair and Sell toggles and two build strips (structures | units) — factory upgrades close the structure strip — with model icons,
+// power bar, Repair and Sell toggles, the Palace weapon (a charging clock; click, then aim) and two build strips (structures | units) — factory upgrades close the structure strip — with model icons,
 // clock-wipe progress, READY / ON HOLD and queue badges, scroll arrows and a tooltip. Left click
 // builds, resumes or (when READY) starts placement; right click holds, then cancels with a refund;
-// Shift + left click queues five.
-import { rollCredits } from './sidebar-model.js';
+// Shift + left click queues five. The tooltip follows what it describes while the pointer rests on it.
+// Above it all, the Menu and full screen buttons.
+import { rollCredits, tipText, clock } from './sidebar-model.js';
 
 const SLOT = 92;   // icon height plus gap (px)
 
 export class Sidebar {
-  constructor(root, { iconFor, onCommand, onPlace, onTool }) {
-    Object.assign(this, { iconFor, onCommand, onPlace, onTool });
+  constructor(root, { iconFor, onCommand, onPlace, onTool, onSpecial = () => {}, onMenu = () => {}, onFullscreen = () => {} }) {
+    Object.assign(this, { iconFor, onCommand, onPlace, onTool, onSpecial });
     const el = (this.el = document.createElement('div'));
     el.className = 'sidebar';
     el.innerHTML = `
+      <div class="sb-top"><button class="sb-menu" title="Menu (Esc)">Menu</button><button class="sb-full" title="Full screen (Alt + Enter)" aria-label="Full screen">&#x26F6;</button></div>
       <div class="sb-credits"><span class="sb-label">Credits</span><span class="sb-digits">0</span><div class="sb-storage"><i></i></div></div>
       <div class="sb-radar"></div>
       <div class="sb-tools"><button class="sb-tool" data-tool="repair">Repair</button><button class="sb-tool" data-tool="sell">Sell</button></div>
+      <button class="sb-item sb-weapon" hidden><img alt="" draggable="false"><span class="sb-state"></span></button>
       <div class="sb-body">
         <div class="sb-power"><div class="sb-power-fill"></div><div class="sb-power-use"></div></div>
         <div class="sb-strip" data-strip="structures"><button class="sb-arrow" data-dir="-1">&#9650;</button><div class="sb-slots"><div class="sb-list"></div></div><button class="sb-arrow" data-dir="1">&#9660;</button></div>
@@ -30,6 +33,13 @@ export class Sidebar {
     this.powerFill = el.querySelector('.sb-power-fill');
     this.powerUse = el.querySelector('.sb-power-use');
     this.tip = el.querySelector('.sb-tip');
+    this.weapon = el.querySelector('.sb-weapon');
+    this.weaponImg = this.weapon.querySelector('img');
+    this.weaponState = this.weapon.querySelector('.sb-state');
+    this.weapon.addEventListener('click', () => { if (this.weapon.item?.ready) this.onSpecial(this.weapon.item); });
+    this.weapon.addEventListener('pointerenter', () => this.showTip(this.weapon));
+    this.weapon.addEventListener('pointerleave', () => this.hideTip());
+    this.tipFor = null;
     this.strips = {};
     for (const node of el.querySelectorAll('.sb-strip')) {
       const strip = { el: node, list: node.querySelector('.sb-list'), slots: node.querySelector('.sb-slots'), offset: 0, key: null, buttons: new Map() };
@@ -38,12 +48,15 @@ export class Sidebar {
       node.addEventListener('wheel', (e) => { e.preventDefault(); this.scroll(strip, Math.sign(e.deltaY)); }, { passive: false });
     }
     for (const b of el.querySelectorAll('.sb-tool')) b.addEventListener('click', () => this.onTool(b.dataset.tool));
+    el.querySelector('.sb-menu').addEventListener('click', () => onMenu());
+    el.querySelector('.sb-full').addEventListener('click', () => onFullscreen());
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     this.shown = null;
   }
 
   setTool(kind) {
     for (const b of this.el.querySelectorAll('.sb-tool')) b.classList.toggle('active', b.dataset.tool === kind);
+    this.weapon.classList.toggle('aiming', kind === 'palace');
   }
 
   update(model, dt) {
@@ -59,6 +72,9 @@ export class Sidebar {
     this.power.title = `Power ${produced} / ${used}`;
     this.fill(this.strips.structures, model.structures);
     this.fill(this.strips.units, model.units);
+    this.showSpecial(model.special);
+    if (this.tipFor?.isConnected && this.tipFor.item) this.showTip(this.tipFor);   // prices, stock and clocks change under the pointer
+    else if (this.tipFor) this.hideTip();
   }
 
   fill(strip, items) {
@@ -100,7 +116,7 @@ export class Sidebar {
     b.addEventListener('click', (e) => this.leftClick(b.item, e.shiftKey));
     b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.onCommand(b.item.cancel ?? { type: 'hold', typeId: b.item.typeId }); });
     b.addEventListener('pointerenter', () => this.showTip(b));
-    b.addEventListener('pointerleave', () => this.tip.classList.remove('show'));
+    b.addEventListener('pointerleave', () => this.hideTip());
     strip.buttons.set(item.typeId, b);
     return b;
   }
@@ -111,11 +127,33 @@ export class Sidebar {
     this.onCommand({ type: 'build', typeId: item.typeId, count: shift ? 5 : 1 });
   }
 
+  showSpecial(sp) {
+    const b = this.weapon;
+    b.hidden = !sp;
+    b.item = sp;
+    if (!sp) return;
+    if (b.dataset.icon !== sp.icon) { b.dataset.icon = sp.icon; this.weaponImg.src = this.iconFor(sp.icon); this.weaponImg.alt = sp.name; }
+    b.classList.toggle('state-ready', sp.ready);
+    b.classList.toggle('state-building', !sp.ready);
+    const p = sp.ready ? '1' : sp.progress.toFixed(3);
+    if (b.style.getPropertyValue('--p') !== p) b.style.setProperty('--p', p);
+    const label = sp.ready ? 'READY' : clock(sp.seconds);
+    if (this.weaponState.textContent !== label) this.weaponState.textContent = label;
+  }
+
+  hideTip() {
+    this.tipFor = null;
+    this.tip.classList.remove('show');
+  }
+
   showTip(b) {
+    this.tipFor = b;
     const i = b.item;
-    this.tip.querySelector('b').textContent = i.name;
-    this.tip.querySelector('span').textContent = i.state === 'ready' ? 'Ready — click to place' : [`Cost ${i.cost} · ${i.seconds} s`, i.note].filter(Boolean).join(' · ');
-    this.tip.style.top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
+    const name = this.tip.querySelector('b'), line = this.tip.querySelector('span'), text = tipText(i);
+    if (name.textContent !== i.name) name.textContent = i.name;   // refreshed every frame: touch the page only when something changed
+    if (line.textContent !== text) line.textContent = text;
+    const top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
+    if (this.tip.style.top !== top) this.tip.style.top = top;
     this.tip.classList.add('show');
   }
 

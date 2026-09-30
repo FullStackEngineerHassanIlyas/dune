@@ -1,5 +1,7 @@
 // 2D overlay (spec §5.6): C&C white corner brackets, health bars, group numbers, drag box and
 // order markers, drawn over the 3D view every frame.
+import { onFoot } from '../data/units.js';
+
 export class Overlay {
   constructor(canvas) {
     this.canvas = canvas;
@@ -31,9 +33,9 @@ export class Overlay {
       const damaged = u.hp < u.maxHp;
       if (!selected && !hovered && healthBars !== 'always' && !(healthBars === 'damaged' && damaged)) continue;
       const p = positionOf(u);
-      const s = project(p.x, p.z, u.alt ?? (u.move === 'foot' ? 0.12 : 0.18));
+      const s = project(p.x, p.z, u.alt ?? (onFoot(u.move) ? 0.12 : 0.18));
       if (!s.visible) continue;
-      const half = Math.max(8, s.pxPerUnit * (u.move === 'foot' ? 0.2 : 0.34));
+      const half = Math.max(8, s.pxPerUnit * (onFoot(u.move) ? 0.2 : 0.34));
       if (selected || hovered) brackets(c, s.x, s.y, half, selected ? '#ffffff' : 'rgba(255,255,255,0.45)');
       healthBar(c, s.x, s.y - half - 7, half * 2, u.hp / u.maxHp);
       const g = selected ? groups.groupOf(u.id) : null;

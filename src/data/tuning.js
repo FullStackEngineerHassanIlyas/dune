@@ -14,7 +14,7 @@ export function unitSight(radius) { return radius + 1; }
 /** Radians per second by original turning class (1 = heavy tracked … 3 = infantry). */
 export const TURN_RATE = [0, 2.6, 4.8, 10];
 /** How far off its heading (radians) a unit may start driving; beyond it, it turns on the spot first. */
-export const DRIVE_ANGLE = { foot: Math.PI, tracked: 0.5, harvester: 0.5, wheeled: 1.1, air: Math.PI, worm: Math.PI };
+export const DRIVE_ANGLE = { foot: Math.PI, tracked: 0.5, harvester: 0.5, wheeled: 1.1, air: Math.PI, worm: Math.PI, saboteur: Math.PI };
 export const GAME_SPEED = { slowest: 0.5, slow: 0.75, normal: 1, fast: 1.25, fastest: 1.5 };
 
 /** Turret traverse (radians per second) when swinging back in line with the hull. */
@@ -69,3 +69,36 @@ export const STARPORT = {
   delivery: 30,         // seconds from the first order of a batch to the Frigate landing
   load: 9,              // a Frigate carries at most nine units
 };
+
+export const SONIC = { fade: 0.5 };             // the Sonic Tank's wave has lost half its strength by the end of its 8 tiles
+
+export const DEVIATOR = {
+  radius: 1.5,          // units this close to where the gas bursts change sides …
+  seconds: 40,          // … for this long, then go home (spec §4.6, tunable)
+  immune: ['harvester', 'mcv', 'deviator', 'sandworm'],   // and aircraft: the gas stays on the ground
+};
+
+export const DESTRUCT = {
+  delay: 3,             // seconds of warning glow before a Devastator blows itself apart (spec §4.6)
+  centre: [25, 50],     // the blast where it stood …
+  blasts: 7,            // … and seven more round it (OpenDUNE)
+  blast: [75, 150],
+  scatter: 1.5,         // tiles from the centre
+  radius: 1.5,          // each blast's reach
+};
+
+export const PALACE = {
+  recharge: { deathHand: 420, fremen: 240, saboteur: 240 },   // seconds (spec §4.7)
+  names: { deathHand: 'Death Hand', fremen: 'Fremen', saboteur: 'Saboteur' },
+};
+
+export const DEATH_HAND = {
+  speed: 6,             // tiles per second
+  scatter: 2,           // it comes down up to this far from the aim
+  damage: 150,          // each of its 17 blasts, falling off over …
+  radius: 1,            // … a tile
+  pattern: [[0, 0], [0, 1], [0, -1], [0.78, 0.78], [-0.78, 0.78], [0.78, -0.78], [-0.78, -0.78], [1, 0], [-1, 0], [0, 2], [0, -2], [1.56, 1.56], [-1.56, 1.56], [1.56, -1.56], [-1.56, -1.56], [2, 0], [-2, 0]],   // a diamond out to 2 tiles (OpenDUNE)
+};
+
+export const FREMEN = { squads: 5, reach: 8 };   // five squads rise from the sand within eight tiles of the chosen spot
+export const SABOTEUR = { blast: 500, splash: 300, radius: 1.5 };   // into the building it reaches; round it (also when it is killed)
