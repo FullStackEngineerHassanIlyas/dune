@@ -126,7 +126,7 @@ export class SoundEngine {
         };
         w.onerror = (e) => { e?.preventDefault?.(); this.workerFailed(); };
         // the reverb's impulse too, at the rate a context most likely runs at, once every sound has one variation
-        w.postMessage({ todo: this.todo, reverb: { rate: LIKELY_RATE, after: RENDER_ORDER.length - 1 } });
+        w.postMessage({ todo: this.todo, reverb: { rate: LIKELY_RATE, after: this.todo.findIndex(([, v]) => v > 0) - 1 } });
         return;
       } catch {
         this.worker = null;

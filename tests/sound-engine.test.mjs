@@ -145,8 +145,11 @@ test('the worker brings the reverb\'s impulse too; a context at another rate get
   assert.equal(w.sent.reverb.rate, 48000);
   win.listeners.pointerdown();
   assert.equal(e.convolver.buffer, null, 'silent until its impulse comes');
-  w.deliver(Object.keys(RECIPES).length);
-  assert.equal(e.convolver.buffer.sampleRate, 48000, 'the worker\'s impulse, once every sound can play');
+  const firsts = Object.keys(RECIPES).length - 1;   // one variation of every sound but the wind
+  w.deliver(firsts - 1);
+  assert.equal(e.convolver.buffer, null);
+  w.deliver(1);
+  assert.equal(e.convolver.buffer.sampleRate, 48000, 'the worker\'s impulse, as soon as every sound can play');
   assert.equal(e.convolver.buffer.numberOfChannels, 2);
   const odd = fakeWindow({ worker: true, full: true });
   const f = new SoundEngine({ win: odd });
