@@ -3,7 +3,8 @@
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
 // and add silos when storage runs full. Then an army, rally points, base defence and attack waves. A
 // charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
-// only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy building.
+// only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
+// building its blast brings down.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
