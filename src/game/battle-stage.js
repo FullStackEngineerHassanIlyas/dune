@@ -23,14 +23,14 @@ export class BattleStage {
    * world: the simulation. scene: where `root` goes. quality: the renderer's preset. viewer: the house
    * whose fog decides what shows (null: everything). sound: a SoundEngine, or null for silence.
    * rig: required; only its `target` and `distance` are read, to keep dust and tracks near the camera.
-   * onShake(amount): big blasts.
+   * onShake(amount): big blasts. plainApron: the ground past the map's edge as bright as the map (the menu).
    */
-  constructor({ world, scene, quality, viewer = null, sound = null, rig, onShake = () => {} }) {
+  constructor({ world, scene, quality, viewer = null, sound = null, rig, onShake = () => {}, plainApron = false }) {
     Object.assign(this, { world, scene, viewer, sound, rig, onShake });
     this.root = new THREE.Group();
     const hf = (this.hf = new Heightfield(world.map, { sub: terrainSubFor(world.map.w, quality), seed: world.map.seed }));
     this.heightAt = (x, z) => hf.heightAt(x, z);
-    this.terrain = new TerrainView(world.map, hf);
+    this.terrain = new TerrainView(world.map, hf, { plainApron });
     this.root.add(this.terrain.group);
     this.unitViews = new UnitViews(this.root, hf, { viewer });
     this.structureViews = new StructureViews(this.root, hf, { viewer });

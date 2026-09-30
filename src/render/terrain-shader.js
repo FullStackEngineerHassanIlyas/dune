@@ -9,6 +9,7 @@ uniform sampler2D uDecals;
 uniform sampler2D uRockTex;
 uniform vec2 uMapSize;
 uniform float uTime;
+uniform vec2 uApron;   // the apron's albedo and brightness against the map's: darker in a game, the same in the menu's battle
 varying vec3 vTerrain;
 varying vec3 vWorldPos;
 
@@ -56,7 +57,7 @@ vec3 terrainAlbedo(vec2 p, inout float rough, inout float spiceAmt) {
 #ifndef APRON
   col *= texture2D(uDecals, p / uMapSize).rgb;
 #else
-  col *= 0.8;
+  col *= uApron.x;
 #endif
   return col;
 }
@@ -79,7 +80,7 @@ float terrainShroud(vec2 p) {
   float n = (tNoise(p * 2.5) - 0.5) * 0.25;
   float explored = smoothstep(0.2, 0.8, sh.r + n);
 #ifdef APRON
-  return explored * 0.62;
+  return explored * uApron.y;
 #else
   float visible = smoothstep(0.2, 0.8, sh.g + n);
   return explored * mix(0.62, 1.0, visible);

@@ -33,3 +33,14 @@ test('the apron beyond the map edge follows the shroud of the nearest edge tile'
   assert.ok(sample >= 0 && sample < fn.indexOf('#ifdef APRON'), 'the apron samples the shroud too');
   assert.match(fn, /clamp\(p \/ uMapSize, 0\.0, 1\.0\)/);
 });
+
+test('the apron takes its albedo and brightness from uApron, so the menu battle can match it to the map', () => {
+  const material = new THREE.MeshStandardMaterial();
+  injectTerrainShader(material, { uApron: { value: new THREE.Vector2(1, 1) } }, { apron: true });
+  const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+  material.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader, /uniform vec2 uApron;/);
+  assert.match(shader.fragmentShader, /col \*= uApron\.x;/);
+  assert.match(shader.fragmentShader, /return explored \* uApron\.y;/);
+  assert.equal(shader.uniforms.uApron.value.x, 1);
+});

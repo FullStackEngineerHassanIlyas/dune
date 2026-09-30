@@ -56,7 +56,8 @@ export class Renderer3D {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
       this.composer.addPass(this.bloom);
     }
-    this.composer.addPass(createGradePass());
+    this.grade = createGradePass();   // the menu backdrop eases its vignette out in the haze of the dive
+    this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
     if (q.fxaa) this.composer.addPass(new FXAAPass());
 
@@ -101,6 +102,21 @@ export class Renderer3D {
     const r = this.renderer, previous = r.getRenderTarget();
     r.setRenderTarget(this.composer.readBuffer);
     try { r.compile(scene, camera); } finally { r.setRenderTarget(previous); }
+  }
+
+  /**
+   * Draws the battlefield once into a small off-screen target, from `height` straight above (x, z): every program is
+   * linked (the shadow map's too) and every texture uploaded ahead of its first real frame, and nothing shows.
+   */
+  warm(x, z, height) {
+    const r = this.renderer, previous = r.getRenderTarget(), cam = (this.warmCamera ??= new THREE.PerspectiveCamera(38, 16 / 9, 0.5, 1000));
+    this.warmTarget ??= new THREE.WebGLRenderTarget(64, 36, { type: THREE.HalfFloatType });
+    cam.position.set(x, height, z + 0.01);
+    cam.lookAt(x, 0, z);
+    cam.updateMatrixWorld();
+    this.follow(x, z, 64);
+    r.setRenderTarget(this.warmTarget);
+    try { r.render(this.scene, cam); } finally { r.setRenderTarget(previous); }
   }
 
   /** Draws `scene` through `camera` (the battlefield by default) with the whole post-processing chain. */

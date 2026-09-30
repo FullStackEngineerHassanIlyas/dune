@@ -75,8 +75,12 @@ function dataTexture(w, h, channels, fill = 0) {
   return t;
 }
 
+// The apron's albedo and brightness against the map's: a game marks the ground past the edge as out of play; the
+// menu's battle wants one unbroken desert (plainApron).
+const APRON_DIM = [0.8, 0.62], APRON_PLAIN = [1, 1];
+
 export class TerrainView {
-  constructor(map, hf) {
+  constructor(map, hf, { plainApron = false } = {}) {
     this.map = map;
     this.hf = hf;
     this.spiceTex = dataTexture(map.w, map.h, 1);
@@ -88,6 +92,7 @@ export class TerrainView {
     this.uniforms = {
       uSpice: { value: this.spiceTex }, uConcrete: { value: this.concreteTex }, uShroud: { value: this.shroudTex },
       uDecals: { value: this.decals.texture }, uRockTex: { value: (rockTexture ??= rockDetailTexture()) }, uMapSize: { value: new THREE.Vector2(map.w, map.h) }, uTime: { value: 0 },
+      uApron: { value: new THREE.Vector2(...(plainApron ? APRON_PLAIN : APRON_DIM)) },
     };
     const material = injectTerrainShader(new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), this.uniforms);
     this.mesh = new THREE.Mesh(buildTerrainGeometry(hf), material);
