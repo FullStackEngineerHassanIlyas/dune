@@ -72,3 +72,15 @@ test('the hotspot follows the shooting, among the armies, and stays on the map',
     assert.ok(x > 12 && x < SHOWCASE.w - 12, `seed ${seed}: x ${x.toFixed(1)} sits at a base`);
   }
 });
+
+test('every house special turns up across seeds and happens within half a minute of the battle', () => {
+  const seen = new Map();
+  for (let seed = 1; seen.size < 5 && seed < 300; seed++) {
+    const d = new ShowcaseDirector({ seed });
+    if (seen.has(d.special)) continue;
+    d.run(SHOWCASE.lead + 30);
+    seen.set(d.special, d.specialSeen);
+  }
+  assert.deepEqual([...seen.keys()].sort(), ['deathHand', 'devastator', 'deviator', 'ornithopters', 'sonic']);
+  for (const [special, ok] of seen) assert.ok(ok, `${special} did not happen`);
+});
