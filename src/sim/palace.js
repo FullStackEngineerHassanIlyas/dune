@@ -86,7 +86,7 @@ function callFremen(world, s, x, y) {
   return true;
 }
 
-/** Free sand near (x, y), nearest rings first; open ground if there is no sand within reach. */
+/** Free sand near (x, y), nearest rings first; with too little sand within reach, the rest from open ground, nearest first. */
 function risingSpots(world, x, y) {
   const map = world.map, sand = [], ground = [], want = FREMEN.squads * 2;
   for (let r = 0; r <= FREMEN.reach && sand.length < want; r++) {
@@ -97,7 +97,8 @@ function risingSpots(world, x, y) {
       (map.isSand(i) ? sand : ground).push(i);
     }
   }
-  return sand.length ? sand : ground.slice(0, want);
+  if (sand.length >= FREMEN.squads) return sand;
+  return sand.length ? sand.concat(ground.slice(0, FREMEN.squads - sand.length)) : ground.slice(0, want);
 }
 
 /** One Saboteur walks out beside the Palace, the player's to command. */
