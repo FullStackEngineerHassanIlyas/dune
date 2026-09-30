@@ -101,17 +101,18 @@ export function fireAt(world, from, t, p, dist, stats) {
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx: ax, ty: ay });
 }
 
-/** The Sonic Tank's wave (spec §4.6): a ripple straight out to the weapon's range from the gun. */
+/** The Sonic Tank's wave (spec §4.6): a ripple straight out to the weapon's range from the gun, or to the map's edge. */
 function fireWave(world, from, p, stats, shot) {
-  const map = world.map, a = Math.atan2(p.y - from.y, p.x - from.x);
-  const tx = Math.max(0, Math.min(map.w - 0.001, from.x + Math.cos(a) * stats.range));
-  const ty = Math.max(0, Math.min(map.h - 0.001, from.y + Math.sin(a) * stats.range));
+  const map = world.map, a = Math.atan2(p.y - from.y, p.x - from.x), dx = Math.cos(a), dy = Math.sin(a);
+  const room = (v, d, max) => (d > 0 ? (max - v) / d : d < 0 ? -v / d : Infinity);   // how far it runs along one axis before leaving the map
+  const len = Math.max(0, Math.min(stats.range, room(from.x, dx, map.w - 0.001), room(from.y, dy, map.h - 0.001)));
+  const tx = from.x + dx * len, ty = from.y + dy * len;
   const id = world.nextProjectileId++;
   world.projectiles.set(id, {
     id, weapon: stats.weapon, projectile: shot.projectile, house: from.house, sourceId: from.id, sourceKind: from.kind,
     x: from.x, y: from.y, px: from.x, py: from.y, sx: from.x, sy: from.y, tx, ty,
     speed: projectileSpeed(shot.speed), damage: stats.damage, accurate: true, homing: false, target: null, airburst: false, fromAlt: 0, toAlt: 0,
-    wave: { hit: [] },
+    wave: { hit: [], range: stats.range },
   });
   world.events.push('fired', { id: from.id, kind: from.kind, house: from.house, weapon: stats.weapon, projectile: shot.projectile, x: from.x, y: from.y, tx, ty });
 }
@@ -120,7 +121,7 @@ function fireWave(world, from, p, stats, shot) {
  *  run. Units and buildings on those tiles, own ones too; never Sonic Tanks, walls or anything held inside. */
 function sweep(world, p) {
   const map = world.map, n = Math.max(1, Math.ceil(Math.hypot(p.x - p.px, p.y - p.py) / 0.25));
-  const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1, by = { house: p.house, id: p.sourceId, kind: p.sourceKind };
+  const total = p.wave.range || 1, by = { house: p.house, id: p.sourceId, kind: p.sourceKind };   // it fades over its full range, even cut short by the map's edge
   for (let k = 0; k <= n; k++) {
     const x = p.px + ((p.x - p.px) * k) / n, y = p.py + ((p.y - p.py) * k) / n, tx = Math.floor(x), ty = Math.floor(y);
     if (!map.inBounds(tx, ty)) continue;

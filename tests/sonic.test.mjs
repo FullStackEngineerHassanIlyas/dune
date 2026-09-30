@@ -40,6 +40,18 @@ test('a building on the wave\'s path takes one hit, however many of its tiles it
   assert.ok(lost(trap) >= 40 && lost(trap) <= 55, `lost ${lost(trap)}`);
 });
 
+test('by the map edge the wave still runs straight at its target, only shorter', () => {
+  const world = flatWorld(24, 20);
+  world.spawnUnit('sonicTank', 'atreides', 1, 10);
+  const mcv = world.spawnUnit('mcv', 'harkonnen', 0, 8);   // up and to the left: the full 8 tiles would leave the map
+  world.events.drain();
+  run(world, 1.2);
+  const shot = world.events.drain().find((e) => e.type === 'fired' && e.projectile === 'sonic');
+  const cross = (shot.tx - shot.x) * (mcv.y - shot.y) - (shot.ty - shot.y) * (mcv.x - shot.x);
+  assert.ok(Math.abs(cross) < 1e-6, `the wave ends on the line to its target (${shot.tx.toFixed(2)}, ${shot.ty.toFixed(2)})`);
+  assert.ok(lost(mcv) >= 48, `and hits it as hard as over open ground (${lost(mcv)})`);   // 60 fading by half over 8 tiles, 2.2 tiles out
+});
+
 test('the Sonic Tank joins the Atreides roster once a House of IX stands', () => {
   const world = flatWorld(20, 20);
   world.spawnStructure('heavyFactory', 'atreides', 1, 1);
