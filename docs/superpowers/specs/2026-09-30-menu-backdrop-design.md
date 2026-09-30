@@ -160,3 +160,59 @@ never depends on the backdrop.
   skirmish stops it.
 - **Smoke**: screenshots `menu-planet` and `menu-battle`. A `backdrop=planet|battle` URL flag holds
   one phase, for screenshots.
+
+## Revision 2 (2026-09-30, after the first look)
+
+Approved by the user after watching the first version. Where this section and the text above
+disagree, this section wins.
+
+### The planet looks like the intro
+
+- **Atmosphere**: an even, thin, bright rim all round the limb, as in the intro. It is brightest on
+  the lit side and still faintly visible on the dark side. The first version computed the glow as
+  if the planet sat in the middle of the view, so with the planet off to the right it came out as a
+  thick crescent on the left and nothing on the right. The glow must use the true per-fragment view
+  direction.
+- **Framing**: the whole planet, rim included, stays inside the frame, with a small margin at the
+  right edge. It is not cut off.
+- **A moon**: one small grey, cratered moon orbits Arrakis. During the planet phase it passes
+  across the lit face, and its soft-edged shadow falls on the planet and moves with it. The shadow
+  is computed analytically in the planet shader. The moon is never in the way of the dive.
+
+### Seamless dive and return: one continuous zoom, no cut
+
+The loop becomes: **planet 10 s → dive 4 s → battle 45 s → rise 3 s → emerge 3.5 s → planet**.
+
+- **Dive**:
+  - The camera flies from the framing shot to a landing site on the lit face and turns to look
+    straight down at it.
+  - Its altitude falls on an accelerating, then steady, logarithmic zoom: a constant zoom rate at
+    the end.
+  - Ground detail keeps emerging as the camera closes in.
+  - The planet's spin eases to a stop, so the ground does not slide.
+  - A dusty haze thickens to exactly the battlefield's fog colour.
+- **Seam into the battle**:
+  - The last planet frame is kept on a 2D overlay and goes on zooming at the same rate while it
+    fades out over about 0.6 s.
+  - Underneath, the battle starts looking straight down from about 240 tiles up, deep in its own
+    sand-coloured fog, and zooms at the same rate. No frame is ever blank or black.
+- **Descent** (the battle's first ~5.5 s): the distance eases logarithmically from the entry rate
+  down to the cinematic shot, while the camera tilts from top-down to the orbit angle and drifts
+  from the map centre to the fighting. Then comes the orbit, with cuts every 12 s as before.
+- **Rise**: the mirror image. The camera tilts back to top-down and climbs into the fog,
+  accelerating to the emerge's zoom-out rate.
+- **Seam out of the battle**: the last battle frame is kept on the overlay, zooming out and fading,
+  over the planet.
+- **Emerge**: the dive in reverse, ending at the framing shot. The planet phase follows with its
+  caption and the moon's pass.
+- **The black fade-in** plays only on a cold start: when the menu opens, or when coming back from a
+  skirmish.
+- **Reduced motion**: plain haze crossfades, no zooms.
+
+### Pause
+
+A **Pause background** button sits next to Full screen.
+- It uses `aria-pressed`, is reachable from the keyboard, and is remembered as the setting
+  `menuMotion`. This meets WCAG 2.2.2.
+- While paused, the backdrop stops on its current frame and falls silent.
+- Opening the menu while paused shows a still planet with its caption.
