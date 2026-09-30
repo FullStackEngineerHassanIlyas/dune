@@ -48,6 +48,17 @@ test('the Death Hand fires only when charged; it rises from the Palace and comes
   assert.ok(world.events.drain().some((e) => e.type === 'deathHandBlast'));
 });
 
+test('asked before any aim (the sidebar button while it charges), a charging weapon says it is not ready', () => {
+  const { world, s } = palace('harkonnen');
+  world.issue('harkonnen', { type: 'palace' });
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'notReady'));
+  charge(world, s);
+  world.issue('harkonnen', { type: 'palace' });   // charged, but nowhere to go: refused, the charge kept
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'commandRejected') && palaceReady(world, s) && world.projectiles.size === 0);
+});
+
 test('the Death Hand bursts in 17 blasts that wreck what stands there, friend or foe', () => {
   const { world, s } = palace('harkonnen');
   const yard = world.spawnStructure('constructionYard', 'atreides', 30, 20);

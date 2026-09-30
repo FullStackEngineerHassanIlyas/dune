@@ -43,8 +43,10 @@ export function orderPalace(world, houseId, x, y) {
   const s = palaceOf(world, houseId), weapon = palaceWeapon(houseId);
   const launch = { deathHand: launchDeathHand, fremen: callFremen, saboteur: sendSaboteur }[weapon];
   const aimed = weapon !== 'saboteur';
-  if (!s || !launch || (aimed && !(Number.isFinite(x) && Number.isFinite(y)))) { world.events.push('commandRejected', { house: houseId, command: 'palace' }); return; }
-  if (!palaceReady(world, s)) { eva(world, houseId, 'notReady', `The ${PALACE.names[weapon]} is not ready.`); return; }
+  const reject = () => world.events.push('commandRejected', { house: houseId, command: 'palace' });
+  if (!s || !launch) { reject(); return; }
+  if (!palaceReady(world, s)) { eva(world, houseId, 'notReady', `The ${PALACE.names[weapon]} is not ready.`); return; }   // also for a click on the charging button
+  if (aimed && !(Number.isFinite(x) && Number.isFinite(y))) { reject(); return; }
   const map = world.map;
   const tx = aimed ? Math.max(0, Math.min(map.w - 1, Math.floor(x))) : null, ty = aimed ? Math.max(0, Math.min(map.h - 1, Math.floor(y))) : null;
   if (!launch(world, s, tx, ty)) return;
