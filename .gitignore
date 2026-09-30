@@ -7,3 +7,6 @@ docs/research/refs/*.jpg
 docs/research/refs/*.gif
 # player-supplied original game files
 original/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
