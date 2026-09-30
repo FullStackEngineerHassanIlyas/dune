@@ -2,19 +2,20 @@
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
 // and add silos when storage runs full. Then an army, rally points, base defence and attack waves. A
-// charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot, the Saboteur
-// into the most valuable enemy building.
+// charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
+// only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy building.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
 import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, UNIT_ORDER } from './tech.js';
 import { UNITS } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
-import { isArmed } from './combat.js';
+import { isArmed, distanceTo } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
 import { palaceReady, palaceWeapon } from './palace.js';
+import { DEATH_HAND } from '../data/tuning.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -323,13 +324,23 @@ function rebuildMcv(world, house, view) {
   if (upgradeLevel(house, 'heavyFactory') < 1 && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
 }
 
-/** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles. */
-export function richestTarget(world, houseId) {
-  const things = [];
-  for (const s of world.structures.values()) if (s.house !== houseId && !s.type.isWall) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
-  for (const u of world.units.values()) if (u.house !== houseId && u.isGround && !u.inside) things.push({ x: u.x, y: u.y, value: u.type.cost });
+/** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles.
+ *  With `spare`, no spot within that many tiles of the house's own units or buildings; null when there is none. */
+export function richestTarget(world, houseId, spare = 0) {
+  const things = [], own = [];
+  for (const s of world.structures.values()) {
+    if (s.type.isWall) continue;
+    if (s.house !== houseId) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
+    else if (spare) own.push({ kind: 'structure', entity: s });
+  }
+  for (const u of world.units.values()) {
+    if (!u.isGround || u.inside) continue;
+    if (u.house !== houseId) things.push({ x: u.x, y: u.y, value: u.type.cost });
+    else if (spare) own.push({ kind: 'unit', x: u.x, y: u.y });
+  }
   let best = null, bestValue = 0;
   for (const c of things) {
+    if (spare && own.some((o) => distanceTo(c.x, c.y, o, o) <= spare)) continue;   // friends in the blast
     let v = 0;
     for (const o of things) if (Math.hypot(o.x - c.x, o.y - c.y) <= 2.5) v += o.value;
     if (v > bestValue) { bestValue = v; best = c; }
@@ -337,13 +348,16 @@ export function richestTarget(world, houseId) {
   return best && { x: Math.floor(best.x), y: Math.floor(best.y) };
 }
 
+/** How far from the aim the Death Hand can hurt: its scatter, the reach of its blast pattern and each blast's falloff. */
+const DEATH_HAND_REACH = DEATH_HAND.scatter + DEATH_HAND.radius + Math.max(...DEATH_HAND.pattern.map(([dx, dy]) => Math.hypot(dx, dy)));
+
 /** A charged Palace fires at once (spec §4.10); a launch that was refused is tried again after ten seconds. */
 function usePalace(world, house, view) {
   const b = house.brain, s = view.mine.find((x) => x.typeId === 'palace');
   if (!palaceReady(world, s) || world.time < (b.palaceAt ?? 0)) return;
   b.palaceAt = world.time + 10;
   if (palaceWeapon(house.id) === 'saboteur') { issue(world, house, { type: 'palace' }); return; }
-  const t = richestTarget(world, house.id);
+  const t = richestTarget(world, house.id, palaceWeapon(house.id) === 'deathHand' ? DEATH_HAND_REACH : 0);   // Fremen hurt only the enemy
   if (t) issue(world, house, { type: 'palace', x: t.x, y: t.y });
 }
 

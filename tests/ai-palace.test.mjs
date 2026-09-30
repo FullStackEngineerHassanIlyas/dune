@@ -76,3 +76,17 @@ test('the computer builds a Palace once its House of IX stands, and fields its H
   createBrain(world, 'harkonnen', 'normal');
   assert.ok(runUntil(world, () => [...world.structures.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'palace'), 150) > 0);
 });
+
+test('the Death Hand spares the computer\'s own: it goes for a spot clear of its army and its base', () => {
+  const { world } = aiPalace('harkonnen');
+  for (const x of [40, 42, 44]) world.spawnStructure('windtrap', 'atreides', x, 20);   // the richest spot, but the wave is there
+  const own = [];
+  for (let k = 0; k < 6; k++) own.push(world.spawnUnit('combatTank', 'harkonnen', 39 + k, 23));
+  for (let k = 0; k < 6; k++) world.spawnUnit('combatTank', 'atreides', 5 + (k % 3), 6 + Math.floor(k / 3));   // raiders at the Palace's door
+  for (const x of [20, 22]) world.spawnStructure('windtrap', 'atreides', x, 26);
+  let fired = null;
+  runUntil(world, () => (fired ??= world.events.drain().find((e) => e.type === 'palaceFired')), 3);
+  assert.deepEqual(fired && [fired.x, fired.y], [21, 27]);
+  run(world, 12);
+  assert.ok(own.every((u) => u.hp === u.maxHp), own.map((u) => u.hp).join(' '));
+});
