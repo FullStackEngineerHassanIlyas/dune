@@ -236,19 +236,20 @@ function helpHarvester(world, c) {
   return true;
 }
 
-/** The nearest free spice tile on the whole map from which Harvester `u` can drive to one of its house's Refineries; -1 if none. */
+/** The nearest free spice tile on the whole map that Harvester `u` could drive to (and so back home from); -1 if none or no Refinery. */
 function farSpice(world, u) {
-  const map = world.map, claimed = new Set(), docks = [];
+  const map = world.map, claimed = new Set(), here = map.idx(u.tx, u.ty);
+  let refinery = false;
+  for (const s of world.structures.values()) if (s.house === u.house && s.typeId === 'refinery') { refinery = true; break; }
+  if (!refinery) return -1;
   for (const o of world.units.values()) {
     if (o !== u && o.harvest && o.harvest.field >= 0 && (o.harvest.state === 'toField' || o.harvest.state === 'harvesting')) claimed.add(o.harvest.field);
   }
-  for (const s of world.structures.values()) if (s.house === u.house && s.typeId === 'refinery') { const d = dockTile(world, s); if (d >= 0) docks.push(d); }
-  if (!docks.length) return -1;
   let best = -1, bestD = Infinity;
   for (let i = 0; i < map.spice.length; i++) {
     if (!map.spice[i] || map.unit[i] || claimed.has(i) || map.moveFactor(i, u.move) <= 0) continue;
     const d = Math.hypot(map.xOf(i) - u.tx, map.yOf(i) - u.ty);
-    if (d >= bestD || !docks.some((k) => world.reach.connected(k, i, u.move))) continue;
+    if (d >= bestD || !world.reach.connected(here, i, u.move)) continue;
     best = i; bestD = d;
   }
   return best;
