@@ -81,7 +81,13 @@ export class Renderer3D {
       if (this.cycling) { this.cycling = false; setTimeout(() => this.renderer.forceContextRestore()); }
       else if (!this.held) this.onContextLost?.();
     });
-    canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this.onContextRestored?.(); });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.lost = false;
+      // everything re-uploads from the CPU side except what the GPU drew itself: the sky's light probe
+      const probe = this.scene.environment;
+      try { this.scene.environment = createEnvironment(this.renderer); probe?.dispose(); } catch { /* keep the old one */ }
+      this.onContextRestored?.();
+    });
   }
 
   /** Drop the WebGL context and take it straight back: three.js re-uploads every buffer, texture and
