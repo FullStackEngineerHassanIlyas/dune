@@ -1,5 +1,6 @@
 // One instanced-model handle per sim unit (three for squads), posed every frame from interpolated
-// sim state: position, heading, terrain tilt for vehicles, turret yaw, recoil, wheels, treads, legs.
+// sim state: position, heading, terrain tilt for vehicles, turret yaw, recoil, wheels, treads, legs;
+// vehicles in a repair bay or a refinery's slot stand on its pad.
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { onFoot } from '../../data/units.js';
@@ -13,8 +14,17 @@ const SQUAD = [[0.1, 0], [-0.08, 0.11], [-0.08, -0.11]];
 const UP = { x: 0, y: 1, z: 0 };
 const MAX_TILT = Math.tan((25 * Math.PI) / 180);
 const PAD_LIFT = 0.066;   // vehicles in a repair bay stand on the pad plate
+const SLOT_LIFT = 0.106;  // a harvester in a refinery's slot stands on the raised docking pad (foundation and deck)
 const WALL_TOP = 0.36;    // a Saboteur crossing a wall walks on top of it
 const tint = (u) => HOUSES[u.type.colour ?? u.house]?.color ?? 0xffffff;   // Fremen keep their sand colour
+
+/** Height over the ground of a harvester in a refinery's slot at (x, z): up the pad's edge on the way in, down it on the way out. */
+function slotLift(world, u, x, z) {
+  const slot = world?.structures.get(u.docked)?.slot;
+  if (!slot) return SLOT_LIFT;
+  const span = Math.hypot(slot.outX - slot.padX, slot.outY - slot.padY);
+  return span > 0 ? SLOT_LIFT * Math.max(0, 1 - Math.hypot(x - slot.padX, z - slot.padY) / span) : SLOT_LIFT;
+}
 
 // Vehicles follow the ground but never lean past 25° (steep ground next to cliffs looked like climbing).
 function clampTilt(n) {
@@ -99,7 +109,7 @@ export class UnitViews {
     const walking = u.distance !== u.pdistance;
     const shown = v.handles.length > 1 && u.hp <= u.maxHp / 2 ? 1 : v.handles.length;
     const cos = Math.cos(heading), sin = Math.sin(heading);
-    let lift = u.alt ?? (u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, or on a repair pad
+    let lift = u.alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
     if (u.move === 'saboteur' && world) {   // up and over walls
       const top = (i) => (world.map.wall[i] ? WALL_TOP : 0), s = u.step;
       lift = s ? top(s.from) + (top(s.to) - top(s.from)) * Math.min(1, s.progress) : top(world.map.idx(u.tx, u.ty));
