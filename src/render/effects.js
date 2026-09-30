@@ -297,7 +297,7 @@ export class Effects {
     if (dir !== null) {
       const c = Math.cos(dir), s = Math.sin(dir), v = big ? 5 : 3.5;
       this.glow.spawn(T.jet, x, y, z, c * v, 0, s * v, 0.06, big ? 1.5 : 0.8);
-      if (big) for (const side of [-1, 1]) this.glow.spawn(T.jet, x, y, z, -s * side * 2.5 + c, 0, c * side * 2.5 + s, 0.05, 0.7);   // the muzzle brake's side vents
+      if (big) for (let side = -1; side <= 1; side += 2) this.glow.spawn(T.jet, x, y, z, -s * side * 2.5 + c, 0, c * side * 2.5 + s, 0.05, 0.7);   // the muzzle brake's side vents
     }
     if (big) for (let k = 0; k < this.count(3); k++) this.smoke.spawn(T.gunSmoke, x, y, z, rnd(-0.3, 0.3) + (dir === null ? 0 : Math.cos(dir) * 0.6), rnd(0.2, 0.6), rnd(-0.3, 0.3) + (dir === null ? 0 : Math.sin(dir) * 0.6), rnd(0.5, 0.9));
     this.flash(x, y, z, big ? 6 : 2.5);
