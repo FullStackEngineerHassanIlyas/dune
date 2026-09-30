@@ -15,6 +15,7 @@ import { DT } from '../data/tuning.js';
 
 const SOUND_SHARE = 0.3;      // the battle behind the menu plays at this share of the Options volume
 const PRESIM_BUDGET_MS = 6;   // simulation run ahead per frame while the planet is on screen
+const FOCUS_RIGHT = 0.15;     // the hotspot sits this many camera distances right of the centre of the picture
 export const CAPTION = 'The planet Arrakis, known as Dune.';
 
 export class MenuBackdrop {
@@ -179,7 +180,12 @@ export class MenuBackdrop {
       ? battleCamera(c.t, this.reduced ? d.center : d.hotspot, { reduced: this.reduced, seed: d.seed })
       : riseCamera(this.reduced ? 0 : c.k, this.riseFrom);
     const cut = c.phase === 'battle' && cam.shot !== this.shot;
-    if (c.phase === 'battle') this.shot = cam.shot;
+    if (c.phase === 'battle') {   // look a little left of the fighting, so it sits right of centre, clear of the menu
+      this.shot = cam.shot;
+      const side = FOCUS_RIGHT * cam.distance;
+      cam.x -= Math.cos(cam.yaw) * side;
+      cam.z += Math.sin(cam.yaw) * side;
+    }
     rig.lookAt(cam.x, cam.z, cut);
     rig.goalDistance = cam.distance;
     rig.goalPitch = cam.pitch;

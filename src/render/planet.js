@@ -7,12 +7,12 @@ import { Rng } from '../core/rng.js';
 
 const FOV = 38;
 const SPIN = 0.035, SPIN_REDUCED = 0.012;   // radians per second
-const STARS = 1500;                          // inside the 1,000–3,000 particle budget
+const STARS = 2400;                          // inside the 1,000–3,000 particle budget
 const DIVE_TO = 1.3;                         // camera distance from the centre at the end of the dive (radius 1)
 const ATMO_RADIUS = 1.12;
 // on the back of the atmosphere shell -n.z runs from 0 at its outline to this where it meets the planet's limb
 const ATMO_INNER = Math.sqrt(1 - 1 / (ATMO_RADIUS * ATMO_RADIUS));
-const LIGHT = new THREE.Vector3(-0.75, 0.42, 0.52).normalize();   // view space: from the upper left, a little in front
+const LIGHT = new THREE.Vector3(-0.8, 0.45, 0.35).normalize();   // view space: from the upper left, a little in front
 
 const NOISE = /* glsl */ `
   float hash3(vec3 p) {
@@ -41,7 +41,7 @@ export function planetFraming(aspect, fov = FOV) {
   const t = Math.tan(((fov / 2) * Math.PI) / 180);
   if (aspect < 1) return { distance: 1 / (0.5 * aspect) / t, offsetX: 0 };
   const halfH = 1 / 0.78;
-  return { distance: halfH / t, offsetX: halfH * aspect * 0.58 };
+  return { distance: halfH / t, offsetX: halfH * aspect * 0.65 };
 }
 
 function planetMaterial() {
@@ -69,15 +69,15 @@ function planetMaterial() {
         float base = fbm(p * 2.2);
         float detail = fbm(p * 9.0 + base * 2.0);
         float bands = 0.5 + 0.5 * sin(p.y * 22.0 + base * 7.0 + detail * 3.0);
-        vec3 dark = vec3(0.10, 0.035, 0.012), mid = vec3(0.55, 0.22, 0.065), light = vec3(0.86, 0.50, 0.20);
+        vec3 dark = vec3(0.12, 0.045, 0.018), mid = vec3(0.43, 0.155, 0.06), light = vec3(0.76, 0.27, 0.11);
         vec3 col = mix(dark, mid, smoothstep(0.28, 0.52, base));
         col = mix(col, light, smoothstep(0.5, 0.78, base + bands * 0.1));
-        col *= 0.78 + 0.4 * detail;
+        col *= 0.66 + 0.68 * detail;
         col = mix(col, dark * 1.4, smoothstep(0.6, 0.7, fbm(p * 4.0 + 3.1)) * 0.55);
         vec3 n = normalize(vNormal), v = normalize(vView);
         float lit = smoothstep(-0.12, 0.65, dot(n, uLight));
-        float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-        col = col * (0.012 + 1.3 * lit) + vec3(0.18, 0.42, 1.0) * rim * (0.12 + 0.88 * lit);
+        float rim = pow(1.0 - max(dot(n, v), 0.0), 6.0);
+        col = col * (0.012 + 1.3 * lit) + vec3(0.03, 0.08, 0.4) * rim * (0.1 + 0.9 * lit);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -101,10 +101,10 @@ function atmosphereMaterial() {
       varying vec3 vNormal;
       void main() {
         vec3 n = normalize(vNormal);
-        float glow = pow(clamp(-n.z / uInner, 0.0, 1.0), 2.2);
+        float glow = pow(clamp(-n.z / uInner, 0.0, 1.0), 3.0);
         float side = dot(normalize(n.xy + vec2(1e-5)), normalize(uLight.xy));
         float lit = 0.2 + 0.8 * smoothstep(-0.6, 0.7, side);
-        gl_FragColor = vec4(vec3(0.28, 0.55, 1.0) * glow * lit * 1.3, 1.0);
+        gl_FragColor = vec4(vec3(0.08, 0.2, 1.0) * glow * lit * 1.2, 1.0);
       }`,
   });
 }
@@ -114,8 +114,8 @@ function starField(rng) {
   for (let i = 0; i < STARS; i++) {
     const u = rng.range(-1, 1), a = rng.range(0, Math.PI * 2), s = Math.sqrt(1 - u * u);
     pos.set([Math.cos(a) * s * 900, u * 900, Math.sin(a) * s * 900], i * 3);
-    size[i] = 1 + Math.pow(rng.next(), 6) * 3.5;
-    const warm = rng.next(), b = 0.35 + 0.65 * Math.pow(rng.next(), 2);
+    size[i] = 2 + Math.pow(rng.next(), 6) * 3;
+    const warm = rng.next(), b = 0.45 + 1.0 * Math.pow(rng.next(), 2.5);
     tone.set([b * (0.85 + 0.15 * warm), b * 0.92, b * (1.05 - 0.2 * warm)], i * 3);
     phase[i] = rng.next();
   }
@@ -143,7 +143,7 @@ function starField(rng) {
     fragmentShader: /* glsl */ `
       varying vec3 vTone;
       void main() {
-        float a = 1.0 - smoothstep(0.0, 0.5, length(gl_PointCoord - 0.5));
+        float a = 1.0 - smoothstep(0.25, 0.6, length(gl_PointCoord - 0.5));
         gl_FragColor = vec4(vTone * a, 1.0);
       }`,
   });
@@ -164,11 +164,11 @@ function nebula() {
       void main() {
         float fall = 1.0 - smoothstep(0.05, 0.5, length((vUv - 0.5) * vec2(1.0, 1.4)));
         float wisps = smoothstep(0.42, 0.8, fbm(vec3(vUv * 3.5, 1.7))) * fall;
-        gl_FragColor = vec4(vec3(0.05, 0.14, 0.42) * wisps * 0.9, 1.0);
+        gl_FragColor = vec4(vec3(0.05, 0.14, 0.42) * wisps * 2.0, 1.0);
       }`,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1100, 700), m);
-  mesh.position.set(420, -260, -700);   // the lower right, behind the planet
+  mesh.position.set(250, -150, -700);   // low on the right, behind the planet and round its lower-left limb
   return mesh;
 }
 

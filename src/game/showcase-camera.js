@@ -10,9 +10,10 @@ export const easeInCubic = (t) => clamp01(t) ** 3;
 export const CUT_EVERY = 12;   // seconds between cuts to a new angle
 export const DESCENT = 6;      // seconds of the opening descent
 const ORBIT_RATE = 0.045;      // radians per second around the focus
-const HIGH = { distance: 95, pitch: deg(72) };
-const SHOT = { distance: 26, pitch: deg(31) };
-const WIDE = { distance: 40, pitch: deg(40) };
+// The 64 × 40 map is small: lower or wider than these and the frame shows the edge of the world.
+const HIGH = { distance: 55, pitch: deg(66) };
+const SHOT = { distance: 22, pitch: deg(42) };
+const WIDE = { distance: 32, pitch: deg(50) };
 
 /** The yaw a shot starts from: spread round the compass, new for every shot and battle (the multipliers must not sum to 1, or battle n+1 replays n's bearings a shot later). */
 export function shotYaw(seed, shot) {

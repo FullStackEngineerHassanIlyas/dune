@@ -7,7 +7,7 @@ const angle = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 
 test('the battle opens high above and settles into a low orbit around the focus', () => {
   const a = battleCamera(0, f), b = battleCamera(DESCENT, f);
-  assert.ok(a.distance > 80 && a.pitch > b.pitch);
+  assert.ok(a.distance > 50 && a.pitch > b.pitch);
   assert.ok(b.distance > 20 && b.distance < 32);
   assert.deepEqual([b.x, b.z], [30, 20]);
 });
