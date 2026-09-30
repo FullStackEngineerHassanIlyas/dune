@@ -148,7 +148,7 @@
     "onHold": {
      "file": "atreides/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.818
+     "seconds": 0.783
     },
     "orderPlaced": {
      "file": "atreides/orderPlaced.ogg",
@@ -464,7 +464,7 @@
     "onHold": {
      "file": "harkonnen/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.812
+     "seconds": 0.807
     },
     "orderPlaced": {
      "file": "harkonnen/orderPlaced.ogg",
@@ -780,7 +780,7 @@
     "onHold": {
      "file": "ordos/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.985
+     "seconds": 0.973
     },
     "orderPlaced": {
      "file": "ordos/orderPlaced.ogg",
@@ -961,47 +961,47 @@
     "acknowledged": {
      "file": "units/acknowledged.ogg",
      "text": "Acknowledged.",
-     "seconds": 1.323
+     "seconds": 1.063
     },
     "affirmative": {
      "file": "units/affirmative.ogg",
      "text": "Affirmative.",
-     "seconds": 1.323
+     "seconds": 1.056
     },
     "attacking": {
      "file": "units/attacking.ogg",
      "text": "Attacking.",
-     "seconds": 1.217
+     "seconds": 0.963
     },
     "awaitingOrders": {
      "file": "units/awaitingOrders.ogg",
      "text": "Awaiting orders.",
-     "seconds": 1.537
+     "seconds": 1.304
     },
     "engaging": {
      "file": "units/engaging.ogg",
      "text": "Engaging.",
-     "seconds": 1.238
+     "seconds": 0.993
     },
     "movingOut": {
      "file": "units/movingOut.ogg",
      "text": "Moving out.",
-     "seconds": 1.281
+     "seconds": 1.0
     },
     "onOurWay": {
      "file": "units/onOurWay.ogg",
      "text": "On our way.",
-     "seconds": 1.345
+     "seconds": 1.015
     },
     "reporting": {
      "file": "units/reporting.ogg",
      "text": "Reporting.",
-     "seconds": 1.174
+     "seconds": 0.9
     },
     "standingBy": {
      "file": "units/standingBy.ogg",
      "text": "Standing by.",
-     "seconds": 1.451
+     "seconds": 1.121
     }
    }
   }

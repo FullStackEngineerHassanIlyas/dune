@@ -49,7 +49,8 @@ SETS = {
     'units': {   # a soldier on a field radio, shared by every house (the original shared its acknowledgements)
         'voice': 'am_michael', 'lang': 'en-us', 'speed': 1.08, 'role': 'units', 'radio': True,
         'chain': ['highpass=f=320:p=2', 'lowpass=f=3600:p=2', 'equalizer=f=1700:t=q:w=1.2:g=5', 'volume=8dB',
-                  'asoftclip=type=tanh:threshold=0.7:output=1', 'volume=-5dB', 'acompressor=threshold=-20dB:ratio=6:attack=2:release=60:makeup=3'],
+                  'asoftclip=type=tanh:threshold=0.7:output=1', 'volume=-5dB', 'lowpass=f=4800:p=2',   # the clipper's overtones stay in the radio's band
+                  'acompressor=threshold=-20dB:ratio=6:attack=2:release=60:makeup=3'],
     },
 }
 HOUSE_SETS = {'atreides': 'atreides', 'harkonnen': 'harkonnen', 'ordos': 'ordos'}
@@ -64,7 +65,15 @@ PRONOUNCE = {
 }
 
 
+# Whole lines whose stress espeak gets wrong ("On hold" came out as one word).
+PHRASES = {
+    'On hold.': {'en-us': 'ˈɔn hˈoʊld.', 'en-gb': 'ˈɒn hˈəʊld.'},
+}
+
+
 def phonemes(kokoro, text, lang):
+    if text in PHRASES:
+        return PHRASES[text][lang]
     out = kokoro.tokenizer.phonemize(text, lang)
     for word, by_lang in PRONOUNCE.items():
         if word in text:
@@ -78,6 +87,8 @@ def phonemes(kokoro, text, lang):
 def radio(samples, seed):
     """A faint hiss under the line and a short squelch after it, for the field-radio set."""
     rng = np.random.default_rng(seed)
+    loud = np.flatnonzero(np.abs(samples) > np.abs(samples).max() * 0.01)   # the squelch follows the last word (-40 dB)
+    samples = samples[:loud[-1] + int(0.04 * RATE)]
     hiss = rng.normal(0, 0.004, len(samples)).astype(np.float32)
     n = int(0.07 * RATE)
     tail = (rng.normal(0, 0.09, n) * np.exp(-np.linspace(0, 5, n))).astype(np.float32)
@@ -106,7 +117,7 @@ def render_line(kokoro, spec, text, seed, tmp):
     assert rate == RATE, rate
     samples = np.asarray(samples, np.float32)
     lead = np.zeros(int(0.03 * RATE), np.float32)
-    samples = np.concatenate([lead, samples, np.zeros(int(0.12 * RATE), np.float32)])   # room for the echo tail
+    samples = np.concatenate([lead, samples, np.zeros(int((0.02 if spec.get('radio') else 0.12) * RATE), np.float32)])   # room for the echo tail
     if spec.get('radio'):
         samples = radio(samples, seed)
     raw, shaped = os.path.join(tmp, 'raw.wav'), os.path.join(tmp, 'shaped.wav')
