@@ -1,24 +1,12 @@
-// Everything between the simulation and the screen (spec §3): renderer, terrain, unit and structure
-// views, RTS camera, input, overlay, HUD and the frame loop. Scenes build a World and hand it over.
+// Everything between the simulation and the screen (spec §3): renderer, the BattleStage (terrain, views,
+// effects, event effects), RTS camera, input, overlay, HUD and the frame loop. Scenes build a World and hand it over.
 import { Renderer3D } from '../render/renderer.js';
-import { terrainSubFor } from '../render/quality.js';
-import { Heightfield } from '../render/heightfield.js';
-import { TerrainView } from '../render/terrain.js';
 import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
-import { UnitViews } from '../render/views/unit-views.js';
-import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
-import { ShroudSync } from '../render/shroud.js';
-import { Effects } from '../render/effects.js';
-import { MissileViews, arcHeight } from '../render/views/missile-views.js';
 import { SoundEngine } from '../audio/engine.js';
-import { cueFor } from '../audio/cues.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
-import { UNITS, onFoot } from '../data/units.js';
-import { G } from '../data/terrain.js';
-import { nearCamera } from '../render/near-camera.js';
 import { Overlay } from '../render/overlay.js';
 import { CameraControl } from '../input/camera-control.js';
 import { Pointer } from '../input/pointer.js';
@@ -34,7 +22,7 @@ import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
 import { SelectionPanel, selectionPanelModel } from '../ui/selection-panel.js';
-import { unitVisibleTo, structureVisibleTo, isVisible } from '../sim/fog.js';
+import { unitVisibleTo, structureVisibleTo } from '../sim/fog.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 import { IconFactory } from '../render/icons.js';
 import { HOUSES } from '../data/houses.js';
@@ -45,6 +33,7 @@ import { guardFrame } from '../core/guard.js';
 import { DT, GAME_SPEED } from '../data/tuning.js';
 import { checkInvariants } from '../sim/invariants.js';
 import { createDebugApi } from './debug.js';
+import { BattleStage } from './battle-stage.js';
 
 export class GameView {
   constructor({ world, house, settings, params, focus }) {
@@ -57,32 +46,24 @@ export class GameView {
     const canvas = (this.canvas = document.getElementById('gl'));
     const r3d = (this.r3d = new Renderer3D(canvas, settings.quality));
     r3d.renderer.info.autoReset = false;
-    const hf = (this.hf = new Heightfield(world.map, { sub: terrainSubFor(world.map.w, r3d.quality), seed: world.map.seed }));
-    this.heightAt = (x, z) => hf.heightAt(x, z);
-    this.terrain = new TerrainView(world.map, hf);
-    r3d.scene.add(this.terrain.group);
-    this.unitViews = new UnitViews(r3d.scene, hf, { viewer: house });
-    this.structureViews = new StructureViews(r3d.scene, hf, { viewer: house });
-    this.shroud = new ShroudSync(world.map.w * world.map.h);
-    this.ghost = new PlacementGhost(r3d.scene, hf);
-    this.effects = new Effects(r3d.scene, r3d.quality);
-    this.missiles = new MissileViews(r3d.scene);
-    this.smokeClock = 0;
-    this.dustClock = 0;
-    this.weldClock = 0;
-    this.trackFrom = new Map();
-    this.catchingUp = true;   // the first frame drains everything a scene simulated ahead: marks yes, fireworks no
     this.rig = new CameraRig(r3d.camera, world.map.w, world.map.h);
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
     this.rig.lookAt(focus.x, focus.z, true);
+    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
+    this.stage = new BattleStage({
+      world, scene: r3d.scene, quality: r3d.quality, viewer: house, sound: this.sound, rig: this.rig,
+      onShake: (amount) => { this.rig.shake = Math.max(this.rig.shake, amount); },
+    });
+    const hf = (this.hf = this.stage.hf);
+    this.heightAt = this.stage.heightAt;
+    this.ghost = new PlacementGhost(r3d.scene, hf);
     const anchor = document.createElement('div');
     anchor.className = 'pull-anchor';
     document.getElementById('ui').appendChild(anchor);
     this.cameraControl = new CameraControl(this.rig, canvas, settings, { onScroll: makeScrollCursor(document.getElementById('app'), anchor) });
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
-    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
     const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
@@ -138,7 +119,7 @@ export class GameView {
       return s;
     };
     this.ground = (sx, sy) => screenToGround(r3d.camera, (sx / r3d.width) * 2 - 1, 1 - (sy / r3d.height) * 2, this.heightAt, hf.maxHeight + 0.5);
-    this.positionOf = (u) => this.unitViews.renderPos(u);
+    this.positionOf = (u) => this.stage.unitViews.renderPos(u);
     this.controller = new Controller({
       world, house, selection: this.selection, groups: this.groups, settings, project: this.project, ground: this.ground,
       rig: this.rig, positionOf: this.positionOf,
@@ -173,142 +154,15 @@ export class GameView {
 
   handleEvents() {
     for (const e of this.world.events.drain()) this.onEvent(e);
-    this.catchingUp = false;
+    this.stage.catchingUp = false;
   }
 
   onEvent(e) {
-    if (!this.catchingUp) {
-      const cue = cueFor(e, this.house, (x, z) => this.seen(x, z));
-      if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null, rate: 0.94 + Math.random() * 0.12 });
-    }
+    this.stage.onEvent(e);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
-    if (e.type === 'unitBuilt') this.structureViews.notify(e, performance.now());
-    if (e.type === 'structurePlaced') {
-      const s = this.world.structures.get(e.id);
-      if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
-      if (s && !this.catchingUp && this.seen(s.x + s.w / 2, s.y + s.h / 2)) this.constructionDust(s);
-    }
-    switch (e.type) {
-      case 'fired': if (!this.catchingUp) this.onFired(e); break;
-      case 'gameOver': this.endAt = performance.now() + 2500; break;
-      case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12 + (e.alt ?? 0), e.y, e.projectile, e.hit); break;
-      case 'explosion':
-        if (!this.seen(e.x, e.y)) break;
-        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size);
-        if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
-        break;
-      case 'deathHandBlast':
-        if (!this.catchingUp && this.seen(e.x, e.y)) { this.effects.shockwave(e.x, this.heightAt(e.x, e.y) + 0.2, e.y); this.rig.shake = Math.max(this.rig.shake, 1.2); }
-        break;
-      case 'fremenRose': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.rise(e.x, this.heightAt(e.x, e.y) + 0.05, e.y); break;
-      case 'unitReverted': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.gasCloud(e.x, this.heightAt(e.x, e.y) + 0.3, e.y); break;
-      case 'unitDestroyed':
-        if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.rig.shake = Math.max(this.rig.shake, 0.6);
-        if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
-        break;
-    }
-  }
-
-  /** Effects only show where the player can see (fog off: everywhere). */
-  seen(x, z) {
-    const w = this.world;
-    if (!w.fogOfWar) return true;
-    const tx = Math.floor(x), ty = Math.floor(z);
-    return w.map.inBounds(tx, ty) && isVisible(w, this.house, tx, ty);
-  }
-
-  onFired(e) {
-    if (!this.seen(e.x, e.y)) return;
-    const dir = Math.atan2(e.ty - e.y, e.tx - e.x);
-    const big = e.projectile !== 'bullet';
-    let x = e.x, z = e.y, lift = 0.45;
-    if (e.kind === 'unit') {
-      const u = this.world.units.get(e.id);
-      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (onFoot(u.move) ? 0.2 : 0.34); }
-      this.unitViews.recoil(e.id);
-    }
-    const reach = e.kind === 'unit' ? 0.38 : 0.45;
-    x += Math.cos(dir) * reach;
-    z += Math.sin(dir) * reach;
-    if (e.projectile === 'sonic') this.effects.sonic(x, this.heightAt(x, z) + lift, z, dir);
-    else this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
-  }
-
-  /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
-  combatEffects(dt, alpha) {
-    const w = this.world;
-    for (const p of w.projectiles.values()) {
-      const x = p.px + (p.x - p.px) * alpha, z = p.py + (p.y - p.py) * alpha;
-      if (!this.seen(x, z)) continue;
-      const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
-      const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
-      const from = 0.35 + (p.fromAlt ?? 0), to = 0.2 + (p.toAlt ?? 0);   // from a flying gun, up to an aircraft
-      const y = this.heightAt(x, z) + from + (to - from) * t + arcHeight(p.projectile, t, total);
-      if (p.projectile === 'sonic') this.effects.sonic(x, y, z, Math.atan2(p.ty - p.sy, p.tx - p.sx));
-      else this.effects.trail(p.projectile, x, y, z);
-    }
-    this.smokeClock += dt;
-    if (this.smokeClock < 0.12) return;
-    this.smokeClock = 0;
-    for (const u of w.units.values()) {
-      if (onFoot(u.move) || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
-      const p = this.unitViews.renderPos(u);
-      this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35 + (u.alt ?? 0), p.z);
-    }
-    for (const s of w.structures.values()) {
-      if (s.hp > s.maxHp / 2 || s.type.isWall || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
-      const x = s.x + Math.random() * s.w, z = s.y + Math.random() * s.h;
-      const y = this.heightAt(x, z) + 0.5;
-      this.effects.smokePuff(x, y, z);
-      if (s.hp < s.maxHp / 4 || Math.random() < 0.5) this.effects.flame(x, y - 0.1, z);
-    }
-  }
-
-  /** Dust behind vehicles on sand, tread marks and harvest dust (spec §5.4). */
-  ambient(dt) {
-    const w = this.world, map = w.map;
-    this.dustClock += dt;
-    const puff = this.dustClock >= 0.09;
-    if (puff) this.dustClock = 0;
-    for (const u of w.units.values()) {
-      if (onFoot(u.move)) continue;
-      const i = map.idx(u.tx, u.ty);
-      const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
-      const p = this.unitViews.renderPos(u);
-      if (!nearCamera(p.x, p.z, this.rig.target.x, this.rig.target.z, this.rig.distance)) continue;
-      const visible = this.seen(p.x, p.z);
-      if (u.step && soft) {
-        const last = this.trackFrom.get(u.id);
-        if (!last || Math.hypot(p.x - last.x, p.z - last.z) > 0.3) {
-          if (last && visible) this.terrain.decals?.track(p.x, p.z, u.heading, u.move === 'wheeled' ? 0.2 : 0.28, u.move === 'wheeled' ? 0.035 : 0.05);
-          this.trackFrom.set(u.id, { x: p.x, z: p.z });
-        }
-        if (puff && visible) this.effects.dust(p.x - Math.cos(u.heading) * 0.35, this.heightAt(p.x, p.z) + 0.08, p.z - Math.sin(u.heading) * 0.35, u.move === 'wheeled' ? 0.9 : 0.7);
-      } else if (!u.step) this.trackFrom.delete(u.id);
-      if (puff && visible && u.harvest?.state === 'harvesting') {
-        this.effects.dust(p.x + Math.cos(u.heading) * 0.45, this.heightAt(p.x, p.z) + 0.1, p.z + Math.sin(u.heading) * 0.45, 1.2);
-      }
-    }
-    for (const id of this.trackFrom.keys()) if (!w.units.has(id)) this.trackFrom.delete(id);
-    this.weldClock += dt;
-    if (this.weldClock >= 0.12) {   // welding sparks over occupied repair pads the player can see
-      this.weldClock = 0;
-      for (const s of w.structures.values()) {
-        if (!s.bay || !nearCamera(s.x + s.w / 2, s.y + s.h / 2, this.rig.target.x, this.rig.target.z, this.rig.distance) || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
-        const p = this.structureViews.weldPoint(s.id, performance.now());
-        if (p) this.effects.weld(p.x, p.y, p.z);
-      }
-    }
-  }
-
-  constructionDust(s) {
-    for (let k = 0; k < 18; k++) {
-      const a = (k / 18) * Math.PI * 2;
-      const x = s.x + s.w / 2 + Math.cos(a) * s.w * 0.55, z = s.y + s.h / 2 + Math.sin(a) * s.h * 0.55;
-      this.effects.dust(x, this.heightAt(x, z) + 0.05, z, 1.4);
-    }
+    if (e.type === 'gameOver') this.endAt = performance.now() + 2500;
   }
 
   /** The camera's view on the ground (tile coordinates), for the radar outline. */
@@ -392,7 +246,6 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
-    if (world.fogOfWar && this.shroud.update(world.houses.get(this.house)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
     this.selection.prune((id) => { const u = world.units.get(id); return !!u && !u.inside && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
@@ -400,13 +253,7 @@ export class GameView {
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
     const e = r3d.camera.matrixWorld.elements;
     this.sound.setListener(this.rig.target.x, this.rig.target.z, e[0], e[2], this.rig.distance);
-    this.unitViews.sync(world, alpha, dt);
-    this.structureViews.sync(world, now);
-    this.combatEffects(dt, alpha);
-    this.missiles.sync(world, alpha, this.heightAt, (x, z) => this.seen(x, z));
-    this.ambient(dt);
-    this.effects.update(dt);
-    this.terrain.update(now);
+    this.stage.sync(alpha, dt, now);
     r3d.renderer.info.reset();
     r3d.render();
     this.controller.frame();
