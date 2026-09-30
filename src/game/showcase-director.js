@@ -20,7 +20,7 @@ export const SHOWCASE = {
   reinforceCount: [3, 4],   // … which gets this many more
   reorderEvery: 4,          // idle fighters are sent at the enemy this often (seconds)
   hotspotWindow: 3,         // seconds of shooting the hotspot averages …
-  hotspotLag: 2,            // … and the seconds it takes to follow
+  hotspotLag: 2,            // … and the time constant (seconds) of the hotspot's smoothing
 };
 export const PLAYABLE = ['atreides', 'harkonnen', 'ordos'];
 /** The army mix, [unit type, weight]; each house draws from what it can build. */
@@ -87,7 +87,8 @@ export class ShowcaseDirector {
     world.fogOfWar = false;
     for (const h of this.houses) world.addHouse(h, { credits: 0 });
     this.special = rng.pick([...new Set(this.houses.flatMap((h) => SPECIALS[h]))]);
-    this.specialSide = this.houses.findIndex((h) => SPECIALS[h].includes(this.special));
+    const sides = [0, 1].filter((s) => SPECIALS[this.houses[s]].includes(this.special));   // both may field it
+    this.specialSide = rng.pick(sides);
     this.specialSeen = false;
     this.pending = null;            // the special's timed step: { at, when?, run }
     this.center = { x: W / 2, z: H / 2 };
@@ -172,10 +173,10 @@ export class ShowcaseDirector {
         break;
       case 'devastator': {
         const dev = this.spawn('devastator', s, col(16), 20);
-        // it goes off once badly hurt in view, or when the battle is well under way
+        // it goes off once hurt in view (early: its 3 s countdown must beat the enemy's fire), or when the battle is well under way
         this.pending = dev && {
           at: lead + 20,
-          when: () => w.time >= lead && w.units.has(dev.id) && dev.hp < dev.maxHp / 2,
+          when: () => w.time >= lead && w.units.has(dev.id) && dev.hp < dev.maxHp * 0.75,
           run: () => { if (w.units.has(dev.id)) w.issue(house, { type: 'destruct', ids: [dev.id] }); },
         };
         break;
@@ -202,8 +203,8 @@ export class ShowcaseDirector {
   step() {
     const w = this.world;
     w.step();
-    if (w.time >= this.nextReinforce) { this.nextReinforce += SHOWCASE.reinforceEvery; for (const s of [0, 1]) this.reinforce(s); }
     if (w.time >= this.nextReorder) { this.nextReorder += SHOWCASE.reorderEvery; for (const s of [0, 1]) this.reorder(s); }
+    if (w.time >= this.nextReinforce) { this.nextReinforce += SHOWCASE.reinforceEvery; for (const s of [0, 1]) this.reinforce(s); }   // after the reorder: fresh units are ordered once
     const p = this.pending;
     if (p && (w.time >= p.at || p.when?.())) { this.pending = null; p.run(); }
     this.updateHotspot();
@@ -221,7 +222,7 @@ export class ShowcaseDirector {
   }
 
   reorder(s) {
-    this.charge(s, this.fighters(s).filter((u) => u.order.type === 'idle'), this.enemyFocus(s));
+    this.charge(s, this.fighters(s).filter((u) => u.order.type === 'idle' && !u.target), this.enemyFocus(s));
   }
 
   /** Every drained event passes through here: shots for the hotspot, and whether the special has happened. */
@@ -236,7 +237,7 @@ export class ShowcaseDirector {
       case 'deviator': return e.type === 'fired' && e.projectile === 'gas';
       case 'devastator': return e.type === 'unitDestroyed' && e.cause === 'destructed';
       case 'deathHand': return e.type === 'palaceFired';
-      case 'ornithopters': return e.type === 'fired' && this.world.units.get(e.id)?.typeId === 'ornithopter';
+      case 'ornithopters': return e.type === 'fired' && e.weapon === 'miniRocket';   // only the ornithopter carries it; holds even if it dies this tick
       default: return false;
     }
   }
@@ -255,7 +256,7 @@ export class ShowcaseDirector {
     this.hotspot.z += (goal.z - this.hotspot.z) * k;
   }
 
-  /** Runs `seconds` of battle, handing every event to the director and then to `onEvent` (the stage). */
+  /** Runs `seconds` of battle, handing every event to the director and then to `onEvent` (the stage). Whole ticks only: pass a multiple of DT. */
   run(seconds, onEvent = null) {
     for (let i = 0, n = Math.round(seconds / DT); i < n; i++) {
       this.step();

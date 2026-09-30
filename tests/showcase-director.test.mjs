@@ -10,6 +10,7 @@ test('two different houses on a 64×40 map: rock at both ends, no peaks in the m
   for (let seed = 1; seed <= 20; seed++) {
     const d = new ShowcaseDirector({ seed });
     assert.equal(new Set(d.houses).size, 2);
+    assert.equal(d.world.rules.victory, false);
     for (const h of d.houses) assert.ok(PLAYABLE.includes(h));
     const m = d.world.map;
     assert.deepEqual([m.w, m.h], [SHOWCASE.w, SHOWCASE.h]);
@@ -22,7 +23,7 @@ test('two different houses on a 64×40 map: rock at both ends, no peaks in the m
 });
 
 test('each side starts with 10–14 fighters on their own tiles, and its base behind them', () => {
-  for (const seed of [2, 7, 13]) {
+  for (let seed = 1; seed <= 20; seed++) {
     const d = new ShowcaseDirector({ seed });
     for (const s of [0, 1]) {
       const n = fighters(d, s).length - (s === d.specialSide ? EXTRA[d.special] ?? 0 : 0);
@@ -36,7 +37,7 @@ test('each side starts with 10–14 fighters on their own tiles, and its base be
 });
 
 test('the armies meet within the lead time', () => {
-  for (const seed of [3, 8]) {
+  for (let seed = 1; seed <= 12; seed++) {
     const d = new ShowcaseDirector({ seed });
     let shots = 0;
     d.run(SHOWCASE.lead, (e) => { if (e.type === 'fired') shots++; });
@@ -63,7 +64,18 @@ test('the fight never runs dry: both sides keep fighters for three minutes and r
   assert.ok(d.reinforced > 0);
 });
 
-test('the hotspot follows the shooting, among the armies, and stays on the map', () => {
+test('the hotspot follows the shots, and falls back to the centre when they stop', () => {
+  const d = new ShowcaseDirector({ seed: 1 });
+  assert.deepEqual(d.hotspot, d.center);
+  for (let i = 0; i < 5; i++) d.onEvent({ type: 'fired', x: 20.5, y: 10.5 });
+  for (let i = 0; i < 240; i++) d.updateHotspot();
+  assert.ok(Math.hypot(d.hotspot.x - 20.5, d.hotspot.z - 10.5) < 0.5);
+  d.world.time += SHOWCASE.hotspotWindow + 0.1;   // the shots age out
+  for (let i = 0; i < 240; i++) d.updateHotspot();
+  assert.ok(Math.hypot(d.hotspot.x - d.center.x, d.hotspot.z - d.center.z) < 0.5);
+});
+
+test('the armies meet in the middle: the hotspot sits between the bases', () => {
   for (const seed of [5, 9]) {
     const d = new ShowcaseDirector({ seed });
     d.run(SHOWCASE.lead + 10);
