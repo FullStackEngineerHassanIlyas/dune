@@ -124,7 +124,7 @@ one voice for every house as in the original. Alerts go before routine news, one
 the message bar still shows every line. Options → Voices sets their volume (`voiceVolume=0` in the URL
 turns them off); M mutes them with everything else.
 
-Unlike the effects, the voices are files: 195 short Ogg Opus lines (about 1.2 MB) in `assets/voice/`,
+Unlike the effects, the voices are files: 195 short Ogg Opus lines (about 1.1 MB) in `assets/voice/`,
 listed in `assets/voice/manifest.json`. They were rendered offline by `scripts/voices/generate.py` from
 the lines in `scripts/voices/lines.json` (its header says how to rerun it), with the
 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) neural text-to-speech model (weights and voices

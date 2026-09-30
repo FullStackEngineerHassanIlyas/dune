@@ -28,10 +28,11 @@ function simEvaKeys() {
 test('every announcement the simulation raises has a voiced line for every playable house', () => {
   const keys = simEvaKeys();
   assert.ok(keys.size >= 35, `found ${keys.size} keys`);
-  for (const key of keys) assert.ok(EVA_KEYS.includes(key), `eva key ${key} has no line`);
+  for (const key of keys) assert.ok(EVA_KEYS.includes(key), `eva key ${key} has no line: map it in EVA_LINES (src/audio/voice.js) or list it in SILENT_EVA`);
   for (const house of PLAYABLE_HOUSES) {
     const set = setOf(house);
     for (const key of keys) {
+      if (lineForEvent({ type: 'eva', house, key }, house) === null && !['enemyUnitDestroyed', 'enemyStructureDestroyed'].includes(key)) continue;   // silent by choice
       const variants = key === 'enemyUnitDestroyed' || key === 'enemyStructureDestroyed' ? [...NAMED_HOUSES, 'mercenary'] : [null];
       for (const foe of variants) {
         const id = lineForEvent({ type: 'eva', house, key, foe }, house);

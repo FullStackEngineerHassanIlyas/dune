@@ -60,7 +60,8 @@ const EVA_LINES = {
   lostToCapture: 'lostToCapture', notReady: 'notReady', fremenArrived: 'fremenArrived', saboteurReady: 'weaponReady.saboteur',
   missionAccomplished: 'missionAccomplished', missionFailed: 'missionFailed', draw: 'draw',
 };
-export const EVA_KEYS = Object.keys(EVA_LINES).concat(['enemyUnitDestroyed', 'enemyStructureDestroyed', 'weaponReady']);
+const SILENT_EVA = new Set([]);   // 'eva' keys shown in the message bar but deliberately not spoken
+export const EVA_KEYS = Object.keys(EVA_LINES).concat(['enemyUnitDestroyed', 'enemyStructureDestroyed', 'weaponReady'], [...SILENT_EVA]);
 export const NAMED_HOUSES = ['atreides', 'harkonnen', 'ordos', 'fremen', 'sardaukar'];   // houses the announcer names; others are 'enemy'
 
 /** A line naming a house: 'unitDestroyed.harkonnen', or '.enemy' for a house without its own words. */
