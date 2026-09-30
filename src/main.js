@@ -15,6 +15,7 @@ const SCENES = {
   icons: () => import('./scenes/icons.js'),
   base: () => import('./scenes/base.js'),
   battle: () => import('./scenes/battle.js'),
+  planet: () => import('./scenes/planet.js'),
 };
 
 function fatal(message) {

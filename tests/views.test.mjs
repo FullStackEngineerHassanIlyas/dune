@@ -265,3 +265,33 @@ test('the Death Hand flies as a missile high over its path and is gone when it l
   assert.equal(views.handles.size, 0);
   assert.equal(views.model.count, 0);
 });
+
+test('dispose takes every unit, structure and missile mesh off the scene', () => {
+  const world = flatWorld(32, 32, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const scene = new THREE.Scene();
+  const units = new UnitViews(scene, hf), structures = new StructureViews(scene, hf), missiles = new MissileViews(scene);
+  world.spawnUnit('combatTank', 'atreides', 3, 3);
+  world.spawnUnit('troopers', 'harkonnen', 8, 8);
+  const palace = world.spawnStructure('palace', 'harkonnen', 20, 20);
+  palace.readyAt = 0;
+  world.issue('harkonnen', { type: 'palace', x: 4, y: 4 });
+  world.step();
+  units.sync(world, 1, 0.016);
+  structures.sync(world, 0);
+  missiles.sync(world, 1, () => 0);
+  assert.ok(missiles.model, 'the Death Hand is in flight');
+  assert.ok(scene.children.length > 0);
+  const meshes = [...units.models.values(), ...structures.models.values(), missiles.model].flatMap((m) => m.meshes);
+  const shared = new Set(meshes.flatMap((m) => [m.material, m.geometry]));   // shared with the next battle: must stay alive
+  const freedMeshes = new Set(), freedShared = new Set();
+  for (const m of meshes) m.addEventListener('dispose', () => freedMeshes.add(m));
+  for (const o of shared) o.addEventListener('dispose', () => freedShared.add(o));
+  units.dispose();
+  structures.dispose();
+  missiles.dispose();
+  assert.equal(scene.children.length, 0);
+  assert.ok(meshes.length > 0);
+  assert.equal(freedMeshes.size, meshes.length, 'every instanced mesh is freed');
+  assert.equal(freedShared.size, 0, 'the shared geometry and materials are spared');
+});

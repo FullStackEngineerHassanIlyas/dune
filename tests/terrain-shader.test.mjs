@@ -34,3 +34,14 @@ test('the apron beyond the map edge follows the shroud of the nearest edge tiles
   assert.match(apron, /length\(p - edge\)/, 'and averages a wider stretch of edge the farther out it lies');
   assert.match(fn, /clamp\(p \/ uMapSize, 0\.0, 1\.0\)/);
 });
+
+test('the apron takes its albedo and brightness from uApron, so the menu battle can match it to the map', () => {
+  const material = new THREE.MeshStandardMaterial();
+  injectTerrainShader(material, { uApron: { value: new THREE.Vector2(1, 1) } }, { apron: true });
+  const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+  material.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader, /uniform vec2 uApron;/);
+  assert.match(shader.fragmentShader, /col \*= uApron\.x;/);
+  assert.match(shader.fragmentShader, /return smoothstep\(0\.2, 0\.8, e \/ 25\.0 \+ n\) \* uApron\.y;/, 'the softened edge shroud, dimmed by uApron.y');
+  assert.equal(shader.uniforms.uApron.value.x, 1);
+});

@@ -1,6 +1,8 @@
 // Scenes captured by `npm run smoke`. Each scene sets window.__dune.ready when its first frame is drawn.
 export const SCENARIOS = {
   boot: { query: 'scene=boot' },
+  'menu-planet': { query: 'scene=menu&backdrop=planet&seed=5', settleMs: 2500 },
+  'menu-battle': { query: 'scene=menu&backdrop=battle&seed=5', settleMs: 3500 },
   'render-test': { query: 'scene=render-test' },
   'render-test-low': { query: 'scene=render-test&quality=low' },
   'render-test-high': { query: 'scene=render-test&quality=high' },
@@ -38,4 +40,10 @@ export const SCENARIOS = {
   'base-palace': { query: 'scene=base&house=harkonnen&fog=0&palace=1&dist=14', settleMs: 1500 },
   'battle-specials': { query: 'scene=battle&specials=1&dist=24&ticks=140', settleMs: 1500 },
   'skirmish-ai-base': { query: 'scene=skirmish&seed=11&house=atreides&fog=0&ticks=6000&dist=34&focus=rival', settleMs: 1500 },
+  // the menu's planet alone (scene=planet): the framing with the moon mid-pass, the dive half-way and at the seam
+  'planet-framing': { query: 'scene=planet&dive=0&moon=5&freeze=1' },
+  'planet-dive-half': { query: 'scene=planet&dive=0.5&moon=12' },
+  'planet-dive-seam': { query: 'scene=planet&dive=1&moon=14' },
+  'planet-moon-early': { query: 'scene=planet&moon=2&freeze=1' },
+  'planet-moon-late': { query: 'scene=planet&moon=8&freeze=1' },
 };

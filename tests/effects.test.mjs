@@ -88,3 +88,17 @@ test('the sonic wave, Deviator gas and the Death Hand each have their own look, 
   }
   assert.ok(fx.glow.n <= fx.glow.capacity && fx.smoke.n <= fx.smoke.capacity);
 });
+
+test('dispose takes the particle meshes and flash lights off the scene', () => {
+  const scene = new THREE.Scene();
+  const fx = new Effects(scene, { particles: 400, flashLights: 2 });
+  fx.explosion(0, 0, 0, 'large');
+  assert.ok(scene.children.length >= 4);
+  const freed = [];
+  const spies = [fx.glow.mesh.geometry, fx.glow.mesh.material, fx.smoke.mesh.geometry, fx.smoke.mesh.material];
+  for (const o of spies) o.addEventListener('dispose', () => freed.push(o));
+  fx.dispose();
+  assert.equal(scene.children.length, 0);
+  assert.equal(new Set(freed).size, 4, 'each pool frees its own geometry and material');
+  assert.doesNotThrow(() => fx.dispose(), 'disposing twice is harmless');
+});

@@ -1,0 +1,218 @@
+# Main menu backdrop: Arrakis from space, then a battle — design
+
+Status: approved 2026-09-30. Replaces the dune flyover behind the main menu (spec §5.8).
+
+## Goal
+
+The main menu's 3D backdrop becomes a loop, in the spirit of the Command & Conquer: Generals
+shell map:
+
+1. **Planet** — Arrakis turning in space, as in the Dune II intro, with the caption
+   *"The planet Arrakis, known as Dune."*
+2. **Dive** — the camera pushes into the planet; a sand-coloured haze fills the screen.
+3. **Battle** — the haze clears onto a live battle between two random houses, seen from a camera
+   that descends from high above and then circles the fighting.
+4. **Rise** — the camera lifts away, the picture fades to black, and the loop returns to the planet
+   with a new battle waiting.
+
+Everything is made in code, like the rest of the remake; no original intro frames are used.
+
+## Timeline (one loop ≈ 60 s)
+
+| Phase | Length | Picture |
+|---|---|---|
+| Planet | 10 s | Planet on the right of the frame (the menu sits on the left), partly cropped, lit from the upper left with the terminator on the right. It turns slowly. The caption fades in after 1.5 s and fades out before the dive. |
+| Dive | 3 s | The camera pushes towards the planet until it fills the frame; the haze fades in over the last 0.8 s. |
+| Battle | 45 s | The haze fades out onto the battle. The camera starts high and descends, then orbits the hotspot slowly and cuts to a new angle about every 12 s (a short dip to haze at each cut). |
+| Rise | 2 s | The camera climbs and the picture fades to black. This is shorter than the dive (exits are faster than entrances). |
+
+The next battle's world, terrain and views are built during the planet phase, and the world is
+simulated a few seconds ahead, so the battle is already under way when it appears and the swap
+has no hitch.
+
+**Reduced motion** (`prefers-reduced-motion: reduce`): the dive and rise become plain crossfades
+without camera travel, the battle camera holds one wide angle (no orbit, no cuts), there is no
+camera shake, and the planet turns more slowly.
+
+**Interruptible**: starting a skirmish during any phase stops the backdrop at once and sets the
+fade layer to its end state directly. Nothing waits on `transitionend`. Returning to the menu
+restarts the loop at the planet.
+
+## Components
+
+### `BattleStage` — `src/game/battle-stage.js` (new, extracted from `GameView`)
+
+Everything between a `World` and the picture that is not input or HUD:
+
+- the `Heightfield`, `TerrainView` (with decals), `UnitViews`, `StructureViews`, `Effects` and
+  `MissileViews`;
+- event handling for effects and sound cues (`onEvent`, `onFired`), `combatEffects`, `ambient`,
+  `constructionDust` and the fog-aware `seen(x, z)`;
+- `sync(alpha, dt, now)` for the per-frame view update, and `dispose()`.
+
+All of its scene objects hang under one root `THREE.Group`, so `dispose()` can remove them in one
+pass. It frees what the stage alone owns (its instanced meshes, particle pools, flash lights, and
+the terrain's geometry, materials and textures), sparing the shared model geometry and materials.
+
+`GameView` keeps input, HUD, sidebar, radar, menus, the fixed-step loop and the camera rig. It hands
+the views, effects and event handling to a `BattleStage`. The game must behave exactly as before;
+the existing unit tests and both e2e suites are the check.
+
+### `ShowcaseDirector` — `src/game/showcase-director.js` (new, simulation only)
+
+Builds and runs the battle for one loop. It has no rendering or DOM code, so it runs under Node.
+
+- **Map**: 64 × 40, a fresh seed every loop. Open rock in the middle where the armies meet, dunes
+  and sand around it (for dust and tracks), and a little spice.
+- **Houses**: two different houses picked at random from Atreides, Harkonnen and Ordos. The world
+  runs with `rules.victory` off (the default), so there is never a game over. The computer
+  base-building AI is not used; the director gives every order.
+- **Armies**: 10–14 units per side, drawn from the units the house can build (`UNITS[*].houses`):
+  tanks, quads or trikes, infantry or troopers, missile or siege tanks. Behind each side, as
+  scenery: a Construction Yard, a Windtrap, a turret and a few wall segments, plus a Palace when
+  that side fires the loop's Death Hand.
+- **Reinforcements**: every ~8 s, a side with fewer than 10 units gets 3–4 new ones at its back
+  edge. They are given an attack-move towards the enemy's back line.
+- **One special per loop**, chosen at random from those the two houses can field: a Sonic Tank pair,
+  a Deviator, a Devastator that destructs, a Death Hand strike, or an Ornithopter attack.
+- **Hotspot**: a smoothed point where most of the recent firing happened (from `fired` events over
+  the last ~3 s), for the camera to follow. It falls back to the middle of the map when nobody is
+  firing.
+
+### `ShowcaseCamera` — `src/game/showcase-camera.js` (new, pure math)
+
+Given the time within the battle phase, the hotspot and the reduced-motion flag, returns the camera
+target, distance, pitch and yaw: the descent, the slow orbit, and where the cuts fall. It has no
+Three.js state, so it runs under Node.
+
+Framing: the main shot is about 22 tiles away at 42° pitch, the descent starts about 55 tiles up at
+66°, and the reduced-motion shot is 32 tiles at 50°. The 64 × 40 map is small: lower or wider shots
+show the edge of the world. On wide screens `MenuBackdrop` looks a little left of the hotspot (a
+quarter of the half-width), so the fight sits right of centre, clear of the menu.
+
+### `PlanetShot` — `src/render/planet.js` (new)
+
+Its own `THREE.Scene` and camera:
+
+- the planet: a sphere with an equirectangular canvas texture made in code — sand oranges and
+  browns, darker rock patches and dune streaks from layered value noise;
+- a Fresnel atmosphere shell, blue and additive, brighter on the lit side;
+- about 2,400 stars (points of varied size and brightness) and a faint blue nebula;
+- `update(dt, dive)`, where `dive` (0..1) drives the push-in, and `dispose()`.
+
+### `MenuBackdrop` — `src/scenes/menu.js`
+
+Replaces `flyover()`. It runs the phase state machine, owns the single `Renderer3D` and renders
+either the planet scene or the battle scene each frame, so bloom lights the atmosphere too. It
+drives the fade layer and the caption, builds the next battle during the planet phase, disposes
+the last one, and keeps `start()` / `stop()` for the skirmish launch and quit. `Renderer3D` gains a
+way to render a given scene and camera through its composer.
+
+### Styles — `src/ui/menu.css`
+
+The caption, the fade layer, and a darker left-hand scrim during the battle phase.
+
+## Look
+
+- **Planet**: as in the reference image — orange-brown, heavily lit on the left, a thin blue rim of
+  atmosphere, deep black space with stars and a blue haze in one corner.
+- **Caption**: red like the original, bright enough for at least 4.5:1 contrast on the black
+  background. Georgia serif, which the menu subtitle already uses; the project loads no web
+  fonts. Bottom right, below the planet. `aria-hidden="true"`: it is decoration, repeated on every
+  loop.
+- **Menu legibility**: the battle is brighter and busier than the dunes, so the scrim behind the
+  menu (left side) deepens from the dive on. Menu text keeps at least 4.5:1 contrast.
+
+## Sound
+
+The backdrop has its own `SoundEngine` at 30 % of the Options volume. When sound is off in Options
+the engine is kept but muted, so turning sound on in Options takes effect live. Space is silent;
+battle sound fades in over the battle's first two seconds and out on the rise. Cues come from `cueFor` with a
+viewer that is neither side, so there are no announcements or interface beeps. As everywhere,
+browsers only allow sound after the first click or key press.
+
+## Performance
+
+- The loop stops when the tab is hidden and whenever a skirmish frame is open.
+- Each finished battle is disposed: its geometries, materials and textures are freed.
+- The Options quality preset applies (shadows, particles, pixel ratio capped as today).
+- Star count stays within 1,000–3,000 particles.
+- The menu battle has no muzzle flash lights: in a busy firefight they would flicker the sand faster
+  than 3 times a second.
+
+## Failure
+
+The backdrop is built inside a `try`, as today. If the battle cannot be built, the loop shows the
+planet only; if the planet cannot be built either, the old dune flyover runs. The menu itself
+never depends on the backdrop.
+
+## Testing
+
+- **Node unit tests**:
+  - `ShowcaseDirector`: the houses differ, both sides keep units across a long run,
+    reinforcements arrive on schedule, the chosen special fires, and nothing throws over thousands
+    of ticks.
+  - `ShowcaseCamera`: phase boundaries, the cut schedule, and the reduced-motion path.
+  - The backdrop phase timeline.
+- **Regression**: `npm test`, `npm run e2e` and `npm run e2e:menu` pass unchanged after the
+  `BattleStage` extraction.
+- **Menu e2e**: the backdrop reaches the battle phase and comes back to the planet; launching a
+  skirmish stops it.
+- **Smoke**: screenshots `menu-planet` and `menu-battle`. A `backdrop=planet|battle` URL flag holds
+  one phase, for screenshots.
+
+## Revision 2 (2026-09-30, after the first look)
+
+Approved by the user after watching the first version. Where this section and the text above
+disagree, this section wins.
+
+### The planet looks like the intro
+
+- **Atmosphere**: an even, thin, bright rim all round the limb, as in the intro. It is brightest on
+  the lit side and still faintly visible on the dark side. The first version computed the glow as
+  if the planet sat in the middle of the view, so with the planet off to the right it came out as a
+  thick crescent on the left and nothing on the right. The glow must use the true per-fragment view
+  direction.
+- **Framing**: the whole planet, rim included, stays inside the frame, with a small margin at the
+  right edge. It is not cut off.
+- **A moon**: one small grey, cratered moon orbits Arrakis. During the planet phase it passes
+  across the lit face, and its soft-edged shadow falls on the planet and moves with it. The shadow
+  is computed analytically in the planet shader. The moon is never in the way of the dive.
+
+### Seamless dive and return: one continuous zoom, no cut
+
+The loop becomes: **planet 10 s → dive 4 s → battle 45 s → rise 3 s → emerge 3.5 s → planet**.
+
+- **Dive**:
+  - The camera flies from the framing shot to a landing site on the lit face and turns to look
+    straight down at it.
+  - Its altitude falls on an accelerating, then steady, logarithmic zoom: a constant zoom rate at
+    the end.
+  - Ground detail keeps emerging as the camera closes in.
+  - The planet's spin eases to a stop, so the ground does not slide.
+  - A dusty haze thickens to exactly the battlefield's fog colour.
+- **Seam into the battle**:
+  - The last planet frame is kept on a 2D overlay and goes on zooming at the same rate while it
+    fades out over about 0.6 s.
+  - Underneath, the battle starts looking straight down from about 240 tiles up, deep in its own
+    sand-coloured fog, and zooms at the same rate. No frame is ever blank or black.
+- **Descent** (the battle's first ~5.5 s): the distance eases logarithmically from the entry rate
+  down to the cinematic shot, while the camera tilts from top-down to the orbit angle and drifts
+  from the map centre to the fighting. Then comes the orbit, with cuts every 12 s as before.
+- **Rise**: the mirror image. The camera tilts back to top-down and climbs into the fog,
+  accelerating to the emerge's zoom-out rate.
+- **Seam out of the battle**: the last battle frame is kept on the overlay, zooming out and fading,
+  over the planet.
+- **Emerge**: the dive in reverse, ending at the framing shot. The planet phase follows with its
+  caption and the moon's pass.
+- **The black fade-in** plays only on a cold start: when the menu opens, or when coming back from a
+  skirmish.
+- **Reduced motion**: plain haze crossfades, no zooms.
+
+### Pause
+
+A **Pause background** button sits next to Full screen.
+- It uses `aria-pressed`, is reachable from the keyboard, and is remembered as the setting
+  `menuMotion`. This meets WCAG 2.2.2.
+- While paused, the backdrop stops on its current frame and falls silent.
+- Opening the menu while paused shows a still planet with its caption.

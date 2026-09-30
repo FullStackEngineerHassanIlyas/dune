@@ -75,10 +75,25 @@ html, body, #app, #app * { cursor: var(--cursor, default); }
 .mm-item.primary { border-left-color: #ffd24a; }
 .mm-item:disabled { opacity: .5; }
 .mm-foot { font-size: 12px; color: #a88a5c; text-shadow: 0 1px 3px #000; }
-.mm-fs { position: absolute; top: 16px; right: 16px; z-index: 2; padding: 7px 14px; font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase;
+/* Pause background (WCAG 2.2.2) and Full screen: one corner group, so they never overlap; 44px touch targets
+   8px+ apart. Pressed wears gold, and focus adds a ring outside it, so focus still shows on a pressed button. */
+.mm-top { position: absolute; top: 16px; right: 16px; z-index: 2; display: flex; gap: 10px; }
+.mm-fs, .mm-bg { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 44px; min-height: 44px; padding: 7px 14px;
+  font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
   color: #f5d48a; background: rgba(34,23,12,.85); border: 2px solid #8e6843; border-radius: 3px; }
-.mm-fs span { font-size: 15px; letter-spacing: 0; }
-.mm-fs:hover, .mm-fs:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-glyph { font-size: 15px; letter-spacing: 0; line-height: 1; }
+.mm-fs[aria-pressed="true"], .mm-bg[aria-pressed="true"] { border-color: #d9a52e; color: #ffd24a; background: linear-gradient(rgba(92,64,26,.94), rgba(46,31,14,.94)); }
+.mm-fs:hover, .mm-fs:focus-visible, .mm-bg:hover, .mm-bg:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-fs:focus-visible, .mm-bg:focus-visible { box-shadow: 0 0 0 2px #140b03, 0 0 0 4px #ffd24a; }
+/* the panels (Skirmish, Options, Controls, Credits) centre below the group; the absolute title screen ignores this */
+.main-menu { padding-top: 76px; }
+.main-menu > .dm-panel { max-height: calc(100vh - 92px); }
+/* a phone, or a short landscape window, keeps the glyphs (the words stay in aria-label) */
+@media (max-width: 520px), (max-height: 500px) {
+  .mm-word { display: none; }
+  .mm-fs, .mm-bg { padding: 7px 10px; }
+}
+@media (max-width: 520px) { .mm-title-screen { padding-top: max(7vh, 76px); } }
 .mm-houses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
 .mm-house { display: grid; justify-items: center; gap: 5px; padding: 14px 8px 12px; color: #f2d7a0; background: linear-gradient(#2e2114, #1a1209); border: 2px solid #6e5236; border-radius: 4px; transition: border-color .12s, box-shadow .12s; }
 .mm-house:hover, .mm-house:focus-visible { border-color: #b8893a; outline: none; }
@@ -101,3 +116,36 @@ html, body, #app, #app * { cursor: var(--cursor, default); }
 .mm-loading { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: #000; pointer-events: none;
   font: bold 15px "Trebuchet MS", sans-serif; letter-spacing: .3em; text-transform: uppercase; color: #d9a52e; animation: mm-pulse 1.4s ease-in-out infinite; }
 @keyframes mm-pulse { 50% { color: #7a5a24; } }
+
+/* main menu backdrop (menu backdrop spec): the fade between space and the battle, the planet's caption,
+   and a deeper scrim behind the menu from the dive on (the planet close up, the haze and the battle are
+   all bright; its low band keeps the footer at 4.5:1). The caption red #f4553d on the black of space is
+   6.2:1 (WCAG AA needs 4.5:1), and its dark halo holds it over the stars and the nebula. */
+.mb-fade { position: absolute; inset: 0; pointer-events: none; background: #000; opacity: 1; }
+.mb-caption { position: absolute; left: 50%; width: 50%; bottom: 6vh; z-index: 11; pointer-events: none; opacity: 0; text-align: center;
+  font: bold clamp(18px, 2.3vw, 30px) Georgia, "Times New Roman", serif; letter-spacing: .03em; color: #f4553d; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+#ui:not(:has(.mm-title-screen)) .mb-caption, #ui:has(> .main-menu[hidden]) .mb-caption { display: none; }
+.main-menu::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
+  background: linear-gradient(0deg, rgba(10,6,2,.45) 0%, transparent 10%), linear-gradient(90deg, rgba(10,6,2,.6) 0%, rgba(10,6,2,.5) 45%, transparent 75%),
+    linear-gradient(90deg, rgba(10,6,2,.86) 0%, rgba(10,6,2,.5) 38%, rgba(10,6,2,.08) 68%), radial-gradient(ellipse at 70% 40%, transparent 40%, rgba(10,6,2,.55)); }
+#app.mb-battle .main-menu::before { opacity: 1; }
+/* In space the scrim covers the menu column only: the planet beside it keeps its lit limb and its rim at full strength,
+   as in the intro (the column is 7vw + 380px; the title runs past it over black space). The battle's scrim above
+   brings the old, deeper one back from the dive on. */
+#app.mb-on .main-menu { background: linear-gradient(90deg, rgba(10,6,2,.86) 0%, rgba(10,6,2,.5) calc(7vw + 190px), transparent calc(7vw + 380px)); }
+/* narrower, the caption would sit on the footer's line: lift it clear; on a phone the menu covers the planet */
+@media (max-width: 1240px) { .mb-caption { bottom: calc(4vh + 24px); } }
+@media (max-width: 700px) { .mb-caption { display: none; } }
+@media (prefers-reduced-motion: reduce) { .main-menu::before { transition: none; } }
+/* the footer and the kicker keep their contrast however bright the haze or the battle behind them gets */
+.mm-foot { justify-self: start; margin-left: -6px; padding: 2px 6px; border-radius: 2px; background: rgba(10,6,2,.55); }
+.mm-kicker { text-shadow: 0 1px 4px #000, 0 0 2px #000; }
+
+/* menu backdrop: zoom overlay */
+/* The last frame before a seam, copied off the 3D canvas, zooming with the new camera while it fades (menu
+   backdrop spec, revision 2). Zooming in, it is the whole frame: its first frame is exactly the one before, and
+   its edges are off screen. Zooming out, its edges come into view as it shrinks, so it gets a soft oval edge from
+   60 % of the way out: no hard rim. Transform and opacity only: composited, no layout. */
+.mb-zoom { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 50% 50%; will-change: transform, opacity; }
+.mb-zoom.out { -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent); mask-image: radial-gradient(closest-side, #000 60%, transparent); }
+.mb-zoom[hidden] { display: none; }

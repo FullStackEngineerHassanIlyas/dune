@@ -40,4 +40,11 @@ export class MissileViews {
     for (const [id, h] of this.handles) if (!world.projectiles.has(id)) { this.model.remove(h); this.handles.delete(id); }
     this.model?.update();
   }
+
+  /** Frees the missile meshes (the model's shared geometry and materials stay). */
+  dispose() {
+    this.model?.dispose();
+    this.model = null;
+    this.handles.clear();
+  }
 }
