@@ -11,6 +11,7 @@ const SCENES = {
   skirmish: () => import('./scenes/skirmish.js'),
   stress: () => import('./scenes/stress.js'),
   structures: () => import('./scenes/structures.js'),
+  model: () => import('./scenes/model.js'),
   icons: () => import('./scenes/icons.js'),
   base: () => import('./scenes/base.js'),
   battle: () => import('./scenes/battle.js'),

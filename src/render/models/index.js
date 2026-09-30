@@ -11,6 +11,7 @@ import { trike } from './units/trike.js';
 import { quad } from './units/quad.js';
 import { soldier, trooper, saboteur, fremen } from './units/infantry.js';
 import { deathHandMissile } from './units/death-hand.js';
+import { sandworm } from './units/sandworm.js';
 import { constructionYard } from './structures/construction-yard.js';
 import { windtrap } from './structures/windtrap.js';
 import { refinery } from './structures/refinery.js';
@@ -34,7 +35,7 @@ import { concreteSlab } from './structures/concrete.js';
 import { placeholderStructure, placeholderUnit } from './structures/placeholder.js';
 
 const BUILDERS = {
-  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, deathHandMissile,
+  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, deathHandMissile, sandworm,
   constructionYard, windtrap, refinery, silo, outpost, barracks, wor, lightFactory, heavyFactory, repairFacility, hiTechFactory, starport, houseOfIX, palace,
   turret: gunTurret, rocketTurret, wallPost, wallArm, concrete: concreteSlab(1), concrete4: concreteSlab(2), placeholderUnit,
 };
@@ -43,7 +44,7 @@ export const UNIT_MODEL = {
   soldier: 'soldier', infantry: 'soldier', saboteur: 'saboteur', fremen: 'fremen', trooper: 'trooper', troopers: 'trooper',
   trike: 'trike', raider: 'trike', quad: 'quad', combatTank: 'combatTank', siegeTank: 'siegeTank',
   missileTank: 'missileTank', deviator: 'deviator', sonicTank: 'sonicTank', devastator: 'devastator',
-  harvester: 'harvester', mcv: 'mcv', carryall: 'carryall', ornithopter: 'ornithopter', frigate: 'frigate',
+  harvester: 'harvester', mcv: 'mcv', carryall: 'carryall', ornithopter: 'ornithopter', frigate: 'frigate', sandworm: 'sandworm',
 };
 export const STRUCTURE_MODEL = {
   constructionYard: 'constructionYard', windtrap: 'windtrap', refinery: 'refinery', silo: 'silo', outpost: 'outpost',

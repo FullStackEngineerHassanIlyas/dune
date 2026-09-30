@@ -109,7 +109,7 @@ export class UnitViews {
       const p = h.params;
       p.turret = -wrapAngle(turret - heading);
       p.barrel = -v.recoil;
-      p.wheel = -dist / 0.09;
+      p.wheel = -dist / (v.model.def.wheelRadius ?? 0.09);   // wheels roll without slipping
       p.tread = dist * 3.2;
       p.drum = dist * 6;
       const swing = walking ? Math.sin(dist * 26 + k * 1.7) * 0.6 : 0;

@@ -45,11 +45,16 @@ vec3 terrainAlbedo(vec2 p, inout float rough, inout float spiceAmt) {
   spice = mix(spice, vec3(0.95, 0.66, 0.42), step(0.88, tNoise(p * 16.0)) * 0.55);
   col = mix(col, spice, spiceAmt);
   float concrete = texture2D(uConcrete, (floor(p) + 0.5) / uMapSize).r;
-  if (concrete > 0.5) {
+  if (concrete > 0.5) {   // Genesis slabs: dark olive plates, bevel lit on the north-west, shaded on the south-east
     vec2 f = fract(p);
-    float seam = 1.0 - smoothstep(0.0, 0.05, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
-    col = vec3(0.56, 0.55, 0.51) * (0.88 + 0.16 * tNoise(p * 6.0)) * (1.0 - 0.45 * seam);
-    rough = 0.82;
+    float edge = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+    float rim = 1.0 - smoothstep(0.035, 0.075, edge);
+    float seam = 1.0 - smoothstep(0.0, 0.018, edge);
+    float lit = step(min(f.x, f.y), min(1.0 - f.x, 1.0 - f.y));
+    vec3 plate = vec3(0.34, 0.35, 0.21) * (0.9 + 0.14 * tNoise(p * 6.0));
+    vec3 bevel = mix(vec3(0.22, 0.22, 0.13), vec3(0.60, 0.60, 0.46), lit);
+    col = mix(mix(plate, bevel, rim), vec3(0.12, 0.12, 0.07), seam);
+    rough = 0.8;
   }
 #endif
   col = pow(col, vec3(2.2));   // the colours above are authored in sRGB; lighting works in linear
@@ -75,12 +80,19 @@ vec3 perturbTerrainNormal(vec3 n, vec2 p, float spiceAmt) {
 }
 
 float terrainShroud(vec2 p) {
-  vec2 sh = texture2D(uShroud, clamp(p / uMapSize, 0.0, 1.0)).rg;   // the apron takes the nearest edge tile's shroud
   float n = (tNoise(p * 2.5) - 0.5) * 0.25;
-  float explored = smoothstep(0.2, 0.8, sh.r + n);
 #ifdef APRON
-  return explored * 0.62;
+  // Off the map the apron takes the shroud of the nearest edge tiles. Taken as it is, the line between an
+  // explored and an unexplored edge tile would run on to the horizon as a hard black curtain, so the
+  // farther out a point lies, the wider the stretch of edge it averages.
+  vec2 edge = clamp(p, vec2(0.0), uMapSize);
+  float r = length(p - edge) * 0.55;
+  float e = 0.0;
+  for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) e += texture2D(uShroud, clamp((edge + vec2(i, j) * r * 0.5) / uMapSize, 0.0, 1.0)).r;
+  return smoothstep(0.2, 0.8, e / 25.0 + n) * 0.62;
 #else
+  vec2 sh = texture2D(uShroud, clamp(p / uMapSize, 0.0, 1.0)).rg;
+  float explored = smoothstep(0.2, 0.8, sh.r + n);
   float visible = smoothstep(0.2, 0.8, sh.g + n);
   return explored * mix(0.62, 1.0, visible);
 #endif

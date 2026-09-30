@@ -5,9 +5,10 @@ built with Three.js and played with a Command & Conquer style mouse interface. E
 sound, melody and line of text is made from scratch in code; no original game files are included.
 
     npm install     # dev dependency only: three (Node tests + vendoring)
-    npm start       # http://localhost:8080 — the main menu
+    npm start       # http://localhost:8080 — the main menu (PORT=8090 npm start if 8080 is taken)
     npm test        # simulation, data and render-logic tests (Node)
     npm run smoke   # screenshots of the test scenes via headless Chrome → screenshots/
+    npm run shot -- windtrap "scene=model&id=windtrap"   # screenshot any scene URL → screenshots/windtrap.png
     npm run e2e     # plays the opening of a skirmish with real mouse input
     npm run e2e:menu  # main menu, in-game menu, edge and right-drag scrolling in real Chrome
 
@@ -115,7 +116,9 @@ and fade with distance from the camera; what fog hides is not heard.
 
 Scenes: `?scene=menu` (the default with no query) · `skirmish` (the default when the query names no scene) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`; `&palace=1` charges the Palace)
 · `battle` (two armies fighting; `&idle=1` waits for orders, `&ticks=300` skips ahead, `&specials=1` brings in the House of IX tanks) · `structures` (every structure model) · `icons` (sidebar icon sheet) · `stress` (200 units,
-`&fps=1` for the meter) · `terrain` · `gallery` (unit models) · `render-test`.
+`&fps=1` for the meter) · `terrain` · `gallery` (unit models) · `model` (one model from four sides with its
+triangle count: `?scene=model&id=combatTank`; `&houses=1` in each house's colours, `&views=1–4`, `&dist=`, `&pitch=`,
+`&yaw=`, `&lift=0.9` for aircraft, `&set=warn:1.2` sets animation params) · `render-test`.
 
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
@@ -124,5 +127,6 @@ Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…`
 
 ## Docs
 
-Research: `docs/research/` · design: `docs/superpowers/specs/` · plans: `docs/superpowers/plans/`.
+Research: `docs/research/` (the models follow the Genesis sprites analysed in `raw/visual-structures.md` and
+`raw/visual-units.md`) · design: `docs/superpowers/specs/` · plans: `docs/superpowers/plans/`.
 Three.js 0.186.1 (MIT) is vendored in `vendor/three/`.

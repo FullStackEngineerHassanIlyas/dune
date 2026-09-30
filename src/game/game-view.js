@@ -7,6 +7,7 @@ import { TerrainView } from '../render/terrain.js';
 import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
 import { UnitViews } from '../render/views/unit-views.js';
+import { modelDef, unitModelId } from '../render/models/index.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { ShroudSync } from '../render/shroud.js';
@@ -223,13 +224,18 @@ export class GameView {
     if (!this.seen(e.x, e.y)) return;
     const dir = Math.atan2(e.ty - e.y, e.tx - e.x);
     const big = e.projectile !== 'bullet';
-    let x = e.x, z = e.y, lift = 0.45;
+    let x = e.x, z = e.y, lift = 0.45, reach = 0.45;
     if (e.kind === 'unit') {
       const u = this.world.units.get(e.id);
-      if (u) { const p = this.unitViews.renderPos(u); x = p.x; z = p.z; lift = u.alt ?? (onFoot(u.move) ? 0.2 : 0.34); }
+      reach = 0.38;
+      if (u) {
+        const p = this.unitViews.renderPos(u), m = modelDef(unitModelId(u.typeId)).muzzle;   // the model's gun tip, turned toward the target
+        x = p.x; z = p.z;
+        lift = (u.alt ?? 0) + (m ? m[1] : onFoot(u.move) ? 0.2 : 0.34);
+        if (m) reach = Math.hypot(m[0], m[2]);
+      }
       this.unitViews.recoil(e.id);
     }
-    const reach = e.kind === 'unit' ? 0.38 : 0.45;
     x += Math.cos(dir) * reach;
     z += Math.sin(dir) * reach;
     if (e.projectile === 'sonic') this.effects.sonic(x, this.heightAt(x, z) + lift, z, dir);
