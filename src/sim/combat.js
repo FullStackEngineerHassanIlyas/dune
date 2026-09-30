@@ -361,6 +361,7 @@ export function retaliate(world, victim, attacker) {
   const t = { kind: attacker.kind, id: attacker.id };
   const p = targetPoint(world, t);
   if (p?.entity && p.entity.kind === 'unit' && !p.entity.isGround && !victim.type.targetAir) return;   // nothing to answer an aircraft with
+  if (p && WEAPONS[victim.type.weapon]?.gas && !deviatable(p.entity)) return;   // gas is wasted on buildings and the immune
   if (!p || distanceTo(victim.x, victim.y, t, p) > RETALIATE_RANGE) return;
   victim.order = { type: 'attack', target: t, retaliation: true };
   victim.chaseAt = 0;
