@@ -12,12 +12,19 @@ import { modelDef, unitModelId } from '../render/models/index.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
-import { MissileViews, arcHeight } from '../render/views/missile-views.js';
+import { MissileViews } from '../render/views/missile-views.js';
+import { ShotFx } from '../render/shot-fx.js';
 import { nearCamera } from '../render/near-camera.js';
 import { cueFor } from '../audio/cues.js';
 import { isVisible } from '../sim/fog.js';
 import { UNITS, onFoot } from '../data/units.js';
 import { G } from '../data/terrain.js';
+
+const GROUND_NAME = { [G.SAND]: 'sand', [G.DUNE]: 'dune', [G.ROCK]: 'rock', [G.MOUNTAIN]: 'mountain' };
+const BLAST_RADIUS = { small: 0.6, medium: 1, large: 1.8 };
+/** How big a rocket's launch and its mark are, by weapon: Troopers' and Ornithopters' mini-rockets are smaller. */
+const LAUNCH_SCALE = { miniRocket: 0.5, trooperRocket: 0.5 };
+const MARK_SCALE = { miniRocket: 0.65, trooperRocket: 0.65, turretRocket: 0.9 };
 
 export class BattleStage {
   /**
@@ -38,6 +45,9 @@ export class BattleStage {
     this.shroud = new ShroudSync(world.map.w * world.map.h);
     this.effects = new Effects(this.root, quality);
     this.missiles = new MissileViews(this.root);
+    this.shotFx = new ShotFx(this.effects);
+    this.seenAt = (x, z) => this.seen(x, z);
+    this.volley = new Map();   // unit id → shots fired, to alternate twin barrels
     this.smokeClock = 0;
     this.dustClock = 0;
     this.weldClock = 0;
@@ -62,12 +72,14 @@ export class BattleStage {
     }
     switch (e.type) {
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
-      case 'impact': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12 + (e.alt ?? 0), e.y, e.projectile, e.hit); break;
-      case 'explosion':
+      case 'impact': this.onImpact(e); break;
+      case 'explosion': {
         if (!this.seen(e.x, e.y)) break;
-        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size);
-        if (!e.alt) this.terrain.decals?.scorch(e.x, e.y, e.size === 'large' ? 1.8 : e.size === 'medium' ? 1 : 0.6);
+        const surface = e.alt ? null : this.surfaceAt(e.x, e.y);
+        if (!this.catchingUp) this.effects.explosion(e.x, this.heightAt(e.x, e.y) + 0.25 + (e.alt ?? 0), e.y, e.size, surface);
+        if (surface) this.terrain.decals?.blast?.(e.x, e.y, BLAST_RADIUS[e.size] ?? 1, surface);
         break;
+      }
       case 'deathHandBlast':
         if (!this.catchingUp && this.seen(e.x, e.y)) { this.effects.shockwave(e.x, this.heightAt(e.x, e.y) + 0.2, e.y); this.onShake(1.2); }
         break;
@@ -76,6 +88,7 @@ export class BattleStage {
       case 'unitDestroyed':
         if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.onShake(0.6);
         if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
+        this.volley.delete(e.id);
         break;
     }
   }
@@ -88,26 +101,78 @@ export class BattleStage {
     return w.map.inBounds(tx, ty) && isVisible(w, this.viewer, tx, ty);
   }
 
+  /** What the ground is at (x, z) for dust and marks: 'concrete', 'sand', 'dune', 'rock' or 'mountain'. */
+  surfaceAt(x, z) {
+    const map = this.world.map, tx = Math.floor(x), ty = Math.floor(z);
+    if (!map.inBounds(tx, ty)) return 'sand';
+    const i = map.idx(tx, ty);
+    return map.concrete[i] ? 'concrete' : GROUND_NAME[map.ground[i]] ?? 'sand';
+  }
+
+  /** Whether a shot landing at (x, z) that hit something struck metal — a vehicle or a building — rather than a soldier on the ground. */
+  struckMetal(x, z) {
+    const map = this.world.map, tx = Math.floor(x), ty = Math.floor(z);
+    if (!map.inBounds(tx, ty)) return true;
+    const i = map.idx(tx, ty), u = this.world.units.get(map.unit[i]);
+    return map.structure[i] ? true : u ? !onFoot(u.move) : true;
+  }
+
+  /**
+   * A shot fired: the flash at the gun's muzzle (twin barrels take turns), a jet of flame along the shot; for a
+   * cannon a kick of dust off the ground beneath; for a rocket its launch — flash, backblast and dust.
+   */
   onFired(e) {
     if (!this.seen(e.x, e.y)) return;
     const dir = Math.atan2(e.ty - e.y, e.tx - e.x);
     const big = e.projectile !== 'bullet';
-    let x = e.x, z = e.y, lift = 0.45, reach = 0.45;
+    let x = e.x, z = e.y, lift = 0.45, reach = 0.45, side = 0, alt = 0;
     if (e.kind === 'unit') {
       const u = this.world.units.get(e.id);
       reach = 0.38;
       if (u) {
-        const p = this.unitViews.renderPos(u), m = modelDef(unitModelId(u.typeId)).muzzle;   // the model's gun tip, turned toward the target
+        const p = this.unitViews.renderPos(u), def = modelDef(unitModelId(u.typeId)), m = def.muzzle;   // the model's gun tip, turned toward the target
         x = p.x; z = p.z;
-        lift = (u.alt ?? 0) + (m ? m[1] : onFoot(u.move) ? 0.2 : 0.34);
+        alt = u.alt ?? 0;
+        lift = alt + (m ? m[1] : onFoot(u.move) ? 0.2 : 0.34);
         if (m) reach = Math.hypot(m[0], m[2]);
+        if (def.muzzles) {
+          const k = this.volley.get(e.id) ?? 0;
+          this.volley.set(e.id, k + 1);
+          side = def.muzzles[k % def.muzzles.length][2];
+        }
       }
       this.unitViews.recoil(e.id);
     }
-    x += Math.cos(dir) * reach;
-    z += Math.sin(dir) * reach;
-    if (e.projectile === 'sonic') this.effects.sonic(x, this.heightAt(x, z) + lift, z, dir);
-    else this.effects.muzzle(x, this.heightAt(x, z) + lift, z, big);
+    const c = Math.cos(dir), s = Math.sin(dir);
+    x += c * reach - s * side;
+    z += s * reach + c * side;
+    const ground = this.heightAt(x, z), y = ground + lift, surface = alt > 0.3 ? null : this.surfaceAt(x, z);
+    if (e.projectile === 'sonic') this.effects.sonic(x, y, z, dir);
+    else if (e.projectile === 'rocket' || e.projectile === 'gas') this.effects.launch(x, y, z, dir, ground, surface, LAUNCH_SCALE[e.weapon] ?? 1);
+    else if (e.projectile === 'deathHand') this.effects.launch(x, y, z, dir, ground, surface, 2);
+    else {
+      this.effects.muzzle(x, y, z, big, dir);
+      if (big && surface) this.effects.groundBlast(x, ground, z, dir, surface);
+    }
+  }
+
+  /**
+   * A shot landing: sparks off metal or a spray of the ground it hit, and the mark it leaves there — a pock, a
+   * crater, a scorch (terrain marks show even while catching up, like the scorch of an explosion). A hit on a
+   * vehicle or building marks the ground beside it now and then: near misses and the blast's soot.
+   */
+  onImpact(e) {
+    if (!this.seen(e.x, e.y)) return;
+    const surface = this.surfaceAt(e.x, e.y), metal = e.hit && this.struckMetal(e.x, e.y);
+    if (!this.catchingUp) this.effects.impact(e.x, this.heightAt(e.x, e.y) + 0.12 + (e.alt ?? 0), e.y, e.projectile, metal, e.weapon, surface);
+    const decals = this.terrain.decals;
+    if (e.alt || e.projectile === 'gas' || !decals?.mark) return;   // a burst in the air, or gas, leaves nothing
+    const scale = MARK_SCALE[e.weapon] ?? 1, spread = e.projectile === 'bullet' ? 0.2 : e.projectile === 'shell' ? 0.1 : 0;   // guns that always hit their aim still scatter their marks
+    if (!metal || e.projectile === 'rocket') { decals.mark(e.x + (Math.random() - 0.5) * 2 * spread, e.y + (Math.random() - 0.5) * 2 * spread, e.projectile, surface, scale); return; }
+    if (Math.random() > (e.projectile === 'bullet' ? 0.35 : 0.6)) return;
+    const a = Math.random() * Math.PI * 2, r = 0.3 + Math.random() * 0.3, x = e.x + Math.cos(a) * r, z = e.y + Math.sin(a) * r;
+    if (e.projectile === 'bullet') decals.pock(x, z, this.surfaceAt(x, z));
+    else decals.stamp('scorch', x, z, 0.5, 0.4);
   }
 
   /** The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. */
@@ -118,7 +183,7 @@ export class BattleStage {
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
-    this.missiles.sync(world, alpha, this.heightAt, (x, z) => this.seen(x, z));
+    this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
     this.ambient(dt, now);
     this.effects.update(dt);
     this.terrain.update(now);
@@ -129,22 +194,13 @@ export class BattleStage {
     if (this.disposed) return;
     this.unitViews.sync(this.world, 1, 0);
     this.structureViews.sync(this.world, now);
-    this.missiles.sync(this.world, 1, this.heightAt, (x, z) => this.seen(x, z));
+    this.missiles.sync(this.world, 1, this.heightAt, this.seenAt);
   }
 
-  /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
+  /** Tracers and trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
   combatEffects(dt, alpha) {
     const w = this.world;
-    for (const p of w.projectiles.values()) {
-      const x = p.px + (p.x - p.px) * alpha, z = p.py + (p.y - p.py) * alpha;
-      if (!this.seen(x, z)) continue;
-      const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
-      const t = Math.min(1, Math.hypot(x - p.sx, z - p.sy) / total);
-      const from = 0.35 + (p.fromAlt ?? 0), to = 0.2 + (p.toAlt ?? 0);   // from a flying gun, up to an aircraft
-      const y = this.heightAt(x, z) + from + (to - from) * t + arcHeight(p.projectile, t, total);
-      if (p.projectile === 'sonic') this.effects.sonic(x, y, z, Math.atan2(p.ty - p.sy, p.tx - p.sx));
-      else this.effects.trail(p.projectile, x, y, z);
-    }
+    this.shotFx.update(w, alpha, this.heightAt, this.seenAt);
     this.smokeClock += dt;
     if (this.smokeClock < 0.12) return;
     this.smokeClock = 0;
