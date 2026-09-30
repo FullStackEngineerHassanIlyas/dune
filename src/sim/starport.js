@@ -3,7 +3,8 @@
 // starts with 2–6 in stock and gains one every 90 s up to ten; prices are re-rolled every minute to
 // 40–160 % of the cost with the original formula. Orders are paid at once. The first order of a batch
 // books a Frigate that lands on the pad 30 s later and unloads the whole batch (at most nine units);
-// until it lands, an order can be cancelled for a refund. One Starport per house.
+// until it lands, an order can be cancelled for a refund. One Starport per house; a batch whose Starport
+// is lost goes to another the house holds (a captured one).
 import { UNITS } from '../data/units.js';
 import { DT, STARPORT, AIR, airSpeed } from '../data/tuning.js';
 import { DEFERRED } from '../data/phase.js';
@@ -52,6 +53,10 @@ export function updateStarports(world) {
       for (const t of Object.keys(m.price)) m.price[t] = priceOf(world, t);
     }
     const b = m.batch;
+    if (b && !b.landed && !world.structures.has(b.structureId)) {   // its Starport is gone: another of the house's takes the delivery
+      const s = starportOf(world, house.id);
+      if (s) { b.structureId = s.id; b.pad = { x: s.x + s.w / 2, y: s.y + s.h / 2 }; }
+    }
     if (b && !b.frigate && world.time >= b.spawnAt) {   // off it goes, timed to land on the dot
       const f = world.spawnUnit('frigate', house.id, b.edge.x, b.edge.y, { heading: Math.atan2(b.pad.y - b.edge.y, b.pad.x - b.edge.x) });
       f.job = { stage: 'in' };
@@ -94,7 +99,8 @@ function book(world, s) {
 
 export function cancelStarport(world, houseId, typeId) {
   const house = world.houses.get(houseId), m = house?.starport, b = m?.batch;
-  if (!b || b.landed) return;
+  if (!b) return;
+  if (b.landed) { eva(world, house, 'busy', 'Unable to comply, the Frigate is unloading.'); return; }
   const k = b.items.map((i) => i.typeId).lastIndexOf(typeId);
   if (k < 0) return;
   const [item] = b.items.splice(k, 1);

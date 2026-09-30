@@ -220,3 +220,29 @@ test('a Frigate on its way turns back when its last order is cancelled', () => {
   assert.equal(units(world, 'quad').length, 0);
   assert.equal(h.starport.batch, null);
 });
+
+import { destroyStructure } from '../src/sim/combat.js';
+
+test('a batch whose Starport is lost goes to the house\'s other Starport', () => {
+  const { world, h, s } = port();
+  const other = world.spawnStructure('starport', 'atreides', 30, 20);   // say, a captured one
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  run(world, 1);
+  destroyStructure(world, s);
+  run(world, 1);
+  assert.equal(h.starport.batch.structureId, other.id);
+  assert.deepEqual(h.starport.batch.pad, { x: 31.5, y: 21.5 });
+  assert.ok(runUntil(world, () => units(world, 'quad').length > 0, 60) > 0);
+  const [q] = units(world, 'quad');
+  assert.ok(Math.hypot(q.x - 31.5, q.y - 21.5) < 6, 'delivered at the Starport that stands');
+});
+
+test('a right click on a ware while the Frigate unloads says why nothing happens', () => {
+  const { world, h } = port();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  assert.ok(runUntil(world, () => h.starport.batch?.landed, 40) > 0);
+  world.events.drain();
+  world.issue('atreides', { type: 'starportCancel', typeId: 'quad' });
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'busy'));
+});
