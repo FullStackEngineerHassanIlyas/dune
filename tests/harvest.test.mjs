@@ -307,3 +307,16 @@ test('a harvester the Carryall set down beside a busy refinery queues off the en
   assert.ok(cheb(late, 10, 10) <= 3, `waits close by at ${late.tx},${late.ty}`);
   assert.ok(runUntil(world, () => late.docked === ref.id, 20) > 0, 'its turn');
 });
+
+test('a damaged refinery refines more slowly, never below a third of the rate', () => {
+  const secs = (hp) => {
+    const { world, ref, u } = dockedWorld();
+    ref.hp = ref.maxHp * hp;
+    assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
+    return runUntil(world, () => u.harvest.load === 0, 30);
+  };
+  const full = secs(1), half = secs(0.5), wreck = secs(0.05);
+  assert.ok(Math.abs(full - 5) < 0.2, `full health: ${full}s`);
+  assert.ok(Math.abs(half - 10) < 0.3, `half health: ${half}s`);
+  assert.ok(Math.abs(wreck - 15) < 0.4, `a wreck: ${wreck}s`);
+});

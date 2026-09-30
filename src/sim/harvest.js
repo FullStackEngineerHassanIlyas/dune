@@ -2,8 +2,9 @@
 // fill up (700 credits in about 20 s), drive to the entrance just south of a refinery's pad column and,
 // one at a time, into its drop-zone slot. On the pad inside the building a harvester is held like a
 // vehicle in a repair bay (off the tile grid, immune to fire, captured along with the refinery) but can
-// still be selected; it unloads there (about 5 s) while the refinery works, then backs out onto the
-// entrance and returns to the field. The others wait close by, off the entrance and the lane out of it.
+// still be selected. It unloads there while the refinery works — about 5 s, slower in a damaged
+// refinery, down to a third of the rate (mechanics-campaign.md §2.1) — then backs out onto the entrance
+// and returns to the field. The others wait close by, off the entrance and the lane out of it.
 // A refinery that is sold or destroyed sets its harvester down where it stood. Orders for a docked
 // harvester are carried out once it has backed out; a harvest order only picks its next field. A
 // refinery comes with a free harvester (flown in by a Carryall in real games); Carryalls also ferry
@@ -24,6 +25,7 @@ const SEEK_RADIUS = 32;
 const QUEUE_RADIUS = 3;      // tiles from the entrance where harvesters wait their turn
 const CLAIM_RADIUS = 4;      // a harvester this close to a free slot takes it
 const EXIT_PATIENCE = 2;     // seconds a harvester backing out waits for its entrance before it takes another way out
+const MIN_REFINE = 1 / 3;    // the original refines 3 load points a cycle scaled by the refinery's health, at least 1
 const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const IN_SLOT = new Set(['docking', 'unloading', 'undocking']);
 const UNIT_COMMANDS = new Set(['move', 'stop', 'guard', 'scatter', 'deploy', 'destruct', 'repairAt', 'capture', 'sabotage', 'attack', 'attackMove']);
@@ -372,7 +374,7 @@ function unload(world, ref, u, slot) {
   const h = u.harvest;
   if (h.load > 0 && !u.afterDock) {
     const house = world.houses.get(u.house);
-    const amount = Math.min(UNLOAD_RATE * DT, h.load);
+    const amount = Math.min(UNLOAD_RATE * DT * Math.max(MIN_REFINE, ref.hp / ref.maxHp), h.load);
     house.stats.spiceHarvested += addCredits(world, house, amount * (house.incomeRate ?? 1));   // banked credits; Hard AIs earn half again
     h.load -= amount;
     if (h.load > 1e-6) return;

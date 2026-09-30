@@ -77,7 +77,7 @@ test('a captured refinery brings its unloading harvester; the old owner loses th
   assert.deepEqual([ref.house, hv.house], ['atreides', 'atreides']);
   assert.equal(hv.inside, ref.id, 'still in the slot');
   assert.ok(Math.abs(hk.credits - 1005) < 1e-6, `Harkonnen kept ${hk.credits}`);
-  run(world, 1);
+  run(world, 3);   // slowly: the refinery is badly damaged
   assert.ok(at.credits > 100, `the harvester unloads for its new owner: ${at.credits}`);
 });
 
