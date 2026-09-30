@@ -265,3 +265,25 @@ test('the Death Hand flies as a missile high over its path and is gone when it l
   assert.equal(views.handles.size, 0);
   assert.equal(views.model.count, 0);
 });
+
+test('dispose takes every unit, structure and missile mesh off the scene', () => {
+  const world = flatWorld(32, 32, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const scene = new THREE.Scene();
+  const units = new UnitViews(scene, hf), structures = new StructureViews(scene, hf), missiles = new MissileViews(scene);
+  world.spawnUnit('combatTank', 'atreides', 3, 3);
+  world.spawnUnit('troopers', 'harkonnen', 8, 8);
+  const palace = world.spawnStructure('palace', 'harkonnen', 20, 20);
+  palace.readyAt = 0;
+  world.issue('harkonnen', { type: 'palace', x: 4, y: 4 });
+  world.step();
+  units.sync(world, 1, 0.016);
+  structures.sync(world, 0);
+  missiles.sync(world, 1, () => 0);
+  assert.ok(missiles.model, 'the Death Hand is in flight');
+  assert.ok(scene.children.length > 0);
+  units.dispose();
+  structures.dispose();
+  missiles.dispose();
+  assert.equal(scene.children.length, 0);
+});

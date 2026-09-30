@@ -69,6 +69,13 @@ export class UnitViews {
     return v ? { x: v.x, z: v.z } : { x: u.x, z: u.y };
   }
 
+  /** Frees the instanced meshes; the shared model geometry and materials stay for the next battle. */
+  dispose() {
+    for (const m of this.models.values()) m.dispose();
+    this.models.clear();
+    this.views.clear();
+  }
+
   recoil(id) {
     const v = this.views.get(id);
     if (v) v.recoil = 0.08;

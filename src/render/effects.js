@@ -126,6 +126,13 @@ export class ParticlePool {
     this.mesh.instanceColor.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
   }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.mesh.dispose();
+  }
 }
 
 const SIZES = { small: { n: 6, s: 0.45 }, medium: { n: 14, s: 0.8 }, large: { n: 28, s: 1.4 } };
@@ -238,5 +245,13 @@ export class Effects {
     this.glow.update(dt);
     this.smoke.update(dt);
     for (const l of this.lights) if (l.t > 0 && (l.t -= dt) <= 0) { l.t = 0; l.light.intensity = 0; }
+  }
+
+  /** Takes the pools and the flash lights off the scene and frees them. */
+  dispose() {
+    this.glow.dispose();
+    this.smoke.dispose();
+    for (const { light } of this.lights) { light.removeFromParent(); light.dispose(); }
+    this.lights = [];
   }
 }

@@ -41,6 +41,13 @@ export class StructureViews {
     for (const m of this.models.values()) m.update();
   }
 
+  /** Frees the instanced meshes; the shared model geometry and materials stay for the next battle. */
+  dispose() {
+    for (const m of this.models.values()) m.dispose();
+    this.models.clear();
+    this.views.clear();
+  }
+
   create(s, now) {
     const color = HOUSES[s.house]?.color ?? 0xffffff;
     const handles = [];

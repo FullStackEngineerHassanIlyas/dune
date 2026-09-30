@@ -133,6 +133,13 @@ export class TerrainView {
     for (let i = 0; i < explored.length; i++) { a[i * 2] = explored[i]; a[i * 2 + 1] = visible[i]; }
     this.shroudTex.needsUpdate = true;
   }
+
+  /** Takes the ground off the scene and frees its geometry, materials and textures. */
+  dispose() {
+    this.group.removeFromParent();
+    for (const mesh of [this.mesh, this.apron]) { mesh.geometry.dispose(); mesh.material.dispose(); }
+    for (const t of [this.spiceTex, this.concreteTex, this.shroudTex, this.uniforms.uRockTex.value, this.decals.texture]) t?.dispose();
+  }
 }
 
 // DecalMap needs a DOM canvas; it is loaded lazily so buildTerrainGeometry stays testable under Node.

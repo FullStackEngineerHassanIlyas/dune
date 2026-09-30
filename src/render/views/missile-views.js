@@ -40,4 +40,10 @@ export class MissileViews {
     for (const [id, h] of this.handles) if (!world.projectiles.has(id)) { this.model.remove(h); this.handles.delete(id); }
     this.model?.update();
   }
+
+  dispose() {
+    this.model?.dispose();
+    this.model = null;
+    this.handles.clear();
+  }
 }

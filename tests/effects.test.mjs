@@ -88,3 +88,12 @@ test('the sonic wave, Deviator gas and the Death Hand each have their own look, 
   }
   assert.ok(fx.glow.n <= fx.glow.capacity && fx.smoke.n <= fx.smoke.capacity);
 });
+
+test('dispose takes the particle meshes and flash lights off the scene', () => {
+  const scene = new THREE.Scene();
+  const fx = new Effects(scene, { particles: 400, flashLights: 2 });
+  fx.explosion(0, 0, 0, 'large');
+  assert.ok(scene.children.length >= 4);
+  fx.dispose();
+  assert.equal(scene.children.length, 0);
+});
