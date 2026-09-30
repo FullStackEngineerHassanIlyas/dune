@@ -26,4 +26,6 @@ test('the planet turns, slower under reduced motion; the stars stay within the p
   b.update(1, { reduced: true });
   assert.ok(a.spin.rotation.y - a0 > b.spin.rotation.y - b0 && b.spin.rotation.y > b0);
   assert.ok(a.stars.geometry.attributes.position.count <= 3000);
+  a.update(1, { pixelRatio: 2 });
+  assert.equal(a.stars.material.uniforms.uPixelRatio.value, 2);
 });

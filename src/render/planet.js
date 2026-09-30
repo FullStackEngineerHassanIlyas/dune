@@ -125,7 +125,7 @@ function starField(rng) {
   g.setAttribute('aTone', new THREE.BufferAttribute(tone, 3));
   g.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uTwinkle: { value: 1 } },
+    uniforms: { uTime: { value: 0 }, uTwinkle: { value: 1 }, uPixelRatio: { value: 1 } },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: /* glsl */ `
       attribute float aSize;
@@ -133,16 +133,17 @@ function starField(rng) {
       attribute float aPhase;
       uniform float uTime;
       uniform float uTwinkle;
+      uniform float uPixelRatio;
       varying vec3 vTone;
       void main() {
         vTone = aTone * (1.0 - uTwinkle * 0.3 * (0.5 + 0.5 * sin(uTime * (0.6 + aPhase * 1.8) + aPhase * 6.2832)));
-        gl_PointSize = aSize;
+        gl_PointSize = aSize * uPixelRatio;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vTone;
       void main() {
-        float a = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5));
+        float a = 1.0 - smoothstep(0.0, 0.5, length(gl_PointCoord - 0.5));
         gl_FragColor = vec4(vTone * a, 1.0);
       }`,
   });
@@ -161,7 +162,7 @@ function nebula() {
       varying vec2 vUv;
       ${NOISE}
       void main() {
-        float fall = smoothstep(0.5, 0.05, length((vUv - 0.5) * vec2(1.0, 1.4)));
+        float fall = 1.0 - smoothstep(0.05, 0.5, length((vUv - 0.5) * vec2(1.0, 1.4)));
         float wisps = smoothstep(0.42, 0.8, fbm(vec3(vUv * 3.5, 1.7))) * fall;
         gl_FragColor = vec4(vec3(0.05, 0.14, 0.42) * wisps * 0.9, 1.0);
       }`,
@@ -188,13 +189,14 @@ export class PlanetShot {
     this.scene.add(tilt, this.atmosphere, this.stars, nebula());
   }
 
-  /** dive 0..1 pushes the camera in; aspect frames the planet; reduced slows the turn and stills the stars. */
-  update(dt, { dive = 0, aspect = 16 / 9, reduced = false } = {}) {
+  /** dive 0..1 pushes the camera in; aspect frames the planet; reduced slows the turn and stills the stars; pixelRatio keeps star size on high-DPI screens. */
+  update(dt, { dive = 0, aspect = 16 / 9, reduced = false, pixelRatio = 1 } = {}) {
     this.time += dt;
     this.spin.rotation.y += dt * (reduced ? SPIN_REDUCED : SPIN);
     const u = this.stars.material.uniforms;
     u.uTime.value = this.time;
     u.uTwinkle.value = reduced ? 0 : 1;
+    u.uPixelRatio.value = pixelRatio;
     if (aspect !== this.aspect) {
       this.aspect = aspect;
       this.camera.aspect = aspect;
