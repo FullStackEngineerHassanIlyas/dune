@@ -66,14 +66,16 @@ test('a captured refinery brings its unloading harvester; the old owner loses th
   world.spawnStructure('refinery', 'harkonnen', 2, 2);
   const ref = world.spawnStructure('refinery', 'harkonnen', 10, 2);
   const hv = [...world.units.values()].find((u) => u.typeId === 'harvester' && u.tx === 12 && u.ty === 4);
-  Object.assign(hv.harvest, { state: 'unloading', refinery: ref.id, load: 700 });
-  ref.dockedBy = hv.id;
+  Object.assign(hv.harvest, { state: 'toRefinery', target: -1, load: 700 });
+  assert.ok(runUntil(world, () => hv.harvest.state === 'unloading', 5) > 0, 'docked in the slot');
+  assert.equal(ref.dockedBy, hv.id);
   hk.credits = 2010;
   at.credits = 0;
   at.startBuffer = 5000;
   ref.hp = 50;
   captureStructure(world, ref, world.spawnUnit('soldier', 'atreides', 12, 5));
   assert.deepEqual([ref.house, hv.house], ['atreides', 'atreides']);
+  assert.equal(hv.inside, ref.id, 'still in the slot');
   assert.ok(Math.abs(hk.credits - 1005) < 1e-6, `Harkonnen kept ${hk.credits}`);
   run(world, 1);
   assert.ok(at.credits > 100, `the harvester unloads for its new owner: ${at.credits}`);

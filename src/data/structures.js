@@ -8,7 +8,7 @@ export const STRUCTURES = {
   concrete4:        { name: 'Large Concrete Slab', w: 2, h: 2, cost: 20, buildTime: 16, hp: 20, power: 0, sight: 1, requires: [], requiresUpgrade: { constructionYard: 1 }, houses: ALL, tech: 4, isConcrete: true },
   wall:             { name: 'Wall', w: 1, h: 1, cost: 50, buildTime: 40, hp: 50, power: 0, sight: 1, requires: ['outpost'], houses: ALL, tech: 4, isWall: true },
   windtrap:         { name: 'Wind Trap', w: 2, h: 2, cost: 300, buildTime: 48, hp: 200, power: -100, sight: 2, requires: [], houses: ALL, tech: 1, conquerable: true },
-  refinery:         { name: 'Spice Refinery', w: 3, h: 2, cost: 400, buildTime: 80, hp: 450, power: 30, storage: 1005, sight: 4, requires: ['windtrap'], houses: ALL, tech: 1, conquerable: true },
+  refinery:         { name: 'Spice Refinery', w: 3, h: 2, cost: 400, buildTime: 80, hp: 450, power: 30, storage: 1005, sight: 4, requires: ['windtrap'], houses: ALL, tech: 1, conquerable: true, entrance: [2, 2], pad: [2.5, 1.4] },
   silo:             { name: 'Spice Silo', w: 2, h: 2, cost: 150, buildTime: 48, hp: 150, power: 5, storage: 1000, sight: 2, requires: ['refinery'], houses: ALL, tech: 2, conquerable: true },
   outpost:          { name: 'Radar Outpost', w: 2, h: 2, cost: 400, buildTime: 80, hp: 500, power: 30, sight: 10, requires: ['windtrap'], houses: ALL, tech: 2 },
   barracks:         { name: 'Barracks', w: 2, h: 2, cost: 300, buildTime: 72, hp: 300, power: 10, sight: 2, requires: ['outpost'], houses: ['atreides', 'ordos'], tech: 2, produces: 'infantry', upgrades: [150], upgradeTech: [2] },
