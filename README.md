@@ -112,6 +112,29 @@ synthesized in the browser at start-up; nothing is loaded from files. Browsers o
 a click or key press, so the game is silent until then. Sounds are panned towards where they happen
 and fade with distance from the camera; what fog hides is not heard.
 
+## Announcer voices
+
+Like the original, each Great House has its own announcer — Atreides calm and clear, Harkonnen deep
+and harsh, Ordos cool and precise — and the player's house decides which one speaks: construction
+complete, unit ready, building, training, on hold, cancelled, upgrade complete, insufficient funds,
+unit lost, structure destroyed, "Harkonnen unit destroyed", our base is under attack, enemy unit
+approaching, radar activated, frigate has arrived, missile launched, mission accomplished and the rest.
+Units answer their orders ("Reporting", "Acknowledged", "Moving out", "Engaging") over a field radio,
+one voice for every house as in the original. Alerts go before routine news, one line at a time, and
+the message bar still shows every line. Options → Voices sets their volume (`voiceVolume=0` in the URL
+turns them off); M mutes them with everything else.
+
+Unlike the effects, the voices are files: 195 short Ogg Opus lines (about 1.2 MB) in `assets/voice/`,
+listed in `assets/voice/manifest.json`. They were rendered offline by `scripts/voices/generate.py` from
+the lines in `scripts/voices/lines.json` (its header says how to rerun it), with the
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) neural text-to-speech model (weights and voices
+Apache-2.0) run through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT), voices
+`af_heart` (Atreides), `am_fenrir` (Harkonnen), `bf_emma` (Ordos) and `am_michael` (units), then shaped
+with ffmpeg (band-limit, presence, compression, a short console room or a field radio, loudness
+normalised to −16 LUFS). espeak-ng (GPL-3.0) turned the text into phonemes at generation time only; it is
+not part of the game. The generated lines are distributed with this project under the same terms as its
+code. No original game audio is used.
+
 ## Scenes and URL flags
 
 Scenes: `?scene=menu` (the default with no query) · `skirmish` (the default when the query names no scene) · `base` (a built-up base: `?scene=base&house=harkonnen&fps=1`; `&palace=1` charges the Palace)
