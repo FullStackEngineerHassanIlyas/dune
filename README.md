@@ -48,6 +48,7 @@ full screen, over a slow flight across the dunes; Esc in battle opens the game m
 | Left click an enemy (with units selected) | Attack it (Modern: right click) |
 | Left click an own Repair Facility (damaged vehicles selected) | Drive in for repairs, one at a time (Modern: right click) |
 | Left click a badly damaged enemy building (infantry selected) | Capture it — the cursor shows a flag; other units attack |
+| Carryall selected: left click an own vehicle · the ground · the Repair Facility or a Refinery | Lift it · fly there, or set the load down there · deliver the load (Modern: right click); S holds it off duty, G returns it to duty, D drops the load |
 | A, then click | Attack-move: go there and fight whatever is met on the way |
 | Ctrl + click | Force fire at a unit, building or the ground |
 | G | Area guard: engage what comes near, then return |
@@ -76,8 +77,11 @@ vehicle at a time for a quarter of its price by the damage; badly damaged enemy 
 can be captured by walking infantry in — except Barracks, WOR, Outposts, the House of IX and Palaces.
 
 The Hi-Tech Factory builds Carryalls — unarmed lifters that fly each new Refinery's Harvester in from the
-map edge, ferry Harvesters on long trips and fly damaged vehicles to a distant Repair Facility — and,
-with its upgrade and a House of IX, Ornithopters that hunt on their own and take attack and move orders.
+map edge and, on duty, wait over the Refineries and the Repair Facility, ferry Harvesters on trips of ten
+tiles or more (and to distant spice when none is near), and lift vehicles at half health or worse off the
+battlefield to the Repair Facility, sending them back afterwards; the player can also fly one somewhere,
+have it lift and set down an own vehicle, or hold it off duty — and, with its upgrade and a House of IX,
+Ornithopters that hunt on their own and take attack and move orders.
 Only Troopers, Missile Tanks and turrets can shoot at aircraft.
 
 A Starport sells the house's vehicles and aircraft at prices that change every minute (40–160 % of

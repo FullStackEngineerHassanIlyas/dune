@@ -17,7 +17,7 @@
 // Duty (the Guard command) returns it to automatic duty. A player order suspends duty until it is done
 // or Duty is pressed. An automatic pickup is given up when the unit gets another order (even one of the
 // same kind), dies, is held elsewhere or gets close by itself. Whatever a Carryall carries dies with it.
-import { AIR, airSpeed, groundSpeed } from '../data/tuning.js';
+import { AIR, SIM_HZ, airSpeed, groundSpeed } from '../data/tuning.js';
 import { findFreeTile } from './spawn.js';
 import { hoverTo, climb, nearestEdge } from './air.js';
 import { dockTile, orderHarvest, orderReturn, HARVEST_CAPACITY } from './harvest.js';
@@ -101,7 +101,10 @@ function driveTime(world, u, to) {
 /** Carryall `c` goes for unit `u` (to set it down on tile `to` when there is one); any other on its way turns back. */
 function assign(world, c, u, to, why, extra = {}) {
   const prev = world.units.get(u.ferry);
-  if (prev && prev !== c && prev.job?.unit === u.id && prev.job.stage === 'fetch') prev.job = null;
+  if (prev && prev !== c && prev.job?.unit === u.id && prev.job.stage === 'fetch') {
+    if (prev.job.manual) prev.manual = false;   // the player's earlier pick is superseded: back on duty
+    prev.job = null;
+  }
   c.job = { stage: 'fetch', unit: u.id, order: u.order, to: to ? { x: to.x, y: to.y } : null, why, ...extra };
   u.ferry = c.id;
   world.events.push('ferryCalled', { id: u.id, carrier: c.id, house: u.house, why });
@@ -109,7 +112,7 @@ function assign(world, c, u, to, why, extra = {}) {
 
 function idle(world, c) {
   climb(c, AIR.cruise);
-  if (!c.manual && !c.cargo && isLifter(c) && (world.tick + c.id) % Math.round(AIR.dutyScan * 20) === 0 && duty(world, c)) return;
+  if (!c.manual && !c.cargo && isLifter(c) && (world.tick + c.id) % Math.round(AIR.dutyScan * SIM_HZ) === 0 && duty(world, c)) return;
   const p = c.station ?? post(world, c);
   if (p) hoverTo(world, c, p.x, p.y);
 }
@@ -168,33 +171,44 @@ function closeCombat(world, u) {
   return false;
 }
 
-/** The house's Repair Facility nearest to unit `u` that has a way in, with its entrance tile; null if none. */
-function nearestBay(world, u) {
-  let best = null, bestD = Infinity;
+/** The house's Repair Facilities that have a way in, with their entrance tiles. */
+function baysOf(world, houseId) {
+  const out = [];
   for (const s of world.structures.values()) {
-    if (s.house !== u.house || s.typeId !== 'repair') continue;
+    if (s.house !== houseId || s.typeId !== 'repair') continue;
     const e = dockTile(world, s);
-    if (e < 0) continue;
-    const to = tileOf(world, e), d = Math.hypot(to.x - u.tx, to.y - u.ty);
-    if (d < bestD) { bestD = d; best = { bay: s, to, d }; }
+    if (e >= 0) out.push({ bay: s, to: tileOf(world, e) });
+  }
+  return out;
+}
+
+/** Of `bays`, the one nearest to unit `u` (the one it is already heading for, if any), with its distance; null if none. */
+function nearestBay(world, u, bays = baysOf(world, u.house)) {
+  let best = null, bestD = Infinity;
+  for (const b of bays) {
+    const d = Math.hypot(b.to.x - u.tx, b.to.y - u.ty);
+    if (u.order.type === 'repairAt' && u.order.structureId === b.bay.id) return { ...b, d };
+    if (d < bestD) { bestD = d; best = { ...b, d }; }
   }
   return best;
 }
 
 /** Battlefield recovery: the worn vehicle of the house best worth fetching goes to the Repair Facility by air. */
 function recover(world, c) {
+  const bays = baysOf(world, c.house);
+  if (!bays.length) return false;
   let best = null, bestScore = Infinity;
   for (const u of world.units.values()) {
     if (u.house !== c.house || !liftable(u) || u.hp > u.maxHp * AIR.recoverBelow) continue;
     if (u.type.deploysTo || u.deviated || u.destructAt !== undefined || (u.recoverAfter ?? 0) > world.time || ferried(world, u)) continue;
-    const near = nearestBay(world, u);
-    if (!near || near.d < AIR.ferryDistance || closeCombat(world, u)) continue;   // close enough to drive, or busy fighting
+    const near = nearestBay(world, u, bays);
+    if (near.d < AIR.ferryDistance || closeCombat(world, u)) continue;   // close enough to drive, or busy fighting
     const score = Math.hypot(u.x - c.x, u.y - c.y) + (u.hp / u.maxHp) * 20;
     if (score < bestScore) { bestScore = score; best = { u, ...near }; }
   }
   if (!best) return false;
   const { u, bay, to } = best;
-  if (u.order.type === 'repairAt') { assign(world, c, u, to, 'recover'); return true; }   // already on its way there: a lift
+  if (u.order.type === 'repairAt') { assign(world, c, u, to, 'recover'); return true; }   // already on its way to that bay: a lift
   const back = { x: u.tx, y: u.ty };
   orderRepairAt(world, c.house, [u], bay.id);   // (a free Carryall may already have been called)
   if (u.order.type !== 'repairAt') return false;

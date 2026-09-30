@@ -211,6 +211,7 @@ export class Controller {
     }
     if (hit.kind === 'unit' && units.some(isLifter) && hit.unit.house === this.house && liftable(hit.unit)) {   // Carryalls lift it; the rest carry on
       this.issue({ type: 'lift', ids: units.filter(isLifter).map((u) => u.id), targetId: hit.unit.id });
+      this.onMarker(hit.unit.x, hit.unit.y);
       units = units.filter((u) => !isLifter(u));
       if (!units.length) return;
     }

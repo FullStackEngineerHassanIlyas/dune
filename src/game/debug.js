@@ -19,6 +19,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     world,
     house,
     selection: () => selection.list(),
+    select: (ids) => selection.set(ids.filter((id) => world.units.get(id)?.house === house)),   // own units only, as a click would
+    carryalls: (h = house) => [...world.units.values()].filter((u) => u.house === h && u.typeId === 'carryall').map((c) => ({ ...brief(c), alt: c.alt, job: c.job?.stage ?? null, why: c.job?.why ?? null, load: c.cargo || 0, target: c.job?.unit ?? 0, manual: !!c.manual })),
     units: (typeId = null, h = house) => [...world.units.values()].filter((u) => u.house === h && (!typeId || u.typeId === typeId)).map(brief),
     unit: (id) => brief(world.units.get(id)),
     structures: (typeId = null) => [...world.structures.values()].filter((s) => !typeId || s.typeId === typeId).map((s) => ({ id: s.id, typeId: s.typeId, house: s.house, x: s.x, y: s.y, hp: s.hp, maxHp: s.maxHp })),

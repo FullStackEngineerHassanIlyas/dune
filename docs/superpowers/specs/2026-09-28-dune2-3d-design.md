@@ -229,7 +229,7 @@ copies them verbatim and `tuning.js` converts them.
 |---|---|
 | MCV | Deploys into a Construction Yard (2×2) on a valid spot; "Unable to deploy here" otherwise. |
 | Harvester | Auto-harvests the nearest spice, returns when full, remembers its field; a Carryall ferries it on long trips. |
-| Carryall | Unarmed and not directly controlled: ferries Harvesters, delivers the free Harvester, carries damaged vehicles to a Repair Facility when told to repair. |
+| Carryall | Unarmed; on automatic duty unless the player directs it: ferries Harvesters on long trips (and to distant spice), delivers the free Harvester, lifts vehicles at half health or worse to the Repair Facility and sends them back, waits over the Refineries and Repair Facility. Player orders: fly to a spot (its new station), lift an own vehicle and set it down, deliver the load, Stop (off duty), Duty (G), Drop (D). |
 | Ornithopter | Fast, fragile air striker; hunts on its own when idle, accepts attack and move orders. |
 | Sonic Tank | Wave travels 8 tiles, damaging everything on its path except Sonic Tanks and walls, weakening as it goes. Friendly fire is real. |
 | Deviator | Gas missile turns enemy units in a small radius to the Ordos side for 40 s (tunable), then they revert. Aircraft, Harvesters, MCVs and worms are immune. |
