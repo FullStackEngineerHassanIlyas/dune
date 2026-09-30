@@ -266,6 +266,68 @@ test('the Death Hand flies as a missile high over its path and is gone when it l
   assert.equal(views.model.count, 0);
 });
 
+test('rockets fly as a rocket body, nose along their path, mini-rockets smaller; bullets have none', () => {
+  const views = new MissileViews(new THREE.Scene());
+  const shot = (id, projectile, weapon, x) => [id, { id, projectile, weapon, house: 'harkonnen', x, y: 5, px: x - 0.5, py: 5, sx: 2, sy: 5, tx: 10, ty: 5, speed: 12.5 }];
+  const world = { projectiles: new Map([shot(1, 'rocket', 'rocket', 3), shot(2, 'rocket', 'miniRocket', 3), shot(3, 'bullet', 'mg', 3)]) };
+  views.sync(world, 1, () => 0);
+  assert.equal(views.handles.size, 2, 'the bullet has no body');
+  assert.equal(views.rockets.count, 2);
+  const axis = (m) => new THREE.Vector3().setFromMatrixColumn(m, 0);
+  const nose = axis(views.handles.get(1).matrix);
+  assert.ok(nose.x > 0.8 && nose.y > 0.05, `early in its flight it climbs toward the target (${nose.toArray().map((v) => v.toFixed(2))})`);
+  assert.ok(axis(views.handles.get(2).matrix).length() < nose.length() * 0.8, 'a mini-rocket is smaller');
+  world.projectiles.get(1).x = world.projectiles.get(1).px = 9.5;
+  views.sync(world, 1, () => 0);
+  assert.ok(axis(views.handles.get(1).matrix).y < -0.05, 'late in its flight it dives');
+  world.projectiles.clear();
+  views.sync(world, 1, () => 0);
+  assert.equal(views.rockets.count, 0);
+  views.dispose();
+});
+
+import { shotPoint } from '../src/render/views/missile-views.js';
+
+test('a shot leaves its gun above the ground and comes down just above its target', () => {
+  const p = { projectile: 'rocket', x: 2, y: 5, px: 2, py: 5, sx: 2, sy: 5, tx: 10, ty: 5, speed: 12.5 };
+  const out = {};
+  shotPoint(p, 0, () => 1, out);
+  assert.ok(Math.abs(out.y - 1.35) < 1e-6 && out.dx > 0 && out.dy > 0, 'from the gun, climbing');
+  Object.assign(p, { x: 10, px: 10 });
+  shotPoint(p, 0, () => 1, out);
+  assert.ok(Math.abs(out.y - 1.2) < 1e-6 && out.dy < 0, 'onto the target, falling');
+  assert.ok(Math.abs(Math.hypot(out.dx, out.dy, out.dz) - 1) < 1e-9 && out.speed > 12.5);
+});
+
+import { Effects } from '../src/render/effects.js';
+import { ShotFx } from '../src/render/shot-fx.js';
+
+test('shots in flight leave tracers, and rockets a smoke trail from the launcher that ends when they land', () => {
+  const fx = new Effects(new THREE.Scene(), { particles: 4000, flashLights: 0 });
+  const trails = new ShotFx(fx);
+  const rocket = { id: 1, projectile: 'rocket', weapon: 'rocket', x: 2, y: 5, px: 2, py: 5, sx: 2, sy: 5, tx: 10, ty: 5, speed: 12.5 };
+  const bullet = { id: 2, projectile: 'bullet', weapon: 'mg', x: 3, y: 8, px: 2.5, py: 8, sx: 2, sy: 8, tx: 6, ty: 8, speed: 15 };
+  const world = { projectiles: new Map([[1, rocket], [2, bullet]]) };
+  let unseen = true;
+  trails.update(world, 1, () => 0, () => !unseen);
+  assert.equal(fx.glow.n + fx.smoke.n, 0, 'nothing where the viewer cannot see');
+  unseen = false;
+  for (let k = 1; k <= 20; k++) {   // a second of flight, the rocket two tiles along
+    rocket.px = rocket.x;
+    rocket.x = 2 + (k / 20) * 2;
+    trails.update(world, 1, () => 0, () => true);
+  }
+  assert.ok(fx.smoke.n >= 15, `smoke laid along two tiles (${fx.smoke.n})`);
+  let nearLauncher = 0;
+  for (let i = 0; i < fx.smoke.n; i++) if (fx.smoke.pos[i * 3] < 2.5) nearLauncher++;
+  assert.ok(nearLauncher >= 2, 'the trail reaches back to the launcher');
+  assert.ok(fx.glow.n >= 20, 'a flare and a tracer every frame');
+  world.projectiles.clear();
+  trails.update(world, 1, () => 0, () => true);
+  assert.equal(trails.trails.size, 0, 'a landed rocket\'s trail record goes back to the pool');
+  assert.equal(trails.spare.length, 1);
+});
+
 test('dispose takes every unit, structure and missile mesh off the scene', () => {
   const world = flatWorld(32, 32, G.ROCK);
   const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
