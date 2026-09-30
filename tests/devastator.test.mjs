@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { G } from '../src/data/terrain.js';
 import { buildOptions } from '../src/sim/tech.js';
 import { flatWorld, run } from './helpers.mjs';
 
@@ -38,14 +39,31 @@ test('a Devastator counting down stops, holds its fire and takes no orders, not 
   assert.ok(!world.events.drain().some((e) => e.type === 'fired' && e.id === dev.id), 'it holds its fire');
 });
 
-test('D on a Devastator means Destruct; an MCV still deploys', () => {
+test('D (or Deploy) with an MCV selected deploys it and spares the Devastators; on Devastators alone it means Destruct', () => {
   const world = flatWorld(16, 12);
   const dev = world.spawnUnit('devastator', 'harkonnen', 3, 6);
+  const tank = world.spawnUnit('combatTank', 'harkonnen', 5, 6);
   world.spawnUnit('mcv', 'harkonnen', 10, 6);
   world.issue('harkonnen', { type: 'deploy', ids: [...world.units.keys()] });
   world.step();
-  assert.ok(dev.destructAt > 0);
   assert.ok([...world.structures.values()].some((s) => s.typeId === 'constructionYard'));
+  assert.equal(dev.destructAt, undefined, 'the Deploy meant for the MCV blows nothing up');
+  world.issue('harkonnen', { type: 'deploy', ids: [dev.id, tank.id] });
+  world.step();
+  assert.ok(dev.destructAt > 0);
+});
+
+test('a Devastator counting down keeps its tile: friends cannot nudge it aside', () => {
+  const world = flatWorld(16, 5);
+  const m = world.map;
+  for (let y = 0; y < 5; y++) for (let x = 0; x < 16; x++) if (y !== 2 && !(x === 6 && y === 3)) m.ground[m.idx(x, y)] = G.MOUNTAIN;   // a corridor with one side pocket
+  m.revision++;
+  const dev = world.spawnUnit('devastator', 'harkonnen', 6, 2);
+  const tank = world.spawnUnit('combatTank', 'harkonnen', 3, 2);
+  world.issue('harkonnen', { type: 'destruct', ids: [dev.id] });
+  world.issue('harkonnen', { type: 'move', ids: [tank.id], x: 12, y: 2 });
+  run(world, 2.9);
+  assert.deepEqual([dev.order.type, dev.step ?? null, dev.x, dev.y], ['idle', null, 6.5, 2.5]);
 });
 
 test('the Devastator joins the Harkonnen roster once a House of IX stands', () => {
