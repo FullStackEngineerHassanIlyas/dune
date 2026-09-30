@@ -22,14 +22,15 @@ test('terrain shader patches every chunk it relies on', () => {
   }
 });
 
-test('the apron beyond the map edge follows the shroud of the nearest edge tile', () => {
+test('the apron beyond the map edge follows the shroud of the nearest edge tiles, softened with distance', () => {
   const material = new THREE.MeshStandardMaterial();
   injectTerrainShader(material, { uShroud: { value: null }, uMapSize: { value: new THREE.Vector2(64, 64) } }, { apron: true });
   const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
   material.onBeforeCompile(shader);
   const from = shader.fragmentShader.slice(shader.fragmentShader.indexOf('float terrainShroud('));
   const fn = from.slice(0, from.indexOf('\n}\n'));
-  const sample = fn.indexOf('texture2D(uShroud');
-  assert.ok(sample >= 0 && sample < fn.indexOf('#ifdef APRON'), 'the apron samples the shroud too');
+  const apron = fn.slice(fn.indexOf('#ifdef APRON'), fn.indexOf('#else'));
+  assert.match(apron, /texture2D\(uShroud, clamp\(/, 'the apron samples the shroud of the map edge');
+  assert.match(apron, /length\(p - edge\)/, 'and averages a wider stretch of edge the farther out it lies');
   assert.match(fn, /clamp\(p \/ uMapSize, 0\.0, 1\.0\)/);
 });

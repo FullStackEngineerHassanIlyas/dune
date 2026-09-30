@@ -56,7 +56,7 @@ export const AIR = {
   aimCone: 0.35,        // an Ornithopter fires within this angle of its nose (radians)
   huntRadius: 96,       // an idle Ornithopter looks this far for prey (tiles)
   guardRadius: 4,       // … a guarding one this far beyond its weapon range
-  cargoDrop: 0.35,      // a carried unit hangs this far below its Carryall
+  cargoDrop: 0.42,      // a carried unit hangs this far below its Carryall (clear of its belly)
 };
 
 export const STARPORT = {
