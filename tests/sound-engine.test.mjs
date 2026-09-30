@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RECIPES, RATE, render, variants } from '../src/audio/synth.js';
+import { RECIPES, RATE, render, variants, reverbImpulse } from '../src/audio/synth.js';
 import { SoundEngine, VoiceLimiter, spatial, MAX_VOICES, PRIORITY_VOICES, VOICE_GAIN, AIR, WET, RENDER_ORDER } from '../src/audio/engine.js';
 
 // Web Audio does not exist under Node: a minimal stand-in records what the engine does with it.
@@ -20,7 +20,10 @@ function fakeWindow({ suspended = false, full = false, idle = false, worker = fa
       terminate() { this.terminated = true; }
       /** What the real worker does for the next n items it was sent. */
       deliver(n = Infinity) {
-        for (const [id, v] of this.sent.todo.splice(0, n)) this.onmessage({ data: { id, v, samples: render(id, v) } });
+        for (const [id, v] of this.sent.todo.splice(0, n)) {
+          this.onmessage({ data: { id, v, samples: render(id, v) } });
+          if (this.sent.reverb && this.sent.reverb.after-- === 0) this.onmessage({ data: { reverb: reverbImpulse(this.sent.reverb.rate), rate: this.sent.reverb.rate } });
+        }
         if (!this.sent.todo.length) this.onmessage({ data: { done: true } });
       }
     };
@@ -111,13 +114,16 @@ test('a worker renders the bank off the main thread; late sounds join as they ar
   const w = win.workers[0];
   assert.match(w.url, /synth-worker\.js$/);
   assert.equal(w.options.type, 'module');
-  assert.equal(w.sent.todo.length, RENDER_ORDER.reduce((n, id) => n + variants(id), 0), 'every variation asked for, in render order');
-  assert.deepEqual(w.sent.todo[0], ['click', 0]);
+  assert.equal(w.sent.todo.length, RENDER_ORDER.reduce((n, id) => n + variants(id), 0), 'every variation asked for');
+  const ids = Object.keys(RECIPES).length - 1;
+  assert.deepEqual(w.sent.todo.slice(0, 3), [['click', 0], ['rifle', 0], ['mg', 0]], 'in render order');
+  assert.ok(w.sent.todo.slice(0, ids).every(([, v]) => v === 0), 'one variation of every sound before any second one');
   assert.equal(win.idleQueue.length, 0, 'no main-thread rendering while the worker works');
   w.deliver(5);
   win.listeners.pointerdown();
-  assert.equal(e.buffers.get('click').length, variants('click'), 'what arrived before the click is ready');
-  assert.equal(e.play('cannon'), false, 'a sound still on its way is skipped, not waited for');
+  assert.equal(e.buffers.get('cannon').length, 1, 'what arrived before the click is ready');
+  assert.equal(e.play('cannon'), true);
+  assert.equal(e.play('collapse'), false, 'a sound still on its way is skipped, not waited for');
   w.deliver();
   assert.equal(e.worker, null);
   assert.equal(e.todo.length, 0);
@@ -130,6 +136,24 @@ test('a worker renders the bank off the main thread; late sounds join as they ar
   assert.ok(win2.workers[0].terminated);
   assert.equal(f.todo.length, 0, 'the rest is rendered in the page instead');
   assert.equal(f.buffers.size, Object.keys(RECIPES).length);
+});
+
+test('the worker brings the reverb\'s impulse too; a context at another rate gets one made for it', () => {
+  const win = fakeWindow({ worker: true, full: true });
+  const e = new SoundEngine({ win });
+  const w = win.workers[0];
+  assert.equal(w.sent.reverb.rate, 48000);
+  win.listeners.pointerdown();
+  assert.equal(e.convolver.buffer, null, 'silent until its impulse comes');
+  w.deliver(Object.keys(RECIPES).length);
+  assert.equal(e.convolver.buffer.sampleRate, 48000, 'the worker\'s impulse, once every sound can play');
+  assert.equal(e.convolver.buffer.numberOfChannels, 2);
+  const odd = fakeWindow({ worker: true, full: true });
+  const f = new SoundEngine({ win: odd });
+  odd.listeners.pointerdown();
+  f.ctx.sampleRate = 44100;   // (set after the fact: the fake's rate is fixed at construction)
+  odd.workers[0].deliver();
+  assert.equal(f.convolver.buffer.sampleRate, 44100, 'made at the context\'s own rate instead');
 });
 
 test('a soft stereo wind loops under everything, through the master volume, once both its halves are here', () => {

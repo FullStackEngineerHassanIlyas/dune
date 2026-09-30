@@ -27,11 +27,18 @@ export const AIR = { open: 16000, far: 2500 };   // Hz: the low-pass on a placed
 export const WET = { near: 0.35, far: 0.9, ui: 0.25 };   // reverb send: its tail about 17 dB under a sound beside the camera, 9 dB under one far off
 const PAN = 0.85;   // never hard to one side: an off-screen sound still reaches both ears a little
 const REVERB_CUT = 250;
+const LIKELY_RATE = 48000;   // the rate most audio outputs, and so most contexts, run at: the worker makes the impulse for it
 const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 16 dB under a rifle beside the camera   // Hz: rumble stays out of the reverb, where it would only muddy the tail
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
 const FIRST = ['click', 'rifle', 'mg', 'cannon', 'explosionSmall', 'hit', 'sandHit', 'rocket', 'bulletHit', 'error', 'ready', 'clunk'];
 export const RENDER_ORDER = [...FIRST, ...Object.keys(RECIPES).filter((id) => !FIRST.includes(id))];
+
+/** What to render, in order: one variation of every sound first, so each is playable soonest, then the other variations, the wind last. */
+function renderQueue() {
+  const ids = RENDER_ORDER.filter((id) => id !== AMBIENT), more = (id, from) => Array.from({ length: Math.max(0, variants(id) - from) }, (_, v) => [id, v + from]);
+  return [...ids.map((id) => [id, 0]), ...ids.flatMap((id) => more(id, 1)), ...more(AMBIENT, 0)];
+}
 
 /** Pan, level, low-pass cutoff and reverb send for a sound at (x, z) heard from a camera looking at (listener.x, listener.z). */
 export function spatial(listener, x, z) {
@@ -86,8 +93,10 @@ export class SoundEngine {
     this.reverb = null;
     this.buffers = new Map();   // id → AudioBuffers of its variations, as they become ready
     this.samples = new Map();   // id → variations rendered ahead (indexed by variation), waiting for the context
-    this.todo = RENDER_ORDER.flatMap((id) => Array.from({ length: variants(id) }, (_, v) => [id, v]));   // not rendered yet
+    this.todo = renderQueue();   // not rendered yet
     this.worker = null;
+    this.impulse = null;   // the reverb's impulse from the worker: { rate, channels }
+    this.convolver = null;
     this.ambience = null;   // the looping wind, once it plays
     this.ambientParts = [];   // its left and right samples, until both are here and the context is open
     this.last = new Map();   // id → the variation played last
@@ -110,14 +119,17 @@ export class SoundEngine {
     if (typeof this.win.Worker === 'function') {
       try {
         const w = (this.worker = new this.win.Worker(new URL('./synth-worker.js', import.meta.url), { type: 'module' }));
-        w.onmessage = ({ data }) => { if (data.done) this.worker = null; else this.receive(data.id, data.v, data.samples); };
+        w.onmessage = ({ data }) => {
+          if (data.reverb) this.receiveImpulse(data.rate, data.reverb);
+          else if (data.done) { this.worker = null; this.fitImpulse(); }
+          else this.receive(data.id, data.v, data.samples);
+        };
         w.onerror = (e) => { e?.preventDefault?.(); this.workerFailed(); };
-        w.postMessage({ todo: this.todo });
+        // the reverb's impulse too, at the rate a context most likely runs at, once every sound has one variation
+        w.postMessage({ todo: this.todo, reverb: { rate: LIKELY_RATE, after: RENDER_ORDER.length - 1 } });
         return;
       } catch {
         this.worker = null;
-    this.ambience = null;   // the looping wind, once it plays
-    this.ambientParts = [];   // its left and right samples, until both are here and the context is open
       }
     }
     this.idle((d) => this.prerender(d));
@@ -136,10 +148,14 @@ export class SoundEngine {
   workerFailed() {
     this.worker?.terminate?.();
     this.worker = null;
-    this.ambience = null;   // the looping wind, once it plays
-    this.ambientParts = [];   // its left and right samples, until both are here and the context is open
     if (this.ctx) this.renderRest();
     else this.idle((d) => this.prerender(d));
+    this.fitImpulse();
+  }
+
+  receiveImpulse(rate, channels) {
+    this.impulse = { rate, channels };
+    this.fitImpulse();
   }
 
   idle(fn) {
@@ -237,16 +253,29 @@ export class SoundEngine {
   openReverb() {
     const ctx = this.ctx;
     if (!ctx.createConvolver || !ctx.createBiquadFilter) return null;
-    const [left, right] = reverbImpulse(ctx.sampleRate ?? RATE), ir = ctx.createBuffer(2, left.length, ctx.sampleRate ?? RATE);
-    ir.copyToChannel(left, 0);
-    ir.copyToChannel(right, 1);
-    const cut = ctx.createBiquadFilter(), conv = ctx.createConvolver();
+    const cut = ctx.createBiquadFilter(), conv = (this.convolver = ctx.createConvolver());
     cut.type = 'highpass';
     cut.frequency.value = REVERB_CUT;
-    conv.buffer = ir;
     cut.connect(conv);
     conv.connect(this.master);
+    this.fitImpulse();
     return cut;
+  }
+
+  /**
+   * Give the convolver its impulse (until then it is silent): the worker's if it matches the context's rate,
+   * else one made here — unless the worker is still at work and may yet bring it.
+   */
+  fitImpulse() {
+    const conv = this.convolver, rate = this.ctx?.sampleRate ?? RATE;
+    if (!conv || conv.buffer) return;
+    const mine = this.impulse?.rate === rate ? this.impulse.channels : null;
+    if (!mine && this.worker && !this.impulse) return;
+    const [left, right] = mine ?? reverbImpulse(rate), ir = this.ctx.createBuffer(2, left.length, rate);
+    ir.copyToChannel(left, 0);
+    ir.copyToChannel(right, 1);
+    conv.buffer = ir;
+    this.impulse = null;
   }
 
   setListener(x, z, rightX, rightZ, range) {
