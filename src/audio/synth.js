@@ -635,12 +635,12 @@ export function reverbImpulse(rate, seconds = 1.5, seed = 99) {
   const n = Math.max(1, Math.round(seconds * rate)), pre = Math.round(0.012 * rate), channels = [];
   for (let c = 0; c < 2; c++) {
     const r = rng(seed + c * 7919), a = new Float32Array(n);
-    let y = 0, k = 0;
-    for (let i = pre; i < n; i++) {
-      const t = (i - pre) / rate;
-      if (((i - pre) & 63) === 0) k = 1 - Math.exp((-TAU * (900 + 7000 * Math.exp(-t / 0.35))) / rate);
+    const fall = Math.exp(-6.91 / (1.3 * rate)), bloom = Math.round(0.03 * rate);
+    let y = 0, k = 0, e = 1;
+    for (let i = pre; i < n; i++, e *= fall) {
+      if (((i - pre) & 63) === 0) k = 1 - Math.exp((-TAU * (900 + 7000 * Math.exp(-(i - pre) / (0.35 * rate)))) / rate);
       y += k * (r() * 2 - 1 - y);
-      a[i] = y * Math.exp((-6.91 * t) / 1.3) * Math.min(1, t / 0.03);
+      a[i] = y * e * Math.min(1, (i - pre) / bloom);
     }
     const tap = (ms, g, width) => {   // a reflection: a short raised-sine pulse, its sign at random
       const at = Math.round(((ms + (r() - 0.5) * 6) * rate) / 1000), w = Math.max(1, Math.round((width * rate) / 1000)), sign = r() < 0.5 ? -1 : 1;

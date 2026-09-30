@@ -5,12 +5,25 @@ import { SoundEngine, VoiceLimiter, spatial, MAX_VOICES, PRIORITY_VOICES, VOICE_
 
 // Web Audio does not exist under Node: a minimal stand-in records what the engine does with it.
 // `full` adds the filters, the convolver and a clock, as a browser has them.
-function fakeWindow({ suspended = false, full = false, idle = false } = {}) {
+function fakeWindow({ suspended = false, full = false, idle = false, worker = false } = {}) {
   const listeners = {};
   const win = { addEventListener: (type, fn) => { listeners[type] = fn; }, removeEventListener: (type) => { delete listeners[type]; }, listeners, userActivation: false };
   if (idle) {
     win.idleQueue = [];
     win.requestIdleCallback = (fn) => win.idleQueue.push(fn);
+  }
+  if (worker) {
+    win.workers = [];
+    win.Worker = class {
+      constructor(url, options) { Object.assign(this, { url: String(url), options, sent: null, terminated: false }); win.workers.push(this); }
+      postMessage(data) { this.sent = structuredClone(data); }   // as a real worker gets it: a copy
+      terminate() { this.terminated = true; }
+      /** What the real worker does for the next n items it was sent. */
+      deliver(n = Infinity) {
+        for (const [id, v] of this.sent.todo.splice(0, n)) this.onmessage({ data: { id, v, samples: render(id, v) } });
+        if (!this.sent.todo.length) this.onmessage({ data: { done: true } });
+      }
+    };
   }
   class Node {
     constructor() { this.outputs = []; this.disconnected = false; }
@@ -91,6 +104,34 @@ test('sounds are rendered ahead in idle time, interface and gunfire first, and t
   assert.equal(f.samples.size, 0, 'a slice after the context opened does nothing');
 });
 
+test('a worker renders the bank off the main thread; late sounds join as they arrive; a failed worker falls back', () => {
+  const win = fakeWindow({ worker: true, idle: true });
+  const e = new SoundEngine({ win });
+  assert.equal(win.workers.length, 1);
+  const w = win.workers[0];
+  assert.match(w.url, /synth-worker\.js$/);
+  assert.equal(w.options.type, 'module');
+  assert.equal(w.sent.todo.length, RENDER_ORDER.reduce((n, id) => n + variants(id), 0), 'every variation asked for, in render order');
+  assert.deepEqual(w.sent.todo[0], ['click', 0]);
+  assert.equal(win.idleQueue.length, 0, 'no main-thread rendering while the worker works');
+  w.deliver(5);
+  win.listeners.pointerdown();
+  assert.equal(e.buffers.get('click').length, variants('click'), 'what arrived before the click is ready');
+  assert.equal(e.play('cannon'), false, 'a sound still on its way is skipped, not waited for');
+  w.deliver();
+  assert.equal(e.worker, null);
+  assert.equal(e.todo.length, 0);
+  for (const id of Object.keys(RECIPES)) assert.equal(e.buffers.get(id)?.length, variants(id), id);
+  assert.equal(e.play('cannon'), true);
+  const win2 = fakeWindow({ worker: true }), f = new SoundEngine({ win: win2 });
+  win2.workers[0].deliver(3);
+  win2.listeners.pointerdown();
+  win2.workers[0].onerror({ preventDefault() {} });   // e.g. a browser without module workers
+  assert.ok(win2.workers[0].terminated);
+  assert.equal(f.todo.length, 0, 'the rest is rendered in the page instead');
+  assert.equal(f.buffers.size, Object.keys(RECIPES).length);
+});
+
 test('each play picks a variation at random, never the same twice running, at a slightly random pitch', () => {
   const win = fakeWindow();
   let seed = 3;
@@ -148,6 +189,7 @@ test('sounds are panned, fade, dull and grow reverberant with distance from the 
   assert.equal(here.wet, WET.near);
   assert.ok(spatial(l, 18, 10).pan > 0.5, 'to the right');
   assert.ok(spatial(l, 2, 10).pan < -0.5, 'to the left');
+  assert.ok(spatial(l, 40, 10).pan <= 0.85 && spatial(l, -20, 10).pan >= -0.85, 'never hard to one side');
   assert.equal(spatial(l, 60, 10).gain, 0, 'far away is silent');
   const mid = spatial(l, 10, 30);
   assert.ok(mid.gain > 0 && mid.gain < 1);

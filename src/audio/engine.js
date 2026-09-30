@@ -1,6 +1,8 @@
 // Web Audio sound engine (spec §6, §9): one AudioContext opened by the first click or key press (browser
 // autoplay rules), every synthesized effect and its variations turned into AudioBuffers once — rendered
-// ahead in idle time where the browser offers it, so the first click does not wait. play(id, {x, z})
+// ahead by a worker thread from the moment the engine exists (or in the main thread's idle time, or at
+// the first click, where there is no worker), so neither the frame rate nor the first click waits. A
+// sound whose samples have not arrived yet is skipped rather than waited for. play(id, {x, z})
 // picks a variation at random (never the same twice running) at a slightly random pitch, and places it
 // relative to the camera: stereo pan, level and air absorption (a low-pass closing with distance), and a
 // send into one shared convolution reverb (a subtle open-desert space; far sounds are wetter). Voices are
@@ -22,6 +24,7 @@ const JITTER = { click: 0.01, ready: 0, sell: 0, error: 0, beep: 0, alarm: 0, st
 const FLAM = 0.03;   // seconds: the same sound started again this soon (a squad firing at once) comes in quieter
 export const AIR = { open: 16000, far: 2500 };   // Hz: the low-pass on a placed sound, from beside the camera to the edge of hearing
 export const WET = { near: 0.35, far: 0.9, ui: 0.25 };   // reverb send: its tail about 17 dB under a sound beside the camera, 9 dB under one far off
+const PAN = 0.85;   // never hard to one side: an off-screen sound still reaches both ears a little
 const REVERB_CUT = 250;   // Hz: rumble stays out of the reverb, where it would only muddy the tail
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
@@ -35,7 +38,7 @@ export function spatial(listener, x, z) {
   const t = d <= near ? 0 : d >= far ? 1 : (d - near) / (far - near);
   const side = dx * listener.rightX + dz * listener.rightZ;
   return {
-    pan: Math.max(-1, Math.min(1, side / (listener.range * 0.8))) || 0,
+    pan: Math.max(-PAN, Math.min(PAN, side / (listener.range * 0.8))) || 0,
     gain: 1 - t,
     cutoff: AIR.open * Math.pow(AIR.far / AIR.open, t),
     wet: WET.near + (WET.far - WET.near) * t,
@@ -79,9 +82,10 @@ export class SoundEngine {
     this.ctx = null;
     this.master = null;
     this.reverb = null;
-    this.buffers = new Map();   // id → one AudioBuffer per variation
-    this.samples = new Map();   // id → variations rendered ahead, waiting for the context
-    this.todo = RENDER_ORDER.flatMap((id) => Array.from({ length: variants(id) }, (_, v) => [id, v]));
+    this.buffers = new Map();   // id → AudioBuffers of its variations, as they become ready
+    this.samples = new Map();   // id → variations rendered ahead (indexed by variation), waiting for the context
+    this.todo = RENDER_ORDER.flatMap((id) => Array.from({ length: variants(id) }, (_, v) => [id, v]));   // not rendered yet
+    this.worker = null;
     this.last = new Map();   // id → the variation played last
     this.recent = new Map();   // id → { at, n }: when it last started, and how many times within FLAM of that
     this.limiter = new VoiceLimiter();
@@ -91,25 +95,72 @@ export class SoundEngine {
       this.onGesture = () => this.unlock();
       this.win.addEventListener('pointerdown', this.onGesture);
       this.win.addEventListener('keydown', this.onGesture);
-      this.idle(() => this.prerender());
+      this.renderAhead();
     }
   }
 
   get running() { return !!this.ctx && (this.ctx.state === undefined || this.ctx.state === 'running'); }
 
+  /** Start the bank rendering: in a worker thread where there is one, else in the main thread's idle time. */
+  renderAhead() {
+    if (typeof this.win.Worker === 'function') {
+      try {
+        const w = (this.worker = new this.win.Worker(new URL('./synth-worker.js', import.meta.url), { type: 'module' }));
+        w.onmessage = ({ data }) => { if (data.done) this.worker = null; else this.receive(data.id, data.v, data.samples); };
+        w.onerror = (e) => { e?.preventDefault?.(); this.workerFailed(); };
+        w.postMessage({ todo: this.todo });
+        return;
+      } catch {
+        this.worker = null;
+      }
+    }
+    this.idle((d) => this.prerender(d));
+  }
+
+  /** Samples of one variation, from the worker or the main thread: a buffer at once if the context is open, else kept for it. */
+  receive(id, v, data) {
+    const k = this.todo.findIndex(([i, n]) => i === id && n === v);
+    if (k < 0) return;   // already there
+    this.todo.splice(k, 1);
+    if (this.ctx) return this.addBuffer(id, data);
+    if (!this.samples.has(id)) this.samples.set(id, []);
+    this.samples.get(id)[v] = data;
+  }
+
+  workerFailed() {
+    this.worker?.terminate?.();
+    this.worker = null;
+    if (this.ctx) this.renderRest();
+    else this.idle((d) => this.prerender(d));
+  }
+
   idle(fn) {
     if (typeof this.win.requestIdleCallback === 'function') this.win.requestIdleCallback((deadline) => fn(deadline), { timeout: 2000 });
   }
 
-  /** One slice of rendering ahead: at least one variation, then more while the browser stays idle. */
+  /** One slice of rendering ahead in the main thread: at least one variation, then more while the browser stays idle. */
   prerender(deadline = { timeRemaining: () => 0 }) {
-    if (this.ctx || !this.todo.length) return;
+    if (this.ctx || this.worker || !this.todo.length) return;
     do {
-      const [id, v] = this.todo.shift();
-      if (!this.samples.has(id)) this.samples.set(id, []);
-      this.samples.get(id)[v] = render(id, v);
+      const [id, v] = this.todo[0];
+      this.receive(id, v, render(id, v));
     } while (this.todo.length && deadline.timeRemaining() > 3);
     if (this.todo.length) this.idle((d) => this.prerender(d));
+  }
+
+  /** Everything not rendered yet, now (no worker, or it failed). */
+  renderRest() {
+    while (this.todo.length) {
+      const [id, v] = this.todo[0];
+      this.receive(id, v, render(id, v));
+    }
+  }
+
+  addBuffer(id, data) {
+    const buffer = this.ctx.createBuffer(1, data.length, RATE);
+    buffer.copyToChannel(data, 0);
+    if (!this.buffers.has(id)) this.buffers.set(id, []);
+    this.buffers.get(id).push(buffer);
   }
 
   unlock() {
@@ -140,16 +191,9 @@ export class SoundEngine {
         limiter.connect(ctx.destination);
       } else this.master.connect(ctx.destination);
       this.reverb = this.openReverb();
-      for (const id of RENDER_ORDER) {
-        const ready = this.samples.get(id) ?? [];
-        this.buffers.set(id, Array.from({ length: variants(id) }, (_, v) => {
-          const data = ready[v] ?? render(id, v), buffer = ctx.createBuffer(1, data.length, RATE);
-          buffer.copyToChannel(data, 0);
-          return buffer;
-        }));
-      }
+      for (const id of RENDER_ORDER) for (const data of this.samples.get(id) ?? []) if (data) this.addBuffer(id, data);
       this.samples.clear();
-      this.todo.length = 0;
+      if (!this.worker) this.renderRest();   // a worker still at work delivers the rest as it goes
     } catch (err) {
       console.warn('sound disabled:', err);
       this.enabled = false;
@@ -194,7 +238,7 @@ export class SoundEngine {
   play(id, { x = null, z = null, volume = 1, rate = 1 } = {}) {
     if (!this.running || this.muted) return false;   // a suspended context would hold voices it cannot finish
     const bank = this.buffers.get(id);
-    if (!bank) return false;
+    if (!bank?.length) return false;
     let pan = 0, gain = volume, cutoff = AIR.open, wet = DRY.has(id) ? 0 : WET.ui;
     if (x !== null && z !== null) {
       const s = spatial(this.listener, x, z);
