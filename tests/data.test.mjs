@@ -77,3 +77,9 @@ test('conversions follow spec §4.1', () => {
   assert.ok(TURN_RATE[1] < TURN_RATE[2] && TURN_RATE[2] < TURN_RATE[3]);
   assert.ok(DRIVE_ANGLE.tracked < DRIVE_ANGLE.wheeled);
 });
+
+import { DEFERRED } from '../src/data/phase.js';
+
+test('only the sandworm still waits for a later plan', () => {
+  assert.deepEqual([...DEFERRED], ['sandworm']);
+});

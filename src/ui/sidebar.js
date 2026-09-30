@@ -149,9 +149,11 @@ export class Sidebar {
   showTip(b) {
     this.tipFor = b;
     const i = b.item;
-    this.tip.querySelector('b').textContent = i.name;
-    this.tip.querySelector('span').textContent = tipText(i);
-    this.tip.style.top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
+    const name = this.tip.querySelector('b'), line = this.tip.querySelector('span'), text = tipText(i);
+    if (name.textContent !== i.name) name.textContent = i.name;   // refreshed every frame: touch the page only when something changed
+    if (line.textContent !== text) line.textContent = text;
+    const top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
+    if (this.tip.style.top !== top) this.tip.style.top = top;
     this.tip.classList.add('show');
   }
 

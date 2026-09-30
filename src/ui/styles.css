@@ -94,3 +94,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 .sb-weapon[hidden] { display: none; }
 .sb-weapon img { object-fit: contain; background: radial-gradient(#3a2a18, #1a120a); }
 .sb-weapon.aiming { border-color: #ff4a36; box-shadow: 0 0 10px rgba(255, 74, 54, .6); }
+@media (prefers-reduced-motion: reduce) { .sb-list, .sb-storage i, .sb-power-fill { transition: none; } }
