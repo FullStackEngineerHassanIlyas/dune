@@ -104,11 +104,11 @@ html, body, #app, #app * { cursor: var(--cursor, default); }
 
 /* main menu backdrop (menu backdrop spec): the fade between space and the battle, the planet's caption,
    and a deeper scrim behind the menu from the dive on (the planet close up, the haze and the battle are
-   all bright; its low band keeps the footer at 4.5:1). The caption red #ee4630 on the black of space is
-   5.6:1 (WCAG AA needs 4.5:1). */
+   all bright; its low band keeps the footer at 4.5:1). The caption red #f4553d on the black of space is
+   6.2:1 (WCAG AA needs 4.5:1), and its dark halo holds it over the stars and the nebula. */
 .mb-fade { position: absolute; inset: 0; pointer-events: none; background: #000; opacity: 1; }
 .mb-caption { position: absolute; left: 50%; width: 50%; bottom: 6vh; z-index: 11; pointer-events: none; opacity: 0; text-align: center;
-  font: bold clamp(18px, 2.3vw, 30px) Georgia, "Times New Roman", serif; letter-spacing: .03em; color: #ee4630; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+  font: bold clamp(18px, 2.3vw, 30px) Georgia, "Times New Roman", serif; letter-spacing: .03em; color: #f4553d; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
 #ui:not(:has(.mm-title-screen)) .mb-caption, #ui:has(> .main-menu[hidden]) .mb-caption { display: none; }
 .main-menu::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
   background: linear-gradient(0deg, rgba(10,6,2,.45) 0%, transparent 10%), linear-gradient(90deg, rgba(10,6,2,.6) 0%, rgba(10,6,2,.5) 45%, transparent 75%); }
@@ -117,3 +117,6 @@ html, body, #app, #app * { cursor: var(--cursor, default); }
 @media (max-width: 1240px) { .mb-caption { bottom: calc(4vh + 24px); } }
 @media (max-width: 700px) { .mb-caption { display: none; } }
 @media (prefers-reduced-motion: reduce) { .main-menu::before { transition: none; } }
+/* the footer and the kicker keep their contrast however bright the haze or the battle behind them gets */
+.mm-foot { justify-self: start; margin-left: -6px; padding: 2px 6px; border-radius: 2px; background: rgba(10,6,2,.55); }
+.mm-kicker { text-shadow: 0 1px 4px #000, 0 0 2px #000; }

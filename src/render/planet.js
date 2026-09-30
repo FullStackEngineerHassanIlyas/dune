@@ -13,6 +13,10 @@ const ATMO_RADIUS = 1.12;
 // on the back of the atmosphere shell -n.z runs from 0 at its outline to this where it meets the planet's limb
 const ATMO_INNER = Math.sqrt(1 - 1 / (ATMO_RADIUS * ATMO_RADIUS));
 const LIGHT = new THREE.Vector3(-0.8, 0.45, 0.35).normalize();   // view space: from the upper left, a little in front
+const FILL = 0.78;     // wide screens: the share of the height the planet's disc fills
+const OFFSET = 0.65;   // wide screens: the planet's centre sits this share of the half-width right of centre
+const STAR_SIZE = { min: 2, span: 3 };         // pixels: most stars at the minimum, a rare few up to min + span
+const STAR_GLOW = { min: 0.45, span: 1.0 };    // brightness min + span · r^2.5: the brightest few bloom
 
 const NOISE = /* glsl */ `
   float hash3(vec3 p) {
@@ -40,8 +44,8 @@ const NOISE = /* glsl */ `
 export function planetFraming(aspect, fov = FOV) {
   const t = Math.tan(((fov / 2) * Math.PI) / 180);
   if (aspect < 1) return { distance: 1 / (0.5 * aspect) / t, offsetX: 0 };
-  const halfH = 1 / 0.78;
-  return { distance: halfH / t, offsetX: halfH * aspect * 0.65 };
+  const halfH = 1 / FILL;
+  return { distance: halfH / t, offsetX: halfH * aspect * OFFSET };
 }
 
 function planetMaterial() {
@@ -63,21 +67,29 @@ function planetMaterial() {
       varying vec3 vObj;
       varying vec3 vNormal;
       varying vec3 vView;
+      // palette, in linear light (three's ACES scales by 1 / 0.6 first): shadowed rock, open sand, sunlit dunes
+      const vec3 SAND_DARK = vec3(0.12, 0.045, 0.018);
+      const vec3 SAND_MID = vec3(0.43, 0.155, 0.06);
+      const vec3 SAND_LIGHT = vec3(0.76, 0.27, 0.11);
+      const float DETAIL_MIN = 0.66, DETAIL_SPAN = 0.68;   // fine noise scales the colour by MIN..MIN + SPAN (about 1 on average)
+      const float AMBIENT = 0.012;                          // light left on the night side
+      const float KEY = 1.3;                                // the sun on the day side
+      const float RIM_POWER = 6.0;                          // how tight to the limb the planet's own blue edge stays
+      const vec3 RIM_TINT = vec3(0.03, 0.08, 0.4);          // that edge's colour and strength (more turns the limb purple)
       ${NOISE}
       void main() {
         vec3 p = normalize(vObj);
         float base = fbm(p * 2.2);
         float detail = fbm(p * 9.0 + base * 2.0);
         float bands = 0.5 + 0.5 * sin(p.y * 22.0 + base * 7.0 + detail * 3.0);
-        vec3 dark = vec3(0.12, 0.045, 0.018), mid = vec3(0.43, 0.155, 0.06), light = vec3(0.76, 0.27, 0.11);
-        vec3 col = mix(dark, mid, smoothstep(0.28, 0.52, base));
-        col = mix(col, light, smoothstep(0.5, 0.78, base + bands * 0.1));
-        col *= 0.66 + 0.68 * detail;
-        col = mix(col, dark * 1.4, smoothstep(0.6, 0.7, fbm(p * 4.0 + 3.1)) * 0.55);
+        vec3 col = mix(SAND_DARK, SAND_MID, smoothstep(0.28, 0.52, base));
+        col = mix(col, SAND_LIGHT, smoothstep(0.5, 0.78, base + bands * 0.1));
+        col *= DETAIL_MIN + DETAIL_SPAN * detail;
+        col = mix(col, SAND_DARK * 1.4, smoothstep(0.6, 0.7, fbm(p * 4.0 + 3.1)) * 0.55);
         vec3 n = normalize(vNormal), v = normalize(vView);
         float lit = smoothstep(-0.12, 0.65, dot(n, uLight));
-        float rim = pow(1.0 - max(dot(n, v), 0.0), 6.0);
-        col = col * (0.012 + 1.3 * lit) + vec3(0.03, 0.08, 0.4) * rim * (0.1 + 0.9 * lit);
+        float rim = pow(1.0 - max(dot(n, v), 0.0), RIM_POWER);
+        col = col * (AMBIENT + KEY * lit) + RIM_TINT * rim * (0.1 + 0.9 * lit);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -99,12 +111,15 @@ function atmosphereMaterial() {
       uniform vec3 uLight;
       uniform float uInner;
       varying vec3 vNormal;
+      const float GLOW_POWER = 3.0;               // higher: the glow hugs the limb and the rim reads thinner
+      const vec3 TINT = vec3(0.08, 0.2, 1.0);     // a saturated blue: more green and ACES turns it pale
+      const float GAIN = 1.2;                     // the rim's overall brightness
       void main() {
         vec3 n = normalize(vNormal);
-        float glow = pow(clamp(-n.z / uInner, 0.0, 1.0), 3.0);
+        float glow = pow(clamp(-n.z / uInner, 0.0, 1.0), GLOW_POWER);
         float side = dot(normalize(n.xy + vec2(1e-5)), normalize(uLight.xy));
         float lit = 0.2 + 0.8 * smoothstep(-0.6, 0.7, side);
-        gl_FragColor = vec4(vec3(0.08, 0.2, 1.0) * glow * lit * 1.2, 1.0);
+        gl_FragColor = vec4(TINT * glow * lit * GAIN, 1.0);
       }`,
   });
 }
@@ -114,8 +129,8 @@ function starField(rng) {
   for (let i = 0; i < STARS; i++) {
     const u = rng.range(-1, 1), a = rng.range(0, Math.PI * 2), s = Math.sqrt(1 - u * u);
     pos.set([Math.cos(a) * s * 900, u * 900, Math.sin(a) * s * 900], i * 3);
-    size[i] = 2 + Math.pow(rng.next(), 6) * 3;
-    const warm = rng.next(), b = 0.45 + 1.0 * Math.pow(rng.next(), 2.5);
+    size[i] = STAR_SIZE.min + Math.pow(rng.next(), 6) * STAR_SIZE.span;
+    const warm = rng.next(), b = STAR_GLOW.min + STAR_GLOW.span * Math.pow(rng.next(), 2.5);
     tone.set([b * (0.85 + 0.15 * warm), b * 0.92, b * (1.05 - 0.2 * warm)], i * 3);
     phase[i] = rng.next();
   }
@@ -142,8 +157,10 @@ function starField(rng) {
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vTone;
+      // the fade across the sprite (0.5 is its edge): a flat core, so a 2-pixel star keeps its pixels lit
+      const float CORE = 0.25, EDGE = 0.6;
       void main() {
-        float a = 1.0 - smoothstep(0.25, 0.6, length(gl_PointCoord - 0.5));
+        float a = 1.0 - smoothstep(CORE, EDGE, length(gl_PointCoord - 0.5));
         gl_FragColor = vec4(vTone * a, 1.0);
       }`,
   });
@@ -160,11 +177,13 @@ function nebula() {
       void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
       varying vec2 vUv;
+      const vec3 TINT = vec3(0.05, 0.14, 0.42);   // deep blue
+      const float GAIN = 2.0;                      // how strongly the wisps show
       ${NOISE}
       void main() {
         float fall = 1.0 - smoothstep(0.05, 0.5, length((vUv - 0.5) * vec2(1.0, 1.4)));
         float wisps = smoothstep(0.42, 0.8, fbm(vec3(vUv * 3.5, 1.7))) * fall;
-        gl_FragColor = vec4(vec3(0.05, 0.14, 0.42) * wisps * 2.0, 1.0);
+        gl_FragColor = vec4(TINT * wisps * GAIN, 1.0);
       }`,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1100, 700), m);

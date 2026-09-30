@@ -93,6 +93,14 @@ export class Renderer3D {
     this.sky.position.set(x, 0, z);
   }
 
+  /** Compiles every material in `scene` for the variant it is really drawn with: the RenderPass draws into the
+   *  composer's buffer, and three.js keys programs by the bound target (off screen: no tone mapping, linear output). */
+  compile(scene = this.scene, camera = this.camera) {
+    const r = this.renderer, previous = r.getRenderTarget();
+    r.setRenderTarget(this.composer.readBuffer);
+    try { r.compile(scene, camera); } finally { r.setRenderTarget(previous); }
+  }
+
   /** Draws `scene` through `camera` (the battlefield by default) with the whole post-processing chain. */
   render(scene = this.scene, camera = this.camera) {
     if (this.lost) return;

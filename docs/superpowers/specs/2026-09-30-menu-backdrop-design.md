@@ -85,6 +85,11 @@ Given the time within the battle phase, the hotspot and the reduced-motion flag,
 target, distance, pitch and yaw: the descent, the slow orbit, and where the cuts fall. It has no
 Three.js state, so it runs under Node.
 
+Framing: the main shot is about 22 tiles away at 42° pitch, the descent starts about 55 tiles up at
+66°, and the reduced-motion shot is 32 tiles at 50°. The 64 × 40 map is small: lower or wider shots
+show the edge of the world. On wide screens `MenuBackdrop` looks a little left of the hotspot (a
+quarter of the half-width), so the fight sits right of centre, clear of the menu.
+
 ### `PlanetShot` — `src/render/planet.js` (new)
 
 Its own `THREE.Scene` and camera:
@@ -92,7 +97,7 @@ Its own `THREE.Scene` and camera:
 - the planet: a sphere with an equirectangular canvas texture made in code — sand oranges and
   browns, darker rock patches and dune streaks from layered value noise;
 - a Fresnel atmosphere shell, blue and additive, brighter on the lit side;
-- about 1,500 stars (points of varied size and brightness) and a faint blue nebula;
+- about 2,400 stars (points of varied size and brightness) and a faint blue nebula;
 - `update(dt, dive)`, where `dive` (0..1) drives the push-in, and `dispose()`.
 
 ### `MenuBackdrop` — `src/scenes/menu.js`
@@ -116,12 +121,13 @@ The caption, the fade layer, and a darker left-hand scrim during the battle phas
   fonts. Bottom right, below the planet. `aria-hidden="true"`: it is decoration, repeated on every
   loop.
 - **Menu legibility**: the battle is brighter and busier than the dunes, so the scrim behind the
-  menu (left side) deepens during the battle phase. Menu text keeps at least 4.5:1 contrast.
+  menu (left side) deepens from the dive on. Menu text keeps at least 4.5:1 contrast.
 
 ## Sound
 
-The backdrop has its own `SoundEngine` at 30 % of the Options volume, and none when sound is off in
-Options. Space is silent; battle sound fades in during the dive. Cues come from `cueFor` with a
+The backdrop has its own `SoundEngine` at 30 % of the Options volume. When sound is off in Options
+the engine is kept but muted, so turning sound on in Options takes effect live. Space is silent;
+battle sound fades in over the battle's first two seconds and out on the rise. Cues come from `cueFor` with a
 viewer that is neither side, so there are no announcements or interface beeps. As everywhere,
 browsers only allow sound after the first click or key press.
 
@@ -131,6 +137,8 @@ browsers only allow sound after the first click or key press.
 - Each finished battle is disposed: its geometries, materials and textures are freed.
 - The Options quality preset applies (shadows, particles, pixel ratio capped as today).
 - Star count stays within 1,000–3,000 particles.
+- The menu battle has no muzzle flash lights: in a busy firefight they would flicker the sand faster
+  than 3 times a second.
 
 ## Failure
 

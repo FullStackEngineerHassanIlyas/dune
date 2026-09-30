@@ -15,8 +15,8 @@ import { DT } from '../data/tuning.js';
 
 const SOUND_SHARE = 0.3;      // the battle behind the menu plays at this share of the Options volume
 const PRESIM_BUDGET_MS = 6;   // simulation run ahead per frame while the planet is on screen
-const FOCUS_RIGHT = 0.15;     // the hotspot sits this many camera distances right of the centre of the picture
-export const CAPTION = 'The planet Arrakis, known as Dune.';
+const FOCUS_RIGHT = 0.25;     // wide screens: the fight sits this share of the half-width right of centre, clear of the menu
+const CAPTION = 'The planet Arrakis, known as Dune.';
 
 export class MenuBackdrop {
   constructor({ settings, seed = 1, hold = null }) {
@@ -62,6 +62,7 @@ export class MenuBackdrop {
       this.clock.restart();
       this.retire();
     }
+    this.overlays();   // fade, scrim and mute right before the first frame, which may take a while to build
     this.resume();
   }
 
@@ -121,10 +122,14 @@ export class MenuBackdrop {
     return { director, stage, ticksLeft: Math.round(SHOWCASE.lead / DT), ready: false };
   }
 
-  /** Every view exists, every shader is compiled (before the old battle's programs are released), the old battle goes. */
+  /**
+   * Every view exists and every material is compiled for the composer's target (before the old battle's programs are
+   * released); the old battle goes. Left for the first battle frame, under the opaque haze: the new battle's texture
+   * uploads and, once per page, the shadow-depth programs.
+   */
   finish(n) {
     n.stage.prime(performance.now());
-    this.r3d.renderer.compile(this.r3d.scene, this.r3d.camera);
+    this.r3d.compile();
     this.disposeRetired();
     n.ready = true;
   }
@@ -180,11 +185,14 @@ export class MenuBackdrop {
       ? battleCamera(c.t, this.reduced ? d.center : d.hotspot, { reduced: this.reduced, seed: d.seed })
       : riseCamera(this.reduced ? 0 : c.k, this.riseFrom);
     const cut = c.phase === 'battle' && cam.shot !== this.shot;
-    if (c.phase === 'battle') {   // look a little left of the fighting, so it sits right of centre, clear of the menu
+    if (c.phase === 'battle') {
       this.shot = cam.shot;
-      const side = FOCUS_RIGHT * cam.distance;
-      cam.x -= Math.cos(cam.yaw) * side;
-      cam.z += Math.sin(cam.yaw) * side;
+      const aspect = r3d.width / r3d.height;
+      if (aspect > 1) {   // wide screens: look a little left of the fighting, so it sits right of centre, clear of the menu
+        const side = FOCUS_RIGHT * cam.distance * Math.tan((r3d.camera.fov * Math.PI) / 360) * aspect;
+        cam.x -= Math.cos(cam.yaw) * side;
+        cam.z += Math.sin(cam.yaw) * side;
+      }
     }
     rig.lookAt(cam.x, cam.z, cut);
     rig.goalDistance = cam.distance;
@@ -222,7 +230,14 @@ export class MenuBackdrop {
   /** Something broke: carry on with the planet alone; if the planet broke, leave the menu on black. */
   fail(err) {
     console.warn('menu backdrop:', err);
-    if (this.planetOnly) { this.stop(); return; }
+    if (this.planetOnly) {
+      this.fade.style.background = '#000';
+      this.fade.style.opacity = '1';
+      this.caption.style.opacity = '0';
+      this.app.classList.remove('mb-battle');
+      this.stop();
+      return;
+    }
     this.planetOnly = true;
     for (const b of [this.battle, this.next, this.retired]) { try { b?.stage.dispose(); } catch { /* already half gone */ } }
     this.battle = this.next = this.retired = null;
