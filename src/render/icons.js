@@ -156,7 +156,10 @@ export class IconFactory {
   get(modelId, color, yaw = 0, badge = 0) {
     const key = `${modelId}|${color}|${yaw}|${badge}`;
     let url = this.cache.get(key);
-    if (!url) { url = this.render(modelId, color, yaw, badge); this.cache.set(key, url); }
+    if (!url) {
+      url = this.render(modelId, color, yaw, badge);
+      if (!this.renderer.getContext().isContextLost()) this.cache.set(key, url);   // a blank drawn mid-refresh is not kept
+    }
     return url;
   }
 

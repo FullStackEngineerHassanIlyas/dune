@@ -30,6 +30,7 @@ import { makeCursorSetter, makeScrollCursor } from '../ui/cursors.js';
 import { GameMenu } from '../ui/game-menu.js';
 import { toggleFullscreen, isFullscreen } from '../ui/fullscreen.js';
 import { quitToMenu } from '../core/shell.js';
+import { wakeCheck } from '../render/wake.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
@@ -162,11 +163,19 @@ export class GameView {
     document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); });
     r3d.onContextLost = () => {
       this.lost = true;
-      this.paused = true;
+      this.updatePaused();
       this.hud.message('The graphics device was reset — restoring…', 3600);
       setTimeout(() => { if (this.lost) showCrash(new Error('The graphics device was lost and did not come back.')); }, 5000);
     };
-    r3d.onContextRestored = () => location.reload();
+    // three.js rebuilds every GPU resource from the CPU side, so the battle simply carries on
+    r3d.onContextRestored = () => {
+      const real = this.lost;
+      this.lost = false;
+      this.updatePaused();
+      this.last = performance.now();
+      if (real) this.hud.message('Graphics restored', 2);
+    };
+    this.wake = wakeCheck(() => r3d.refresh());
     this.onFrame = null;
     this.nextInvariantCheck = 0;
   }
@@ -380,6 +389,7 @@ export class GameView {
 
   frame(now) {
     const { world, r3d } = this;
+    this.wake();
     const raw = Math.max(0, (now - this.last) / 1000);
     const dt = Math.min(0.1, raw);   // camera, HUD and animation step
     this.last = now;
@@ -425,6 +435,7 @@ export class GameView {
     this.radarWas = sidebar.radar;
     if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
     this.fps?.frame();
+    this.wake.idle();
   }
 
   start() {
