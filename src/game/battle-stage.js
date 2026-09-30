@@ -118,6 +118,14 @@ export class BattleStage {
     this.terrain.update(now);
   }
 
+  /** Creates every unit, structure and missile view now, drawing no effects: a caller can then compile the battle's shaders ahead. */
+  prime(now) {
+    if (this.disposed) return;
+    this.unitViews.sync(this.world, 1, 0);
+    this.structureViews.sync(this.world, now);
+    this.missiles.sync(this.world, 1, this.heightAt, (x, z) => this.seen(x, z));
+  }
+
   /** Trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
   combatEffects(dt, alpha) {
     const w = this.world;

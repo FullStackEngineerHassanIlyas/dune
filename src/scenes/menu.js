@@ -1,6 +1,7 @@
-// Main menu (spec §5.8): a slow flight over generated dunes behind the title and the menu screens.
-// Each battle runs in a frame laid over the menu: full screen carries from the menu into the battle
-// and back, and quitting simply throws the frame away.
+// Main menu (spec §5.8): Arrakis turning in space, then a live battle, behind the title and the menu
+// screens (menu backdrop spec); the old flight over the dunes stays as the fallback. Each battle runs
+// in a frame laid over the menu: full screen carries from the menu into the battle and back, and
+// quitting simply throws the frame away.
 import * as THREE from 'three';
 import { Renderer3D } from '../render/renderer.js';
 import { terrainSubFor } from '../render/quality.js';
@@ -12,6 +13,7 @@ import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { MainMenu } from '../ui/main-menu.js';
 import { toggleFullscreen, isFullscreen, onFullscreenChange } from '../ui/fullscreen.js';
+import { MenuBackdrop } from './menu-backdrop.js';
 
 const SIZE = 128;   // wide enough that the flight never shows the edge of the world
 
@@ -55,8 +57,15 @@ export async function start({ search }) {
   const settings = loadSettings(params);
   const app = document.getElementById('app');
   app.classList.add('in-menu');
+  const seed = params.num('seed', 1 + Math.floor(Math.random() * 9999));
   let backdrop = { start() {}, stop() {} };
-  try { backdrop = flyover(settings, params.num('seed', 1 + Math.floor(Math.random() * 9999))); } catch (err) { console.warn('menu backdrop:', err); }
+  try {
+    backdrop = new MenuBackdrop({ settings, seed, hold: params.str('backdrop') });
+  } catch (err) {
+    console.warn('menu backdrop:', err);
+    for (const el of document.querySelectorAll('.mb-fade, .mb-caption')) el.remove();
+    try { backdrop = flyover(settings, seed); } catch (err2) { console.warn('menu flyover:', err2); }
+  }
   let frame = null;
 
   const launch = (query) => {
@@ -103,5 +112,5 @@ export async function start({ search }) {
   });
   window.__duneShell = { launch, quit };
   backdrop.start();
-  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, get frame() { return frame; } };
+  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, get frame() { return frame; } };
 }

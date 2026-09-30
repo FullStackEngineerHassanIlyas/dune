@@ -1,6 +1,8 @@
 // Scenes captured by `npm run smoke`. Each scene sets window.__dune.ready when its first frame is drawn.
 export const SCENARIOS = {
   boot: { query: 'scene=boot' },
+  'menu-planet': { query: 'scene=menu&backdrop=planet&seed=5', settleMs: 2500 },
+  'menu-battle': { query: 'scene=menu&backdrop=battle&seed=5', settleMs: 3500 },
   'render-test': { query: 'scene=render-test' },
   'render-test-low': { query: 'scene=render-test&quality=low' },
   'render-test-high': { query: 'scene=render-test&quality=high' },
