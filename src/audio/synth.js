@@ -38,17 +38,24 @@ const len = (seconds) => Math.max(1, Math.round(seconds * RATE));
 
 // ——— sources ———
 
+/** White noise in [-1, 1): rng()'s generator written out in the loop, since every sound draws hundreds of thousands of these. */
 export function noise(seconds, seed) {
-  const r = rng(seed), a = new Float32Array(len(seconds));
-  for (let i = 0; i < a.length; i++) a[i] = r() * 2 - 1;
+  const a = new Float32Array(len(seconds));
+  let s = seed >>> 0;
+  for (let i = 0; i < a.length; i++) {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), s | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    a[i] = ((t ^ (t >>> 14)) >>> 0) / 2147483648 - 1;
+  }
   return a;
 }
 
 /** Brown noise: white noise integrated (with a leak, so it never drifts) — the stuff of rumbles. */
 function brown(seconds, seed) {
-  const r = rng(seed), a = new Float32Array(len(seconds));
+  const a = noise(seconds, seed);
   let y = 0;
-  for (let i = 0; i < a.length; i++) { y = y * 0.996 + (r() * 2 - 1) * 0.06; a[i] = y; }
+  for (let i = 0; i < a.length; i++) { y = y * 0.996 + a[i] * 0.06; a[i] = y; }
   return a;
 }
 

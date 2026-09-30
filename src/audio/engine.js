@@ -26,9 +26,9 @@ const FLAM = 0.03;   // seconds: the same sound started again this soon (a squad
 export const AIR = { open: 16000, far: 2500 };   // Hz: the low-pass on a placed sound, from beside the camera to the edge of hearing
 export const WET = { near: 0.35, far: 0.9, ui: 0.25 };   // reverb send: its tail about 17 dB under a sound beside the camera, 9 dB under one far off
 const PAN = 0.85;   // never hard to one side: an off-screen sound still reaches both ears a little
-const REVERB_CUT = 250;
+const REVERB_CUT = 250;   // Hz: rumble stays out of the reverb, where it would only muddy the tail
 const LIKELY_RATE = 48000;   // the rate most audio outputs, and so most contexts, run at: the worker makes the impulse for it
-const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 16 dB under a rifle beside the camera   // Hz: rumble stays out of the reverb, where it would only muddy the tail
+const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 12 dB under a rifle beside the camera
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
 const FIRST = ['click', 'rifle', 'mg', 'cannon', 'explosionSmall', 'hit', 'sandHit', 'rocket', 'bulletHit', 'error', 'ready', 'clunk'];
