@@ -1,14 +1,20 @@
 // Main menu screens (spec §5.8): title with Skirmish, Campaign (to come), Options, Controls and
-// Credits, plus full screen. Esc steps back to the title.
+// Credits, plus Pause background (WCAG 2.2.2) and Full screen at the top right. Esc steps back to the title.
 import { h } from './dom.js';
 import { optionsPanel } from './options.js';
 import { controlsTable } from './controls-help.js';
 import { skirmishPanel } from './skirmish-setup.js';
 
 export class MainMenu {
-  constructor(root, { settings, onStart, onFullscreen, isFullscreen = () => false }) {
-    Object.assign(this, { settings, onStart, onFullscreen, isFullscreen });
+  constructor(root, { settings, onStart, onFullscreen, isFullscreen = () => false, onBackdropPause = () => {}, isBackdropPaused = () => false }) {
+    Object.assign(this, { settings, onStart, onFullscreen, isFullscreen, onBackdropPause, isBackdropPaused });
     this.el = h('div', { class: 'main-menu' });
+    // the corner toggles outlive the screens and are updated in place, so a toggle keeps keyboard focus
+    this.bg = h('button', { type: 'button', class: 'mm-bg', title: 'Pause or play the moving background',
+      onclick: () => { this.onBackdropPause(!this.isBackdropPaused()); this.refresh(); } });
+    this.fs = h('button', { type: 'button', class: 'mm-fs', title: 'Full screen (Alt + Enter)',
+      onclick: async () => { await this.onFullscreen(); this.refresh(); } });
+    this.top = h('div', { class: 'mm-top' }, this.bg, this.fs);
     root.appendChild(this.el);
     this.screen = 'title';
     addEventListener('keydown', (e) => {
@@ -22,9 +28,6 @@ export class MainMenu {
   go(screen) {
     this.screen = screen;
     const back = () => this.go('title');
-    const fullscreen = this.isFullscreen();
-    const fs = h('button', { type: 'button', class: 'mm-fs', 'aria-pressed': String(fullscreen), title: 'Full screen (Alt + Enter)',
-      onclick: async () => { await this.onFullscreen(); this.refresh(); } }, h('span', { 'aria-hidden': 'true' }, '⛶'), fullscreen ? ' Leave full screen' : ' Full screen');
     let body;
     if (screen === 'title') {
       body = h('div', { class: 'mm-title-screen' },
@@ -54,11 +57,24 @@ export class MainMenu {
         h('p', {}, 'Built with three.js.'),
         h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', onclick: back }, 'Back')));
     }
-    this.el.replaceChildren(fs, body);
+    this.refresh();
+    this.el.replaceChildren(this.top, body);
     this.el.querySelector('.mm-item.primary, .dm-btn.primary, .dm-actions .dm-btn')?.focus({ preventScroll: true });
   }
 
-  refresh() { if (!this.el.hidden) this.go(this.screen); }
+  refresh() {
+    const paused = this.isBackdropPaused(), full = this.isFullscreen();
+    setToggle(this.bg, paused, paused ? '\u25B6\uFE0E' : '\u275A\u275A', paused ? 'Play background' : 'Pause background');
+    setToggle(this.fs, full, '⛶', full ? 'Leave full screen' : 'Full screen');
+  }
+
   show() { this.el.hidden = false; this.go('title'); }
   hide() { this.el.hidden = true; }
+}
+
+// A phone hides the words (menu.css) and keeps the glyph, so the name also lives in aria-label.
+function setToggle(button, pressed, glyph, label) {
+  button.setAttribute('aria-pressed', String(pressed));
+  button.setAttribute('aria-label', label);
+  button.replaceChildren(h('span', { class: 'mm-glyph', 'aria-hidden': 'true' }, glyph), h('span', { class: 'mm-word' }, label));
 }

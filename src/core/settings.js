@@ -1,6 +1,7 @@
 // Player settings: defaults ← localStorage ← URL overrides. Only whitelisted keys and values survive.
 const KEY = 'dune2-3d.settings';
-export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, rightDragScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal', sound: true, volume: 0.8 };
+export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, rightDragScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal', sound: true, volume: 0.8,
+  menuMotion: true };   // false: the main menu's backdrop stands still (its Pause background button, WCAG 2.2.2)
 const CHOICES = {
   quality: ['low', 'medium', 'high'],
   scheme: ['classic', 'modern'],

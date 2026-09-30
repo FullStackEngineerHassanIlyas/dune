@@ -12,6 +12,7 @@ import { generateMap } from '../sim/mapgen.js';
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { MainMenu } from '../ui/main-menu.js';
+import { changeSetting } from '../ui/options.js';
 import { toggleFullscreen, isFullscreen, onFullscreenChange } from '../ui/fullscreen.js';
 import { MenuBackdrop } from './menu-backdrop.js';
 
@@ -63,7 +64,7 @@ export async function start({ search }) {
     backdrop = new MenuBackdrop({ settings, seed, hold: params.str('backdrop') });
   } catch (err) {
     console.warn('menu backdrop:', err);
-    for (const el of document.querySelectorAll('.mb-fade, .mb-caption')) el.remove();
+    for (const el of document.querySelectorAll('.mb-fade, .mb-zoom, .mb-caption')) el.remove();
     try { backdrop = flyover(settings, seed); } catch (err2) { console.warn('menu flyover:', err2); }
   }
   let frame = null;
@@ -97,12 +98,16 @@ export async function start({ search }) {
     frame = null;
     Object.assign(settings, loadSettings(params));   // what the battle's own options changed
     app.classList.add('in-menu');
+    backdrop.setPaused?.(!settings.menuMotion);
     backdrop.start();
     menu.show();
     window.focus();
   };
 
-  const menu = new MainMenu(document.getElementById('ui'), { settings, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen() });
+  const menu = new MainMenu(document.getElementById('ui'), { settings, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
+    // Pause background (WCAG 2.2.2), remembered; the flyover fallback cannot pause
+    isBackdropPaused: () => !settings.menuMotion,
+    onBackdropPause: (paused) => { changeSetting(settings, 'menuMotion', !paused); backdrop.setPaused?.(paused); menu.refresh(); } });
   onFullscreenChange(() => menu.refresh());
   addEventListener('message', (e) => {
     if (e.origin === location.origin && frame && e.source === frame.contentWindow && e.data?.dune === 'quit') quit();
@@ -111,6 +116,7 @@ export async function start({ search }) {
     if (e.key === 'Enter' && e.altKey && !e.repeat) { e.preventDefault(); toggleFullscreen(); }
   });
   window.__duneShell = { launch, quit };
+  backdrop.setPaused?.(!settings.menuMotion);
   backdrop.start();
   window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, get frame() { return frame; } };
 }

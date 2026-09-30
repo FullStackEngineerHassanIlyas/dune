@@ -75,10 +75,25 @@ html, body, #app, #app * { cursor: var(--cursor, default); }
 .mm-item.primary { border-left-color: #ffd24a; }
 .mm-item:disabled { opacity: .5; }
 .mm-foot { font-size: 12px; color: #a88a5c; text-shadow: 0 1px 3px #000; }
-.mm-fs { position: absolute; top: 16px; right: 16px; z-index: 2; padding: 7px 14px; font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase;
+/* Pause background (WCAG 2.2.2) and Full screen: one corner group, so they never overlap; 44px touch targets
+   8px+ apart. Pressed wears gold, and focus adds a ring outside it, so focus still shows on a pressed button. */
+.mm-top { position: absolute; top: 16px; right: 16px; z-index: 2; display: flex; gap: 10px; }
+.mm-fs, .mm-bg { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 44px; min-height: 44px; padding: 7px 14px;
+  font: bold 12px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
   color: #f5d48a; background: rgba(34,23,12,.85); border: 2px solid #8e6843; border-radius: 3px; }
-.mm-fs span { font-size: 15px; letter-spacing: 0; }
-.mm-fs:hover, .mm-fs:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-glyph { font-size: 15px; letter-spacing: 0; line-height: 1; }
+.mm-fs[aria-pressed="true"], .mm-bg[aria-pressed="true"] { border-color: #d9a52e; color: #ffd24a; background: linear-gradient(rgba(92,64,26,.94), rgba(46,31,14,.94)); }
+.mm-fs:hover, .mm-fs:focus-visible, .mm-bg:hover, .mm-bg:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
+.mm-fs:focus-visible, .mm-bg:focus-visible { box-shadow: 0 0 0 2px #140b03, 0 0 0 4px #ffd24a; }
+/* the panels (Skirmish, Options, Controls, Credits) centre below the group; the absolute title screen ignores this */
+.main-menu { padding-top: 76px; }
+.main-menu > .dm-panel { max-height: calc(100vh - 92px); }
+/* a phone, or a short landscape window, keeps the glyphs (the words stay in aria-label) */
+@media (max-width: 520px), (max-height: 500px) {
+  .mm-word { display: none; }
+  .mm-fs, .mm-bg { padding: 7px 10px; }
+}
+@media (max-width: 520px) { .mm-title-screen { padding-top: max(7vh, 76px); } }
 .mm-houses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
 .mm-house { display: grid; justify-items: center; gap: 5px; padding: 14px 8px 12px; color: #f2d7a0; background: linear-gradient(#2e2114, #1a1209); border: 2px solid #6e5236; border-radius: 4px; transition: border-color .12s, box-shadow .12s; }
 .mm-house:hover, .mm-house:focus-visible { border-color: #b8893a; outline: none; }

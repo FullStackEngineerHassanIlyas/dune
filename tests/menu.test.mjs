@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { skirmishQuery, cleanSetup, loadSetup, saveSetup, DEFAULT_SETUP } from '../src/ui/skirmish-setup.js';
 import { changeSetting, OPTION_ROWS } from '../src/ui/options.js';
 import { controlRows } from '../src/ui/controls-help.js';
-import { DEFAULTS } from '../src/core/settings.js';
+import { DEFAULTS, sanitize, loadSettings, saveSettings } from '../src/core/settings.js';
+import { readParams } from '../src/core/params.js';
 import { GameMenu } from '../src/ui/game-menu.js';
 
 const memory = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
@@ -53,6 +54,24 @@ test('every option row names a real setting, with choices inside what settings a
     for (const [value] of row.choices ?? []) assert.equal(changeSetting({ ...DEFAULTS }, row.key, value, memory())[row.key], value, `${row.key}=${value}`);
     if (row.range) for (const value of row.range.slice(0, 2)) assert.equal(changeSetting({ ...DEFAULTS }, row.key, value, memory())[row.key], value);
   }
+});
+
+test('the menu backdrop moves by default, and pausing it is remembered as a boolean', () => {
+  assert.equal(DEFAULTS.menuMotion, true);
+  assert.equal(sanitize({}).menuMotion, true);
+  for (const off of [false, 'false', '0']) assert.equal(sanitize({ menuMotion: off }).menuMotion, false, JSON.stringify(off));
+  for (const on of [true, 'true', '1']) assert.equal(sanitize({ menuMotion: on }).menuMotion, true, JSON.stringify(on));
+  const store = memory();
+  saveSettings({ ...DEFAULTS, menuMotion: false }, store);
+  assert.equal(JSON.parse(store.getItem('dune2-3d.settings')).menuMotion, false);
+  assert.equal(loadSettings(readParams(''), store).menuMotion, false);
+  assert.equal(loadSettings(readParams('?menuMotion=1'), store).menuMotion, true, 'the URL still overrides');
+  assert.equal(changeSetting(loadSettings(null, store), 'menuMotion', true, store).menuMotion, true);
+  assert.equal(loadSettings(null, store).menuMotion, true);
+});
+
+test('pausing the backdrop is a menu button, not an Options row', () => {
+  assert.ok(!OPTION_ROWS.some((row) => row.key === 'menuMotion'));
 });
 
 test('the controls screen follows the mouse scheme', () => {
