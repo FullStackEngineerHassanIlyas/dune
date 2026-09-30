@@ -78,7 +78,7 @@ test('nothing plays before the first gesture; afterwards every effect and each o
   assert.equal(e.buffers.size, Object.keys(RECIPES).length);
   for (const [id, bank] of e.buffers) assert.equal(bank.length, variants(id), id);
   assert.equal(e.play('cannon'), true);
-  assert.equal(e.ctx.started.length, 1);
+  assert.equal(e.ctx.started.filter((s) => !s.loop).length, 1);
   e.toggleMute();
   assert.equal(e.play('cannon'), false, 'muted');
 });
@@ -132,6 +132,23 @@ test('a worker renders the bank off the main thread; late sounds join as they ar
   assert.equal(f.buffers.size, Object.keys(RECIPES).length);
 });
 
+test('a soft stereo wind loops under everything, through the master volume, once both its halves are here', () => {
+  const win = fakeWindow({ worker: true });
+  const e = new SoundEngine({ win });
+  const w = win.workers[0];
+  assert.deepEqual(w.sent.todo.slice(-2), [['wind', 0], ['wind', 1]], 'the wind is rendered last: the battle sounds come first');
+  win.listeners.pointerdown();
+  assert.equal(e.ambience, null, 'no wind before it is rendered');
+  w.deliver();
+  const loops = e.ctx.started.filter((s) => s.loop);
+  assert.equal(loops.length, 1, 'one loop');
+  assert.equal(loops[0].buffer.numberOfChannels, 2, 'in stereo');
+  const gain = loops[0].outputs[0];
+  assert.ok(gain.gain.value > 0 && gain.gain.value < VOICE_GAIN, 'quieter than any voice');
+  assert.equal(gain.outputs[0], e.master, 'so mute and volume apply to it');
+  assert.equal(e.limiter.total, 0, 'it takes no voice');
+});
+
 test('each play picks a variation at random, never the same twice running, at a slightly random pitch', () => {
   const win = fakeWindow();
   let seed = 3;
@@ -176,7 +193,7 @@ test('voice limits hold and free up; priority sounds keep slots of their own', (
   assert.equal(e.play('explosionLarge'), true, 'a structure blowing up is heard over a full battle');
   assert.equal(e.play('alarm'), true, 'so is a Devastator\'s alarm');
   assert.ok(e.limiter.total <= MAX_VOICES + PRIORITY_VOICES);
-  for (const s of e.ctx.started) s.onended();
+  for (const s of e.ctx.started) s.onended?.();
   assert.equal(e.limiter.total, 0, 'ended voices free their slots');
 });
 

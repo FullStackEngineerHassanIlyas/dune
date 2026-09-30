@@ -7,7 +7,8 @@
 // relative to the camera: stereo pan, level and air absorption (a low-pass closing with distance), and a
 // send into one shared convolution reverb (a subtle open-desert space; far sounds are wetter). Voices are
 // capped per sound and overall, with a few slots kept for the sounds that matter; a limiter guards the
-// output. Without Web Audio — or if it fails to start — the engine stays silent and never throws.
+// output. Under it all, once the wind has been rendered, a soft stereo desert wind loops. Without Web
+// Audio — or if it fails to start — the engine stays silent and never throws.
 import { RECIPES, RATE, render, variants, reverbImpulse } from './synth.js';
 
 export const MAX_VOICES = 24;
@@ -25,7 +26,8 @@ const FLAM = 0.03;   // seconds: the same sound started again this soon (a squad
 export const AIR = { open: 16000, far: 2500 };   // Hz: the low-pass on a placed sound, from beside the camera to the edge of hearing
 export const WET = { near: 0.35, far: 0.9, ui: 0.25 };   // reverb send: its tail about 17 dB under a sound beside the camera, 9 dB under one far off
 const PAN = 0.85;   // never hard to one side: an off-screen sound still reaches both ears a little
-const REVERB_CUT = 250;   // Hz: rumble stays out of the reverb, where it would only muddy the tail
+const REVERB_CUT = 250;
+const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 16 dB under a rifle beside the camera   // Hz: rumble stays out of the reverb, where it would only muddy the tail
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
 const FIRST = ['click', 'rifle', 'mg', 'cannon', 'explosionSmall', 'hit', 'sandHit', 'rocket', 'bulletHit', 'error', 'ready', 'clunk'];
@@ -86,6 +88,8 @@ export class SoundEngine {
     this.samples = new Map();   // id → variations rendered ahead (indexed by variation), waiting for the context
     this.todo = RENDER_ORDER.flatMap((id) => Array.from({ length: variants(id) }, (_, v) => [id, v]));   // not rendered yet
     this.worker = null;
+    this.ambience = null;   // the looping wind, once it plays
+    this.ambientParts = [];   // its left and right samples, until both are here and the context is open
     this.last = new Map();   // id → the variation played last
     this.recent = new Map();   // id → { at, n }: when it last started, and how many times within FLAM of that
     this.limiter = new VoiceLimiter();
@@ -112,6 +116,8 @@ export class SoundEngine {
         return;
       } catch {
         this.worker = null;
+    this.ambience = null;   // the looping wind, once it plays
+    this.ambientParts = [];   // its left and right samples, until both are here and the context is open
       }
     }
     this.idle((d) => this.prerender(d));
@@ -130,6 +136,8 @@ export class SoundEngine {
   workerFailed() {
     this.worker?.terminate?.();
     this.worker = null;
+    this.ambience = null;   // the looping wind, once it plays
+    this.ambientParts = [];   // its left and right samples, until both are here and the context is open
     if (this.ctx) this.renderRest();
     else this.idle((d) => this.prerender(d));
   }
@@ -161,6 +169,30 @@ export class SoundEngine {
     buffer.copyToChannel(data, 0);
     if (!this.buffers.has(id)) this.buffers.set(id, []);
     this.buffers.get(id).push(buffer);
+    if (id === AMBIENT) {
+      this.ambientParts.push(data);
+      this.startAmbience();
+    }
+  }
+
+  /** The wind loop: its two variations as the left and right of one stereo buffer, looping quietly into the master. */
+  startAmbience() {
+    const [left, right] = this.ambientParts, ctx = this.ctx;
+    if (!ctx || this.ambience || !right) return;
+    try {
+      const buffer = ctx.createBuffer(2, Math.min(left.length, right.length), RATE);
+      buffer.copyToChannel(left, 0);
+      buffer.copyToChannel(right, 1);
+      const src = ctx.createBufferSource(), gain = ctx.createGain();
+      src.buffer = buffer;
+      src.loop = true;
+      gain.gain.value = AMBIENT_GAIN;
+      src.connect(gain);
+      gain.connect(this.master);
+      src.start();
+      this.ambience = { src, gain };
+    } catch { /* no wind, then */ }
+    this.ambientParts = [];
   }
 
   unlock() {

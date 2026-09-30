@@ -195,14 +195,15 @@ export function envelope(a, attack = 0.002, curve = 3) {
   return a;
 }
 
-/** Linear attack, then an exponential decay with time constant tau (seconds). */
+/** Linear attack, then an exponential decay with time constant tau (seconds); the last 3 ms fade out, so a layer cut short never clicks. */
 function decay(a, attack, tau) {
-  const at = Math.max(1, Math.round(attack * RATE)), k = Math.exp(-1 / (tau * RATE));
+  const at = Math.max(1, Math.round(attack * RATE)), k = Math.exp(-1 / (tau * RATE)), fade = Math.min(a.length, len(0.003));
   let e = 1;
   for (let i = 0; i < a.length; i++) {
     if (i < at) a[i] *= i / at;
     else { a[i] *= e; e *= k; }
   }
+  for (let i = 0; i < fade; i++) a[a.length - 1 - i] *= i / fade;
   return a;
 }
 
@@ -326,8 +327,8 @@ const pop = (d) => stack([[crack(d, 1100, 0.004, 3), 0.6], [blast(d, 3000, 400, 
 const thud = (d) => stack([[thump(d.u(90, 150), 55, 0.012, 0.035), 0.8], [blast(d, 1300, 250, 0.012, 0.03), 0.7], [chest(d, 600, 350, 0.02, 0.03, 1.5), 0.5]]);
 /** 1 while something approaches, easing to 0 once it has passed at `mid` seconds: drives Doppler sweeps. */
 const passing = (mid, width) => (t) => 1 / (1 + Math.exp((t - mid) / width));
-/** A bell tone (the partials of a small chime), for the interface's pleasant sounds. */
-const chime = (hz, seconds, tau) => mix([[decay(tone(seconds, hz), 0.003, tau), 1], [decay(tone(seconds, hz * 1.004), 0.003, tau * 1.2), 0.5], [decay(tone(seconds, hz * 2.0), 0.002, tau * 0.45), 0.35], [decay(tone(seconds, hz * 3.01), 0.001, tau * 0.22), 0.16]]);
+/** A bell tone (the partials of a small chime, the lowest ringing longest), for the interface's pleasant sounds. */
+const chime = (hz, tau) => mix([[1, 1, 1, 0.003], [1.004, 1.2, 0.5, 0.003], [2, 0.45, 0.35, 0.002], [3.01, 0.22, 0.16, 0.001]].map(([m, t, g, at]) => [decay(tone(tau * t * 5.5, hz * m), at, tau * t), g]));
 
 // Each recipe ends in out(layers, loudness in LUFS, longest duration in seconds).
 export const RECIPES = {
@@ -584,9 +585,9 @@ export const RECIPES = {
   },
 
   // ——— interface ———
-  ready: () => out([[chime(659.3, 0.6, 0.22), 0.8], [chime(987.8, 0.8, 0.3), 0.9, 0.11]], -18),   // construction complete: a clean two-note chime
+  ready: () => out([[chime(659.3, 0.22), 0.8], [chime(987.8, 0.3), 0.9, 0.11]], -18),   // construction complete: a clean two-note chime
   sell: (d) => {   // a sale: three coins' bright pings falling, then the till's soft clunk
-    const parts = [[chime(1568, 0.3, 0.08), 0.8], [chime(1319, 0.3, 0.08), 0.8, 0.07], [chime(1047, 0.45, 0.12), 0.9, 0.14]];
+    const parts = [[chime(1568, 0.08), 0.8], [chime(1319, 0.08), 0.8, 0.07], [chime(1047, 0.12), 0.9, 0.14]];
     for (let k = 0; k < 4; k++) parts.push([metal(d, d.u(2400, 3200), 0.04, BAR), 0.2, 0.18 + k * d.u(0.03, 0.06)]);
     parts.push([thump(140, 80, 0.01, 0.03), 0.4, 0.2]);
     return out(parts, -19);
@@ -613,10 +614,35 @@ export const RECIPES = {
     [shape(biquad(crackle(0.5, d.s(), 600), 'bp', 3000, 0.8), [[0, 1], [0.5, 0.3]]), 0.5],
     [shape(glide(0.5, (t) => 2400 * Math.exp(-t * 3.2) + 500), [[0, 0], [0.05, 1], [0.5, 0]]), 0.08],
   ], -23),
+
+  // ——— ambience ———
+  wind: (d) => {   // the desert breathing under everything: a soft gusting wind, a whistle over the dune crests, sand hissing
+    const s = WIND_LOOP + 2, a = d.u(0, 6), b = d.u(0, 6);
+    return loop(stack([
+      [wobble(biquad(brown(s, d.s()), 'bp', (t) => 320 + 140 * Math.sin(t * 0.7 + a), 0.7), d.s(), 0.35, 0.75), 1],
+      [wobble(biquad(noise(s, d.s()), 'bp', (t) => 1400 + 500 * Math.sin(t * 0.43 + b), 1.2), d.s(), 0.5, 0.9), 0.3],
+      [wobble(biquad(noise(s, d.s()), 'hp', 4000), d.s(), 0.25, 0.95), 0.1],
+    ]), WIND_LOOP, -30);
+  },
 };
 
+/** The wind is a seamless loop this long (seconds); its two variations are its left and right channels. */
+export const WIND_LOOP = 10;
+
+/** A seamless loop of `seconds` cut from a sound rendered longer: the extra tail crossfades (equal power) into the head. */
+function loop(a, seconds, lufs) {
+  const n = len(seconds), f = a.length - n, b = highpass(a, 22).slice(0, n);
+  for (let i = 0; i < f; i++) {
+    const x = (i / f) * (Math.PI / 2);
+    b[i] = a[i] * Math.sin(x) + a[n + i] * Math.cos(x);
+  }
+  const g = Math.pow(10, (lufs - loudness(b)) / 20);
+  for (let i = 0; i < n; i++) b[i] *= g;
+  return b;
+}
+
 /** How many seeded variations each sound has; the engine picks one at random per play. */
-export const VARIANTS = { rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, sandHit: 3, bulletHit: 3, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
+export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, sandHit: 3, bulletHit: 3, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
 export const variants = (id) => VARIANTS[id] ?? 1;
 
 /** Variation v of sound `id`: the same samples every time. */

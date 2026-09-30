@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RATE, RECIPES, VARIANTS, render, variants, noise, lowpass, envelope, tone, biquad, loudness, reverbImpulse } from '../src/audio/synth.js';
+import { RATE, RECIPES, VARIANTS, WIND_LOOP, render, variants, noise, lowpass, envelope, tone, biquad, loudness, reverbImpulse } from '../src/audio/synth.js';
 
 const bank = Object.fromEntries(Object.keys(RECIPES).map((id) => [id, Array.from({ length: variants(id) }, (_, v) => render(id, v))]));
 const peakOf = (a) => a.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
@@ -11,6 +11,7 @@ const above = (a, hz) => energy(biquad(Float32Array.from(a), 'hp', hz)) / energy
 test('every sound and every variation renders short, finite and loud enough without clipping', () => {
   for (const [id, vs] of Object.entries(bank)) vs.forEach((a, v) => {
     for (const x of a) assert.ok(Number.isFinite(x), `${id}/${v}`);
+    if (id === 'wind') return;   // the one loop: its own test below
     assert.ok(a.length > RATE * 0.02 && a.length <= RATE * 3.6, `${id}/${v} lasts ${(a.length / RATE).toFixed(2)} s`);
     const peak = peakOf(a);
     assert.ok(peak > 0.1 && peak <= 0.97, `${id}/${v} peaks at ${peak.toFixed(2)}`);
@@ -36,7 +37,7 @@ test('loudness follows the design: blasts over guns over the interface, and vari
   for (const [id, vs] of Object.entries(bank)) {
     const ls = vs.map(loudness);
     assert.ok(Math.max(...ls) - Math.min(...ls) < 1.5, `${id} variations within 1.5 LU: ${ls.map((l) => l.toFixed(1))}`);
-    assert.ok(ls[0] > -30 && ls[0] < -9, `${id} at ${ls[0].toFixed(1)} LUFS`);
+    assert.ok(ls[0] > -31 && ls[0] < -9, `${id} at ${ls[0].toFixed(1)} LUFS`);
   }
 });
 
@@ -70,9 +71,23 @@ test('every sound the game and the other workstreams call for is there', () => {
     'harvesterUnload', 'rotor', 'jet', 'ready', 'sell', 'click', 'error', 'beep', 'alarm', 'static']) assert.ok(RECIPES[id], id);
 });
 
-test('the whole bank stays small: under 80 s of audio, about 10 MB as float samples', () => {
+test('the whole bank stays small: under 95 s of audio, about 12 MB as float samples', () => {
   const seconds = Object.values(bank).flat().reduce((s, a) => s + a.length, 0) / RATE;
-  assert.ok(seconds < 80, `${seconds.toFixed(1)} s`);
+  assert.ok(seconds < 95, `${seconds.toFixed(1)} s`);
+});
+
+test('the wind loops without a seam, its two halves wide apart, softly under everything', () => {
+  const [l, r] = bank.wind;
+  assert.equal(l.length, WIND_LOOP * RATE);
+  for (const a of [l, r]) {
+    let step = 0;
+    for (let i = 1; i < a.length; i++) step += Math.abs(a[i] - a[i - 1]);
+    assert.ok(Math.abs(a[a.length - 1] - a[0]) < (4 * step) / a.length, 'the end runs into the start like any other sample');
+  }
+  let dot = 0;
+  for (let i = 0; i < l.length; i++) dot += l[i] * r[i];
+  assert.ok(Math.abs(dot) / Math.sqrt(energy(l) * energy(r)) < 0.2, 'left and right are different winds');
+  assert.ok(loudness(l) < loudness(bank.click[0]) - 2, 'quieter than a button click');
 });
 
 test('the desert reverb: stereo, decorrelated, decaying and darkening', () => {
