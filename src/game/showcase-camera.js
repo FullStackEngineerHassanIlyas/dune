@@ -14,9 +14,9 @@ const HIGH = { distance: 95, pitch: deg(72) };
 const SHOT = { distance: 26, pitch: deg(31) };
 const WIDE = { distance: 40, pitch: deg(40) };
 
-/** The yaw a shot starts from: spread round the compass by the golden ratio, new for every shot and battle. */
+/** The yaw a shot starts from: spread round the compass, new for every shot and battle (the multipliers must not sum to 1, or battle n+1 replays n's bearings a shot later). */
 export function shotYaw(seed, shot) {
-  return (((seed * 0.6180339887 + shot * 0.3819660113) % 1) + 1) % 1 * Math.PI * 2;
+  return (((seed * 0.7548776662 + shot * 0.3819660113) % 1) + 1) % 1 * Math.PI * 2;
 }
 
 /** Camera for second `t` of the battle phase, looking at `focus` ({ x, z }). */

@@ -1,11 +1,11 @@
 // The main menu backdrop's loop (menu backdrop spec): planet → dive → battle → rise, and what the fade
 // layer, the caption and the battle sound do at each moment. Pure functions of the phase and its clock.
-import { CUT_EVERY } from './showcase-camera.js';
+import { CUT_EVERY, DESCENT } from './showcase-camera.js';
 
 export const DURATIONS = { planet: 10, dive: 3, battle: 45, rise: 2 };
 const NEXT = { planet: 'dive', dive: 'battle', battle: 'rise', rise: 'planet' };
-/** Where a held phase (?backdrop=planet|battle, for screenshots) starts: past its opening fades. */
-export const HOLD_AT = { planet: 3, battle: 6.5 };
+/** Where a held phase (?backdrop=planet|battle, for screenshots) starts: past its opening fades (the battle, past its descent). */
+export const HOLD_AT = { planet: 3, battle: DESCENT + 0.5 };
 /** The haze between space and the battle: the renderer's fog colour. */
 export const HAZE = '#d9b98a';
 
@@ -23,6 +23,7 @@ export class BackdropClock {
 
   /** Moves on by dt seconds; the planet waits for the next battle to be ready. Returns the phase entered, or null. */
   advance(dt, battleReady = true) {
+    if (this.phase === 'planet' && this.hold === 'planet') return null;   // a held planet stays put, caption showing
     this.t += dt;
     if (this.phase === this.hold || this.t < this.durations[this.phase]) return null;
     if (this.phase === 'planet' && !battleReady) return null;
@@ -51,7 +52,10 @@ export function fadeAt(phase, t, { durations = DURATIONS, reduced = false } = {}
   if (phase === 'dive') return { color: 'haze', opacity: reduced ? ramp(t, 0, d) : ramp(t, d - 0.8, d) };
   if (phase === 'battle') {
     let opacity = 1 - ramp(t, 0, reduced ? 1.5 : 1);
-    if (!reduced) for (let c = CUT_EVERY; c < d; c += CUT_EVERY) opacity = Math.max(opacity, ramp(t, c - 0.3, c) * (1 - ramp(t, c, c + 0.45)));
+    if (!reduced) {   // a dip at every cut, however long the battle is held; the opening fade covers t = 0
+      const c = Math.round(t / CUT_EVERY) * CUT_EVERY, u = t - c;
+      if (c >= CUT_EVERY) opacity = Math.max(opacity, u < 0 ? ramp(u, -0.3, 0) : 1 - ramp(u, 0, 0.45));
+    }
     return { color: 'haze', opacity };
   }
   return { color: 'black', opacity: ramp(t, 0, d) };   // rise

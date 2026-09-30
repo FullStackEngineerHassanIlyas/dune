@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { battleCamera, riseCamera, CUT_EVERY, DESCENT } from '../src/game/showcase-camera.js';
+import { battleCamera, riseCamera, shotYaw, CUT_EVERY, DESCENT } from '../src/game/showcase-camera.js';
 
 const f = { x: 30, z: 20 };
 const angle = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -31,4 +31,8 @@ test('the rise climbs and tilts down from the last battle shot', () => {
   assert.equal(riseCamera(0, from).distance, from.distance);
   const top = riseCamera(1, from);
   assert.ok(top.distance > from.distance + 40 && top.pitch > from.pitch);
+});
+
+test('consecutive battles do not replay the same bearings', () => {
+  assert.ok(angle(shotYaw(1, 1), shotYaw(2, 2)) > 0.3);
 });

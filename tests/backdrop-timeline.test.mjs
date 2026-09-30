@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BackdropClock, DURATIONS, HOLD_AT, fadeAt, captionAt, soundLevelAt } from '../src/game/backdrop-timeline.js';
-import { CUT_EVERY } from '../src/game/showcase-camera.js';
+import { CUT_EVERY, DESCENT } from '../src/game/showcase-camera.js';
 
 const runFor = (clock, seconds, ready = true) => {
   const entered = [];
@@ -32,6 +32,16 @@ test('a held phase stays put, starting past its opening fades; unknown holds are
   assert.equal(new BackdropClock({ hold: 'nonsense' }).hold, null);
 });
 
+test('a held planet keeps its caption; a held battle starts past the descent and its clock keeps running', () => {
+  const p = new BackdropClock({ hold: 'planet' }), b = new BackdropClock({ hold: 'battle' });
+  runFor(p, 100);
+  runFor(b, 10);
+  assert.equal(p.t, HOLD_AT.planet);
+  assert.equal(captionAt(p.phase, p.t), 1);
+  assert.ok(b.t > HOLD_AT.battle + 9);
+  assert.ok(HOLD_AT.battle > DESCENT);
+});
+
 test('restart goes back to the planet', () => {
   const c = new BackdropClock();
   runFor(c, DURATIONS.planet + 1);
@@ -48,6 +58,8 @@ test('the fade: in from black, into haze at the end of the dive, out of it on th
   assert.equal(fadeAt('battle', 3).opacity, 0);
   assert.equal(fadeAt('battle', CUT_EVERY).opacity, 1);
   assert.equal(fadeAt('battle', CUT_EVERY + 1).opacity, 0);
+  assert.equal(fadeAt('battle', 5 * CUT_EVERY).opacity, 1);   // a held battle keeps cutting past its 45 s
+  assert.equal(fadeAt('battle', 5 * CUT_EVERY + 1).opacity, 0);
   assert.deepEqual(fadeAt('rise', DURATIONS.rise), { color: 'black', opacity: 1 });
 });
 
