@@ -1,21 +1,36 @@
-// Deviator: the launcher chassis carrying one large nerve-gas missile on a rail (green warhead).
-import { ModelBuilder, MAT, box, cyl, cone } from '../kit.js';
+// Deviator: on the Genesis the Missile Tank sprite in Ordos green. Here it keeps that family's hull,
+// round cab and traversing mount, but the launcher carries one big nerve-gas missile instead of the
+// two pods: a white body with a bulbous lime gas warhead, dark hazard rings and cruciform tail fins,
+// clamped into a house-colour cradle with side rails, raised a little on its trunnion.
+import { ModelBuilder, MAT, cbox, cyl, cone, lathe, hull } from '../kit.js';
 import { PAL } from '../palette.js';
-import { tankChassis } from './tank-chassis.js';
+import { launcherHull, launcherMount, ALONG, GUN, RECESS } from './tank-chassis.js';
+
+const GAS = 0xb4dc28;   // chemical lime of the warhead
 
 export function deviator() {
   const b = new ModelBuilder('deviator');
-  const { top } = tankChassis(b);
-  b.node('turret', { pivot: [-0.05, top, 0] });
-  b.node('launcher', { parent: 'turret', pivot: [0, 0.07, 0], axis: 'z', value: 0.42 });
-  b.add(MAT.PAINT, cyl(0.1, 0.11, 0.05, 12, { p: [0, 0.025, 0], color: PAL.sandDark }), 'turret');
-  b.add(MAT.METAL, box(0.05, 0.08, 0.05, { p: [0, 0.07, 0], color: PAL.steelDark }), 'turret');
-  b.add(MAT.METAL, box(0.36, 0.025, 0.08, { p: [0.04, 0, 0], color: PAL.steelDark }), 'launcher');
-  b.add(MAT.PAINT, cyl(0.035, 0.035, 0.3, 10, { p: [0.05, 0.045, 0], r: [0, 0, Math.PI / 2], color: PAL.white }), 'launcher');
-  b.add(MAT.LIGHT, cone(0.035, 0.08, 10, { p: [0.24, 0.045, 0], r: [0, 0, -Math.PI / 2], color: PAL.greenGlow, glow: 1.4 }), 'launcher');
-  b.add(MAT.HOUSE, cyl(0.037, 0.037, 0.03, 10, { p: [-0.02, 0.045, 0], r: [0, 0, Math.PI / 2] }), 'launcher');
-  for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
-    b.add(MAT.PAINT, box(0.05, 0.004, 0.035, { p: [-0.1, 0.045 + Math.sin(a) * 0.04, Math.cos(a) * 0.04], r: [a, 0, 0], color: PAL.steel }), 'launcher');
+  const { deck } = launcherHull(b);
+  const tx = -0.12, e = 0.12, yoke = launcherMount(b, { x: tx, deck, elevation: e, yoke: 0.092 });
+  // cradle: a floor plate and two side rails with ribs
+  b.add(MAT.HOUSE, cbox(0.42, 0.03, 0.2, 0.01, { p: [0.03, 0.012, 0], color: RECESS }), 'launcher');
+  for (const s of [-1, 1]) {
+    b.add(MAT.HOUSE, cbox(0.44, 0.09, 0.035, 0.012, { p: [0.03, 0.055, s * 0.09] }), 'launcher');
+    for (const x of [-0.12, 0.03, 0.18]) b.add(MAT.HOUSE, cbox(0.03, 0.105, 0.045, 0.008, { p: [x, 0.057, s * 0.095], color: RECESS }), 'launcher');
   }
-  return b.build({ radius: 0.38, muzzle: [0.26, 0.045, 0] });
+  b.add(MAT.METAL, cyl(0.016, 0.016, 0.26, 8, { r: [Math.PI / 2, 0, 0], color: PAL.machine }), 'launcher');
+  // the gas missile: body, warhead, nose, hazard rings, fins, clamps
+  const my = 0.085, r = 0.052;
+  b.add(MAT.METAL, cyl(r, r, 0.34, 14, { p: [-0.01, my, 0], r: ALONG, color: GUN }), 'launcher');
+  b.add(MAT.PAINT, lathe([[r, 0], [r * 1.22, 0.03], [r * 1.24, 0.08], [r * 1.05, 0.12], [r * 0.6, 0.16], [0, 0.18]], 14, { p: [0.16, my, 0], r: ALONG, color: GAS }), 'launcher');
+  b.add(MAT.METAL, cone(0.014, 0.03, 8, { p: [0.35, my, 0], r: ALONG, color: GUN }), 'launcher');
+  for (const x of [0.165, 0.2]) b.add(MAT.METAL, cyl(r * 1.25, r * 1.25, 0.01, 14, { p: [x + 0.012, my, 0], r: ALONG, color: 0x1a1a12 }), 'launcher');
+  b.add(MAT.METAL, cyl(r * 1.04, r * 0.8, 0.04, 14, { p: [-0.2, my, 0], r: ALONG, color: PAL.machine }), 'launcher');
+  for (let k = 0; k < 4; k++) {
+    const a = Math.PI / 4 + (k * Math.PI) / 2;
+    b.add(MAT.METAL, hull([[-0.21, 0, 0.045], [-0.1, 0, 0.045], [-0.2, 0, 0.1], [-0.15, 0, 0.1], [-0.21, 0.004, 0.045], [-0.1, 0.004, 0.045], [-0.2, 0.004, 0.1], [-0.15, 0.004, 0.1]], { p: [0, my, 0], r: [a, 0, 0], color: PAL.machineLight }), 'launcher');
+  }
+  for (const x of [-0.08, 0.08]) b.add(MAT.METAL, cyl(r * 1.08, r * 1.08, 0.018, 14, { p: [x, my, 0], r: ALONG, color: PAL.navy }), 'launcher');
+  const fx = 0.365, fy = my;
+  return b.build({ radius: 0.54, muzzle: [tx + fx * Math.cos(e) - fy * Math.sin(e), deck + yoke + fx * Math.sin(e) + fy * Math.cos(e), 0] });
 }

@@ -320,8 +320,11 @@ credits (or the mission quota). Skirmish ends when one side (the player, or all 
 
 ### 5.3 Models (after the Mentat art and in-game sprites)
 
-Units get sand-coloured hulls with bold house-colour panels (the Genesis look); structures are
-grey-blue metal and concrete with house-colour trim, flags and beacon lights.
+Rebuilt after the Mega Drive sprites (`2026-09-30-genesis-detail-models.md`, research in
+`docs/research/raw/visual-*.md`): units are painted in a three-tone house-colour ramp (navy → blue → cyan
+for Atreides) with metal barrels, wheels and tracks; structures are house-neutral lavender machinery,
+olive concrete, gold and brick on their own floors, with the house shown by a glowing orb in the
+south-west corner. The tables below are the first-pass notes; the brief and research supersede them.
 
 | Structure (tiles) | 3D design notes |
 |---|---|

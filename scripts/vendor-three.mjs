@@ -10,7 +10,7 @@ const dst = path.join(root, 'vendor', 'three');
 const ADDONS = [
   'postprocessing/EffectComposer.js', 'postprocessing/RenderPass.js', 'postprocessing/UnrealBloomPass.js',
   'postprocessing/OutputPass.js', 'postprocessing/FXAAPass.js', 'postprocessing/ShaderPass.js',
-  'geometries/RoundedBoxGeometry.js', 'utils/BufferGeometryUtils.js',
+  'geometries/RoundedBoxGeometry.js', 'geometries/ConvexGeometry.js', 'utils/BufferGeometryUtils.js',
 ];
 
 if (!existsSync(src)) {

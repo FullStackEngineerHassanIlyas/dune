@@ -14,6 +14,17 @@ export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.9, 0.42).normalize();
 /** The battlefield's haze (sRGB hex). The menu's planet dives into the same colour, so the seam with the battle matches. */
 export const FOG_COLOR = 0xd9bb8e;
 
+// A pixel that comes out NaN or infinite (some GPU drivers produce one where others give a number) is
+// harmless on its own, but the bloom blur smears it across its mip chain into large black rectangles.
+// The bright pass drops such pixels before they are blurred.
+const FINITE = (v) => `(${v} >= 0.0 && ${v} <= 60000.0)`;
+function guardBloom(bloom) {
+  const m = bloom.materialHighPassFilter;
+  m.fragmentShader = m.fragmentShader.replace('vec4 texel = texture2D( tDiffuse, vUv );',
+    `vec4 texel = texture2D( tDiffuse, vUv );\n\t\t\tif ( !( ${FINITE('texel.r')} && ${FINITE('texel.g')} && ${FINITE('texel.b')} ) ) texel = vec4( 0.0 );`);
+  m.needsUpdate = true;
+}
+
 export class Renderer3D {
   constructor(canvas, qualityName = 'medium') {
     this.canvas = canvas;
@@ -54,6 +65,7 @@ export class Renderer3D {
     this.composer.addPass(this.renderPass);
     if (q.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
+      guardBloom(this.bloom);
       this.composer.addPass(this.bloom);
     }
     this.grade = createGradePass();   // the menu backdrop eases its vignette out in the haze of the dive
