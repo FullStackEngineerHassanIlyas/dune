@@ -27,6 +27,8 @@ function makeItem(house, typeId) {
 }
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
+/** Work starting or resuming on a line: soldiers train, everything else is built. */
+const started = (world, house, line) => (line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
 
 export function factoriesFor(world, houseId, line) {
   const types = LINE_FACTORIES[line];
@@ -49,7 +51,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     return;
   }
   const l = house.lines[line];
-  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; eva(world, house, 'building', 'Building.'); return; }
+  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line); return; }
   const upgrade = !!upgradeTarget(typeId);
   if (line === 'structure') {
     if (l.current) { eva(world, house, 'busy', 'Unable to comply, building in progress.'); return; }
@@ -68,7 +70,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     if ((l.current ? 1 : 0) + l.queue.length >= MAX_QUEUE) break;
     if (!l.current) l.current = makeItem(house, typeId); else l.queue.push(typeId);
   }
-  eva(world, house, 'building', 'Building.');
+  started(world, house, line);
 }
 
 export function orderHold(world, houseId, typeId) {
@@ -144,7 +146,8 @@ function complete(world, house, line, item) {
   }
   if (!spawnFromFactory(world, house, item.typeId)) return;   // exit blocked: retry next tick
   house.lines[line].current = null;
-  eva(world, house, 'unitDeployed', item.typeId === 'harvester' ? 'Harvester deployed.' : 'Unit deployed.');
+  if (item.typeId === 'harvester') eva(world, house, 'harvesterDeployed', 'Harvester deployed.');
+  else eva(world, house, 'unitReady', 'Unit ready.');
 }
 
 export function updateProduction(world) {
