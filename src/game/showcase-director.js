@@ -15,7 +15,7 @@ export const SHOWCASE = {
   w: 64, h: 40,
   lead: 8,                  // seconds simulated before the battle is shown
   army: [10, 14],           // fighters per side at the start
-  reinforceEvery: 8,        // seconds between reinforcement checks …
+  reinforceEvery: 6,        // seconds between reinforcement checks …
   reinforceBelow: 10,       // … for a side with fewer fighters than this …
   reinforceCount: [3, 4],   // … which gets this many more
   reorderEvery: 4,          // idle fighters are sent at the enemy this often (seconds)
@@ -30,7 +30,7 @@ const SPECIALS = { atreides: ['sonic', 'ornithopters'], harkonnen: ['devastator'
 // The west side's layout; the east side mirrors it.
 const BASE = [['constructionYard', 2, 18], ['windtrap', 2, 14], ['turret', 9, 19], ['wall', 9, 17], ['wall', 9, 18], ['wall', 9, 20], ['wall', 9, 21]];
 const PALACE_AT = [2, 23];
-const ARMY_BOX = { x: 16, w: 7, y: 12, h: 17 };   // where the west army stands at the start
+const ARMY_BOX = { x: 17, w: 7, y: 12, h: 17 };   // where the west army stands at the start
 const ARRIVE_X = 12;                               // reinforcements appear in this column
 const HOME = { x: 3, y: 19 };                      // the heart of the west base
 
