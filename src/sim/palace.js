@@ -65,6 +65,7 @@ function launchDeathHand(world, s, tx, ty) {
     accurate: true, homing: false, target: null, airburst: false, fromAlt: 0, toAlt: 0, deathHand: true,
   });
   world.events.push('fired', { id: s.id, kind: 'structure', house: s.house, weapon: 'deathHand', projectile: 'deathHand', x: fx, y: fy, tx: x, ty: y });
+  for (const h of world.houses.keys()) eva(world, h, 'missileLaunched', 'Missile launched.');   // everyone hears it (spec §6 announcer list)
   return true;
 }
 

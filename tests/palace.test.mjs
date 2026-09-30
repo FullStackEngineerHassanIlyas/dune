@@ -48,6 +48,16 @@ test('the Death Hand fires only when charged; it rises from the Palace and comes
   assert.ok(world.events.drain().some((e) => e.type === 'deathHandBlast'));
 });
 
+test('a Death Hand launch is announced to every house: "Missile launched" (spec §6)', () => {
+  const { world, s } = palace('harkonnen');
+  charge(world, s);
+  world.events.drain();
+  world.issue('harkonnen', { type: 'palace', x: 40, y: 20 });
+  world.step();
+  const heard = world.events.drain().filter((e) => e.type === 'eva' && e.key === 'missileLaunched').map((e) => e.house);
+  assert.deepEqual(heard.sort(), [...world.houses.keys()].sort());
+});
+
 test('asked before any aim (the sidebar button while it charges), a charging weapon says it is not ready', () => {
   const { world, s } = palace('harkonnen');
   world.issue('harkonnen', { type: 'palace' });
