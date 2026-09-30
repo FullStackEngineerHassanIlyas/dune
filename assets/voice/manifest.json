@@ -148,7 +148,7 @@
     "onHold": {
      "file": "atreides/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.783
+     "seconds": 0.846
     },
     "orderPlaced": {
      "file": "atreides/orderPlaced.ogg",
@@ -464,7 +464,7 @@
     "onHold": {
      "file": "harkonnen/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.807
+     "seconds": 0.851
     },
     "orderPlaced": {
      "file": "harkonnen/orderPlaced.ogg",
@@ -780,7 +780,7 @@
     "onHold": {
      "file": "ordos/onHold.ogg",
      "text": "On hold.",
-     "seconds": 0.973
+     "seconds": 0.988
     },
     "orderPlaced": {
      "file": "ordos/orderPlaced.ogg",

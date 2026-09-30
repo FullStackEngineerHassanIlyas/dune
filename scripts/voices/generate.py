@@ -67,7 +67,7 @@ PRONOUNCE = {
 
 # Whole lines whose stress espeak gets wrong ("On hold" came out as one word).
 PHRASES = {
-    'On hold.': {'en-us': 'ˈɔn hˈoʊld.', 'en-gb': 'ˈɒn hˈəʊld.'},
+    'On hold.': {'en-us': 'ˈɔːn hˈoʊld.', 'en-gb': 'ˈɔn hˈəʊld.'},   # the long open vowel is what a listener (and Whisper) hears as 'on'
 }
 
 
