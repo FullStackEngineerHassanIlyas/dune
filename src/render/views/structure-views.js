@@ -1,14 +1,18 @@
 // One view per structure (spec §5.3): standing on its flattened footprint, rising out of the ground
-// when placed, sinking away when sold or destroyed, hidden until the viewer has seen it, with its
-// animated parts (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads, the repair hoist).
+// when placed, sinking away when sold, hidden until the viewer has seen it, with its animated parts
+// (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads, the repair hoist).
+// A destroyed one collapses (spec §5.3 "destroyed structures collapse into burning rubble"): it
+// shudders, then slumps, leans and spreads as it sinks over 1.9 s while the blasts go off round it.
 // Walls get a post plus an arm towards each walled neighbour.
+import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { structureVisibleTo } from '../../sim/fog.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, structureModelId } from '../models/index.js';
 
 const ARMS = [[1, 0, 0], [0, 1, -Math.PI / 2], [-1, 0, Math.PI], [0, -1, Math.PI / 2]];   // E, S, W, N and their yaw
-const RISE_MS = 900, SINK_MS = 700, DOOR_MS = 2000;
+const RISE_MS = 900, SINK_MS = 700, COLLAPSE_MS = 1900, DOOR_MS = 2000;
+const lean = new THREE.Quaternion(), axis = new THREE.Vector3(), at = new THREE.Vector3(), size = new THREE.Vector3(), turn = new THREE.Matrix4();
 const armOffset = (now) => Math.sin(now * 0.0015) * 0.3;   // the repair hoist runs up and down the gantry
 
 export class StructureViews {
@@ -28,6 +32,10 @@ export class StructureViews {
 
   notify(e, now) {
     if (e.type === 'unitBuilt') { const v = this.views.get(e.structureId); if (v) v.doorUntil = now + DOOR_MS; }
+    if (e.type === 'structureDestroyed') {
+      const v = this.views.get(e.id);
+      if (v && v.dying === undefined) { const a = Math.random() * Math.PI * 2; v.dying = now; v.collapse = { ax: Math.cos(a), az: Math.sin(a), tilt: 0.1 + Math.random() * 0.12 }; }
+    }
   }
 
   sync(world, now) {
@@ -35,7 +43,7 @@ export class StructureViews {
     for (const [id, v] of this.views) {
       if (world.structures.has(id)) continue;
       v.dying ??= now;
-      if (now - v.dying >= SINK_MS) { for (const h of v.handles) v.model(h).remove(h); this.views.delete(id); }
+      if (now - v.dying >= (v.collapse ? COLLAPSE_MS : SINK_MS)) { for (const h of v.handles) v.model(h).remove(h); this.views.delete(id); }
     }
     for (const [id, v] of this.views) this.pose(world, world.structures.get(id) ?? v.last, v, now);
     for (const m of this.models.values()) m.update();
@@ -64,11 +72,12 @@ export class StructureViews {
     v.last = s;
     const visible = !this.viewer || structureVisibleTo(world, this.viewer, s);
     let scale = 1 - Math.pow(1 - Math.min(1, (now - v.born) / RISE_MS), 3);
-    if (v.dying !== undefined) scale = Math.max(0.02, 1 - (now - v.dying) / SINK_MS);
+    if (v.dying !== undefined && !v.collapse) scale = Math.max(0.02, 1 - (now - v.dying) / SINK_MS);
     if (v.house !== s.house) { v.house = s.house; for (const h of v.handles) h.color.set(HOUSES[s.house]?.color ?? 0xffffff); }
     const [main, ...arms] = v.handles;
     main.visible = visible;
-    main.matrix.makeScale(1, Math.max(0.02, scale), 1).setPosition(v.cx, v.y, v.cz);
+    if (v.collapse) this.collapse(main.matrix, v, now);
+    else main.matrix.makeScale(1, Math.max(0.02, scale), 1).setPosition(v.cx, v.y, v.cz);
     const p = main.params;
     p.crane = now * 0.00025;
     p.fan = now * 0.004;
@@ -86,8 +95,19 @@ export class StructureViews {
       const nx = s.x + dx, ny = s.y + dy;
       const other = map.inBounds(nx, ny) ? world.structures.get(map.structure[map.idx(nx, ny)]) : null;
       h.visible = visible && !!other?.type.isWall;
-      h.matrix.makeRotationY(yaw).scale({ x: 1, y: Math.max(0.02, scale), z: 1 }).setPosition(v.cx, v.y, v.cz);
+      if (v.collapse) h.matrix.multiplyMatrices(main.matrix, turn.makeRotationY(yaw));
+      else h.matrix.makeRotationY(yaw).scale({ x: 1, y: Math.max(0.02, scale), z: 1 }).setPosition(v.cx, v.y, v.cz);
     });
+  }
+
+  /** The collapse pose at `now`: a shudder, then an accelerating slump that leans, spreads and sinks. */
+  collapse(out, v, now) {
+    const t = Math.min(1, (now - v.dying) / COLLAPSE_MS), c = v.collapse;
+    const shake = t < 0.35 ? 0.035 * (1 - t / 0.35) : 0;
+    const fall = Math.max(0, (t - 0.22) / 0.78), e = fall * fall;
+    lean.setFromAxisAngle(axis.set(c.az, 0, -c.ax), c.tilt * e);
+    at.set(v.cx + Math.sin(now * 0.083) * shake, v.y - 0.1 * e, v.cz + Math.cos(now * 0.071) * shake);
+    out.compose(at, lean, size.set(1 + 0.08 * e, Math.max(0.03, 1 - 0.95 * e), 1 + 0.08 * e));
   }
 
   /** Where the welding head is over an occupied repair pad, in world units; null when nothing is being repaired. */
