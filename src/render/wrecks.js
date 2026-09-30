@@ -176,6 +176,8 @@ export class Wrecks {
       }
       this.pose(w);
     }
+    if (!this.list.length && this.idle) return;   // nothing left to draw, and the empty meshes already uploaded
+    this.idle = !this.list.length;
     for (const m of this.models.values()) m.update();
   }
 
