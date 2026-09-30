@@ -16,6 +16,7 @@ export class ShotFx {
     this.spare = [];
     this.frame = 0;
     this.pt = { x: 0, y: 0, z: 0, dx: 1, dy: 0, dz: 0, speed: 0, travelled: 0 };
+    this.sweep = (r, id) => { if (r.frame !== this.frame) { this.trails.delete(id); this.spare.push(r); } };   // landed shots' records back to the pool
   }
 
   /** alpha: between the last two ticks; heightAt(x, z): the ground; seen(x, z): whether the viewer sees that spot. */
@@ -49,6 +50,6 @@ export class ShotFx {
       r.y += (s.y - r.y) * f;
       r.z += (s.z - r.z) * f;
     }
-    for (const [id, r] of this.trails) if (r.frame !== frame) { this.trails.delete(id); this.spare.push(r); }
+    this.trails.forEach(this.sweep);
   }
 }

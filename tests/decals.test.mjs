@@ -56,4 +56,6 @@ test('the map lines up with the ground and uploads at most five times a second',
   map.flush(1300);
   assert.equal(map.texture.version, v + 2);
   assert.ok(new DecalMap(128, 128).canvas.width <= 2048, 'a big map keeps the texture within 2048');
+  const big = new DecalMap(64, 64);
+  assert.ok(big.interval >= 4 * map.interval - 1, 'and uploads it less often, moving no more data than a small one');
 });

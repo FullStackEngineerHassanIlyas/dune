@@ -230,7 +230,7 @@ const T = {
 
   gunSmoke:  { size: [0.2, 0.6], color: [0.36, 0.34, 0.31], alpha: [0.5, 0], drag: 1.5, turb: 0.3 },
   backblast: { size: [0.16, 0.85], color: [0.74, 0.71, 0.66], color2: [0.62, 0.6, 0.57], alpha: [0.55, 0], drag: 3, turb: 0.5 },
-  trail:     { size: [0.18, 0.75], color: [0.8, 0.78, 0.74], color2: [0.6, 0.59, 0.57], alpha: [0.6, 0], drag: 1.6, turb: 0.45 },
+  trail:     { size: [0.16, 0.62], color: [0.8, 0.78, 0.74], color2: [0.6, 0.59, 0.57], alpha: [0.52, 0], drag: 1.6, turb: 0.45 },
   gasTrail:  { size: [0.12, 0.5], color: [0.4, 0.75, 0.3], alpha: [0.5, 0], drag: 1.2, turb: 0.4 },
   dhSmoke:   { size: [0.25, 1.2], color: [0.82, 0.8, 0.76], color2: [0.6, 0.59, 0.57], alpha: [0.6, 0], drag: 0.8, turb: 0.5 },
   soot:      { size: [0.6, 2.2], color: [0.17, 0.15, 0.13], color2: [0.42, 0.4, 0.38], alpha: [0.78, 0], drag: 1, turb: 0.35 },

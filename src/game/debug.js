@@ -49,5 +49,6 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     paused: () => !!view?.paused,
     outcome: () => world.outcome,
     sound: () => ({ ready: !!view?.sound?.ctx, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0 }),
+    particles: () => { const fx = view?.stage?.effects; return fx ? { glow: fx.glow.n, smoke: fx.smoke.n, capacity: fx.glow.capacity + fx.smoke.capacity } : null; },
   };
 }

@@ -3,9 +3,9 @@
 // marks. White means untouched. Marks are stamped from a few pre-drawn variants of each kind, every stamp
 // turned, squashed and sized at random so repeats never look stamped, and they never fade: the original
 // keeps its sand craters and cracked concrete for the rest of the battle (docs/research/raw/
-// mechanics-campaign.md §1.2 craterType; visual-structures.md: a scorched crater). The shader reads the
-// map's darkness as depth too (terrain-shader.js), so craters and tracks catch the light. The texture
-// uploads at most five times a second.
+// mechanics-campaign.md §1.2 craterType; visual-structures.md: a scorched crater). The map has 32 pixels
+// a tile, at most 2048 across. The texture uploads at most five times a second, and a map bigger than a
+// megapixel less often, so a big map moves no more data than a small one.
 import * as THREE from 'three';
 
 const TAU = Math.PI * 2;
@@ -80,11 +80,11 @@ function pockStamp() {
 /** Soot: broad tongues and a few sharp streaks flung outward, overlapping blotches black at the heart, flecks beyond. */
 function scorchStamp() {
   const cv = stampCanvas(), ctx = cv.getContext('2d'), c = S / 2;
-  rays(ctx, 7, S * 0.12, S * 0.48, S * 0.07, '44,34,24', 0.3);
+  rays(ctx, 7, S * 0.12, S * 0.48, S * 0.07, '58,45,33', 0.3);
   rays(ctx, 6, S * 0.1, S * 0.42, S * 0.022, '34,27,20', 0.35);
-  for (let k = 0; k < 12; k++) { const a = rnd(0, TAU), r = rnd(0, 0.22) * S; spot(ctx, c + Math.cos(a) * r, c + Math.sin(a) * r, rnd(0.08, 0.2) * S, '38,29,21', rnd(0.25, 0.45)); }
+  for (let k = 0; k < 12; k++) { const a = rnd(0, TAU), r = rnd(0, 0.22) * S; spot(ctx, c + Math.cos(a) * r, c + Math.sin(a) * r, rnd(0.08, 0.2) * S, '50,39,29', rnd(0.25, 0.45)); }
   specks(ctx, 30, S * 0.2, S * 0.46, 1.8, '24,20,16', 0.55);
-  spot(ctx, c, c, S * 0.15, '20,16,12', 0.7);
+  spot(ctx, c, c, S * 0.15, '28,22,17', 0.7);
   return cv;
 }
 
@@ -166,6 +166,7 @@ export class DecalMap {
     this.texture.anisotropy = 4;
     this.dirty = false;
     this.lastFlush = 0;
+    this.interval = Math.max(200, (200 * this.canvas.width * this.canvas.height) / (1024 * 1024));   // ms between uploads
   }
 
   /** One stamp of `kind` centred on (x, y) tiles, `size` tiles across, turned and squashed at random. */
@@ -250,7 +251,7 @@ export class DecalMap {
   }
 
   flush(now) {
-    if (this.dirty && now - this.lastFlush > 200) {
+    if (this.dirty && now - this.lastFlush > this.interval) {
       this.texture.needsUpdate = true;
       this.dirty = false;
       this.lastFlush = now;

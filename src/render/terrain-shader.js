@@ -1,7 +1,6 @@
 // Terrain shading injected into MeshStandardMaterial so PBR lighting and shadows still apply
 // (spec §5.2): sand with wind ripples, lit dune crests, cracked rock, banded mountains, speckled
-// spice that follows the live spice texture, concrete slabs with seams, decals (whose darkness also
-// shades craters and tread marks as hollows) and soft shroud.
+// spice that follows the live spice texture, concrete slabs with seams, decals and soft shroud.
 const HEAD = /* glsl */ `
 uniform sampler2D uSpice;
 uniform sampler2D uConcrete;
@@ -78,14 +77,6 @@ vec3 perturbTerrainNormal(vec3 n, vec2 p, float spiceAmt) {
   float bx = tNoise((p + vec2(e, 0.0)) * 3.0) - tNoise((p - vec2(e, 0.0)) * 3.0);
   float bz = tNoise((p + vec2(0.0, e)) * 3.0) - tNoise((p - vec2(0.0, e)) * 3.0);
   d += vec3(-bx, 0.0, -bz) / (2.0 * e) * r;
-#ifndef APRON
-  // the decal map's darkness read as depth: craters are bowls and tread marks grooves that catch the light
-  vec2 uv = p / uMapSize, du = vec2(0.045) / uMapSize;
-  float h0 = dot(texture2D(uDecals, uv).rgb, vec3(0.333));
-  float dhx = dot(texture2D(uDecals, uv + vec2(du.x, 0.0)).rgb, vec3(0.333)) - h0;
-  float dhz = dot(texture2D(uDecals, uv + vec2(0.0, du.y)).rgb, vec3(0.333)) - h0;
-  d += vec3(-dhx, 0.0, -dhz) * (0.05 / 0.045);
-#endif
   return normalize(n + mat3(viewMatrix) * d);
 }
 
