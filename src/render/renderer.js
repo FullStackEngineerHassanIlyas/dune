@@ -11,6 +11,8 @@ import { qualityPreset } from './quality.js';
 import { createGradePass } from './grade-pass.js';
 
 export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.9, 0.42).normalize();
+/** The battlefield's haze (sRGB hex). The menu's planet dives into the same colour, so the seam with the battle matches. */
+export const FOG_COLOR = 0xd9bb8e;
 
 export class Renderer3D {
   constructor(canvas, qualityName = 'medium') {
@@ -25,7 +27,7 @@ export class Renderer3D {
     r.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft was removed in r186
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0xd9bb8e, 0.0085);
+    this.scene.fog = new THREE.FogExp2(FOG_COLOR, 0.0085);
     this.camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.5, 700);
 
     this.sun = new THREE.DirectionalLight(0xfff0d6, 3.1);
