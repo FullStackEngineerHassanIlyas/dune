@@ -3,10 +3,12 @@
 // extra factory of the line's type adds 25 % speed (cap 2x). Units leave by the factory's south side
 // and drive to its rally point; structures wait, ready, until the player places them. Factory upgrades
 // are items too: they run on the line of the factory they improve, ahead of its queue, and raise the
-// house's level when done.
+// house's level when done. An upgrade starts at once: the item in hand steps aside (keeping its progress
+// and what it paid) and resumes when the upgrade is done — only a structure waiting to be placed holds the
+// yard. Times come from src/data/tuning.js (pacing: docs/superpowers/notes/2026-10-01-pacing.md).
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { DT, buildSeconds, UPGRADE_BUILD_TIME, AIR } from '../data/tuning.js';
+import { DT, buildSeconds, structureSeconds, UPGRADE_SECONDS, AIR } from '../data/tuning.js';
 import { LINE_FACTORIES, lineOfItem, canBuild, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost } from './tech.js';
 import { placeStructure } from './placement.js';
 import { spend, addCredits } from './economy.js';
@@ -17,13 +19,38 @@ export const LINES = ['structure', 'infantry', 'light', 'heavy', 'air'];
 export const MAX_QUEUE = 9;
 const FUNDS_WARNING_SECONDS = 10;
 
-export function createLines() { return Object.fromEntries(LINES.map((l) => [l, { current: null, queue: [] }])); }
+/** `aside`: the item an upgrade interrupted; its typeId waits at the front of the queue. */
+export function createLines() { return Object.fromEntries(LINES.map((l) => [l, { current: null, queue: [], aside: null }])); }
+
+/** Seconds an item takes at full speed on one factory (the sidebar shows the same number). */
+export function itemSeconds(typeId) {
+  if (upgradeTarget(typeId)) return UPGRADE_SECONDS;
+  if (STRUCTURES[typeId]) return structureSeconds(STRUCTURES[typeId].buildTime);
+  return buildSeconds(UNITS[typeId].buildTime);
+}
 
 function makeItem(house, typeId) {
   const up = upgradeTarget(typeId);
-  if (up) return { typeId, upgrade: up, level: upgradeResult(house, up), cost: upgradeCost(house, up), total: buildSeconds(UPGRADE_BUILD_TIME), progress: 0, paid: 0, state: 'building', starved: false };
+  if (up) return { typeId, upgrade: up, level: upgradeResult(house, up), cost: upgradeCost(house, up), total: itemSeconds(typeId), progress: 0, paid: 0, state: 'building', starved: false };
   const t = STRUCTURES[typeId] ?? UNITS[typeId];
-  return { typeId, cost: t.cost, total: buildSeconds(t.buildTime), progress: 0, paid: 0, state: 'building', starved: false };
+  return { typeId, cost: t.cost, total: itemSeconds(typeId), progress: 0, paid: 0, state: 'building', starved: false };
+}
+
+/** The next item off the queue: the one an upgrade set aside comes back as it was. */
+function takeNext(house, l) {
+  const typeId = l.queue.shift();
+  if (l.aside?.typeId !== typeId) return makeItem(house, typeId);
+  const item = l.aside;
+  l.aside = null;
+  return item;
+}
+
+/** The item set aside is gone from the queue (cancelled, or its factory lost): refund what it paid. */
+function dropOrphan(world, house, l) {
+  if (!l.aside || l.queue.includes(l.aside.typeId)) return;
+  addCredits(world, house, l.aside.paid);
+  world.events.push('productionCancelled', { house: house.id, typeId: l.aside.typeId });
+  l.aside = null;
 }
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
@@ -51,16 +78,23 @@ export function orderBuild(world, houseId, typeId, count = 1) {
   const l = house.lines[line];
   if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; eva(world, house, 'building', 'Building.'); return; }
   const upgrade = !!upgradeTarget(typeId);
-  if (line === 'structure') {
-    if (l.current) { eva(world, house, 'busy', 'Unable to comply, building in progress.'); return; }
-    l.current = makeItem(house, typeId);
-    if (upgrade) eva(world, house, 'upgrading', 'Upgrading.'); else eva(world, house, 'building', 'Building.');
+  if (upgrade) {   // one at a time, at once: the item in hand steps aside; another upgrade or a ready structure goes first
+    if (l.current?.typeId === typeId || l.queue.includes(typeId)) return;
+    const cur = l.current;
+    if (cur && (cur.upgrade || cur.state === 'ready' || cur.progress >= 1)) {
+      if (line === 'structure') { eva(world, house, 'busy', 'Unable to comply, building in progress.'); return; }
+      l.queue.unshift(typeId);
+    } else {
+      if (cur) { l.aside = cur; l.queue.unshift(cur.typeId); }
+      l.current = makeItem(house, typeId);
+    }
+    eva(world, house, 'upgrading', 'Upgrading.');
     return;
   }
-  if (upgrade) {   // one at a time, ahead of the units waiting on the line
-    if (l.current?.typeId === typeId || l.queue.includes(typeId)) return;
-    if (l.current) l.queue.unshift(typeId); else l.current = makeItem(house, typeId);
-    eva(world, house, 'upgrading', 'Upgrading.');
+  if (line === 'structure') {
+    if (l.current || l.queue.length) { eva(world, house, 'busy', 'Unable to comply, building in progress.'); return; }
+    l.current = makeItem(house, typeId);
+    eva(world, house, 'building', 'Building.');
     return;
   }
   const n = Math.max(1, Math.min(MAX_QUEUE, Math.floor(count) || 1));
@@ -85,7 +119,7 @@ export function orderHold(world, houseId, typeId) {
     return;
   }
   const k = l.queue.lastIndexOf(typeId);
-  if (k >= 0) { l.queue.splice(k, 1); eva(world, house, 'cancelled', 'Cancelled.'); }
+  if (k >= 0) { l.queue.splice(k, 1); dropOrphan(world, house, l); eva(world, house, 'cancelled', 'Cancelled.'); }
 }
 
 export function orderPlace(world, houseId, typeId, x, y) {
@@ -151,7 +185,7 @@ export function updateProduction(world) {
   for (const house of world.houses.values()) {
     for (const line of LINES) {
       const l = house.lines[line];
-      if (!l.current && l.queue.length) l.current = makeItem(house, l.queue.shift());
+      if (!l.current && l.queue.length) l.current = takeNext(house, l);
       const item = l.current;
       if (!item || item.state !== 'building') continue;
       if (item.progress < 1) {
@@ -187,6 +221,7 @@ export function revalidateProduction(world) {
         l.current = null;
       }
       l.queue = l.queue.filter((t) => canBuild(world, house.id, t, { implied: false }));
+      dropOrphan(world, house, l);
     }
   }
 }

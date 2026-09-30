@@ -70,13 +70,13 @@ test('upgrades run on the line of the factory they improve and name what they op
   assert.deepEqual(upgradeUnlocks('harkonnen', 'wor', 0, 1), ['Trooper Squad']);
 });
 
-test('an upgrade is paid as it runs and takes nine seconds', () => {
+test('an upgrade is paid as it runs and takes five seconds', () => {
   const { world, h } = factoryBase();
   world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });
-  run(world, 4.5);
+  run(world, 2.5);
   assert.ok(Math.abs(h.credits - 4850) < 2, `credits ${h.credits}`);
   assert.equal(upgradeLevel(h, 'heavyFactory'), 0);
-  run(world, 4.6);
+  run(world, 2.6);
   assert.equal(upgradeLevel(h, 'heavyFactory'), 1);
   assert.equal(h.lines.heavy.current, null);
   assert.ok(Math.abs(h.credits - 4700) < 1e-6);
@@ -85,15 +85,15 @@ test('an upgrade is paid as it runs and takes nine seconds', () => {
   assert.ok(events.some((e) => e.type === 'upgraded' && e.structureType === 'heavyFactory' && e.level === 1));
 });
 
-test('an upgrade goes ahead of the units waiting on its line, once', () => {
+test('an upgrade goes ahead of the units on its line at once, once', () => {
   const { world, h } = factoryBase();
   world.issue('atreides', { type: 'build', typeId: 'combatTank', count: 3 });
   world.step();
   world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });
   world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });
   world.step();
-  assert.equal(h.lines.heavy.current.typeId, 'combatTank');
-  assert.deepEqual(h.lines.heavy.queue, ['upgrade:heavyFactory', 'combatTank', 'combatTank']);
+  assert.equal(h.lines.heavy.current.typeId, 'upgrade:heavyFactory');
+  assert.deepEqual(h.lines.heavy.queue, ['combatTank', 'combatTank', 'combatTank'], 'the tank in hand waits in front');
 });
 
 test('holding, then cancelling an upgrade refunds what was paid; the yard is busy meanwhile', () => {

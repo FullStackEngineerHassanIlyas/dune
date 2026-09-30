@@ -28,7 +28,7 @@ test('the strips list what the house can build, in display order', () => {
   m = sidebarModel(world, 'atreides');
   assert.deepEqual(m.units.map((i) => i.typeId), ['trike']);
   const wt = m.structures.find((i) => i.typeId === 'windtrap');
-  assert.deepEqual([wt.name, wt.cost, wt.seconds, wt.line, wt.state], ['Wind Trap', 300, 22, 'structure', 'idle']);
+  assert.deepEqual([wt.name, wt.cost, wt.seconds, wt.line, wt.state], ['Wind Trap', 300, 9, 'structure', 'idle']);
 });
 
 test('icons carry production state, progress and queue counts', () => {
@@ -36,7 +36,7 @@ test('icons carry production state, progress and queue counts', () => {
   factories(world);
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
   world.issue('atreides', { type: 'build', typeId: 'trike', count: 3 });
-  run(world, 5);
+  run(world, 2);
   const m = sidebarModel(world, 'atreides');
   const wt = m.structures.find((i) => i.typeId === 'windtrap');
   assert.equal(wt.state, 'building');
@@ -82,15 +82,15 @@ test('upgrades close the structure strip with their level, price, time and what 
   let m = sidebarModel(world, 'atreides');
   assert.deepEqual(m.structures.slice(-2).map((i) => i.typeId), ['upgrade:constructionYard', 'upgrade:lightFactory']);
   const up = m.structures.at(-1);
-  assert.deepEqual([up.line, up.icon, up.name, up.cost, up.seconds, up.state], ['light', 'upgrade:lightFactory:1', 'Light Factory upgrade', 200, 9, 'idle']);
+  assert.deepEqual([up.line, up.icon, up.name, up.cost, up.seconds, up.state], ['light', 'upgrade:lightFactory:1', 'Light Factory upgrade', 200, 5, 'idle']);
   assert.equal(up.note, 'Level 1 — unlocks Quad');
   assert.equal(m.structures[0].icon, 'concrete', 'other icons are keyed by their type');
   world.issue('atreides', { type: 'build', typeId: 'upgrade:lightFactory' });
-  run(world, 3);
+  run(world, 1.7);
   const busy = sidebarModel(world, 'atreides').structures.at(-1);
   assert.equal(busy.state, 'building');
   assert.ok(busy.progress > 0.3 && busy.progress < 0.36, `progress ${busy.progress}`);
-  run(world, 6.2);
+  run(world, 3.5);
   m = sidebarModel(world, 'atreides');
   assert.ok(!m.structures.some((i) => i.typeId === 'upgrade:lightFactory'), 'nothing more to buy');
   assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'quad']);
