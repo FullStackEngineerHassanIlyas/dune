@@ -1,13 +1,15 @@
-// The main menu backdrop's loop (menu backdrop spec): planet → dive → battle → rise, and what the fade
-// layer, the caption and the battle sound do at each moment. Pure functions of the phase and its clock.
+// The main menu backdrop's loop (menu backdrop spec, revision 2): planet → dive → battle → rise → emerge,
+// and what the fade layer, the caption and the battle sound do at each moment. Pure functions of the
+// phase and its clock. The dive and the rise are single continuous zooms: nothing covers them unless the
+// viewer asks for reduced motion, when they become plain haze crossfades.
 import { CUT_EVERY, DESCENT } from './showcase-camera.js';
 
-export const DURATIONS = { planet: 10, dive: 3, battle: 45, rise: 2 };
-const NEXT = { planet: 'dive', dive: 'battle', battle: 'rise', rise: 'planet' };
+export const DURATIONS = { planet: 10, dive: 4, battle: 45, rise: 3, emerge: 3.5 };
+const NEXT = { planet: 'dive', dive: 'battle', battle: 'rise', rise: 'emerge', emerge: 'planet' };
 /** Where a held phase (?backdrop=planet|battle, for screenshots) starts: past its opening fades (the battle, past its descent). */
 export const HOLD_AT = { planet: 3, battle: DESCENT + 0.5 };
-/** The haze between space and the battle: the renderer's fog colour. */
-export const HAZE = '#d9b98a';
+/** The haze between space and the battle: the renderer's fog colour as the post chain puts it on screen (measured deep in the fog), so a haze fade meets the picture with no step. */
+export const HAZE = '#d9c49b';
 
 const ramp = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
 
@@ -30,35 +32,41 @@ export class BackdropClock {
     return this.skip();
   }
 
-  /** Straight on to the next phase. */
+  /** Straight on to the next phase. Once the loop has moved on it is warm: no more black fade-ins. */
   skip() {
     this.phase = NEXT[this.phase];
     this.t = 0;
+    this.cold = false;
     if (this.phase === 'planet') this.cycle++;
     return this.phase;
   }
 
-  /** Back to the start of the loop (or of the held phase). */
+  /** Back to the start of the loop (or of the held phase), cold: the menu opening, or back from a skirmish. */
   restart() {
     this.phase = this.hold ?? 'planet';
     this.t = this.hold ? HOLD_AT[this.hold] : 0;
+    this.cold = true;
   }
 }
 
 /** The layer over the 3D picture: { color: 'black' | 'haze', opacity }. */
-export function fadeAt(phase, t, { durations = DURATIONS, reduced = false } = {}) {
+export function fadeAt(phase, t, { durations = DURATIONS, reduced = false, cold = false } = {}) {
   const d = durations[phase];
-  if (phase === 'planet') return { color: 'black', opacity: 1 - ramp(t, 0, 0.8) };
-  if (phase === 'dive') return { color: 'haze', opacity: reduced ? ramp(t, 0, d) : ramp(t, d - 0.8, d) };
-  if (phase === 'battle') {
-    let opacity = 1 - ramp(t, 0, reduced ? 1.5 : 1);
-    if (!reduced) {   // a dip at every cut, however long the battle is held; the opening fade covers t = 0
+  const haze = (opacity) => ({ color: 'haze', opacity });
+  switch (phase) {
+    case 'planet': return { color: 'black', opacity: cold ? 1 - ramp(t, 0, 0.8) : 0 };   // in from black on a cold start only
+    // The planet shader hazes itself on the way down and the zoom overlay covers the seams, so the zooms
+    // run uncovered; reduced motion swaps them for crossfades through the haze.
+    case 'dive': case 'rise': return haze(reduced ? ramp(t, 0, d) : 0);
+    case 'emerge': return haze(reduced ? 1 - ramp(t, 0, 1.5) : 0);
+    case 'battle': {
+      if (reduced) return haze(1 - ramp(t, 0, 1.5));
+      // a dip at every cut, however long the battle is held; none at t = 0, where the zoom carries straight on
       const c = Math.round(t / CUT_EVERY) * CUT_EVERY, u = t - c;
-      if (c >= CUT_EVERY) opacity = Math.max(opacity, u < 0 ? ramp(u, -0.3, 0) : 1 - ramp(u, 0, 0.45));
+      return haze(c >= CUT_EVERY ? (u < 0 ? ramp(u, -0.3, 0) : 1 - ramp(u, 0, 0.45)) : 0);
     }
-    return { color: 'haze', opacity };
+    default: return { color: 'black', opacity: 0 };
   }
-  return { color: 'black', opacity: ramp(t, 0, d) };   // rise
 }
 
 /** The caption's opacity: in after 1.5 s of the planet, out before the dive. */
