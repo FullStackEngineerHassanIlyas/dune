@@ -391,7 +391,7 @@ test('infantry clicked onto a badly damaged enemy building capture it while the 
   assert.equal(cursors.at(-1), 'attack', 'Outposts cannot be captured');
 });
 
-test('aircraft are picked at their flying height; a selected Carryall takes no orders', () => {
+test('aircraft are picked at their flying height; a selected Carryall flies where the player clicks', () => {
   const { world, c, issued } = setup();
   const o = world.spawnUnit('ornithopter', 'atreides', 3, 3);
   const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
@@ -400,9 +400,72 @@ test('aircraft are picked at their flying height; a selected Carryall takes no o
   c.candidates();
   assert.ok(lifts.includes(o.alt), 'projected at its height');
   c.selection.set([cy.id]);
-  const before = issued.length;
   c.onClick(px(8), px(12), 0, NONE, false);
-  assert.equal(issued.length, before, 'nothing ordered');
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 8, y: 12 });
+  assert.equal(c.cursorFor(c.hitTest(px(15), px(15))), 'move', 'over mountains too');
+});
+
+test('classic: with a Carryall selected, a click on an own vehicle lifts it (shift still selects); keys stop, return to duty, drop', () => {
+  const { world, tank, tank2, enemy, c, issued, cursors } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([cy.id]);
+  c.onMove(px(5), px(5));
+  c.frame();
+  assert.equal(cursors.at(-1), 'lift');
+  assert.equal(c.cursorFor(c.hitTest(px(12), px(5))), 'move', 'over an enemy: it flies there');
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'lift', ids: [cy.id], targetId: tank.id });
+  assert.deepEqual(c.selection.list(), [cy.id], 'still the Carryall selected');
+  c.onClick(px(7), px(5), 0, { ...NONE, shift: true }, false);
+  assert.deepEqual(c.selection.list(), [cy.id, tank2.id], 'shift-click adds to the selection');
+  c.selection.set([cy.id]);
+  for (const k of ['s', 'g', 'd']) c.onKey(k, `Key${k.toUpperCase()}`, NONE);
+  assert.deepEqual(issued.slice(-3), [{ type: 'stop', ids: [cy.id] }, { type: 'guard', ids: [cy.id] }, { type: 'deploy', ids: [cy.id] }]);
+  c.selection.set([tank.id, cy.id]);
+  c.onClick(px(10), px(9), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id, cy.id], x: 10, y: 9 }, 'a mixed group moves together');
+  c.onClick(px(7), px(5), 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [tank2.id], 'a mixed group: a click on a vehicle selects it');
+  assert.ok(enemy);
+});
+
+test('modern: right click on an own vehicle has the selected Carryall lift it; left click selects', () => {
+  const { world, tank, c, issued } = setup('modern');
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([cy.id]);
+  c.onClick(px(5), px(5), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'lift', ids: [cy.id], targetId: tank.id });
+  c.onClick(px(10), px(9), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 10, y: 9 });
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [tank.id]);
+});
+
+test('a Carryall with a load: the Repair Facility takes a worn one, a Refinery a Harvester', () => {
+  const { world, c, issued, cursors } = setup();
+  const bay = world.spawnStructure('repair', 'atreides', 1, 13);
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 13);
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  const t = world.spawnUnit('combatTank', 'atreides', 3, 10, { inside: cy.id });
+  cy.cargo = t.id;
+  t.hp = 50;
+  c.selection.set([cy.id]);
+  c.onMove(px(2), px(13));
+  c.frame();
+  assert.equal(cursors.at(-1), 'enter');
+  c.onClick(px(2), px(13), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'repairAt', ids: [cy.id], structureId: bay.id });
+  const h = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  world.map.unit[world.map.idx(h.tx, h.ty)] = 0;
+  h.inside = cy.id;
+  cy.cargo = h.id;
+  t.inside = 0;
+  c.onMove(px(11), px(13));
+  c.frame();
+  assert.equal(cursors.at(-1), 'move');
+  c.onClick(px(11), px(13), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id] });
+  assert.ok(ref);
 });
 
 test('over an enemy aircraft the cursor tells whether the selection can shoot upwards', () => {

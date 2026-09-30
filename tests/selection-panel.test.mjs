@@ -110,7 +110,7 @@ test('a repair facility tells which vehicle it is fixing and how far along it is
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.some((d) => /^Repairing Combat Tank \d+ %$/.test(d)));
 });
 
-test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall gets buttons', () => {
+test('a Carryall tells its job and offers Stop, Duty and Drop; an idle Ornithopter is hunting', () => {
   const world = flatWorld(24, 24, G.ROCK);
   const c = world.spawnUnit('carryall', 'atreides', 5, 5);
   const o = world.spawnUnit('ornithopter', 'atreides', 9, 9);
@@ -119,9 +119,24 @@ test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall
   sel.set([c.id]);
   let m = selectionPanelModel(world, sel, 'atreides');
   assert.ok(m.details.includes('Standing by'));
-  assert.deepEqual(m.buttons, []);
+  assert.deepEqual(m.buttons.map((b) => [b.id, b.label, !!b.active, !!b.disabled]), [['stop', 'Stop', false, false], ['guard', 'Duty', true, false], ['deploy', 'Drop', false, true]]);
   c.job = { stage: 'fetch', unit: t.id };
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Fetching Combat Tank'));
+  world.map.unit[world.map.idx(15, 15)] = 0;
+  t.inside = c.id;
+  c.cargo = t.id;
+  c.job = { stage: 'hold', x: 5.5, y: 5.5 };
+  c.manual = true;
+  m = selectionPanelModel(world, sel, 'atreides');
+  assert.ok(m.details.includes('Holding Combat Tank'), m.details.join());
+  assert.deepEqual(m.buttons.map((b) => [b.id, !!b.active, !!b.disabled]), [['stop', false, false], ['guard', false, false], ['deploy', false, false]], 'off duty, with a load to drop');
+  c.job = null;
+  c.cargo = 0;
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Holding position'));
+  const visitor = world.spawnUnit('carryall', 'atreides', 20, 20);
+  visitor.visitor = true;
+  sel.set([visitor.id]);
+  assert.deepEqual(selectionPanelModel(world, sel, 'atreides').buttons, [], 'a visitor only delivers');
   sel.set([o.id]);
   m = selectionPanelModel(world, sel, 'atreides');
   assert.ok(m.details.includes('Hunting'));
