@@ -44,7 +44,7 @@ test('an idle Carryall ferries a harvester on a long trip to its spice field', (
   assert.ok(runUntil(world, () => !h.inside, 30) > 0, 'set down');
   assert.ok(h.tx >= 33, `near the field at ${h.tx},${h.ty}`);
   assert.ok(runUntil(world, () => h.harvest.state === 'harvesting', 20) >= 0, 'harvesting right where it was set down');
-  assert.ok(runUntil(world, () => !c.job && Math.hypot(c.x - 5.5, c.y - 5) < 2, 30) > 0, 'back home');
+  assert.ok(runUntil(world, () => !c.job && Math.hypot(c.x - 9.5, c.y - 12.8) < 2, 30) > 0, 'back to wait over the Refinery');
 });
 
 test('a Carryall flies a damaged vehicle to a distant Repair Facility', () => {

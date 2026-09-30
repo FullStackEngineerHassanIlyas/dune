@@ -52,7 +52,7 @@ test('a move order sends an Ornithopter to the spot, where it circles on guard',
   assert.ok(Math.hypot(o.x - 30.5, o.y - 30.5) < 2 * AIR.orbit + 0.5, 'still over the spot');
 });
 
-test('Carryalls take no orders; idle, they hover over their Hi-Tech Factory', () => {
+test('a new Carryall waits over its Hi-Tech Factory (no Refinery or Repair Facility yet) until the player sends it off', () => {
   const world = flatWorld(40, 40, G.ROCK);
   const h = world.houses.get('atreides');
   h.credits = 5000;
@@ -64,9 +64,11 @@ test('Carryalls take no orders; idle, they hover over their Hi-Tech Factory', ()
   const c = [...world.units.values()].find((u) => u.typeId === 'carryall');
   assert.ok(c.alt < AIR.cruise && Math.hypot(c.x - 11.5, c.y - 11) < 1.5, 'lifts off the factory');
   assert.equal(c.home, hq.id);
-  world.issue('atreides', { type: 'move', ids: [c.id], x: 35, y: 35 });
   run(world, 3);
-  assert.equal(c.order.type, 'idle');
   assert.equal(c.alt, AIR.cruise);
   assert.ok(Math.hypot(c.x - 11.5, c.y - 10.8) < 1, `hovering over the factory at ${c.x},${c.y}`);
+  world.issue('atreides', { type: 'move', ids: [c.id], x: 35, y: 35 });
+  run(world, 7);
+  assert.equal(c.order.type, 'idle', 'no ordinary order: its own');
+  assert.ok(Math.hypot(c.x - 35.5, c.y - 35.5) < 0.1, `sent off to 35,35: at ${c.x},${c.y}`);
 });

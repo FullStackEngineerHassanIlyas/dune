@@ -5,7 +5,7 @@
 // unit and costs a quarter of its price, both in proportion to the damage; low power slows it like
 // production and it pauses without credits. Then the vehicle drives out the way it came (or by the
 // nearest free tile on the same ground) and heads for the facility's rally point, or back to
-// harvesting. The others wait close by. Infantry and aircraft cannot use it. The vehicle shares the
+// harvesting, or — when a Carryall on duty brought it in — back to where it was picked up. The others wait close by. Infantry and aircraft cannot use it. The vehicle shares the
 // bay's fate: destroyed with it, pushed out when the facility is sold, captured along with it.
 import { DT, buildSeconds, UNIT_REPAIR_COST, BAY_DRIVE_SECONDS } from '../data/tuning.js';
 import { spend } from './economy.js';
@@ -176,13 +176,15 @@ function repair(world, s, u, bay) {
 }
 
 function release(world, s, u) {
+  const back = u.order.back;   // lifted off the battlefield by a Carryall on duty: back to that spot
   u.inside = 0;
   u.x = s.bay.toX;
   u.y = s.bay.toY;
   s.occupant = 0;
   s.bay = null;
   standDown(u);
-  if (u.order.type !== 'harvest' && s.rally) orderMove(world, [u], s.rally.x, s.rally.y);
+  if (u.order.type !== 'harvest' && back) { orderMove(world, [u], back.x, back.y); callCarryall(world, u, back); }   // by air if that is quicker
+  else if (u.order.type !== 'harvest' && s.rally) orderMove(world, [u], s.rally.x, s.rally.y);
   else if (u.order.type !== 'harvest') {   // no rally point: clear the doorway for the next one
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2, d = Math.hypot(u.x - cx, u.y - cy) || 1;
     const spot = findFreeTile(world, Math.round(u.x + ((u.x - cx) / d) * 2 - 0.5), Math.round(u.y + ((u.y - cy) / d) * 2 - 0.5), u.move, 2);
