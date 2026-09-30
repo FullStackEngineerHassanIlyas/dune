@@ -129,7 +129,7 @@ listed in `assets/voice/manifest.json`. They were rendered offline by `scripts/v
 the lines in `scripts/voices/lines.json` (its header says how to rerun it), with the
 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) neural text-to-speech model (weights and voices
 Apache-2.0) run through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT), voices
-`af_heart` (Atreides), `am_fenrir` (Harkonnen), `bf_emma` (Ordos) and `am_michael` (units), then shaped
+`af_heart` (Atreides), `am_fenrir` slowed like a tape (Harkonnen), `af_bella` (Ordos) and `am_michael` (units), then shaped
 with ffmpeg (band-limit, presence, compression, a short console room or a field radio, loudness
 normalised to −16 LUFS). espeak-ng (GPL-3.0) turned the text into phonemes at generation time only; it is
 not part of the game. The generated lines are distributed with this project under the same terms as its

@@ -13,7 +13,7 @@ Reproduce (nothing lands in the repo but assets/voice):
   curl -LO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
   curl -LO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
   /tmp/tts/.venv/bin/python scripts/voices/generate.py --models <dir with both files> [--sets atreides,units] [--only building,unitReady]
-Needs ffmpeg with libopus and librubberband on the PATH. Licences: see README.md, "Announcer voices".
+Needs ffmpeg with libopus on the PATH. Licences: see README.md, "Announcer voices".
 """
 import argparse, json, os, re, subprocess, sys, tempfile
 import numpy as np
@@ -36,13 +36,15 @@ SETS = {
                   'acompressor=threshold=-24dB:ratio=3:attack=4:release=90:makeup=3', CONSOLE_ROOM],
     },
     'harkonnen': {   # deep and harsh
-        'voice': 'am_fenrir', 'lang': 'en-us', 'speed': 0.9, 'role': 'announcer',   # pitched and formant-shifted down, with some grit
-        'chain': ['rubberband=pitch=0.9:formant=shifted', 'highpass=f=80:p=1', 'lowpass=f=9000:p=1', 'equalizer=f=300:t=q:w=1:g=-2',
+        # played at 88 % speed like a slowed tape (pitch and formants down together, no time-stretch artefacts: a
+        # rubberband pitch shift left a sound after the last word, heard as 'Low-powered'), with some grit
+        'voice': 'am_fenrir', 'lang': 'en-us', 'speed': 0.98, 'role': 'announcer',
+        'chain': ['asetrate=21120', 'aresample=24000', 'highpass=f=80:p=1', 'lowpass=f=9000:p=1', 'equalizer=f=300:t=q:w=1:g=-2',
                   'equalizer=f=2500:t=q:w=1.2:g=5', 'equalizer=f=5000:t=q:w=1.2:g=3', 'volume=9dB', 'asoftclip=type=atan:threshold=0.6:output=1',
                   'volume=-6dB', 'acompressor=threshold=-22dB:ratio=5:attack=3:release=70:makeup=3', 'aecho=0.85:0.5:9|21|37:0.18|0.1|0.05'],
     },
-    'ordos': {   # cool and precise
-        'voice': 'bf_emma', 'lang': 'en-gb', 'speed': 1.0, 'role': 'announcer',
+    'ordos': {   # cool and precise (bf_emma was tried first: it breathes after its last word, heard as 'Unit laster')
+        'voice': 'af_bella', 'lang': 'en-us', 'speed': 1.0, 'role': 'announcer',
         'chain': ['highpass=f=150:p=1', 'lowpass=f=10500:p=1', 'equalizer=f=300:t=q:w=1:g=-3', 'equalizer=f=5200:t=q:w=1.2:g=2.5',
                   'aecho=0.9:0.45:4.5:0.22', 'acompressor=threshold=-24dB:ratio=3.5:attack=3:release=80:makeup=3', 'aecho=0.85:0.5:11|25|41:0.14|0.08|0.04'],
     },
