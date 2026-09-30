@@ -67,8 +67,8 @@ try {
   await page.mouse('mouseMoved', 700, -30, { button: 'none', held: 'none' });
   await sleep(600);
   let cam1 = await g('camera()');
-  await sleep(400);
-  const cam2 = await g('camera()');
+  let cam2 = cam1;
+  for (let i = 0; i < 50 && cam2.z > cam1.z - 1; i++) { await sleep(100); cam2 = await g('camera()'); }   // headless GL draws a few frames a second
   check('the pointer pushed out past the top edge keeps the map scrolling north', cam1.z < cam0.z - 1 && cam2.z < cam1.z - 0.5, `${cam0.z.toFixed(1)} → ${cam1.z.toFixed(1)} → ${cam2.z.toFixed(1)}`);
   await page.mouse('mouseMoved', 700, 400, { button: 'none', held: 'none' });
   await sleep(300);
