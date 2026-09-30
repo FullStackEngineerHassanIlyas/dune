@@ -53,3 +53,22 @@ test('the same seed plays the same battle', () => {
   const units = (d) => [...d.world.units.values()].map((u) => [u.typeId, u.tx, u.ty, u.hp]);
   assert.deepEqual(units(a), units(b));
 });
+
+test('the fight never runs dry: both sides keep fighters for three minutes and reinforcements come', () => {
+  const d = new ShowcaseDirector({ seed: 11 });
+  for (let k = 0; k < 18; k++) {
+    d.run(10);
+    for (const s of [0, 1]) assert.ok(fighters(d, s).length > 0, `side ${s} empty at ${d.world.time.toFixed(0)} s`);
+  }
+  assert.ok(d.reinforced > 0);
+});
+
+test('the hotspot follows the shooting, among the armies, and stays on the map', () => {
+  for (const seed of [5, 9]) {
+    const d = new ShowcaseDirector({ seed });
+    d.run(SHOWCASE.lead + 10);
+    const { x, z } = d.hotspot;
+    assert.ok(z >= 0 && z <= SHOWCASE.h, `z ${z}`);
+    assert.ok(x > 12 && x < SHOWCASE.w - 12, `seed ${seed}: x ${x.toFixed(1)} sits at a base`);
+  }
+});
