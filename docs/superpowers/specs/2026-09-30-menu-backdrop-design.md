@@ -48,10 +48,11 @@ Everything between a `World` and the picture that is not input or HUD:
   `MissileViews`;
 - event handling for effects and sound cues (`onEvent`, `onFired`), `combatEffects`, `ambient`,
   `constructionDust` and the fog-aware `seen(x, z)`;
-- `sync(world, alpha, dt, now)` for the per-frame view update, and `dispose()`.
+- `sync(alpha, dt, now)` for the per-frame view update, and `dispose()`.
 
-All of its scene objects hang under one root `THREE.Group`, so `dispose()` can remove them and free
-their geometries, materials and textures in one pass.
+All of its scene objects hang under one root `THREE.Group`, so `dispose()` can remove them in one
+pass. It frees what the stage alone owns (its instanced meshes, particle pools, flash lights, and
+the terrain's geometry, materials and textures), sparing the shared model geometry and materials.
 
 `GameView` keeps input, HUD, sidebar, radar, menus, the fixed-step loop and the camera rig. It hands
 the views, effects and event handling to a `BattleStage`. The game must behave exactly as before;

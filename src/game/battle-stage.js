@@ -2,6 +2,7 @@
 // unit, structure and missile views, particle effects, tracks and dust, and the sound cues of
 // simulation events. The game view and the main menu's battle both draw through one. All of its
 // scene objects hang under `root`, so dispose() can take a finished battle off the GPU.
+// `catchingUp` gates only onEvent's effects and sounds; sync() always draws.
 import * as THREE from 'three';
 import { terrainSubFor } from '../render/quality.js';
 import { Heightfield } from '../render/heightfield.js';
@@ -21,12 +22,12 @@ export class BattleStage {
   /**
    * world: the simulation. scene: where `root` goes. quality: the renderer's preset. viewer: the house
    * whose fog decides what shows (null: everything). sound: a SoundEngine, or null for silence.
-   * rig: the CameraRig (dust and tracks only near what it looks at). onShake(amount): big blasts.
+   * rig: required; only its `target` and `distance` are read, to keep dust and tracks near the camera.
+   * onShake(amount): big blasts.
    */
   constructor({ world, scene, quality, viewer = null, sound = null, rig, onShake = () => {} }) {
     Object.assign(this, { world, scene, viewer, sound, rig, onShake });
     this.root = new THREE.Group();
-    scene.add(this.root);
     const hf = (this.hf = new Heightfield(world.map, { sub: terrainSubFor(world.map.w, quality), seed: world.map.seed }));
     this.heightAt = (x, z) => hf.heightAt(x, z);
     this.terrain = new TerrainView(world.map, hf);
@@ -40,16 +41,19 @@ export class BattleStage {
     this.dustClock = 0;
     this.weldClock = 0;
     this.trackFrom = new Map();
-    this.catchingUp = true;   // events simulated ahead: marks yes, fireworks no — the owner clears it after the first drain
+    this.catchingUp = true;   // events simulated ahead: marks yes, fireworks and sound no — cleared when the battle goes live
+    this.disposed = false;
+    scene.add(this.root);   // last, so a constructor that throws leaves nothing in the caller's scene
   }
 
   /** One simulation event: its sound, its effect, and what it changes on the ground. */
-  onEvent(e) {
+  onEvent(e, now = performance.now()) {
+    if (this.disposed) return;
     if (!this.catchingUp && this.sound) {
       const cue = cueFor(e, this.viewer, (x, z) => this.seen(x, z));
       if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null, rate: 0.94 + Math.random() * 0.12 });
     }
-    if (e.type === 'unitBuilt') this.structureViews.notify(e, performance.now());
+    if (e.type === 'unitBuilt') this.structureViews.notify(e, now);
     if (e.type === 'structurePlaced') {
       const s = this.world.structures.get(e.id);
       if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
@@ -102,13 +106,14 @@ export class BattleStage {
 
   /** The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. */
   sync(alpha, dt, now) {
+    if (this.disposed) return;
     const world = this.world;
     if (world.fogOfWar && this.shroud.update(world.houses.get(this.viewer)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, (x, z) => this.seen(x, z));
-    this.ambient(dt);
+    this.ambient(dt, now);
     this.effects.update(dt);
     this.terrain.update(now);
   }
@@ -144,7 +149,7 @@ export class BattleStage {
   }
 
   /** Dust behind vehicles on sand, tread marks and harvest dust (spec §5.4). */
-  ambient(dt) {
+  ambient(dt, now) {
     const w = this.world, map = w.map, rig = this.rig;
     this.dustClock += dt;
     const puff = this.dustClock >= 0.09;
@@ -174,7 +179,7 @@ export class BattleStage {
       this.weldClock = 0;
       for (const s of w.structures.values()) {
         if (!s.bay || !nearCamera(s.x + s.w / 2, s.y + s.h / 2, rig.target.x, rig.target.z, rig.distance) || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
-        const p = this.structureViews.weldPoint(s.id, performance.now());
+        const p = this.structureViews.weldPoint(s.id, now);
         if (p) this.effects.weld(p.x, p.y, p.z);
       }
     }
@@ -190,7 +195,9 @@ export class BattleStage {
 
   /** Takes the whole battle off the scene and frees what it alone owns. */
   dispose() {
-    this.scene.remove(this.root);
+    if (this.disposed) return;
+    this.disposed = true;
+    this.root.removeFromParent();
     this.unitViews.dispose();
     this.structureViews.dispose();
     this.missiles.dispose();
