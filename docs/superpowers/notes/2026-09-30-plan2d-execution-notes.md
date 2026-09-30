@@ -8,6 +8,11 @@ Branch `feat/plan2d-specials-palace`. It holds 11 task commits on top of master 
 merge into master have not been done.** The manager paused the work at this point and asked for the
 remaining steps to be written down. Those steps are listed below under "What remains".
 
+The branch also carries `feat/menu-controls`, merged in at `413a11e`. That work came from the Dune-ux
+worktree: the main menu with skirmish set-up and options, C&C-style cursors, and edge scrolling. It
+was verified at `64b1089` with unit 475/475, e2e 29/29 and `npm run e2e:menu` all passing. Merging
+this branch into master brings that work in as well.
+
 What landed:
 - **The Sonic Tank.** Its wave travels up to 8 tiles and hurts everything on its path, friends
   included. Only Sonic Tanks and walls are spared.
