@@ -15,7 +15,7 @@ import { readParams } from '../core/params.js';
 
 const LAYOUT = [
   ['constructionYard', 1, 1], ['windtrap', 4, 1], ['refinery', 7, 1], ['silo', 11, 1], ['outpost', 14, 1], ['repair', 17, 1],
-  ['barracks', 1, 5], ['wor', 4, 5], ['lightFactory', 7, 5], ['heavyFactory', 10, 5], ['turret', 14, 5], ['rocketTurret', 16, 5], ['hiTech', 18, 5], ['starport', 8, 9], ['ix', 12, 9], ['palace', 16, 9],
+  ['barracks', 1, 5], ['wor', 4, 5], ['heavyFactory', 8, 5], ['turret', 14, 5], ['rocketTurret', 16, 5], ['hiTech', 18, 5], ['starport', 8, 9], ['ix', 12, 9], ['palace', 16, 9],
 ];
 
 export async function start({ search }) {

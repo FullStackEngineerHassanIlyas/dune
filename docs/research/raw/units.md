@@ -317,6 +317,10 @@ No prose source describes the pixel appearance of Rocket/ARocket/GRocket/MiniRoc
 
 ## Sega Genesis vs. PC differences
 
+> **Remake note (2026-10-01):** the remake follows the Genesis on factories: every "Light Vehicle
+> Factory" and "Heavy Vehicle Factory" unit above is built at its single Heavy Factory, whose upgrade
+> levels are 1 Quad, 2 MCV, 3 Launcher (Missile Tank), 4 Siege Tank (spec §4.5).
+
 Comparing OpenDUNE's exact PC/DOS values (`src/table/unitinfo.c`) against the official 1993 Sega Genesis "Dune: The Battle for Arrakis" NTSC manual and Ledmeister's cartridge-verified technical reference (the two most detailed and mutually-consistent Genesis sources found).
 
 ### Roster / naming

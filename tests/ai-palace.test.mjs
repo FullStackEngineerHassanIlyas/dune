@@ -83,7 +83,7 @@ test('Fremen are never drafted into an AI wave', () => {
 test('the computer builds a Palace once its House of IX stands, and fields its House special', () => {
   assert.ok(ARMY_WEIGHTS.sonicTank > 0 && ARMY_WEIGHTS.devastator > 0 && ARMY_WEIGHTS.deviator > 0);
   const world = flatWorld(56, 44, G.ROCK);
-  const layout = [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['refinery', 6, 6], ['outpost', 10, 6], ['wor', 13, 6], ['lightFactory', 16, 6], ['heavyFactory', 2, 10], ['silo', 6, 10], ['repair', 9, 10], ['hiTech', 13, 10], ['turret', 17, 10], ['turret', 18, 10], ['starport', 2, 14], ['ix', 6, 14]];
+  const layout = [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['refinery', 6, 6], ['outpost', 10, 6], ['wor', 13, 6], ['heavyFactory', 2, 10], ['silo', 6, 10], ['repair', 9, 10], ['hiTech', 13, 10], ['turret', 17, 10], ['turret', 18, 10], ['starport', 2, 14], ['ix', 6, 14]];
   for (const [t, x, y] of layout) world.spawnStructure(t, 'harkonnen', x, y);
   const h = world.houses.get('harkonnen');
   h.credits = 20000;

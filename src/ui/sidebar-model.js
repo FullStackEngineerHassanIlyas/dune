@@ -10,7 +10,7 @@ import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon } from '../sim/palace.js';
 import { itemSeconds } from '../sim/production.js';
 
-const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
+const UNIT_LINES = ['infantry', 'heavy', 'air'];
 
 export function powerLevel({ produced, used }) {
   if (used <= produced) return 'ok';

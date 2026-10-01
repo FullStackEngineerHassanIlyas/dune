@@ -26,7 +26,7 @@ model and look at the images it cites before building. The reference implementat
   house-neutral: the only house colour is the beacon orb** — `houseOrb(b, -w / 2 + 0.25, T, h / 2 - 0.25)`
   in the south-west corner of every 2×2 and larger structure (not on turrets, walls or slabs). No house
   bands or stripes on structures. Small lights are blue/cyan, yellow or amber as the sprite has them.
-- **Structures without Genesis art** (WOR, House of IX, Light Factory) and the Hi-Tech Factory (2×2 on
+- **Structures without Genesis art** (WOR, House of IX, Light Factory — dropped on 2026-10-01 when the factories merged) and the Hi-Tech Factory (2×2 on
   the Genesis, 3×2 here) follow the Genesis-style proposals in visual-structures.md; the Heavy Factory
   is the Genesis Vehicle Factory. Light comes from the north-west in the sprites; our scene light is
   fixed (do not change the renderer), so model real height and chamfers and let the scene light them.

@@ -71,6 +71,10 @@ credits, Refineries and Silos store them. A Harvester drives into its Refinery's
 repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
 
+Vehicles come from one factory, as on the Genesis: the Heavy Factory, on offer as soon as a Refinery
+stands, builds trikes and quads as well as tanks, Harvesters and the MCV, one at a time from one strip.
+A second Heavy Factory speeds that line up by a quarter; vehicles leave by the primary one.
+
 Factory upgrades show up at the end of the structure strip with a gold arrow and the level they reach:
 they are paid and timed like a build on the factory's own line and open better units (Quad, squads,
 MCV, Missile and Siege Tanks) and the Large Concrete Slab and Rocket Turret. A Repair Facility fixes one

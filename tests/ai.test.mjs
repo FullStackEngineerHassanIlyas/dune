@@ -24,11 +24,15 @@ test('the AI deploys its MCV and builds power and a refinery first', () => {
 test('the AI follows its build order and keeps its power up', () => {
   const { world, rival } = setupSkirmish({ seed: 5, enemy: 'harkonnen' });
   createBrain(world, rival, 'normal');
-  run(world, 600);
+  const short = [];
+  for (let s = 0; s < 600; s++) {   // never short: a Wind Trap goes up before a building that would overdraw
+    run(world, 1);
+    const p = computePower(world, rival);
+    if (p.produced < p.used) short.push(`${world.time.toFixed(0)} s ${p.produced}/${p.used}`);
+  }
   const n = owned(world, rival);
-  for (const t of ['outpost', 'wor', 'lightFactory', 'heavyFactory']) assert.ok(n[t] >= 1, `${t} in ${JSON.stringify(n)}`);
-  const p = computePower(world, rival);
-  assert.ok(p.produced >= p.used, `power ${p.produced}/${p.used}`);
+  for (const t of ['outpost', 'wor', 'heavyFactory']) assert.ok(n[t] >= 1, `${t} in ${JSON.stringify(n)}`);
+  assert.deepEqual(short, [], 'power');
 });
 
 test('an AI without room or money does not spam commands', () => {
@@ -163,19 +167,18 @@ import { upgradeLevel } from '../src/sim/tech.js';
 
 test('an AI buys factory upgrades and fields the units they open', () => {
   const world = flatWorld(48, 40, G.ROCK);
-  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['lightFactory', 9, 6], ['heavyFactory', 12, 6]]) world.spawnStructure(t, 'atreides', x, y);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['heavyFactory', 9, 6]]) world.spawnStructure(t, 'atreides', x, y);
   const h = world.houses.get('atreides');
   h.credits = 20000;
   h.startBuffer = 40000;
   createBrain(world, 'atreides', 'normal');
-  assert.ok(runUntil(world, () => upgradeLevel(h, 'heavyFactory') >= 3, 400) > 0, `heavy factory level ${upgradeLevel(h, 'heavyFactory')}`);
-  assert.ok(runUntil(world, () => upgradeLevel(h, 'lightFactory') >= 1, 120) >= 0, 'the light factory too');
+  assert.ok(runUntil(world, () => upgradeLevel(h, 'heavyFactory') >= 4, 400) > 0, `heavy factory level ${upgradeLevel(h, 'heavyFactory')}`);
   assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && (u.typeId === 'siegeTank' || u.typeId === 'missileTank')), 300) > 0, 'a missile or siege tank rolled out');
 });
 
 test('the AI builds a repair facility and sends worn vehicles to it', () => {
   const world = flatWorld(48, 40, G.ROCK);
-  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['heavyFactory', 12, 6], ['silo', 2, 10], ['refinery', 5, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
   const h = world.houses.get('harkonnen');
   h.credits = 5000;
   h.startBuffer = 10000;
@@ -208,7 +211,7 @@ test('the AI does not take a vehicle in a repair bay for an intruder', () => {
 
 test('the AI builds a Hi-Tech Factory and keeps exactly one Carryall', () => {
   const world = flatWorld(48, 40, G.ROCK);
-  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['wor', 9, 6], ['heavyFactory', 12, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10]]) world.spawnStructure(t, 'harkonnen', x, y);
   const h = world.houses.get('harkonnen');
   h.credits = 8000;
   h.startBuffer = 20000;
@@ -235,7 +238,7 @@ test('the AI does not pull a worn vehicle it just sent for repairs into its defe
 
 test('the AI puts up a Starport and a House of IX and then flies Ornithopters', () => {
   const world = flatWorld(56, 44, G.ROCK);
-  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['barracks', 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, 'atreides', x, y);
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['barracks', 9, 6], ['heavyFactory', 12, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, 'atreides', x, y);
   const h = world.houses.get('atreides');
   h.credits = 20000;
   h.startBuffer = 40000;
@@ -262,7 +265,7 @@ test('aircraft of a wave that end up guarding are sent on to the next target', (
 test('the AI puts its turrets up before a Starport; the Harkonnen go for a House of IX too, for the Devastator', () => {
   const base = (house, infantry) => {
     const world = flatWorld(56, 44, G.ROCK);
-    for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], [infantry, 9, 6], ['lightFactory', 12, 6], ['heavyFactory', 15, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, house, x, y);
+    for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['outpost', 6, 6], [infantry, 9, 6], ['heavyFactory', 12, 6], ['silo', 2, 10], ['refinery', 5, 10], ['repair', 9, 10], ['hiTech', 13, 10]]) world.spawnStructure(t, house, x, y);
     const h = world.houses.get(house);
     h.credits = 20000;
     h.startBuffer = 40000;

@@ -24,7 +24,7 @@ test('bigger and stronger structures still take longer; the late-game ones keep 
   for (const a of ids) for (const b of ids) {
     if (STRUCTURES[a].buildTime < STRUCTURES[b].buildTime) assert.ok(itemSeconds(a) <= itemSeconds(b), `${a} before ${b}`);
   }
-  for (const id of ['hiTech', 'starport', 'ix', 'palace', 'heavyFactory']) assert.equal(itemSeconds(id), buildSeconds(STRUCTURES[id].buildTime), id);
+  for (const id of ['hiTech', 'starport', 'ix', 'palace']) assert.equal(itemSeconds(id), buildSeconds(STRUCTURES[id].buildTime), id);
   assert.equal(itemSeconds('combatTank'), buildSeconds(UNITS.combatTank.buildTime), 'units keep their build times');
 });
 
@@ -83,7 +83,7 @@ test('cancelling the unit set aside refunds what it had paid', () => {
   assert.ok(Math.abs(h.credits - (5000 - h.lines.heavy.current.paid)) < 1e-6, `credits ${h.credits}: all but the upgrade so far refunded`);
   run(world, 5.1);
   assert.equal(upgradeLevel(h, 'heavyFactory'), 1);
-  assert.ok(Math.abs(h.credits - 4700) < 1e-6, 'only the upgrade was paid for');
+  assert.ok(Math.abs(h.credits - 4800) < 1e-6, 'only the upgrade was paid for');   // the Heavy Factory's first level costs 200 (one factory)
   assert.equal(h.lines.heavy.current, null);
 });
 

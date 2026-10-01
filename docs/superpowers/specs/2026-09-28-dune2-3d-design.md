@@ -19,9 +19,11 @@ Date: 2026-09-28 · Status: draft for manager review · Research: `docs/research
 2. Content follows Dune II: three houses, the full unit and structure roster, the tech tree and
    factory upgrades, 9-mission campaigns, spice economy, sandworms, spice blooms, Starport,
    Palace weapons. Numbers come from the original tables (OpenDUNE), converted to real time.
-3. The PC tech tree is used (House of IX, separate Light and Heavy Factory, Starport), because it
-   gives more strategy than the simplified Genesis tree. The Sega influence shows in the look:
-   bold house colours, chunky readable silhouettes, the Genesis name "Missile Tank".
+3. The PC tech tree is used (House of IX, Starport), because it gives more strategy than the
+   simplified Genesis tree — except for the factories: as on the Genesis there is one vehicle
+   factory, the Heavy Factory, and no Light Factory (§4.5; changed 2026-10-01 at the manager's
+   request). The Sega influence shows in the look: bold house colours, chunky readable
+   silhouettes, the Genesis name "Missile Tank".
 4. C&C conveniences are added on top of the Dune II rules: multi-select, control groups, sell,
    rally points, production queues, attack-move.
 5. Original audio is EA copyright and cannot be downloaded legitimately, so the game ships its own
@@ -125,7 +127,7 @@ copies them verbatim and `tuning.js` converts them.
 | Ground speed (tiles/s) | `(base + speedFactor / 24) × terrain / 192`, base 0.25 for vehicles and 0.6 for foot soldiers — terrain value from the original movement table (sand 112–160, rock 112–160, concrete 255, mountain 64 for infantry, 0 = blocked). Keeps infantry from being unbearably slow while preserving the original order; a Combat Tank still outruns every foot soldier but the Saboteur. |
 | Air speed (tiles/s) | `speedFactor / 40` (Carryall 5, Ornithopter 3.75, Frigate 3.25) |
 | Fire delay (s) | `fireDelay / 40` (Combat Tank 2.0 s, Soldier 1.1 s, Launcher 3.0 s) |
-| Build time (s) | Units: `buildTime × 0.45` at Normal speed (Combat Tank ≈ 29 s). Structures below 120 steps: `buildTime × 0.45 × buildTime / 120`, at least 2 s (Wind Trap ≈ 9 s, wall ≈ 6 s, Refinery 24 s); 120 and above as units (Heavy Factory ≈ 65 s). Upgrades 5 s, starting at once (notes/2026-10-01-pacing.md) |
+| Build time (s) | Units: `buildTime × 0.45` at Normal speed (Combat Tank ≈ 29 s). Structures below 120 steps: `buildTime × 0.45 × buildTime / 120`, at least 2 s (Wind Trap ≈ 9 s, wall ≈ 6 s, Refinery 24 s); 120 and above as units (Hi-Tech Factory ≈ 54 s). Upgrades 5 s, starting at once (notes/2026-10-01-pacing.md) |
 | Sight radius | original `fogUncoverRadius + 1` for units, original value for structures |
 | Game speed | Slowest 0.5 · Slow 0.75 · Normal 1 · Fast 1.25 · Fastest 1.5 |
 
@@ -172,10 +174,18 @@ copies them verbatim and `tuning.js` converts them.
   structure starts at `100 % − 50 % × (tiles not on concrete / footprint tiles)` HP. The ghost
   preview shows green (concrete), yellow (bare rock, HP penalty) and red (invalid) cells.
 - **Production lines** (C&C sidebar): structures (Construction Yard); infantry (Barracks / WOR);
-  light vehicles (Light Factory); heavy vehicles (Heavy Factory); aircraft (Hi-Tech Factory);
-  Starport orders. Lines run in parallel; each line builds one item at a time with a queue of up
-  to 9. Cost is paid progressively; with no credits the line pauses ("Insufficient funds").
-  Each extra factory of a line's type adds 25 % speed (cap 2×).
+  vehicles, light and heavy (Heavy Factory); aircraft (Hi-Tech Factory); Starport orders. Lines
+  run in parallel; each line builds one item at a time with a queue of up to 9. Cost is paid
+  progressively; with no credits the line pauses ("Insufficient funds").
+  Each extra factory of a line's type adds 25 % speed (cap 2×); units leave by the primary one.
+- **One vehicle factory** (as on the Genesis, where the Vehicle Factory builds light and heavy
+  units): the PC Light Factory is left out. The Heavy Factory takes its place in the tree — after a
+  Refinery, tech 3 (2 for Atreides and Ordos), cost 400 and 96 steps, so the first vehicle comes as
+  early as from the PC Light Factory — and keeps its own 3×2 hall, 200 HP and 35 power. It builds
+  every ground vehicle on one line: one strip of icons, one build at a time, light vehicles first.
+  Its upgrade ladder folds both factories' (table below). The Combat Tank and the Harvester come
+  with the factory, earlier than in the PC tree, where they waited for a Light Factory, an Outpost
+  and a Heavy Factory.
 - **Upgrades** (Dune II): appear as their own icons in the structure strip and are paid and timed
   like a build.
 
@@ -185,25 +195,25 @@ copies them verbatim and `tuning.js` converts them.
 | Construction Yard 2 | 200 | Rocket Turret |
 | Barracks 1 | 150 | Infantry squad |
 | WOR 1 | 200 | Trooper squad |
-| Light Factory 1 | 200 | Quad (Harkonnen starts upgraded) |
-| Heavy Factory 1 / 2 / 3 | 300 each | MCV / Missile Tank / Siege Tank (Ordos' third level is free) |
+| Heavy Factory 1 | 200 | Quad (Harkonnen starts upgraded; the PC Light Factory's level) |
+| Heavy Factory 2 / 3 / 4 | 300 each | MCV / Missile Tank / Siege Tank (the Ordos get level 4 with level 3) |
 | Hi-Tech Factory 1 | 250 | Ornithopter (never for Harkonnen) |
 
-- **Prerequisites** (Wind Trap implied for all): Refinery ← Wind Trap; Silo, Light Factory,
+- **Prerequisites** (Wind Trap implied for all): Refinery ← Wind Trap; Silo, Heavy Factory,
   Starport ← Refinery; Outpost ← Wind Trap; Barracks, WOR, Wall, Gun Turret ← Outpost;
-  Heavy Factory, Hi-Tech, Repair Facility ← Light Factory + Outpost; House of IX ← Starport;
+  Hi-Tech, Repair Facility ← Heavy Factory + Outpost; House of IX ← Starport;
   Palace ← Starport; Rocket Turret ← Outpost + Construction Yard level 2.
 - **Tech level** (campaign mission number, or a skirmish option 1–9) gates structures:
-  1 Wind Trap, Refinery, Concrete · 2 Barracks/WOR, Silo, Outpost · 3 Light Factory ·
-  4 Heavy Factory, Wall, large concrete · 5 Hi-Tech, Repair, Gun Turret, second infantry
-  building · 6 Starport · 7 House of IX · 8 Palace.
+  1 Wind Trap, Refinery, Concrete · 2 Barracks/WOR, Silo, Outpost · 3 Heavy Factory ·
+  4 Wall, large concrete · 5 Hi-Tech, Repair, Gun Turret, second infantry building ·
+  6 Starport · 7 House of IX · 8 Palace. Heavy Factory upgrade levels 1–4 at tech 3–6.
 - **House rosters**
 
 | | Atreides | Harkonnen | Ordos |
 |---|---|---|---|
 | Infantry | Barracks: Soldier, Infantry | WOR: Trooper, Troopers | both |
-| Light vehicles | Trike, Quad | Quad | Raider Trike, Quad |
-| Heavy vehicles | Combat Tank, Missile Tank, Siege Tank, Harvester, MCV | same | Combat Tank, Siege Tank, Harvester, MCV (Missile Tank via Starport) |
+| Light vehicles (Heavy Factory) | Trike, Quad | Quad | Raider Trike, Quad |
+| Heavy vehicles (Heavy Factory) | Combat Tank, Missile Tank, Siege Tank, Harvester, MCV | same | Combat Tank, Siege Tank, Harvester, MCV (Missile Tank via Starport) |
 | House special (needs IX) | Sonic Tank | Devastator | Deviator |
 | Aircraft | Carryall, Ornithopter | Carryall | Carryall, Ornithopter |
 | Palace | Fremen | Death Hand | Saboteur |
@@ -336,8 +346,7 @@ south-west corner. The tables below are the first-pass notes; the brief and rese
 | Outpost (2×2) | Low bunker with a rotating radar dish on a mast and antennas |
 | Barracks (2×2) | Walled compound, low buildings, stairs, flagpole with house flag |
 | WOR (2×2) | Adobe fortress with arched windows, corner towers and a dome |
-| Light Factory (2×2) | Hangar with open bay and gantry crane |
-| Heavy Factory (3×2) | Large industrial hall, big bay door that opens when a vehicle rolls out, stacks and crane |
+| Heavy Factory (3×2) | Large industrial hall, big bay door that opens when a vehicle rolls out, stacks and crane; a tank chassis and a trike on the line |
 | Hi-Tech Factory (3×2) | White curved hangar with tall pylons and landing apron |
 | Repair Facility (3×2) | Steel gantry frame over a repair pad, hoist arm working, sparks |
 | House of IX (2×2) | Stepped blue-glass domes with green lights |
@@ -482,8 +491,8 @@ starting credits, tech level, worms, fog, game speed).
 |---|---|---|---|---|
 | 1 | 32 | Harvest 1000 credits | Wind Trap, Refinery, Concrete | Light patrols, no base |
 | 2 | 40 | Destroy the enemy outpost | Barracks/WOR, Silo, Outpost | Small base |
-| 3 | 48 | Destroy the base; worms appear | Light Factory | Small base |
-| 4 | 56 | Destroy the base | Heavy Factory, Wall, large concrete, CY upgrade | Medium base; Sardaukar drops |
+| 3 | 48 | Destroy the base; worms appear | Heavy Factory (light vehicles, Combat Tank, Quad upgrade) | Small base |
+| 4 | 56 | Destroy the base | MCV upgrade, Wall, large concrete, CY upgrade | Medium base; Sardaukar drops |
 | 5 | 64 | Destroy the base | Hi-Tech, Repair, Gun Turret, second infantry building | Medium base |
 | 6 | 64 | Destroy the base | Starport, Siege Tank | Large base |
 | 7 | 64 | Destroy the base | House of IX, house tank, Ornithopter, Rocket Turret | Large base, harder AI |

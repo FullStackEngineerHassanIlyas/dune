@@ -18,7 +18,7 @@ const said = (world) => world.events.drain().filter((e) => e.type === 'eva').map
 test('the infantry line says Training; the other lines say Building', () => {
   const { world } = base();
   world.spawnStructure('barracks', 'atreides', 10, 10);
-  world.spawnStructure('lightFactory', 'atreides', 14, 10);
+  world.spawnStructure('heavyFactory', 'atreides', 14, 10);
   world.issue('atreides', { type: 'build', typeId: 'soldier' });
   world.step();
   assert.deepEqual(said(world), ['training:Training.']);
@@ -44,7 +44,6 @@ test('resuming a held soldier trains again; resuming a held structure builds aga
 
 test('a finished unit is ready; a finished harvester is deployed', () => {
   const { world } = base();
-  world.spawnStructure('lightFactory', 'atreides', 10, 10);
   world.spawnStructure('heavyFactory', 'atreides', 14, 10);
   world.issue('atreides', { type: 'build', typeId: 'trike' });
   assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.typeId === 'trike'), 40) >= 0);
