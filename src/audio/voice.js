@@ -60,7 +60,9 @@ const EVA_LINES = {
   lostToCapture: 'lostToCapture', notReady: 'notReady', fremenArrived: 'fremenArrived', saboteurReady: 'weaponReady.saboteur',
   missionAccomplished: 'missionAccomplished', missionFailed: 'missionFailed', draw: 'draw',
 };
-const SILENT_EVA = new Set([]);   // 'eva' keys shown in the message bar but deliberately not spoken
+// 'eva' keys shown in the message bar but deliberately not spoken. missileLaunched goes to every house;
+// the voice comes from the 'palaceFired' event instead (lineForEvent), which tells our launch from one aimed at us.
+const SILENT_EVA = new Set(['missileLaunched']);
 export const EVA_KEYS = Object.keys(EVA_LINES).concat(['enemyUnitDestroyed', 'enemyStructureDestroyed', 'weaponReady'], [...SILENT_EVA]);
 export const NAMED_HOUSES = ['atreides', 'harkonnen', 'ordos', 'fremen', 'sardaukar'];   // houses the announcer names; others are 'enemy'
 
