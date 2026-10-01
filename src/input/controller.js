@@ -1,8 +1,9 @@
 // Mouse and keyboard → selection and commands for the Classic (C&C 1995) and Modern schemes
 // (spec §5.7). Classic: left click selects or orders by context, right click deselects.
 // Modern: left click selects, right click orders. A house's own Carryalls take orders too: with only
-// Carryalls selected, the order click on an own vehicle lifts it (shift-click still selects), on the
-// ground flies there or sets the load down, on the Repair Facility or a Refinery delivers the load.
+// Carryalls selected, the order click on an own vehicle lifts it if one of them is empty (shift-click
+// still selects), on the ground flies there or sets the load down, on the Repair Facility or a Refinery
+// delivers the load. Ctrl + click stays force fire: no Carryall lifts the target.
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -59,7 +60,9 @@ export class Controller {
   ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && (!u.type.autonomous || isLifter(u))); }   // Fremen and visiting Carryalls can be looked at, not ordered
   /** Only own Carryalls selected: an order click on an own vehicle lifts it. */
   liftersOnly(own = this.ownSelected()) { return own.length > 0 && own.every(isLifter); }
-  canLift(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && this.liftersOnly(own); }
+  /** An own vehicle one of the selected Carryalls can go and pick up: one of them has its claws free (sim/carryall.js 'lift'). */
+  lifts(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && own.some((c) => isLifter(c) && !c.cargo); }
+  canLift(u, own = this.ownSelected()) { return this.liftersOnly(own) && this.lifts(u, own); }
   /** The load a selected Carryall holds. */
   loadOf(c) { return c.cargo ? this.world.units.get(c.cargo) ?? null : null; }
   issue(cmd) { this.world.issue(this.house, cmd); }
@@ -209,7 +212,8 @@ export class Controller {
       this.issue({ type: 'deploy', ids: [units[0].id] });
       return;
     }
-    if (hit.kind === 'unit' && units.some(isLifter) && hit.unit.house === this.house && liftable(hit.unit)) {   // Carryalls lift it; the rest carry on
+    const force = !!mods.ctrl && units.some((u) => isArmed(u.type));
+    if (hit.kind === 'unit' && !force && this.lifts(hit.unit, units)) {   // Carryalls lift it (not a Ctrl force-fire target); the rest carry on
       this.issue({ type: 'lift', ids: units.filter(isLifter).map((u) => u.id), targetId: hit.unit.id });
       this.onMarker(hit.unit.x, hit.unit.y);
       units = units.filter((u) => !isLifter(u));
