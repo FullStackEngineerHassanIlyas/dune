@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 
 const GRAVITY = 9, FADE = 1.4;
+const TRAIL_SMOKE = { size: [0.08, 0.38], color: [0.1, 0.09, 0.08], color2: [0.38, 0.36, 0.33], alpha: [0.6, 0], drag: 1.2 };   // a burning piece's trail
+const TRAIL_FIRE = { size: [0.16, 0.05], color: [7, 3, 0.7], alpha: [1, 0] };
 const FLYING = 0, BOUNCED = 1, RESTING = 2, SINKING = 3;
 let shard = null;
 
@@ -115,8 +117,8 @@ export class Debris {
         if (fx && this.burn[i] > 0) {
           this.burn[i] -= dt;
           if (Math.random() < dt * 40) {
-            fx.smoke.emit({ x: P[p], y: P[p + 1], z: P[p + 2], vy: 0.25, life: 0.7 + Math.random() * 0.5, size: [0.08, 0.38], color: [0.1, 0.09, 0.08], color2: [0.38, 0.36, 0.33], alpha: [0.6, 0], drag: 1.2 });
-            fx.glow.emit({ x: P[p], y: P[p + 1], z: P[p + 2], life: 0.12, size: [0.16, 0.05], color: [7, 3, 0.7], alpha: [1, 0] });
+            fx.smoke.spawn(TRAIL_SMOKE, P[p], P[p + 1], P[p + 2], 0, 0.25, 0, 0.7 + Math.random() * 0.5);
+            fx.glow.spawn(TRAIL_FIRE, P[p], P[p + 1], P[p + 2], 0, 0, 0, 0.12);
           }
         }
       } else if (st === RESTING) {

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { G } from '../src/data/terrain.js';
 import { flatWorld } from './helpers.mjs';
+import { killUnit, destroyStructure } from '../src/sim/combat.js';
+import { updateFog } from '../src/sim/fog.js';
 
 // The terrain paints its textures on 2D canvases: under Node a stand-in context takes every call.
 const fakeContext = () => new Proxy({}, {
@@ -77,4 +79,75 @@ test('a rocket launch throws backblast behind its launcher; catching up draws no
   s.onEvent({ type: 'impact', weapon: 'rocket', projectile: 'rocket', x: 4.5, y: 4.5, hit: false, alt: 0 });
   assert.equal(particles(), before, 'no fireworks');
   assert.equal(marks.length, 1, 'but the crater');
+});
+
+test('a Carryall shot down with its load: the load falls and crashes as a wreck too, not vanishing in the air', () => {
+  const { world, s } = stage();
+  const carryall = world.spawnUnit('carryall', 'atreides', 10, 10);
+  const load = world.spawnUnit('combatTank', 'atreides', 10, 10, { inside: carryall.id });   // on its way to repairs
+  carryall.alt = 1.6;
+  carryall.cargo = load.id;
+  load.alt = 1.18;
+  s.sync(1, 0.016, 0);
+  killUnit(world, carryall);
+  const events = world.events.drain();
+  for (const e of events) s.onEvent(e);
+  const wrecks = s.destruction.wrecks.list;
+  assert.deepEqual(wrecks.map((w) => w.model.def.name).sort(), ['carryallWreck', 'combatTankWreck']);
+  assert.ok(wrecks.every((w) => w.fall), 'both falling');
+  const blasts = events.filter((e) => e.type === 'explosion');
+  assert.ok(blasts.length === 2 && blasts.every((e) => e.alt > 0.5), 'both blow up in the air, not one of them on the sand below');
+});
+
+test('a building destroyed under the shroud shows no rubble until the viewer has explored its ground', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  world.spawnUnit('trike', 'atreides', 2, 2);
+  const trap = world.spawnStructure('windtrap', 'harkonnen', 18, 18);
+  const s = new BattleStage({ world, scene: new THREE.Scene(), quality: { particles: 4000, flashLights: 0 }, viewer: 'atreides', rig: { target: new THREE.Vector3(12, 0, 12), distance: 16 } });
+  s.catchingUp = false;
+  updateFog(world);
+  s.sync(1, 0.016, 0);
+  destroyStructure(world, trap);
+  for (const e of world.events.drain()) s.onEvent(e);
+  s.sync(1, 0.016, 16);
+  assert.equal(s.destruction.rubble.used, 0, 'nothing drawn over the black');
+  world.spawnUnit('trike', 'atreides', 19, 17);
+  updateFog(world);
+  s.sync(1, 0.016, 32);
+  assert.ok(s.destruction.rubble.used > 0, 'the ruins are there once explored');
+});
+
+test('a building the viewer could see, though only part of its ground was explored, leaves its rubble at once', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  world.spawnUnit('trike', 'atreides', 16, 18);   // sees the refinery's west end, not its east
+  const refinery = world.spawnStructure('refinery', 'harkonnen', 18, 18);
+  const s = new BattleStage({ world, scene: new THREE.Scene(), quality: { particles: 4000, flashLights: 0 }, viewer: 'atreides', rig: { target: new THREE.Vector3(12, 0, 12), distance: 16 } });
+  s.catchingUp = false;
+  updateFog(world);
+  s.sync(1, 0.016, 0);
+  assert.ok(s.structureViews.shows(refinery.id) && !s.destruction.uncovered(refinery), 'drawn whole, half over the black');
+  destroyStructure(world, refinery);
+  for (const e of world.events.drain()) s.onEvent(e);
+  assert.ok(s.destruction.rubble.used > 0, 'its ruins drawn as whole as the building was');
+});
+
+test('concrete laid over old ruins clears the rubble there', () => {
+  const { s } = stage();
+  s.onEvent({ type: 'structureDestroyed', id: 99, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });
+  assert.ok(s.destruction.rubble.used > 0);
+  s.onEvent({ type: 'concretePlaced', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });
+  const m = new THREE.Matrix4(), sc = new THREE.Vector3();
+  for (let i = 0; i < s.destruction.rubble.used; i++) { s.destruction.rubble.mesh.getMatrixAt(i, m); assert.equal(sc.setFromMatrixScale(m).y, 0); }
+});
+
+test('a paused battle (no time passing) stands still: shots in flight do not pile up tracers and smoke', () => {
+  const { world, s, particles } = stage();
+  world.projectiles.set(1, { id: 1, projectile: 'bullet', weapon: 'mg', house: 'atreides', x: 6, y: 6, px: 5.5, py: 6, sx: 4, sy: 6, tx: 9, ty: 6, speed: 15 });
+  world.projectiles.set(2, { id: 2, projectile: 'rocket', weapon: 'rocket', house: 'atreides', x: 6, y: 9, px: 5.5, py: 9, sx: 4, sy: 9, tx: 12, ty: 9, speed: 12.5 });
+  s.onEvent({ type: 'unitDestroyed', id: 77, typeId: 'combatTank', house: 'ordos', x: 12.5, y: 12.5, cause: 'destroyed' });
+  s.sync(1, 0.016, 0);
+  const n = particles(), wreck = s.destruction.wrecks.list[0], age = wreck.age;
+  for (let k = 0; k < 300; k++) s.sync(1, 0, 16);   // five seconds of a paused game
+  assert.ok(particles() <= n, `${particles()} particles, from ${n}: a glowing heap over every shot`);
+  assert.equal(wreck.age, age);
 });

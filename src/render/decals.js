@@ -161,7 +161,9 @@ export class DecalMap {
     this.ctx.imageSmoothingQuality = 'high';
     this.stamps = allStamps();
     this.texture = new THREE.CanvasTexture(this.canvas);
-    this.texture.colorSpace = THREE.SRGBColorSpace;
+    // Plain bytes, though painted in sRGB: the terrain shader decodes them. An sRGB texture uploads on the
+    // browser's slow path (on an Intel laptop each 2048² upload held up its frame by 100 ms or more).
+    this.texture.colorSpace = THREE.NoColorSpace;
     this.texture.flipY = false;   // canvas row y is map row y: the shader samples at (x, z) / map size
     this.texture.anisotropy = 4;
     this.dirty = false;

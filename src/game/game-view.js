@@ -276,7 +276,7 @@ export class GameView {
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
     const e = r3d.camera.matrixWorld.elements;
     this.sound.setListener(this.rig.target.x, this.rig.target.z, e[0], e[2], this.rig.distance);
-    this.stage.sync(alpha, dt, now);
+    this.stage.sync(alpha, this.paused ? 0 : dt, now);   // paused, the fires, wrecks and smoke hold still with the battle
     r3d.renderer.info.reset();
     r3d.render();
     this.controller.frame();

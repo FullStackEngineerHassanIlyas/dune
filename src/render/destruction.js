@@ -27,14 +27,16 @@ const BUILDING_BITS = [0x8e8a84, 0x9c958b, 0x6e6a66, 0x3c3f46, 0xb0a898, 0x5c3c2
 export class Destruction {
   /**
    * effects: the Effects pools. hf: the Heightfield. decals: the terrain's DecalMap (or null).
-   * seen(x, z): the viewer can see there. near(x, z): close enough to the camera to be worth smoke.
+   * seen(x, z): the viewer can see there. explored(x, z): the viewer has lifted the shroud there.
+   * near(x, z): close enough to the camera to be worth smoke.
    */
-  constructor(scene, quality, { effects, hf, decals = null, seen = () => true, near = () => true, onShake = () => {} }) {
-    Object.assign(this, { fx: effects, hf, decals, seen, near, onShake });
+  constructor(scene, quality, { effects, hf, decals = null, seen = () => true, explored = () => true, near = () => true, onShake = () => {} }) {
+    Object.assign(this, { fx: effects, hf, decals, seen, explored, near, onShake });
     const budget = quality.particles ?? 4000, shadows = (quality.shadows ?? 0) > 0;
     this.density = clamp(budget / 4000, 0.45, 1.5);   // Low 0.45, Medium 1, High 1.5
     this.debris = new Debris(scene, { capacity: Math.round(budget / 25), castShadow: shadows });
-    this.rubble = new Rubble(scene, { capacity: Math.round(budget / 8), castShadow: shadows });
+    // rubble is one static draw call: room for two or three whole bases' ruins (Low 750, Medium 2000, High 4000 pieces)
+    this.rubble = new Rubble(scene, { capacity: Math.round(budget / 2), castShadow: shadows });
     this.wrecks = new Wrecks(scene, hf, { cap: Math.round(6 + budget / 250), castShadow: shadows });
     this.heightAt = (x, z) => hf.heightAt(x, z);
     this.visible = (x, z) => this.near(x, z) && this.seen(x, z);
@@ -42,6 +44,7 @@ export class Destruction {
     this.lingers = (x, z) => this.fx.smoke.n < this.fx.smoke.capacity * 0.68 && this.fx.glow.n < this.fx.glow.capacity * 0.8 && this.visible(x, z);
     this.crash = (w) => this.crashed(w);
     this.sites = [];     // burning ruins
+    this.buried = [];    // ruins under the shroud: their rubble is laid once the viewer has explored the ground
     this.pending = [];   // blasts and dust still to come, in seconds of this.time
     this.roofs = new Map();
     this.time = 0;
@@ -106,13 +109,17 @@ export class Destruction {
 
   /**
    * A structure was destroyed. Rubble and scorch stay on the footprint for the battle (even when
-   * simulated ahead); when live and seen, it goes down in a staged collapse over about 1.5 s.
+   * simulated ahead); when live and seen, it goes down in a staged collapse over about 1.5 s. shown: the
+   * viewer had the building in view (drawn whole); otherwise rubble under the shroud waits until the
+   * viewer has explored its ground.
    */
-  structureDestroyed(e, live = true) {
+  structureDestroyed(e, live = true, shown = false) {
     const { x, y, w, h } = e, cx = x + w / 2, cz = y + h / 2, area = w * h;
     const wall = !!STRUCTURES[e.typeId]?.isWall, house = HOUSES[e.house]?.color ?? 0x888888;
     this.roofs.delete(e.id);
-    this.rubble.site(x, y, w, h, this.heightAt, { house, wall, density: this.density });
+    const ruin = { x, y, w, h, house, wall };
+    if (shown || this.uncovered(ruin)) this.ruins(ruin);
+    else this.buried.push(ruin);
     for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++) this.decals?.scorch?.(tx + rnd(0.3, 0.7), ty + rnd(0.3, 0.7), wall ? 0.5 : 0.8);
     if (area >= 4) this.decals?.crater?.(cx, cz, Math.max(w, h) * 0.5, 0.45);
     if (!live || !this.seen(cx, cz)) return;
@@ -132,11 +139,26 @@ export class Destruction {
     this.sites.push({ x, y, w, h, cx, cz, points, age: 0, fireFor: 10 + area * 1.5 + rnd(0, 4), smokeFor: 26 + area * 2.5, clock: 0 });
   }
 
-  /** A new building on old ruins: the rubble, the wrecks and the fires there go. */
+  /** Whether the viewer has explored every tile of a ruin's footprint (rubble drawn sooner would show on the black). */
+  uncovered({ x, y, w, h }) {
+    for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++) if (!this.explored(tx + 0.5, ty + 0.5)) return false;
+    return true;
+  }
+
+  ruins({ x, y, w, h, house, wall }) { this.rubble.site(x, y, w, h, this.heightAt, { house, wall, density: this.density }); }
+
+  /** The shroud has lifted somewhere: ruins it hid now get their rubble. */
+  uncover() {
+    for (let i = 0; i < this.buried.length; i++) if (this.uncovered(this.buried[i])) this.ruins(this.buried.splice(i--, 1)[0]);
+  }
+
+  /** A new building (or concrete) on old ruins: the rubble, the wrecks and the fires there go. */
   structurePlaced(s) {
+    const apart = (o) => o.x >= s.x + s.w || o.x + o.w <= s.x || o.y >= s.y + s.h || o.y + o.h <= s.y;
     this.rubble.clear(s.x, s.y, s.w, s.h);
     this.wrecks.clear(s.x, s.y, s.w, s.h);
-    this.sites = this.sites.filter((o) => o.x >= s.x + s.w || o.x + o.w <= s.x || o.y >= s.y + s.h || o.y + o.h <= s.y);
+    this.sites = this.sites.filter(apart);
+    this.buried = this.buried.filter(apart);
   }
 
   /**
@@ -222,5 +244,6 @@ export class Destruction {
     this.wrecks.dispose();
     this.sites = [];
     this.pending = [];
+    this.buried = [];
   }
 }
