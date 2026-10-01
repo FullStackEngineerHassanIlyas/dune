@@ -9,8 +9,10 @@ test('weapons sound like their weapon; rockets whoosh', () => {
   assert.equal(cueFor({ type: 'fired', weapon: 'mg', projectile: 'bullet', x: 0, y: 0 }, 'atreides', all).id, 'mg');
   assert.equal(cueFor({ type: 'fired', weapon: 'trooperRocket', projectile: 'rocket', x: 0, y: 0 }, 'atreides', all).id, 'rocket');
   assert.equal(cueFor({ type: 'impact', projectile: 'rocket', x: 0, y: 0 }, 'atreides', all).id, 'explosionSmall');
-  assert.equal(cueFor({ type: 'impact', projectile: 'shell', x: 0, y: 0 }, 'atreides', all).id, 'hit');
-  assert.equal(cueFor({ type: 'impact', projectile: 'bullet', x: 0, y: 0 }, 'atreides', all), null);
+  assert.equal(cueFor({ type: 'impact', projectile: 'shell', hit: true, x: 0, y: 0 }, 'atreides', all).id, 'hit');
+  assert.equal(cueFor({ type: 'impact', projectile: 'shell', hit: false, x: 0, y: 0 }, 'atreides', all).id, 'sandHit', 'a miss thumps into the sand');
+  assert.equal(cueFor({ type: 'impact', projectile: 'bullet', x: 0, y: 0 }, 'atreides', all), null, 'a bullet that misses is lost in the gunfire');
+  assert.equal(cueFor({ type: 'impact', projectile: 'bullet', hit: true, x: 0, y: 0 }, 'atreides', all).id, 'bulletHit');
   assert.equal(cueFor({ type: 'explosion', size: 'large', x: 0, y: 0 }, 'atreides', all).id, 'explosionLarge');
   assert.equal(cueFor({ type: 'unitDestroyed', cause: 'crushed', x: 1, y: 1 }, 'atreides', all).id, 'crush');
 });
@@ -56,8 +58,28 @@ test('a sold-out ware or a full Frigate sounds like an error', () => {
 test('specials have their own sounds: sonic hum, gas hiss, the Destruct alarm; a weapon not ready buzzes', () => {
   assert.equal(cueFor({ type: 'fired', weapon: 'sonic', projectile: 'sonic', x: 0, y: 0 }, 'atreides', all).id, 'sonic');
   assert.equal(cueFor({ type: 'fired', weapon: 'gasRocket', projectile: 'gas', x: 0, y: 0 }, 'atreides', all).id, 'rocket');
-  assert.equal(cueFor({ type: 'fired', weapon: 'deathHand', projectile: 'deathHand', x: 0, y: 0 }, 'atreides', all).id, 'rocket');
+  assert.equal(cueFor({ type: 'fired', weapon: 'deathHand', projectile: 'deathHand', x: 0, y: 0 }, 'atreides', all).id, 'launchHeavy');
+  assert.equal(cueFor({ type: 'deathHandBlast', house: 'harkonnen', x: 0, y: 0 }, 'atreides', all).id, 'explosionHuge');
   assert.equal(cueFor({ type: 'impact', projectile: 'gas', x: 0, y: 0 }, 'atreides', all).id, 'gas');
   assert.equal(cueFor({ type: 'destructArmed', house: 'harkonnen', x: 0, y: 0 }, 'atreides', all).id, 'alarm');
   assert.equal(cueFor({ type: 'eva', house: 'atreides', key: 'notReady' }, 'atreides', all).id, 'error');
+});
+
+test('destruction has its aftermath: debris after a vehicle, a collapse after a structure', () => {
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'combatTank', cause: 'shot', x: 1, y: 1 }, 'atreides', all).id, 'debris');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'ornithopter', cause: 'shot', x: 1, y: 1 }, 'atreides', all).id, 'debris');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'shot', x: 1, y: 1 }, 'atreides', all), null, 'a soldier leaves no wreck');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'crushed', x: 1, y: 1 }, 'atreides', all).id, 'crush');
+  assert.deepEqual(cueFor({ type: 'structureDestroyed', typeId: 'windtrap', x: 4, y: 6, w: 2, h: 2 }, 'atreides', all), { id: 'collapse', x: 5, z: 7 });
+  assert.equal(cueFor({ type: 'structureDestroyed', x: 4, y: 6, w: 2, h: 2 }, 'atreides', () => false), null, 'unseen, unheard');
+  // a wall segment only bursts (its large blast is the simulation's 'explosion'): it has no building to bring down (render/destruction.js)
+  assert.equal(cueFor({ type: 'structureDestroyed', typeId: 'wall', x: 4, y: 6, w: 1, h: 1 }, 'atreides', all), null);
+});
+
+test('the base at work: slabs laid, a Frigate landing, a Harvester unloading where it docks', () => {
+  assert.deepEqual(cueFor({ type: 'concretePlaced', house: 'atreides', x: 2, y: 2, w: 2, h: 2 }, 'atreides', all), { id: 'slab', x: 3, z: 3 });
+  assert.equal(cueFor({ type: 'concretePlaced', house: 'ordos', x: 2, y: 2, w: 2, h: 2 }, 'atreides', all), null);
+  assert.equal(cueFor({ type: 'frigateLanded', house: 'atreides', x: 9, y: 9 }, 'atreides', all).id, 'jet');
+  assert.equal(cueFor({ type: 'docked', id: 7, refinery: 3, x: 5, y: 6 }, 'atreides', all).id, 'harvesterUnload');
+  assert.equal(cueFor({ type: 'docked', id: 7, refinery: 3 }, 'atreides', all), null, 'without a place it stays silent');
 });

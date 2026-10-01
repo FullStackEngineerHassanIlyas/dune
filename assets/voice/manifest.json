@@ -1,0 +1,1009 @@
+{
+ "version": 1,
+ "houses": {
+  "atreides": "atreides",
+  "harkonnen": "harkonnen",
+  "ordos": "ordos"
+ },
+ "sets": {
+  "atreides": {
+   "voice": "af_heart",
+   "role": "announcer",
+   "lines": {
+    "approaching.atreides": {
+     "file": "atreides/approaching.atreides.ogg",
+     "text": "Warning. Atreides unit approaching.",
+     "seconds": 2.26
+    },
+    "approaching.enemy": {
+     "file": "atreides/approaching.enemy.ogg",
+     "text": "Warning. Enemy unit approaching.",
+     "seconds": 2.049
+    },
+    "approaching.fremen": {
+     "file": "atreides/approaching.fremen.ogg",
+     "text": "Warning. Fremen approaching.",
+     "seconds": 1.78
+    },
+    "approaching.harkonnen": {
+     "file": "atreides/approaching.harkonnen.ogg",
+     "text": "Warning. Harkonnen unit approaching.",
+     "seconds": 2.175
+    },
+    "approaching.ordos": {
+     "file": "atreides/approaching.ordos.ogg",
+     "text": "Warning. Ordos unit approaching.",
+     "seconds": 2.125
+    },
+    "approaching.sardaukar": {
+     "file": "atreides/approaching.sardaukar.ogg",
+     "text": "Warning. Sardaukar approaching.",
+     "seconds": 1.925
+    },
+    "baseAttack": {
+     "file": "atreides/baseAttack.ogg",
+     "text": "Our base is under attack.",
+     "seconds": 1.562
+    },
+    "building": {
+     "file": "atreides/building.ogg",
+     "text": "Building.",
+     "seconds": 0.714
+    },
+    "cancelled": {
+     "file": "atreides/cancelled.ogg",
+     "text": "Cancelled.",
+     "seconds": 0.764
+    },
+    "cannotDeploy": {
+     "file": "atreides/cannotDeploy.ogg",
+     "text": "Unable to deploy.",
+     "seconds": 1.315
+    },
+    "cannotPlace": {
+     "file": "atreides/cannotPlace.ogg",
+     "text": "Cannot build there.",
+     "seconds": 1.161
+    },
+    "captured": {
+     "file": "atreides/captured.ogg",
+     "text": "Structure captured.",
+     "seconds": 1.206
+    },
+    "constructionComplete": {
+     "file": "atreides/constructionComplete.ogg",
+     "text": "Construction complete.",
+     "seconds": 1.406
+    },
+    "draw": {
+     "file": "atreides/draw.ogg",
+     "text": "The battle is a draw.",
+     "seconds": 1.292
+    },
+    "fremenArrived": {
+     "file": "atreides/fremenArrived.ogg",
+     "text": "The Fremen have come.",
+     "seconds": 1.244
+    },
+    "frigateArrived": {
+     "file": "atreides/frigateArrived.ogg",
+     "text": "Frigate has arrived.",
+     "seconds": 1.206
+    },
+    "frigateFull": {
+     "file": "atreides/frigateFull.ogg",
+     "text": "Frigate fully loaded.",
+     "seconds": 1.315
+    },
+    "harvesterAttack": {
+     "file": "atreides/harvesterAttack.ogg",
+     "text": "Harvester under attack.",
+     "seconds": 1.495
+    },
+    "harvesterDeployed": {
+     "file": "atreides/harvesterDeployed.ogg",
+     "text": "Harvester deployed.",
+     "seconds": 1.341
+    },
+    "insufficientFunds": {
+     "file": "atreides/insufficientFunds.ogg",
+     "text": "Insufficient funds.",
+     "seconds": 1.244
+    },
+    "lostToCapture": {
+     "file": "atreides/lostToCapture.ogg",
+     "text": "Structure lost.",
+     "seconds": 1.052
+    },
+    "lowPower": {
+     "file": "atreides/lowPower.ogg",
+     "text": "Low power.",
+     "seconds": 0.903
+    },
+    "missileApproaching": {
+     "file": "atreides/missileApproaching.ogg",
+     "text": "Warning. Missile approaching.",
+     "seconds": 1.631
+    },
+    "missileLaunched": {
+     "file": "atreides/missileLaunched.ogg",
+     "text": "Missile launched.",
+     "seconds": 1.018
+    },
+    "missionAccomplished": {
+     "file": "atreides/missionAccomplished.ogg",
+     "text": "Mission accomplished.",
+     "seconds": 1.335
+    },
+    "missionFailed": {
+     "file": "atreides/missionFailed.ogg",
+     "text": "Mission failed.",
+     "seconds": 1.018
+    },
+    "notReady": {
+     "file": "atreides/notReady.ogg",
+     "text": "Weapon not ready.",
+     "seconds": 1.207
+    },
+    "onHold": {
+     "file": "atreides/onHold.ogg",
+     "text": "Production on hold.",
+     "seconds": 1.269
+    },
+    "orderPlaced": {
+     "file": "atreides/orderPlaced.ogg",
+     "text": "Order placed.",
+     "seconds": 0.922
+    },
+    "primary": {
+     "file": "atreides/primary.ogg",
+     "text": "Primary building selected.",
+     "seconds": 1.583
+    },
+    "radarOff": {
+     "file": "atreides/radarOff.ogg",
+     "text": "Radar deactivated.",
+     "seconds": 1.484
+    },
+    "radarOn": {
+     "file": "atreides/radarOn.ogg",
+     "text": "Radar activated.",
+     "seconds": 1.391
+    },
+    "repairing": {
+     "file": "atreides/repairing.ogg",
+     "text": "Repairing.",
+     "seconds": 0.827
+    },
+    "selectTarget": {
+     "file": "atreides/selectTarget.ogg",
+     "text": "Select target.",
+     "seconds": 1.11
+    },
+    "soldOut": {
+     "file": "atreides/soldOut.ogg",
+     "text": "Sold out.",
+     "seconds": 0.89
+    },
+    "storageFull": {
+     "file": "atreides/storageFull.ogg",
+     "text": "Silos needed.",
+     "seconds": 1.055
+    },
+    "structureDestroyed.atreides": {
+     "file": "atreides/structureDestroyed.atreides.ogg",
+     "text": "Atreides structure destroyed.",
+     "seconds": 1.767
+    },
+    "structureDestroyed.enemy": {
+     "file": "atreides/structureDestroyed.enemy.ogg",
+     "text": "Enemy structure destroyed.",
+     "seconds": 1.623
+    },
+    "structureDestroyed.fremen": {
+     "file": "atreides/structureDestroyed.fremen.ogg",
+     "text": "Fremen structure destroyed.",
+     "seconds": 1.693
+    },
+    "structureDestroyed.harkonnen": {
+     "file": "atreides/structureDestroyed.harkonnen.ogg",
+     "text": "Harkonnen structure destroyed.",
+     "seconds": 1.815
+    },
+    "structureDestroyed.ordos": {
+     "file": "atreides/structureDestroyed.ordos.ogg",
+     "text": "Ordos structure destroyed.",
+     "seconds": 1.698
+    },
+    "structureDestroyed.sardaukar": {
+     "file": "atreides/structureDestroyed.sardaukar.ogg",
+     "text": "Sardaukar structure destroyed.",
+     "seconds": 1.865
+    },
+    "structureLost": {
+     "file": "atreides/structureLost.ogg",
+     "text": "Structure destroyed.",
+     "seconds": 1.312
+    },
+    "structureSold": {
+     "file": "atreides/structureSold.ogg",
+     "text": "Structure sold.",
+     "seconds": 1.106
+    },
+    "training": {
+     "file": "atreides/training.ogg",
+     "text": "Training.",
+     "seconds": 0.724
+    },
+    "unableToComply": {
+     "file": "atreides/unableToComply.ogg",
+     "text": "Unable to comply.",
+     "seconds": 1.392
+    },
+    "unitDestroyed.atreides": {
+     "file": "atreides/unitDestroyed.atreides.ogg",
+     "text": "Atreides unit destroyed.",
+     "seconds": 1.692
+    },
+    "unitDestroyed.enemy": {
+     "file": "atreides/unitDestroyed.enemy.ogg",
+     "text": "Enemy unit destroyed.",
+     "seconds": 1.496
+    },
+    "unitDestroyed.fremen": {
+     "file": "atreides/unitDestroyed.fremen.ogg",
+     "text": "Fremen unit destroyed.",
+     "seconds": 1.519
+    },
+    "unitDestroyed.harkonnen": {
+     "file": "atreides/unitDestroyed.harkonnen.ogg",
+     "text": "Harkonnen unit destroyed.",
+     "seconds": 1.574
+    },
+    "unitDestroyed.ordos": {
+     "file": "atreides/unitDestroyed.ordos.ogg",
+     "text": "Ordos unit destroyed.",
+     "seconds": 1.551
+    },
+    "unitDestroyed.sardaukar": {
+     "file": "atreides/unitDestroyed.sardaukar.ogg",
+     "text": "Sardaukar unit destroyed.",
+     "seconds": 1.644
+    },
+    "unitLost": {
+     "file": "atreides/unitLost.ogg",
+     "text": "Unit lost.",
+     "seconds": 0.953
+    },
+    "unitReady": {
+     "file": "atreides/unitReady.ogg",
+     "text": "Unit ready.",
+     "seconds": 0.924
+    },
+    "unitRepaired": {
+     "file": "atreides/unitRepaired.ogg",
+     "text": "Unit repaired.",
+     "seconds": 1.032
+    },
+    "upgradeComplete": {
+     "file": "atreides/upgradeComplete.ogg",
+     "text": "Upgrade complete.",
+     "seconds": 1.205
+    },
+    "upgrading": {
+     "file": "atreides/upgrading.ogg",
+     "text": "Upgrading.",
+     "seconds": 0.874
+    },
+    "weaponReady.deathHand": {
+     "file": "atreides/weaponReady.deathHand.ogg",
+     "text": "Death Hand ready.",
+     "seconds": 1.124
+    },
+    "weaponReady.fremen": {
+     "file": "atreides/weaponReady.fremen.ogg",
+     "text": "Fremen ready.",
+     "seconds": 0.975
+    },
+    "weaponReady.saboteur": {
+     "file": "atreides/weaponReady.saboteur.ogg",
+     "text": "Saboteur ready.",
+     "seconds": 1.065
+    },
+    "wormsign": {
+     "file": "atreides/wormsign.ogg",
+     "text": "Warning. Wormsign.",
+     "seconds": 1.371
+    },
+    "yardDeployed": {
+     "file": "atreides/yardDeployed.ogg",
+     "text": "Construction yard deployed.",
+     "seconds": 1.654
+    }
+   }
+  },
+  "harkonnen": {
+   "voice": "am_fenrir",
+   "role": "announcer",
+   "lines": {
+    "approaching.atreides": {
+     "file": "harkonnen/approaching.atreides.ogg",
+     "text": "Warning. Atreides unit approaching.",
+     "seconds": 2.236
+    },
+    "approaching.enemy": {
+     "file": "harkonnen/approaching.enemy.ogg",
+     "text": "Warning. Enemy unit approaching.",
+     "seconds": 1.967
+    },
+    "approaching.fremen": {
+     "file": "harkonnen/approaching.fremen.ogg",
+     "text": "Warning. Fremen approaching.",
+     "seconds": 1.596
+    },
+    "approaching.harkonnen": {
+     "file": "harkonnen/approaching.harkonnen.ogg",
+     "text": "Warning. Harkonnen unit approaching.",
+     "seconds": 2.133
+    },
+    "approaching.ordos": {
+     "file": "harkonnen/approaching.ordos.ogg",
+     "text": "Warning. Ordos unit approaching.",
+     "seconds": 2.109
+    },
+    "approaching.sardaukar": {
+     "file": "harkonnen/approaching.sardaukar.ogg",
+     "text": "Warning. Sardaukar approaching.",
+     "seconds": 1.853
+    },
+    "baseAttack": {
+     "file": "harkonnen/baseAttack.ogg",
+     "text": "Our base is under attack.",
+     "seconds": 1.513
+    },
+    "building": {
+     "file": "harkonnen/building.ogg",
+     "text": "Building.",
+     "seconds": 0.747
+    },
+    "cancelled": {
+     "file": "harkonnen/cancelled.ogg",
+     "text": "Cancelled.",
+     "seconds": 0.841
+    },
+    "cannotDeploy": {
+     "file": "harkonnen/cannotDeploy.ogg",
+     "text": "Unable to deploy.",
+     "seconds": 1.364
+    },
+    "cannotPlace": {
+     "file": "harkonnen/cannotPlace.ogg",
+     "text": "Cannot build there.",
+     "seconds": 1.22
+    },
+    "captured": {
+     "file": "harkonnen/captured.ogg",
+     "text": "Structure captured.",
+     "seconds": 1.313
+    },
+    "constructionComplete": {
+     "file": "harkonnen/constructionComplete.ogg",
+     "text": "Construction complete.",
+     "seconds": 1.437
+    },
+    "draw": {
+     "file": "harkonnen/draw.ogg",
+     "text": "The battle is a draw.",
+     "seconds": 1.295
+    },
+    "fremenArrived": {
+     "file": "harkonnen/fremenArrived.ogg",
+     "text": "The Fremen have come.",
+     "seconds": 1.235
+    },
+    "frigateArrived": {
+     "file": "harkonnen/frigateArrived.ogg",
+     "text": "Frigate has arrived.",
+     "seconds": 1.24
+    },
+    "frigateFull": {
+     "file": "harkonnen/frigateFull.ogg",
+     "text": "Frigate fully loaded.",
+     "seconds": 1.347
+    },
+    "harvesterAttack": {
+     "file": "harkonnen/harvesterAttack.ogg",
+     "text": "Harvester under attack.",
+     "seconds": 1.439
+    },
+    "harvesterDeployed": {
+     "file": "harkonnen/harvesterDeployed.ogg",
+     "text": "Harvester deployed.",
+     "seconds": 1.367
+    },
+    "insufficientFunds": {
+     "file": "harkonnen/insufficientFunds.ogg",
+     "text": "Insufficient funds.",
+     "seconds": 1.236
+    },
+    "lostToCapture": {
+     "file": "harkonnen/lostToCapture.ogg",
+     "text": "Structure lost.",
+     "seconds": 1.102
+    },
+    "lowPower": {
+     "file": "harkonnen/lowPower.ogg",
+     "text": "Low power.",
+     "seconds": 0.963
+    },
+    "missileApproaching": {
+     "file": "harkonnen/missileApproaching.ogg",
+     "text": "Warning. Missile approaching.",
+     "seconds": 1.588
+    },
+    "missileLaunched": {
+     "file": "harkonnen/missileLaunched.ogg",
+     "text": "Missile launched.",
+     "seconds": 1.095
+    },
+    "missionAccomplished": {
+     "file": "harkonnen/missionAccomplished.ogg",
+     "text": "Mission accomplished.",
+     "seconds": 1.328
+    },
+    "missionFailed": {
+     "file": "harkonnen/missionFailed.ogg",
+     "text": "Mission failed.",
+     "seconds": 1.103
+    },
+    "notReady": {
+     "file": "harkonnen/notReady.ogg",
+     "text": "Weapon not ready.",
+     "seconds": 1.228
+    },
+    "onHold": {
+     "file": "harkonnen/onHold.ogg",
+     "text": "Production on hold.",
+     "seconds": 1.339
+    },
+    "orderPlaced": {
+     "file": "harkonnen/orderPlaced.ogg",
+     "text": "Order placed.",
+     "seconds": 1.003
+    },
+    "primary": {
+     "file": "harkonnen/primary.ogg",
+     "text": "Primary building selected.",
+     "seconds": 1.654
+    },
+    "radarOff": {
+     "file": "harkonnen/radarOff.ogg",
+     "text": "Radar deactivated.",
+     "seconds": 1.557
+    },
+    "radarOn": {
+     "file": "harkonnen/radarOn.ogg",
+     "text": "Radar activated.",
+     "seconds": 1.422
+    },
+    "repairing": {
+     "file": "harkonnen/repairing.ogg",
+     "text": "Repairing.",
+     "seconds": 0.892
+    },
+    "selectTarget": {
+     "file": "harkonnen/selectTarget.ogg",
+     "text": "Select target.",
+     "seconds": 1.174
+    },
+    "soldOut": {
+     "file": "harkonnen/soldOut.ogg",
+     "text": "Sold out.",
+     "seconds": 0.893
+    },
+    "storageFull": {
+     "file": "harkonnen/storageFull.ogg",
+     "text": "Silos needed.",
+     "seconds": 1.143
+    },
+    "structureDestroyed.atreides": {
+     "file": "harkonnen/structureDestroyed.atreides.ogg",
+     "text": "Atreides structure destroyed.",
+     "seconds": 1.865
+    },
+    "structureDestroyed.enemy": {
+     "file": "harkonnen/structureDestroyed.enemy.ogg",
+     "text": "Enemy structure destroyed.",
+     "seconds": 1.693
+    },
+    "structureDestroyed.fremen": {
+     "file": "harkonnen/structureDestroyed.fremen.ogg",
+     "text": "Fremen structure destroyed.",
+     "seconds": 1.725
+    },
+    "structureDestroyed.harkonnen": {
+     "file": "harkonnen/structureDestroyed.harkonnen.ogg",
+     "text": "Harkonnen structure destroyed.",
+     "seconds": 1.864
+    },
+    "structureDestroyed.ordos": {
+     "file": "harkonnen/structureDestroyed.ordos.ogg",
+     "text": "Ordos structure destroyed.",
+     "seconds": 1.703
+    },
+    "structureDestroyed.sardaukar": {
+     "file": "harkonnen/structureDestroyed.sardaukar.ogg",
+     "text": "Sardaukar structure destroyed.",
+     "seconds": 1.897
+    },
+    "structureLost": {
+     "file": "harkonnen/structureLost.ogg",
+     "text": "Structure destroyed.",
+     "seconds": 1.332
+    },
+    "structureSold": {
+     "file": "harkonnen/structureSold.ogg",
+     "text": "Structure sold.",
+     "seconds": 1.181
+    },
+    "training": {
+     "file": "harkonnen/training.ogg",
+     "text": "Training.",
+     "seconds": 0.772
+    },
+    "unableToComply": {
+     "file": "harkonnen/unableToComply.ogg",
+     "text": "Unable to comply.",
+     "seconds": 1.369
+    },
+    "unitDestroyed.atreides": {
+     "file": "harkonnen/unitDestroyed.atreides.ogg",
+     "text": "Atreides unit destroyed.",
+     "seconds": 1.728
+    },
+    "unitDestroyed.enemy": {
+     "file": "harkonnen/unitDestroyed.enemy.ogg",
+     "text": "Enemy unit destroyed.",
+     "seconds": 1.491
+    },
+    "unitDestroyed.fremen": {
+     "file": "harkonnen/unitDestroyed.fremen.ogg",
+     "text": "Fremen unit destroyed.",
+     "seconds": 1.524
+    },
+    "unitDestroyed.harkonnen": {
+     "file": "harkonnen/unitDestroyed.harkonnen.ogg",
+     "text": "Harkonnen unit destroyed.",
+     "seconds": 1.681
+    },
+    "unitDestroyed.ordos": {
+     "file": "harkonnen/unitDestroyed.ordos.ogg",
+     "text": "Ordos unit destroyed.",
+     "seconds": 1.569
+    },
+    "unitDestroyed.sardaukar": {
+     "file": "harkonnen/unitDestroyed.sardaukar.ogg",
+     "text": "Sardaukar unit destroyed.",
+     "seconds": 1.788
+    },
+    "unitLost": {
+     "file": "harkonnen/unitLost.ogg",
+     "text": "Unit lost.",
+     "seconds": 0.995
+    },
+    "unitReady": {
+     "file": "harkonnen/unitReady.ogg",
+     "text": "Unit ready.",
+     "seconds": 0.989
+    },
+    "unitRepaired": {
+     "file": "harkonnen/unitRepaired.ogg",
+     "text": "Unit repaired.",
+     "seconds": 1.068
+    },
+    "upgradeComplete": {
+     "file": "harkonnen/upgradeComplete.ogg",
+     "text": "Upgrade complete.",
+     "seconds": 1.257
+    },
+    "upgrading": {
+     "file": "harkonnen/upgrading.ogg",
+     "text": "Upgrading.",
+     "seconds": 0.942
+    },
+    "weaponReady.deathHand": {
+     "file": "harkonnen/weaponReady.deathHand.ogg",
+     "text": "Death Hand ready.",
+     "seconds": 1.136
+    },
+    "weaponReady.fremen": {
+     "file": "harkonnen/weaponReady.fremen.ogg",
+     "text": "Fremen ready.",
+     "seconds": 1.066
+    },
+    "weaponReady.saboteur": {
+     "file": "harkonnen/weaponReady.saboteur.ogg",
+     "text": "Saboteur ready.",
+     "seconds": 1.142
+    },
+    "wormsign": {
+     "file": "harkonnen/wormsign.ogg",
+     "text": "Warning. Wormsign.",
+     "seconds": 1.342
+    },
+    "yardDeployed": {
+     "file": "harkonnen/yardDeployed.ogg",
+     "text": "Construction yard deployed.",
+     "seconds": 1.656
+    }
+   }
+  },
+  "ordos": {
+   "voice": "af_bella",
+   "role": "announcer",
+   "lines": {
+    "approaching.atreides": {
+     "file": "ordos/approaching.atreides.ogg",
+     "text": "Warning. Atreides unit approaching.",
+     "seconds": 2.345
+    },
+    "approaching.enemy": {
+     "file": "ordos/approaching.enemy.ogg",
+     "text": "Warning. Enemy unit approaching.",
+     "seconds": 2.095
+    },
+    "approaching.fremen": {
+     "file": "ordos/approaching.fremen.ogg",
+     "text": "Warning. Fremen approaching.",
+     "seconds": 1.775
+    },
+    "approaching.harkonnen": {
+     "file": "ordos/approaching.harkonnen.ogg",
+     "text": "Warning. Harkonnen unit approaching.",
+     "seconds": 2.222
+    },
+    "approaching.ordos": {
+     "file": "ordos/approaching.ordos.ogg",
+     "text": "Warning. Ordos unit approaching.",
+     "seconds": 2.098
+    },
+    "approaching.sardaukar": {
+     "file": "ordos/approaching.sardaukar.ogg",
+     "text": "Warning. Sardaukar approaching.",
+     "seconds": 1.973
+    },
+    "baseAttack": {
+     "file": "ordos/baseAttack.ogg",
+     "text": "Our base is under attack.",
+     "seconds": 1.367
+    },
+    "building": {
+     "file": "ordos/building.ogg",
+     "text": "Building.",
+     "seconds": 0.638
+    },
+    "cancelled": {
+     "file": "ordos/cancelled.ogg",
+     "text": "Cancelled.",
+     "seconds": 0.671
+    },
+    "cannotDeploy": {
+     "file": "ordos/cannotDeploy.ogg",
+     "text": "Unable to deploy.",
+     "seconds": 1.141
+    },
+    "cannotPlace": {
+     "file": "ordos/cannotPlace.ogg",
+     "text": "Cannot build there.",
+     "seconds": 1.005
+    },
+    "captured": {
+     "file": "ordos/captured.ogg",
+     "text": "Structure captured.",
+     "seconds": 1.106
+    },
+    "constructionComplete": {
+     "file": "ordos/constructionComplete.ogg",
+     "text": "Construction complete.",
+     "seconds": 1.259
+    },
+    "draw": {
+     "file": "ordos/draw.ogg",
+     "text": "The battle is a draw.",
+     "seconds": 1.131
+    },
+    "fremenArrived": {
+     "file": "ordos/fremenArrived.ogg",
+     "text": "The Fremen have come.",
+     "seconds": 1.096
+    },
+    "frigateArrived": {
+     "file": "ordos/frigateArrived.ogg",
+     "text": "Frigate has arrived.",
+     "seconds": 1.092
+    },
+    "frigateFull": {
+     "file": "ordos/frigateFull.ogg",
+     "text": "Frigate fully loaded.",
+     "seconds": 1.186
+    },
+    "harvesterAttack": {
+     "file": "ordos/harvesterAttack.ogg",
+     "text": "Harvester under attack.",
+     "seconds": 1.291
+    },
+    "harvesterDeployed": {
+     "file": "ordos/harvesterDeployed.ogg",
+     "text": "Harvester deployed.",
+     "seconds": 1.232
+    },
+    "insufficientFunds": {
+     "file": "ordos/insufficientFunds.ogg",
+     "text": "Insufficient funds.",
+     "seconds": 1.16
+    },
+    "lostToCapture": {
+     "file": "ordos/lostToCapture.ogg",
+     "text": "Structure lost.",
+     "seconds": 0.949
+    },
+    "lowPower": {
+     "file": "ordos/lowPower.ogg",
+     "text": "Low power.",
+     "seconds": 0.761
+    },
+    "missileApproaching": {
+     "file": "ordos/missileApproaching.ogg",
+     "text": "Warning. Missile approaching.",
+     "seconds": 1.751
+    },
+    "missileLaunched": {
+     "file": "ordos/missileLaunched.ogg",
+     "text": "Missile launched.",
+     "seconds": 0.95
+    },
+    "missionAccomplished": {
+     "file": "ordos/missionAccomplished.ogg",
+     "text": "Mission accomplished.",
+     "seconds": 1.172
+    },
+    "missionFailed": {
+     "file": "ordos/missionFailed.ogg",
+     "text": "Mission failed.",
+     "seconds": 0.937
+    },
+    "notReady": {
+     "file": "ordos/notReady.ogg",
+     "text": "Weapon not ready.",
+     "seconds": 1.049
+    },
+    "onHold": {
+     "file": "ordos/onHold.ogg",
+     "text": "Production on hold.",
+     "seconds": 1.119
+    },
+    "orderPlaced": {
+     "file": "ordos/orderPlaced.ogg",
+     "text": "Order placed.",
+     "seconds": 0.82
+    },
+    "primary": {
+     "file": "ordos/primary.ogg",
+     "text": "Primary building selected.",
+     "seconds": 1.46
+    },
+    "radarOff": {
+     "file": "ordos/radarOff.ogg",
+     "text": "Radar deactivated.",
+     "seconds": 1.435
+    },
+    "radarOn": {
+     "file": "ordos/radarOn.ogg",
+     "text": "Radar activated.",
+     "seconds": 1.259
+    },
+    "repairing": {
+     "file": "ordos/repairing.ogg",
+     "text": "Repairing.",
+     "seconds": 0.742
+    },
+    "selectTarget": {
+     "file": "ordos/selectTarget.ogg",
+     "text": "Select target.",
+     "seconds": 0.966
+    },
+    "soldOut": {
+     "file": "ordos/soldOut.ogg",
+     "text": "Sold out.",
+     "seconds": 0.749
+    },
+    "storageFull": {
+     "file": "ordos/storageFull.ogg",
+     "text": "Silos needed.",
+     "seconds": 0.96
+    },
+    "structureDestroyed.atreides": {
+     "file": "ordos/structureDestroyed.atreides.ogg",
+     "text": "Atreides structure destroyed.",
+     "seconds": 1.627
+    },
+    "structureDestroyed.enemy": {
+     "file": "ordos/structureDestroyed.enemy.ogg",
+     "text": "Enemy structure destroyed.",
+     "seconds": 1.496
+    },
+    "structureDestroyed.fremen": {
+     "file": "ordos/structureDestroyed.fremen.ogg",
+     "text": "Fremen structure destroyed.",
+     "seconds": 1.497
+    },
+    "structureDestroyed.harkonnen": {
+     "file": "ordos/structureDestroyed.harkonnen.ogg",
+     "text": "Harkonnen structure destroyed.",
+     "seconds": 1.7
+    },
+    "structureDestroyed.ordos": {
+     "file": "ordos/structureDestroyed.ordos.ogg",
+     "text": "Ordos structure destroyed.",
+     "seconds": 1.506
+    },
+    "structureDestroyed.sardaukar": {
+     "file": "ordos/structureDestroyed.sardaukar.ogg",
+     "text": "Sardaukar structure destroyed.",
+     "seconds": 1.723
+    },
+    "structureLost": {
+     "file": "ordos/structureLost.ogg",
+     "text": "Structure destroyed.",
+     "seconds": 1.177
+    },
+    "structureSold": {
+     "file": "ordos/structureSold.ogg",
+     "text": "Structure sold.",
+     "seconds": 0.961
+    },
+    "training": {
+     "file": "ordos/training.ogg",
+     "text": "Training.",
+     "seconds": 0.636
+    },
+    "unableToComply": {
+     "file": "ordos/unableToComply.ogg",
+     "text": "Unable to comply.",
+     "seconds": 1.233
+    },
+    "unitDestroyed.atreides": {
+     "file": "ordos/unitDestroyed.atreides.ogg",
+     "text": "Atreides unit destroyed.",
+     "seconds": 1.572
+    },
+    "unitDestroyed.enemy": {
+     "file": "ordos/unitDestroyed.enemy.ogg",
+     "text": "Enemy unit destroyed.",
+     "seconds": 1.328
+    },
+    "unitDestroyed.fremen": {
+     "file": "ordos/unitDestroyed.fremen.ogg",
+     "text": "Fremen unit destroyed.",
+     "seconds": 1.347
+    },
+    "unitDestroyed.harkonnen": {
+     "file": "ordos/unitDestroyed.harkonnen.ogg",
+     "text": "Harkonnen unit destroyed.",
+     "seconds": 1.453
+    },
+    "unitDestroyed.ordos": {
+     "file": "ordos/unitDestroyed.ordos.ogg",
+     "text": "Ordos unit destroyed.",
+     "seconds": 1.402
+    },
+    "unitDestroyed.sardaukar": {
+     "file": "ordos/unitDestroyed.sardaukar.ogg",
+     "text": "Sardaukar unit destroyed.",
+     "seconds": 1.524
+    },
+    "unitLost": {
+     "file": "ordos/unitLost.ogg",
+     "text": "Unit lost.",
+     "seconds": 0.858
+    },
+    "unitReady": {
+     "file": "ordos/unitReady.ogg",
+     "text": "Unit ready.",
+     "seconds": 0.789
+    },
+    "unitRepaired": {
+     "file": "ordos/unitRepaired.ogg",
+     "text": "Unit repaired.",
+     "seconds": 0.921
+    },
+    "upgradeComplete": {
+     "file": "ordos/upgradeComplete.ogg",
+     "text": "Upgrade complete.",
+     "seconds": 1.106
+    },
+    "upgrading": {
+     "file": "ordos/upgrading.ogg",
+     "text": "Upgrading.",
+     "seconds": 0.786
+    },
+    "weaponReady.deathHand": {
+     "file": "ordos/weaponReady.deathHand.ogg",
+     "text": "Death Hand ready.",
+     "seconds": 0.929
+    },
+    "weaponReady.fremen": {
+     "file": "ordos/weaponReady.fremen.ogg",
+     "text": "Fremen ready.",
+     "seconds": 0.844
+    },
+    "weaponReady.saboteur": {
+     "file": "ordos/weaponReady.saboteur.ogg",
+     "text": "Saboteur ready.",
+     "seconds": 0.943
+    },
+    "wormsign": {
+     "file": "ordos/wormsign.ogg",
+     "text": "Warning. Wormsign.",
+     "seconds": 1.436
+    },
+    "yardDeployed": {
+     "file": "ordos/yardDeployed.ogg",
+     "text": "Construction yard deployed.",
+     "seconds": 1.529
+    }
+   }
+  },
+  "units": {
+   "voice": "am_michael",
+   "role": "units",
+   "lines": {
+    "acknowledged": {
+     "file": "units/acknowledged.ogg",
+     "text": "Acknowledged.",
+     "seconds": 1.063
+    },
+    "affirmative": {
+     "file": "units/affirmative.ogg",
+     "text": "Affirmative.",
+     "seconds": 1.056
+    },
+    "attacking": {
+     "file": "units/attacking.ogg",
+     "text": "Attacking.",
+     "seconds": 0.963
+    },
+    "awaitingOrders": {
+     "file": "units/awaitingOrders.ogg",
+     "text": "Awaiting orders.",
+     "seconds": 1.304
+    },
+    "engaging": {
+     "file": "units/engaging.ogg",
+     "text": "Engaging.",
+     "seconds": 0.993
+    },
+    "movingOut": {
+     "file": "units/movingOut.ogg",
+     "text": "Moving out.",
+     "seconds": 1.0
+    },
+    "onOurWay": {
+     "file": "units/onOurWay.ogg",
+     "text": "On our way.",
+     "seconds": 1.015
+    },
+    "reporting": {
+     "file": "units/reporting.ogg",
+     "text": "Reporting.",
+     "seconds": 0.9
+    },
+    "standingBy": {
+     "file": "units/standingBy.ogg",
+     "text": "Standing by.",
+     "seconds": 1.121
+    }
+   }
+  }
+ }
+}

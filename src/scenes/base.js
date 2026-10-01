@@ -13,7 +13,7 @@ import { findFreeTile } from '../sim/spawn.js';
 import { G } from '../data/terrain.js';
 import { INFANTRY } from '../data/houses.js';
 
-const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'starport', 'ix', 'palace', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
+const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks', 'wor', 'heavyFactory', 'repair', 'hiTech', 'starport', 'ix', 'palace', 'windtrap', 'refinery', 'turret', 'rocketTurret', 'turret', 'windtrap'];
 
 export async function start({ search }) {
   const params = readParams(search);

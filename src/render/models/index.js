@@ -11,6 +11,7 @@ import { trike } from './units/trike.js';
 import { quad } from './units/quad.js';
 import { soldier, trooper, saboteur, fremen } from './units/infantry.js';
 import { deathHandMissile } from './units/death-hand.js';
+import { rocket } from './units/rocket.js';
 import { sandworm } from './units/sandworm.js';
 import { constructionYard } from './structures/construction-yard.js';
 import { windtrap } from './structures/windtrap.js';
@@ -19,7 +20,6 @@ import { silo } from './structures/silo.js';
 import { outpost } from './structures/outpost.js';
 import { barracks } from './structures/barracks.js';
 import { wor } from './structures/wor.js';
-import { lightFactory } from './structures/light-factory.js';
 import { heavyFactory } from './structures/heavy-factory.js';
 import { repairFacility } from './structures/repair.js';
 import { hiTechFactory } from './structures/hi-tech.js';
@@ -35,8 +35,8 @@ import { concreteSlab } from './structures/concrete.js';
 import { placeholderStructure, placeholderUnit } from './structures/placeholder.js';
 
 const BUILDERS = {
-  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, deathHandMissile, sandworm,
-  constructionYard, windtrap, refinery, silo, outpost, barracks, wor, lightFactory, heavyFactory, repairFacility, hiTechFactory, starport, houseOfIX, palace,
+  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, deathHandMissile, rocket, sandworm,
+  constructionYard, windtrap, refinery, silo, outpost, barracks, wor, heavyFactory, repairFacility, hiTechFactory, starport, houseOfIX, palace,
   turret: gunTurret, rocketTurret, wallPost, wallArm, concrete: concreteSlab(1), concrete4: concreteSlab(2), placeholderUnit,
 };
 
@@ -48,7 +48,7 @@ export const UNIT_MODEL = {
 };
 export const STRUCTURE_MODEL = {
   constructionYard: 'constructionYard', windtrap: 'windtrap', refinery: 'refinery', silo: 'silo', outpost: 'outpost',
-  barracks: 'barracks', wor: 'wor', lightFactory: 'lightFactory', heavyFactory: 'heavyFactory', repair: 'repairFacility', hiTech: 'hiTechFactory', starport: 'starport', ix: 'houseOfIX', palace: 'palace',
+  barracks: 'barracks', wor: 'wor', heavyFactory: 'heavyFactory', repair: 'repairFacility', hiTech: 'hiTechFactory', starport: 'starport', ix: 'houseOfIX', palace: 'palace',
   turret: 'turret', rocketTurret: 'rocketTurret', wall: 'wallPost', concrete: 'concrete', concrete4: 'concrete4',
 };
 

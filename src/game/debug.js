@@ -5,7 +5,7 @@ import { findPlacement } from '../sim/placement.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 
 export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view }) {
-  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0 };
+  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0, docked: u.docked ?? 0, harvest: u.harvest ? { state: u.harvest.state, load: Math.round(u.harvest.load) } : null };
   const screen = (x, z, lift) => { const s = project(x, z, lift); return { x: Math.round(s.x), y: Math.round(s.y), visible: s.visible }; };
   const rect = (el) => {
     if (!el) return null;
@@ -19,6 +19,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     world,
     house,
     selection: () => selection.list(),
+    select: (ids) => selection.set(ids.filter((id) => world.units.get(id)?.house === house)),   // own units only, as a click would
+    carryalls: (h = house) => [...world.units.values()].filter((u) => u.house === h && u.typeId === 'carryall').map((c) => ({ ...brief(c), alt: c.alt, job: c.job?.stage ?? null, why: c.job?.why ?? null, load: c.cargo || 0, target: c.job?.unit ?? 0, manual: !!c.manual })),
     units: (typeId = null, h = house) => [...world.units.values()].filter((u) => u.house === h && (!typeId || u.typeId === typeId)).map(brief),
     unit: (id) => brief(world.units.get(id)),
     structures: (typeId = null) => [...world.structures.values()].filter((s) => !typeId || s.typeId === typeId).map((s) => ({ id: s.id, typeId: s.typeId, house: s.house, x: s.x, y: s.y, hp: s.hp, maxHp: s.maxHp })),
@@ -46,8 +48,13 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     menuOpen: () => !!view?.menu?.isOpen,
     cursor: () => ({ canvas: document.getElementById('gl').style.cursor.slice(0, 40), scrolling: document.getElementById('app').classList.contains('scrolling') }),
     tick: () => world.tick,
+    destruction: () => { const d = view?.stage?.destruction; return d ? { wrecks: d.wrecks.count, debris: d.debris.n, rubble: d.rubble.used, fires: d.sites.length, fallen: view.stage.unitViews.fallen.length } : null; },
     paused: () => !!view?.paused,
     outcome: () => world.outcome,
-    sound: () => ({ ready: !!view?.sound?.ctx, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0 }),
+    sound: () => ({ ready: !!view?.sound?.ctx, state: view?.sound?.ctx?.state ?? null, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0, ambience: !!view?.sound?.ambience }),
+    voice: () => view?.announcer?.status() ?? null,
+    /** Opens the audio context if need be (it may stay suspended: decoding does not need it running) and decodes every line of the house. */
+    voiceCheck: async () => { if (!view?.sound?.ctx) view?.sound?.open(); return view?.announcer?.player.output.check?.() ?? null; },
+    particles: () => { const fx = view?.stage?.effects; return fx ? { glow: fx.glow.n, smoke: fx.smoke.n, capacity: fx.glow.capacity + fx.smoke.capacity } : null; },
   };
 }

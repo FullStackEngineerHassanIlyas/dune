@@ -1,15 +1,16 @@
 // What a house can build right now (spec §4.5): prerequisites, tech level, house rosters, factory
 // upgrades and the plan-2 deferrals. Upgrades are items too: `upgrade:<structure>` buys the next level
-// of that factory type for the whole house.
+// of that factory type for the whole house. One vehicle factory: the Heavy Factory's 'heavy' line builds
+// every ground vehicle, light and heavy alike.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 
-export const STRUCTURE_ORDER = ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'rocketTurret', 'concrete4', 'starport', 'ix', 'palace'];
+export const STRUCTURE_ORDER = ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'rocketTurret', 'concrete4', 'starport', 'ix', 'palace'];
 export const UNIT_ORDER = ['soldier', 'infantry', 'trooper', 'troopers', 'trike', 'raider', 'quad', 'harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank', 'devastator', 'deviator', 'carryall', 'ornithopter'];
-export const UPGRADE_ORDER = ['constructionYard', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'hiTech'];
-export const LINE_FACTORIES = { structure: ['constructionYard'], infantry: ['barracks', 'wor'], light: ['lightFactory'], heavy: ['heavyFactory'], air: ['hiTech'] };
-const LINE_OF_FACTORY = { barracks: 'infantry', wor: 'infantry', lightFactory: 'light', heavyFactory: 'heavy', hiTech: 'air' };
+export const UPGRADE_ORDER = ['constructionYard', 'barracks', 'wor', 'heavyFactory', 'hiTech'];
+export const LINE_FACTORIES = { structure: ['constructionYard'], infantry: ['barracks', 'wor'], heavy: ['heavyFactory'], air: ['hiTech'] };
+const LINE_OF_FACTORY = { barracks: 'infantry', wor: 'infantry', heavyFactory: 'heavy', hiTech: 'air' };
 const UPGRADE = 'upgrade:';
 
 export const upgradeId = (structureType) => UPGRADE + structureType;
@@ -33,10 +34,11 @@ export function structureTechLevel(t, houseId) { return t.techByHouse?.[houseId]
 
 export function upgradeLevel(house, structureType) { return house?.upgrades?.[structureType] ?? 0; }
 
-/** The level the next purchase reaches: the Ordos get Heavy Factory level 3 along with level 2 (original). */
+/** The level the next purchase reaches: the Ordos get the Heavy Factory's last level (Siege Tank) along with
+ *  the one before (Missile Tank, not theirs), as the original gives them its last level free. */
 export function upgradeResult(house, structureType) {
   const next = upgradeLevel(house, structureType) + 1;
-  return house.id === 'ordos' && structureType === 'heavyFactory' && next === 2 ? 3 : next;
+  return house.id === 'ordos' && structureType === 'heavyFactory' && next === 3 ? 4 : next;
 }
 
 export function upgradeCost(house, structureType) { return STRUCTURES[structureType]?.upgrades?.[upgradeLevel(house, structureType)] ?? 0; }
@@ -83,7 +85,7 @@ export function canBuildStructure(house, typeId, owned, { implied = true } = {})
 export function canBuildUnit(house, typeId, owned) {
   const u = UNITS[typeId];
   if (!u || !LINE_OF_FACTORY[u.builtAt] || DEFERRED.has(typeId) || !u.houses.includes(house.id)) return false;
-  if (upgradeLevel(house, u.builtAt) < (u.upgrade ?? 0)) return false;   // e.g. the Quad needs the Light Factory upgrade
+  if (upgradeLevel(house, u.builtAt) < (u.upgrade ?? 0)) return false;   // e.g. the Quad needs the first Heavy Factory upgrade
   return owned.has(u.builtAt) && (u.requires ?? []).every((r) => owned.has(r));
 }
 
@@ -97,7 +99,7 @@ export function canBuild(world, houseId, typeId, opts = {}) {
 }
 
 export function buildOptions(world, houseId) {
-  const out = { structure: [], infantry: [], light: [], heavy: [], air: [], upgrades: [] };
+  const out = { structure: [], infantry: [], heavy: [], air: [], upgrades: [] };
   const house = world.houses.get(houseId);
   if (!house) return out;
   const owned = ownedStructureTypes(world, houseId);

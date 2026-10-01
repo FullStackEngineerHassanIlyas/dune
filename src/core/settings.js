@@ -1,7 +1,9 @@
 // Player settings: defaults ← localStorage ← URL overrides. Only whitelisted keys and values survive.
 const KEY = 'dune2-3d.settings';
 export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, rightDragScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal', sound: true, volume: 0.8,
+  voiceVolume: 0.8,     // the announcer and the units' acknowledgements (src/audio/voice.js); 0 turns them off
   menuMotion: true };   // false: the main menu's backdrop stands still (its Pause background button, WCAG 2.2.2)
+const ZERO_OK = new Set(['voiceVolume']);   // numbers that may be 0 (off); the rest must be positive
 const CHOICES = {
   quality: ['low', 'medium', 'high'],
   scheme: ['classic', 'modern'],
@@ -15,7 +17,7 @@ export function sanitize(obj) {
     if (!(k in DEFAULTS)) continue;
     if (CHOICES[k]) { if (CHOICES[k].includes(v)) out[k] = v; }
     else if (typeof DEFAULTS[k] === 'boolean') out[k] = v === true || v === 'true' || v === '1';
-    else if (typeof DEFAULTS[k] === 'number') { const n = Number(v); if (Number.isFinite(n) && n > 0 && n <= 4) out[k] = n; }
+    else if (typeof DEFAULTS[k] === 'number') { const n = typeof v === 'number' || (typeof v === 'string' && v.trim()) ? Number(v) : NaN; if (Number.isFinite(n) && (n > 0 || (n === 0 && ZERO_OK.has(k))) && n <= 4) out[k] = n; }
   }
   return out;
 }

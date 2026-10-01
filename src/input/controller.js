@@ -1,6 +1,9 @@
 // Mouse and keyboard → selection and commands for the Classic (C&C 1995) and Modern schemes
 // (spec §5.7). Classic: left click selects or orders by context, right click deselects.
-// Modern: left click selects, right click orders.
+// Modern: left click selects, right click orders. A house's own Carryalls take orders too: with only
+// Carryalls selected, the order click on an own vehicle lifts it if one of them is empty (shift-click
+// still selects), on the ground flies there or sets the load down, on the Repair Facility or a Refinery
+// delivers the load. Ctrl + click stays force fire: no Carryall lifts the target.
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -11,11 +14,14 @@ import { needsRepair } from '../sim/repair-bay.js';
 import { canCapture, capturable } from '../sim/capture.js';
 import { onFoot } from '../data/units.js';
 import { palaceOf, palaceReady } from '../sim/palace.js';
+import { isLifter, liftable } from '../sim/carryall.js';
 
 /** Footprint origin that centres a structure of `size` tiles on ground coordinate `g`. */
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
+/** An own Carryall with empty claws: one with a load cannot lift another (an order click sets the load down instead). */
+const free = (u) => isLifter(u) && !u.cargo;
 
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
@@ -31,7 +37,7 @@ export class Controller {
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
-      if (u.inside || u.type.untargetable || !this.canSee(u)) continue;   // held units and the Frigate cannot be picked
+      if ((u.inside && !(u.docked && u.house === this.house)) || u.type.untargetable || !this.canSee(u)) continue;   // held units and the Frigate cannot be picked; our harvester in a refinery's slot can
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;
@@ -53,7 +59,14 @@ export class Controller {
   }
 
   inViewport(x, y) { const v = this.viewport(); return x >= v.left && x <= v.right && y >= v.top && y <= v.bottom; }
-  ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && !u.type.autonomous); }   // Carryalls can be looked at, not ordered
+  ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && (!u.type.autonomous || isLifter(u))); }   // Fremen and visiting Carryalls can be looked at, not ordered
+  /** Only own Carryalls selected: an order click on an own vehicle lifts it. */
+  liftersOnly(own = this.ownSelected()) { return own.length > 0 && own.every(isLifter); }
+  /** An own vehicle one of the selected Carryalls can go and pick up: one of them has its claws free (sim/carryall.js 'lift'). */
+  lifts(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && own.some(free); }
+  canLift(u, own = this.ownSelected()) { return this.liftersOnly(own) && this.lifts(u, own); }
+  /** The load a selected Carryall holds. */
+  loadOf(c) { return c.cargo ? this.world.units.get(c.cargo) ?? null : null; }
   issue(cmd) { this.world.issue(this.house, cmd); }
   orderTile(tx, ty) { this.order({ kind: 'ground', tx, ty }); }
 
@@ -130,6 +143,7 @@ export class Controller {
     if (mods.ctrl && hit && this.ownSelected().some((u) => isArmed(u.type))) { this.order(hit, mods); return; }   // force fire
     if (hit?.kind === 'unit' && hit.unit.house === this.house) {
       const u = hit.unit;
+      if (classic && !mods.shift && this.canLift(u)) { this.order(hit); return; }   // the selected Carryall lifts it
       // a second click on the selected MCV deploys it, even when the two clicks were quick enough to count as a double click
       if (classic && !mods.shift && u.type.deploysTo && this.selection.ids.size === 1 && this.selection.has(u.id)) { this.issue({ type: 'deploy', ids: [u.id] }); return; }
       if (double) { this.selectSameType(u); return; }
@@ -153,14 +167,29 @@ export class Controller {
     this.selection.setStructure(s.id);
   }
 
-  /** What a click on an own building tells the selection: harvesters unload at a refinery, damaged vehicles drive into a repair bay. */
+  /** What a click on an own building tells the selection: harvesters unload at a refinery, damaged vehicles drive into a repair bay, Carryalls deliver their loads there. */
   structureOrder(s, units) {
     if (s.house !== this.house) return false;
-    if (s.typeId === 'refinery' && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return true; }
+    const done = this.deliverOrder(s, units.filter(isLifter));
+    units = units.filter((u) => !isLifter(u));
+    if (s.typeId === 'refinery' && units.length && units.every((u) => u.harvest)) { this.issue({ type: 'returnToBase', ids: units.map((u) => u.id) }); return true; }
     const fix = s.typeId === 'repair' ? units.filter(needsRepair) : [];
-    if (!fix.length) return false;
+    if (!fix.length) return done;
     this.issue({ type: 'repairAt', ids: fix.map((u) => u.id), structureId: s.id });
     return true;
+  }
+
+  /** Carryalls take a worn load into the Repair Facility, a Harvester load to a Refinery. */
+  deliverOrder(s, lifters) {
+    const ids = lifters.filter((c) => this.delivers(c, s)).map((c) => c.id);
+    if (!ids.length) return false;
+    this.issue({ type: s.typeId === 'repair' ? 'repairAt' : 'returnToBase', ids, structureId: s.id });
+    return true;
+  }
+
+  delivers(c, s) {
+    const load = this.loadOf(c);
+    return !!load && s.house === this.house && ((s.typeId === 'repair' && load.hp < load.maxHp) || (s.typeId === 'refinery' && !!load.harvest));
   }
 
   /** The selected own unit factory, whose rally point a ground click sets. */
@@ -184,6 +213,13 @@ export class Controller {
     if (hit.kind === 'unit' && units.length === 1 && units[0].id === hit.unit.id && units[0].type.deploysTo) {
       this.issue({ type: 'deploy', ids: [units[0].id] });
       return;
+    }
+    const force = !!mods.ctrl && units.some((u) => isArmed(u.type));
+    if (hit.kind === 'unit' && !force && this.lifts(hit.unit, units)) {   // empty Carryalls lift it (not a Ctrl force-fire target); the rest carry on
+      this.issue({ type: 'lift', ids: units.filter(free).map((u) => u.id), targetId: hit.unit.id });
+      this.onMarker(hit.unit.x, hit.unit.y);
+      units = units.filter((u) => !free(u));
+      if (!units.length) return;
     }
     const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
     const enemy = !!entity && entity.house !== this.house;
@@ -232,7 +268,11 @@ export class Controller {
 
   onDragEnd(x0, y0, x1, y1, mods) {
     this.onDragBox(null);
-    const ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    let ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    // a box round the army leaves out the Carryalls waiting on duty over it — an order would take them off duty and
+    // along to the front; a box round Carryalls alone (or a click, or a double click) still picks them up
+    const lifter = (id) => isLifter(this.world.units.get(id));
+    if (!ids.every(lifter)) ids = ids.filter((id) => !lifter(id));
     if (mods.shift) this.selection.add(ids);
     else if (ids.length) this.selection.set(ids);
     else this.selection.clear();
@@ -307,12 +347,14 @@ export class Controller {
     const own = this.ownSelected();
     if (!hit) return own.length ? 'noMove' : 'default';
     if (hit.kind === 'unit') {
-      if (hit.unit.house !== this.house) return !own.length ? 'select' : hit.unit.isGround || own.some((u) => u.type.targetAir) ? 'attack' : 'noMove';   // aircraft: anti-air only
+      if (hit.unit.house !== this.house) return !own.length ? 'select' : this.liftersOnly(own) ? 'move' : hit.unit.isGround || own.some((u) => u.type.targetAir) ? 'attack' : 'noMove';   // aircraft: anti-air only; Carryalls fly over
       if (own.length === 1 && own[0].id === hit.unit.id && hit.unit.type.deploysTo) return deploySpot(this.world, hit.unit) ? 'deploy' : 'noDeploy';
-      return 'select';
+      return this.canLift(hit.unit, own) ? 'lift' : 'select';
     }
     if (hit.kind === 'structure') {
       const s = hit.structure;
+      const deliver = own.filter(isLifter).find((c) => this.delivers(c, s));
+      if (deliver) return s.typeId === 'repair' ? 'enter' : 'move';
       if (own.length && s?.house === this.house && s.typeId === 'refinery' && own.every((u) => u.harvest)) return 'move';
       if (own.length && s?.house === this.house && s.typeId === 'repair' && own.some(needsRepair)) return 'enter';
       if (own.length && s?.house !== this.house && !s.type.isWall && own.some((u) => u.type.sabotage)) return 'sabotage';

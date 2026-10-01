@@ -5,25 +5,30 @@
 // saddles in the north-east, tied up to the header, and a cable reel at its end; the gabled lavender
 // processing machine with its single blue eye, white corner glint and arched door, three feed rams on
 // its south face joined by a pipe that loops round from the last centrifuge; and the lavender docking
-// pad in the east column with its cross of recessed sockets and corner triangles. Amber chevrons point
-// in from the corners and a centre pair glows (`padLights`: they pulse and converge while a Harvester
-// unloads on the tile just south of the pad). The house orb sits in the south-west corner.
+// pad in the east column with its cross of recessed sockets and corner triangles, where a Harvester
+// drives in from the entrance south of it to unload. Amber chevrons point in from the corners and a
+// centre pair glows (`padLights`: they converge on the pad while a Harvester is due and pulse while
+// one unloads). While it unloads the refinery works (research: structures.md, the busy animation):
+// the centrifuge rotors spin (`spin`), the feed rams pump (`ram`) and spice glows in the chute from
+// the pad into the machine (`flow`, hidden at rest). The house orb sits in the south-west corner.
 import { ModelBuilder, MAT, box, cbox, cyl, sphere, torus, hull, prism, ring } from '../kit.js';
 import { PAL } from '../palette.js';
 import { foundation, FOUNDATION_TOP as T, houseOrb, pipe, roundGrille, bolts, ladder, rod, halfArc } from '../detail.js';
 
 const AMBER = PAL.amber, REEL = 0x6e3a10, SOCKET = 0x404020;
 
-/** A round centrifuge housing: drum, rim, twelve radial fins round an orange grille, bolts. */
-function centrifuge(b, x, z) {
-  const r = 0.235, h = 0.2, top = T + h;
+/** A round centrifuge housing: drum, rim, a rotor of twelve radial fins and a paddle cross (node `spin${i}`) round an orange grille, bolts. */
+function centrifuge(b, x, z, i) {
+  const r = 0.235, h = 0.2, top = T + h, rotor = `spin${i}`;
   b.add(MAT.PAINT, cyl(r, r + 0.012, h, 24, { p: [x, T + h / 2, z], color: PAL.machine }));
   b.add(MAT.PAINT, ring(r + 0.008, r - 0.035, 0.022, 24, { p: [x, top, z], color: PAL.machineLight }));
   b.add(MAT.DARK, cyl(r - 0.035, r - 0.035, 0.01, 24, { p: [x, top - 0.004, z], color: PAL.navy }));
+  b.node(rotor, { pivot: [x, top, z], axis: 'y', kind: 'rot', param: 'spin' });
   for (let k = 0; k < 12; k++) {
     const a = (k / 12) * Math.PI * 2;
-    b.add(MAT.PAINT, box(0.09, 0.03, 0.018, { p: [x + Math.cos(a) * 0.15, top + 0.008, z + Math.sin(a) * 0.15], r: [0, -a, 0], color: PAL.machineLight }));
+    b.add(MAT.PAINT, box(0.09, 0.03, 0.018, { p: [Math.cos(a) * 0.15, 0.008, Math.sin(a) * 0.15], r: [0, -a, 0], color: PAL.machineLight }), rotor);
   }
+  b.add(MAT.PAINT, [box(0.2, 0.016, 0.026, { p: [0, 0.02, 0], color: PAL.grille }), box(0.026, 0.016, 0.2, { p: [0, 0.02, 0], color: PAL.grille })], rotor);
   roundGrille(b, { r: 0.1, n: 5, at: { p: [x, top + 0.004, z] }, rim: PAL.machineDark });
   const studs = [];
   for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2 + 0.2; studs.push([x + Math.cos(a) * (r + 0.004), T + h * 0.35, z + Math.sin(a) * (r + 0.004)]); }
@@ -55,7 +60,7 @@ export function refinery() {
   b.add(MAT.PAINT, cbox(0.17, 0.22, 0.66, 0.025, { p: [-0.39, T + 0.11, -0.53], color: PAL.navy }));
   for (const z of [-0.72, -0.52, -0.32]) b.add(MAT.PAINT, box(0.176, 0.03, 0.02, { p: [-0.39, T + 0.2, z], color: PAL.navyLight }));
 
-  for (const z of [-0.66, -0.16, 0.34]) centrifuge(b, -0.64, z);
+  [-0.66, -0.16, 0.34].forEach((z, i) => centrifuge(b, -0.64, z, i));
 
   // valve knobs, lamp console and a junction box on the west edge
   for (const z of [-0.67, -0.43]) {
@@ -116,15 +121,24 @@ export function refinery() {
   b.add(MAT.METAL, ring(0.05, 0.03, 0.02, 10, { p: [0.08, T + 0.61, -0.02], color: PAL.machineDark }));
   b.add(MAT.PAINT, hull([[-0.47, T + 0.14, -0.3], [-0.31, T + 0.14, -0.3], [-0.47, T + 0.22, -0.3], [-0.31, T + 0.22, -0.3], [-0.47, T + 0.14, -0.1], [-0.31, T + 0.14, -0.1], [-0.47, T + 0.3, -0.18], [-0.34, T + 0.36, -0.18]], { color: PAL.navy }));
 
-  // feed rams on the south face, joined by a pipe that loops round from the last centrifuge
+  // feed rams on the south face (their piston rods and heads pump on `ram`), joined by a pipe that loops round from the last centrifuge
+  b.node('ram', { pivot: [0, T, z1], axis: 'z', kind: 'trans' });
   for (const x of [-0.3, -0.07, 0.14]) {
     b.add(MAT.PAINT, cyl(0.04, 0.04, 0.2, 10, { p: [x, T + 0.075, z1 + 0.12], r: [Math.PI / 2, 0, 0], color: PAL.machine }));
     b.add(MAT.PAINT, cyl(0.048, 0.048, 0.03, 10, { p: [x, T + 0.075, z1 + 0.23], r: [Math.PI / 2, 0, 0], color: PAL.white }));
-    b.add(MAT.METAL, cyl(0.018, 0.018, 0.12, 8, { p: [x, T + 0.075, z1 + 0.3], r: [Math.PI / 2, 0, 0], color: PAL.steel }));
-    b.add(MAT.PAINT, cbox(0.08, 0.06, 0.03, 0.008, { p: [x, T + 0.06, z1 + 0.37], color: PAL.white }));
+    b.add(MAT.METAL, cyl(0.018, 0.018, 0.12, 8, { p: [x, 0.075, 0.3], r: [Math.PI / 2, 0, 0], color: PAL.steel }), 'ram');
+    b.add(MAT.PAINT, cbox(0.08, 0.06, 0.03, 0.008, { p: [x, 0.06, 0.37], color: PAL.white }), 'ram');
     b.add(MAT.PAINT, cbox(0.07, 0.035, 0.05, 0.008, { p: [x, T + 0.0175, z1 + 0.12], color: PAL.machineDark }));
   }
   pipe(b, [[-0.64, T + 0.12, 0.58], [-0.6, T + 0.13, 0.68], [-0.5, T + 0.14, 0.72], [0.2, T + 0.14, 0.72]], { r: 0.026, color: 0xd6d3e2, flangeColor: PAL.machineLight, mat: MAT.PAINT });
+
+  // spice chute from the pad's west edge into the machine's east shoulder: a navy trough, glowing while a Harvester unloads
+  b.add(MAT.PAINT, cbox(0.24, 0.06, 0.24, 0.012, { p: [0.43, T + 0.03, 0.14], color: PAL.navy }));
+  b.add(MAT.DARK, box(0.2, 0.004, 0.18, { p: [0.43, T + 0.061, 0.14], color: 0x1c120e }));
+  for (const z of [0.03, 0.25]) b.add(MAT.PAINT, box(0.24, 0.02, 0.02, { p: [0.43, T + 0.07, z], color: PAL.navyLight }));
+  b.node('flow', { pivot: [0.43, T + 0.064, 0.14], kind: 'scale', value: 0.001 });
+  b.add(MAT.LIGHT, box(0.2, 0.006, 0.16, { color: 0xff8a1a, glow: 1.8 }), 'flow');
+  b.add(MAT.LIGHT, box(0.12, 0.008, 0.06, { p: [0.02, 0.002, 0], color: 0xffd080, glow: 1.6 }), 'flow');
 
   // docking pad: lavender deck, cross of recessed sockets, corner triangles
   const dx0 = 1.0, dz0 = 0.38, top = T + 0.05;

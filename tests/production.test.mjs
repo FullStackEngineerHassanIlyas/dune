@@ -14,12 +14,12 @@ function base(house = 'atreides', credits = 5000) {
 const powered = (world, house = 'atreides') => world.spawnStructure('windtrap', house, 0, 0);   // factories need power to run at full speed
 const count = (world, typeId) => [...world.units.values()].filter((u) => u.typeId === typeId).length;
 
-test('a Wind Trap takes 21.6 s and is paid progressively', () => {
+test('a Wind Trap takes 8.6 s and is paid progressively', () => {   // 48 steps on the minor-building curve (tuning.js)
   const { world, h } = base();
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
-  run(world, 10.8);
+  run(world, 4.32);
   assert.ok(Math.abs(h.credits - 4850) < 2, `credits ${h.credits}`);
-  run(world, 11);
+  run(world, 4.4);
   assert.equal(h.lines.structure.current.state, 'ready');
   assert.ok(Math.abs(h.credits - 4700) < 1e-6);
   assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'constructionComplete'));
@@ -29,7 +29,7 @@ test('insufficient funds stalls and resumes without going negative', () => {
   const { world, h } = base('atreides', 100);
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
   run(world, 15);
-  assert.ok(h.credits >= 0 && h.credits < 1, `credits ${h.credits}`);
+  assert.ok(h.credits >= 0 && h.credits < 2, `credits ${h.credits}`);   // less than one tick's share is left
   const stalled = h.lines.structure.current.progress;
   assert.ok(stalled > 0.3 && stalled < 0.36, `progress ${stalled}`);
   assert.equal(world.events.drain().filter((e) => e.key === 'insufficientFunds').length, 1);
@@ -83,14 +83,14 @@ test('placing on an invalid spot keeps the structure ready', () => {
 test('units leave by the factory\'s south side and drive to the rally point', () => {
   const { world } = base();
   powered(world);
-  const lf = world.spawnStructure('lightFactory', 'atreides', 10, 10);
-  world.issue('atreides', { type: 'setRally', structureId: lf.id, x: 11, y: 20 });
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 10, 10);
+  world.issue('atreides', { type: 'setRally', structureId: hf.id, x: 11, y: 20 });
   world.issue('atreides', { type: 'build', typeId: 'trike' });
   run(world, 18.2);
   const trike = [...world.units.values()].find((u) => u.typeId === 'trike');
   assert.ok(trike, 'built after 18 s');
   assert.equal(trike.ty, 12);
-  assert.ok(world.events.drain().some((e) => e.type === 'unitBuilt' && e.structureId === lf.id));
+  assert.ok(world.events.drain().some((e) => e.type === 'unitBuilt' && e.structureId === hf.id));
   run(world, 12);
   assert.ok(Math.max(Math.abs(trike.tx - 11), Math.abs(trike.ty - 20)) <= 1, `trike at ${trike.tx},${trike.ty}`);
 });

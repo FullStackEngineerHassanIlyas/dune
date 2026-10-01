@@ -40,6 +40,21 @@ test('an Ordos AI sends its Saboteur into the most valuable enemy building', () 
   assert.equal([...world.units.values()].find((u) => u.typeId === 'saboteur').order.structureId, factory.id);
 });
 
+test('the computer\'s Saboteur goes for the most valuable building its blast can bring down', () => {
+  const { world } = aiPalace('ordos');
+  const palace = world.spawnStructure('palace', 'atreides', 30, 20);   // 1000 hit points: the blast leaves it standing
+  const bay = world.spawnStructure('repair', 'atreides', 20, 5);
+  world.spawnStructure('windtrap', 'atreides', 10, 10);
+  const target = () => [...world.units.values()].find((u) => u.typeId === 'saboteur' && u.order.type === 'sabotage')?.order.structureId;
+  runUntil(world, () => target(), 5);
+  assert.equal(target(), bay.id);
+  const sab = [...world.units.values()].find((u) => u.typeId === 'saboteur');
+  world.issue('ordos', { type: 'stop', ids: [sab.id] });
+  palace.hp = 400;   // worn down: now it can be finished
+  run(world, 1.5);
+  assert.equal(target(), palace.id);
+});
+
 test('a Palace that cannot fire is not asked again every second', () => {
   const world = flatWorld(48, 32, G.ROCK);
   const s = world.spawnStructure('palace', 'ordos', 0, 0);
@@ -68,11 +83,25 @@ test('Fremen are never drafted into an AI wave', () => {
 test('the computer builds a Palace once its House of IX stands, and fields its House special', () => {
   assert.ok(ARMY_WEIGHTS.sonicTank > 0 && ARMY_WEIGHTS.devastator > 0 && ARMY_WEIGHTS.deviator > 0);
   const world = flatWorld(56, 44, G.ROCK);
-  const layout = [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['refinery', 6, 6], ['outpost', 10, 6], ['wor', 13, 6], ['lightFactory', 16, 6], ['heavyFactory', 2, 10], ['silo', 6, 10], ['repair', 9, 10], ['hiTech', 13, 10], ['turret', 17, 10], ['turret', 18, 10], ['starport', 2, 14], ['ix', 6, 14]];
+  const layout = [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['windtrap', 11, 2], ['windtrap', 14, 2], ['windtrap', 17, 2], ['refinery', 2, 6], ['refinery', 6, 6], ['outpost', 10, 6], ['wor', 13, 6], ['heavyFactory', 2, 10], ['silo', 6, 10], ['repair', 9, 10], ['hiTech', 13, 10], ['turret', 17, 10], ['turret', 18, 10], ['starport', 2, 14], ['ix', 6, 14]];
   for (const [t, x, y] of layout) world.spawnStructure(t, 'harkonnen', x, y);
   const h = world.houses.get('harkonnen');
   h.credits = 20000;
   h.startBuffer = 40000;
   createBrain(world, 'harkonnen', 'normal');
   assert.ok(runUntil(world, () => [...world.structures.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'palace'), 150) > 0);
+});
+
+test('the Death Hand spares the computer\'s own: it goes for a spot clear of its army and its base', () => {
+  const { world } = aiPalace('harkonnen');
+  for (const x of [40, 42, 44]) world.spawnStructure('windtrap', 'atreides', x, 20);   // the richest spot, but the wave is there
+  const own = [];
+  for (let k = 0; k < 6; k++) own.push(world.spawnUnit('combatTank', 'harkonnen', 39 + k, 23));
+  for (let k = 0; k < 6; k++) world.spawnUnit('combatTank', 'atreides', 5 + (k % 3), 6 + Math.floor(k / 3));   // raiders at the Palace's door
+  for (const x of [20, 22]) world.spawnStructure('windtrap', 'atreides', x, 26);
+  let fired = null;
+  runUntil(world, () => (fired ??= world.events.drain().find((e) => e.type === 'palaceFired')), 3);
+  assert.deepEqual(fired && [fired.x, fired.y], [21, 27]);
+  run(world, 12);
+  assert.ok(own.every((u) => u.hp === u.maxHp), own.map((u) => u.hp).join(' '));
 });

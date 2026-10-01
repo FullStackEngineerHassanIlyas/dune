@@ -60,7 +60,7 @@ vec3 terrainAlbedo(vec2 p, inout float rough, inout float spiceAmt) {
 #endif
   col = pow(col, vec3(2.2));   // the colours above are authored in sRGB; lighting works in linear
 #ifndef APRON
-  col *= texture2D(uDecals, p / uMapSize).rgb;
+  col *= pow(texture2D(uDecals, p / uMapSize).rgb, vec3(2.2));   // the marks are sRGB bytes (decals.js)
 #else
   col *= uApron.x;
 #endif

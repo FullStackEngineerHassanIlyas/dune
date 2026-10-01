@@ -3,25 +3,31 @@
 // icon's state, progress and queue count. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { buildSeconds, UPGRADE_BUILD_TIME, STARPORT, PALACE } from '../data/tuning.js';
+import { STARPORT, PALACE } from '../data/tuning.js';
 import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon } from '../sim/palace.js';
+import { itemSeconds } from '../sim/production.js';
 
-const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
+const UNIT_LINES = ['infantry', 'heavy', 'air'];
 
 export function powerLevel({ produced, used }) {
   if (used <= produced) return 'ok';
   return used > 2 * produced ? 'critical' : 'low';
 }
 
-function itemState(l, typeId, line) {
+/** The yard takes one structure at a time; an upgrade sets aside one under construction (production.js), so
+ *  only a structure waiting to be placed, another upgrade or an item already set aside keeps it from the yard. */
+const yardBusy = (l, upgrade) => (upgrade ? !!l.current && (!!l.current.upgrade || l.current.state === 'ready' || l.current.progress >= 1 || !!l.aside) : !!l.current || l.queue.length > 0);
+
+function itemState(l, typeId, line, upgrade = false) {
   const cur = l.current;
   const queued = l.queue.reduce((n, t) => n + (t === typeId ? 1 : 0), 0);
   if (cur?.typeId === typeId) return { state: cur.state, progress: cur.progress, count: queued + 1, starved: cur.starved };
+  if (l.aside?.typeId === typeId) return { state: 'queued', progress: l.aside.progress, count: queued, starved: false, note: 'Set aside: resumes after the upgrade' };   // sim/production.js
   if (queued) return { state: 'queued', progress: 0, count: queued, starved: false };
-  return { state: line === 'structure' && cur ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
+  return { state: line === 'structure' && yardBusy(l, upgrade) ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
 }
 
 /** The Palace weapon (spec §4.7): what it is, how far it has charged, whether it needs a target. */
@@ -37,7 +43,7 @@ export function sidebarModel(world, houseId) {
   const options = buildOptions(world, houseId);
   const entry = (line) => (typeId) => {
     const t = STRUCTURES[typeId] ?? UNITS[typeId];
-    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(buildSeconds(t.buildTime)), ...itemState(house.lines[line], typeId, line) };
+    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(itemSeconds(typeId)), ...itemState(house.lines[line], typeId, line) };
   };
   const upgrade = (typeId) => {
     const target = upgradeTarget(typeId), line = lineOfItem(typeId);
@@ -46,8 +52,8 @@ export function sidebarModel(world, houseId) {
     const opens = upgradeUnlocks(houseId, target, upgradeLevel(house, target), level);
     return {
       typeId, line, icon: `${typeId}:${level}`, name: `${STRUCTURES[target].name} upgrade`, cost: cur?.cost ?? upgradeCost(house, target),
-      seconds: Math.round(buildSeconds(UPGRADE_BUILD_TIME)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
-      ...itemState(house.lines[line], typeId, line),
+      seconds: Math.round(itemSeconds(typeId)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
+      ...itemState(house.lines[line], typeId, line, true),
     };
   };
   const m = house.starport, open = m && starportOf(world, houseId);
@@ -81,6 +87,15 @@ export function rollCredits(shown, target, dt) {
 }
 
 export const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+/**
+ * The number in an icon's corner: how many more are on order beyond the one in work; every one of an item only on
+ * order. Never on an upgrade: there is only ever one, and its icon wears its level in that corner.
+ */
+export const badgeOf = (item) => (!item.typeId?.startsWith('upgrade:') && item.count > (item.order || item.state === 'queued' ? 0 : 1) ? String(item.count) : '');
+
+/** How far round an icon's clock has come: the item in work, or the one an upgrade set aside; a full face otherwise. */
+export const wipeOf = (item) => (item.state === 'building' || item.state === 'hold' || (item.state === 'queued' && item.progress > 0) ? item.progress.toFixed(3) : '1');
 
 /** The line under an icon's name in its tooltip. */
 export function tipText(item) {

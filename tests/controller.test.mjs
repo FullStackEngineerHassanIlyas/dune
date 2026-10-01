@@ -248,26 +248,26 @@ test('orderTile orders the selection to a map tile (the radar uses it)', () => {
 
 test('a click selects a structure; with a factory selected a ground click sets its rally point', () => {
   const { world, c, issued } = setup();
-  const lf = world.spawnStructure('lightFactory', 'atreides', 2, 12);
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 2, 12);
   c.onClick(px(2), px(12), 0, NONE, false);
-  assert.equal(c.selection.structureId, lf.id);
+  assert.equal(c.selection.structureId, hf.id);
   assert.equal(c.selection.list().length, 0);
   assert.equal(c.cursorFor(c.hitTest(px(9), px(14))), 'move');
   c.onClick(px(9), px(14), 0, NONE, false);
-  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: lf.id, x: 9, y: 14 });
-  assert.equal(c.selection.structureId, lf.id, 'the factory stays selected');
+  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: hf.id, x: 9, y: 14 });
+  assert.equal(c.selection.structureId, hf.id, 'the factory stays selected');
   c.onClick(px(2), px(12), 0, NONE, true);
-  assert.deepEqual(issued.at(-1), { type: 'setPrimary', structureId: lf.id });
+  assert.deepEqual(issued.at(-1), { type: 'setPrimary', structureId: hf.id });
   c.onClick(px(9), px(14), 2, NONE, false);
   assert.equal(c.selection.structureId, 0, 'right click deselects (classic)');
 });
 
 test('modern scheme: right click on the ground sets the rally point of the selected factory', () => {
   const { world, c, issued } = setup('modern');
-  const lf = world.spawnStructure('lightFactory', 'atreides', 2, 12);
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 2, 12);
   c.onClick(px(2), px(12), 0, NONE, false);
   c.onClick(px(9), px(14), 2, NONE, false);
-  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: lf.id, x: 9, y: 14 });
+  assert.deepEqual(issued.at(-1), { type: 'setRally', structureId: hf.id, x: 9, y: 14 });
 });
 
 test('harvesters clicked onto an own refinery go back to base; enemy structures do not steal the selection', () => {
@@ -368,6 +368,26 @@ test('modern: right click on an own repair facility sends damaged vehicles in; a
   assert.ok(!c.selection.has(tank2.id));
 });
 
+test('a harvester unloading in a refinery\'s slot can still be clicked and ordered', () => {
+  const { world, c, issued } = setup('modern');
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 10);
+  const hv = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  hv.harvest.load = 700;
+  hv.harvest.state = 'toRefinery';
+  for (let i = 0; i < 100 && hv.harvest.state !== 'unloading'; i++) world.step();
+  assert.equal(hv.docked, ref.id);
+  c.onClick(hv.x * 40, hv.y * 40, 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [hv.id]);
+  c.onClick(px(3), px(3), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [hv.id], x: 3, y: 3 });
+  const theirs = world.spawnStructure('refinery', 'harkonnen', 2, 14);
+  const foe = [...world.units.values()].find((u) => u.typeId === 'harvester' && u.house === 'harkonnen');
+  Object.assign(foe, { inside: theirs.id, docked: theirs.id, x: 4.5, y: 15.4 });
+  c.selection.set([]);
+  c.onClick(4.5 * 40, 15.4 * 40, 0, NONE, false);
+  assert.ok(!c.selection.has(foe.id), 'an enemy harvester in its slot is not picked: the click goes to the refinery');
+});
+
 test('infantry clicked onto a badly damaged enemy building capture it while the rest attack', () => {
   const { world, tank, c, issued, cursors } = setup();
   const squad = world.spawnUnit('infantry', 'atreides', 3, 3);
@@ -391,7 +411,7 @@ test('infantry clicked onto a badly damaged enemy building capture it while the 
   assert.equal(cursors.at(-1), 'attack', 'Outposts cannot be captured');
 });
 
-test('aircraft are picked at their flying height; a selected Carryall takes no orders', () => {
+test('aircraft are picked at their flying height; a selected Carryall flies where the player clicks', () => {
   const { world, c, issued } = setup();
   const o = world.spawnUnit('ornithopter', 'atreides', 3, 3);
   const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
@@ -400,9 +420,89 @@ test('aircraft are picked at their flying height; a selected Carryall takes no o
   c.candidates();
   assert.ok(lifts.includes(o.alt), 'projected at its height');
   c.selection.set([cy.id]);
-  const before = issued.length;
   c.onClick(px(8), px(12), 0, NONE, false);
-  assert.equal(issued.length, before, 'nothing ordered');
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 8, y: 12 });
+  assert.equal(c.cursorFor(c.hitTest(px(15), px(15))), 'move', 'over mountains too');
+});
+
+test('classic: with a Carryall selected, a click on an own vehicle lifts it (shift still selects); keys stop, return to duty, drop', () => {
+  const { world, tank, tank2, enemy, c, issued, cursors } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([cy.id]);
+  c.onMove(px(5), px(5));
+  c.frame();
+  assert.equal(cursors.at(-1), 'lift');
+  assert.equal(c.cursorFor(c.hitTest(px(12), px(5))), 'move', 'over an enemy: it flies there');
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'lift', ids: [cy.id], targetId: tank.id });
+  assert.deepEqual(c.selection.list(), [cy.id], 'still the Carryall selected');
+  c.onClick(px(7), px(5), 0, { ...NONE, shift: true }, false);
+  assert.deepEqual(c.selection.list(), [cy.id, tank2.id], 'shift-click adds to the selection');
+  c.selection.set([cy.id]);
+  for (const k of ['s', 'g', 'd']) c.onKey(k, `Key${k.toUpperCase()}`, NONE);
+  assert.deepEqual(issued.slice(-3), [{ type: 'stop', ids: [cy.id] }, { type: 'guard', ids: [cy.id] }, { type: 'deploy', ids: [cy.id] }]);
+  c.selection.set([tank.id, cy.id]);
+  c.onClick(px(10), px(9), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id, cy.id], x: 10, y: 9 }, 'a mixed group moves together');
+  c.onClick(px(7), px(5), 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [tank2.id], 'a mixed group: a click on a vehicle selects it');
+  assert.ok(enemy);
+});
+
+test('modern: right click on an own vehicle has the selected Carryall lift it; left click selects', () => {
+  const { world, tank, c, issued } = setup('modern');
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([cy.id]);
+  c.onClick(px(5), px(5), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'lift', ids: [cy.id], targetId: tank.id });
+  c.onClick(px(10), px(9), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 10, y: 9 });
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [tank.id]);
+});
+
+test('a Carryall that already has a load does not offer to lift another', () => {
+  for (const scheme of ['classic', 'modern']) {
+    const { world, tank, tank2, c, issued, cursors } = setup(scheme);
+    const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+    world.map.unit[world.map.idx(tank2.tx, tank2.ty)] = 0;
+    tank2.inside = cy.id;
+    cy.cargo = tank2.id;
+    c.selection.set([cy.id]);
+    c.onMove(px(5), px(5));
+    c.frame();
+    assert.notEqual(cursors.at(-1), 'lift', `${scheme}: no lift cursor`);
+    c.onClick(px(5), px(5), scheme === 'modern' ? 2 : 0, NONE, false);
+    assert.ok(!issued.some((cmd) => cmd.type === 'lift'), `${scheme}: no lift order that could not be carried out`);
+    if (scheme === 'classic') assert.deepEqual(c.selection.list(), [tank.id], 'classic: the click selects the vehicle');
+    else assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 5, y: 5 }, 'modern: the load is set down by it');
+  }
+});
+
+test('a Carryall with a load: the Repair Facility takes a worn one, a Refinery a Harvester', () => {
+  const { world, c, issued, cursors } = setup();
+  const bay = world.spawnStructure('repair', 'atreides', 1, 13);
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 13);
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  const t = world.spawnUnit('combatTank', 'atreides', 3, 10, { inside: cy.id });
+  cy.cargo = t.id;
+  t.hp = 50;
+  c.selection.set([cy.id]);
+  c.onMove(px(2), px(13));
+  c.frame();
+  assert.equal(cursors.at(-1), 'enter');
+  c.onClick(px(2), px(13), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'repairAt', ids: [cy.id], structureId: bay.id });
+  const h = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  world.map.unit[world.map.idx(h.tx, h.ty)] = 0;
+  h.inside = cy.id;
+  cy.cargo = h.id;
+  t.inside = 0;
+  c.onMove(px(11), px(13));
+  c.frame();
+  assert.equal(cursors.at(-1), 'move');
+  c.onClick(px(11), px(13), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id], structureId: ref.id }, 'to the Refinery clicked');
 });
 
 test('over an enemy aircraft the cursor tells whether the selection can shoot upwards', () => {
@@ -450,4 +550,46 @@ test('a Saboteur clicked onto an enemy building goes in to blow it up while the 
   c.onClick(px(12), px(9), 0, NONE, false);
   assert.deepEqual(issued.at(-2), { type: 'sabotage', ids: [sab.id], structureId: silo.id });
   assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: silo.id, force: false });
+});
+
+test('a Carryall that already holds a load promises no lift: a click on an own vehicle selects it (classic) or sets the load down there (modern)', () => {
+  const { world, tank, c, issued, cursors } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  const load = world.spawnUnit('quad', 'atreides', 3, 10, { inside: cy.id });
+  cy.cargo = load.id;
+  c.selection.set([cy.id]);
+  c.onMove(px(5), px(5));
+  c.frame();
+  assert.equal(cursors.at(-1), 'select', 'no lift cursor: its claws are full');
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.ok(!issued.some((cmd) => cmd.type === 'lift'), 'no lift the simulation would ignore');
+  assert.deepEqual(c.selection.list(), [tank.id], 'the click selects the vehicle, as any classic click on an own unit');
+  c.settings.scheme = 'modern';
+  c.selection.set([cy.id]);
+  c.onClick(px(5), px(5), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 5, y: 5 }, 'modern: the order click sets the load down by the vehicle');
+});
+
+test('a drag box over the army leaves out a Carryall waiting on duty above it; a box round Carryalls alone takes them', () => {
+  const { world, tank, tank2, c, issued } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 6, 5);
+  c.onDragEnd(0, 0, px(12) + 20, px(6), NONE);
+  assert.deepEqual(c.selection.list().sort(), [tank.id, tank2.id].sort());
+  c.onClick(px(10), px(15), 0, NONE, false);
+  assert.deepEqual(issued.at(-1).ids.sort(), [tank.id, tank2.id].sort(), 'the army moves out; the Carryall stays on duty');
+  world.step();
+  assert.ok(!cy.manual && cy.job?.stage !== 'goto');
+  c.onDragEnd(px(6) - 10, px(5) - 10, px(6) + 10, px(5) + 10, NONE);
+  assert.deepEqual(c.selection.list(), [cy.id], 'boxed on its own, it is selected');
+  c.onDragEnd(0, 0, px(12) + 20, px(6), { ...NONE, shift: true });
+  assert.deepEqual(c.selection.list().sort(), [cy.id, tank.id, tank2.id].sort(), 'shift adds the army to it');
+});
+
+test('Ctrl + click on an own vehicle is force fire: a Carryall in the group does not lift the target', () => {
+  const { world, tank, tank2, c, issued } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([tank.id, cy.id]);
+  c.onClick(px(7), px(5), 0, { ...NONE, ctrl: true }, false);
+  assert.ok(!issued.some((cmd) => cmd.type === 'lift'), JSON.stringify(issued));
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: tank2.id, force: true });
 });

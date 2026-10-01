@@ -33,6 +33,18 @@ test('five Fremen squads rise from the sand near the chosen spot and fight for t
   assert.ok(fremen.every((u) => u.order.type === 'idle'), 'they take no orders');
 });
 
+test('with little sand near the spot, the rest of the five squads rise from open ground', () => {
+  const { world } = charged('atreides');
+  const m = world.map;
+  for (const x of [20, 21]) m.ground[m.idx(x, 12)] = G.SAND;
+  m.revision++;
+  world.issue('atreides', { type: 'palace', x: 20, y: 10 });
+  world.step();
+  const fremen = units(world, 'fremen');
+  assert.equal(fremen.length, 5);
+  for (const i of [m.idx(20, 12), m.idx(21, 12)]) assert.ok(fremen.some((u) => m.idx(u.tx, u.ty) === i), 'the sand is used first');
+});
+
 test('Fremen hunt the nearest enemy wherever it is', () => {
   const { world } = charged('atreides');
   const prey = world.spawnUnit('quad', 'harkonnen', 36, 26);

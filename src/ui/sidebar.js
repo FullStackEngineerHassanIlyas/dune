@@ -4,7 +4,7 @@
 // builds, resumes or (when READY) starts placement; right click holds, then cancels with a refund;
 // Shift + left click queues five. The tooltip follows what it describes while the pointer rests on it.
 // Above it all, the Menu and full screen buttons.
-import { rollCredits, tipText, clock } from './sidebar-model.js';
+import { rollCredits, tipText, clock, badgeOf, wipeOf } from './sidebar-model.js';
 
 const SLOT = 92;   // icon height plus gap (px)
 
@@ -36,7 +36,11 @@ export class Sidebar {
     this.weapon = el.querySelector('.sb-weapon');
     this.weaponImg = this.weapon.querySelector('img');
     this.weaponState = this.weapon.querySelector('.sb-state');
-    this.weapon.addEventListener('click', () => { if (this.weapon.item?.ready) this.onSpecial(this.weapon.item); });
+    this.weapon.addEventListener('click', () => {
+      const item = this.weapon.item;
+      if (item?.ready) this.onSpecial(item);
+      else if (item) this.onCommand({ type: 'palace' });   // still charging: the Palace says it is not ready
+    });
     this.weapon.addEventListener('pointerenter', () => this.showTip(this.weapon));
     this.weapon.addEventListener('pointerleave', () => this.hideTip());
     this.tipFor = null;
@@ -91,11 +95,11 @@ export class Sidebar {
       b.item = item;
       const cls = `sb-item state-${item.state}${item.starved ? ' starved' : ''}`;
       if (b.className !== cls) b.className = cls;
-      const p = item.state === 'building' || item.state === 'hold' ? item.progress.toFixed(3) : '1';
+      const p = wipeOf(item);   // building, on hold, or set aside by an upgrade: as far as it got
       if (b.style.getPropertyValue('--p') !== p) b.style.setProperty('--p', p);
       const label = item.state === 'ready' ? 'READY' : item.state === 'hold' ? 'ON HOLD' : '';
       if (b.stateEl.textContent !== label) b.stateEl.textContent = label;
-      const count = item.count > (item.order ? 0 : 1) ? String(item.count) : '';   // a single Starport order shows too
+      const count = badgeOf(item);
       if (b.countEl.textContent !== count) b.countEl.textContent = count;
     }
   }

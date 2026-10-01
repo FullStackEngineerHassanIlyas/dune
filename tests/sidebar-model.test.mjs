@@ -16,7 +16,7 @@ function base() {
 function factories(world) {
   world.spawnStructure('windtrap', 'atreides', 8, 4);
   world.spawnStructure('refinery', 'atreides', 4, 8);
-  world.spawnStructure('lightFactory', 'atreides', 10, 8);
+  world.spawnStructure('heavyFactory', 'atreides', 10, 8);
 }
 
 test('the strips list what the house can build, in display order', () => {
@@ -26,9 +26,10 @@ test('the strips list what the house can build, in display order', () => {
   assert.deepEqual(m.units, []);
   factories(world);
   m = sidebarModel(world, 'atreides');
-  assert.deepEqual(m.units.map((i) => i.typeId), ['trike']);
+  assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'harvester', 'combatTank'], 'one strip from the one vehicle factory, light vehicles first');
+  assert.ok(m.units.every((i) => i.line === 'heavy'));
   const wt = m.structures.find((i) => i.typeId === 'windtrap');
-  assert.deepEqual([wt.name, wt.cost, wt.seconds, wt.line, wt.state], ['Wind Trap', 300, 22, 'structure', 'idle']);
+  assert.deepEqual([wt.name, wt.cost, wt.seconds, wt.line, wt.state], ['Wind Trap', 300, 9, 'structure', 'idle']);
 });
 
 test('icons carry production state, progress and queue counts', () => {
@@ -36,7 +37,7 @@ test('icons carry production state, progress and queue counts', () => {
   factories(world);
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
   world.issue('atreides', { type: 'build', typeId: 'trike', count: 3 });
-  run(world, 5);
+  run(world, 2);
   const m = sidebarModel(world, 'atreides');
   const wt = m.structures.find((i) => i.typeId === 'windtrap');
   assert.equal(wt.state, 'building');
@@ -49,6 +50,26 @@ test('icons carry production state, progress and queue counts', () => {
   assert.equal(sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'windtrap').state, 'hold');
 });
 
+test('the yard upgrade stays open while a structure builds, and the structure it sets aside keeps its progress', () => {
+  const { world, h } = base();
+  factories(world);
+  world.issue('atreides', { type: 'build', typeId: 'windtrap' });
+  run(world, 2);
+  const yardUp = (m) => m.structures.find((i) => i.typeId === 'upgrade:constructionYard');
+  assert.equal(yardUp(sidebarModel(world, 'atreides')).state, 'idle', 'it starts at once, setting the Wind Trap aside');
+  const progress = h.lines.structure.current.progress;
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:constructionYard' });
+  world.step();
+  const wt = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'windtrap');
+  assert.deepEqual([wt.state, wt.count], ['queued', 1]);
+  assert.equal(wt.progress, progress, 'shown as far as it got');
+  run(world, 6);
+  run(world, (1 - progress) * 9);
+  assert.equal(h.lines.structure.current.state, 'ready');
+  world.spawnStructure('outpost', 'atreides', 14, 4);   // the second level needs one
+  assert.equal(yardUp(sidebarModel(world, 'atreides')).state, 'locked', 'a structure waiting to be placed keeps the yard');
+});
+
 test('the sidebar reads storage, power and radar without touching the house', () => {
   const { world, h } = base();
   factories(world);
@@ -56,7 +77,7 @@ test('the sidebar reads storage, power and radar without touching the house', ()
   const m = sidebarModel(world, 'atreides');
   assert.equal(m.storage, 1005);
   assert.equal(h.startBuffer, 500, 'revoking the start buffer is the simulation\'s business');
-  assert.deepEqual([m.power.produced, m.power.used, m.power.level], [100, 50, 'ok']);
+  assert.deepEqual([m.power.produced, m.power.used, m.power.level], [100, 65, 'ok']);
   assert.equal(m.radar, false, 'no outpost');
   assert.equal(m.credits, 1000);
 });
@@ -80,20 +101,21 @@ test('upgrades close the structure strip with their level, price, time and what 
   const { world } = base();
   factories(world);
   let m = sidebarModel(world, 'atreides');
-  assert.deepEqual(m.structures.slice(-2).map((i) => i.typeId), ['upgrade:constructionYard', 'upgrade:lightFactory']);
+  assert.deepEqual(m.structures.slice(-2).map((i) => i.typeId), ['upgrade:constructionYard', 'upgrade:heavyFactory']);
   const up = m.structures.at(-1);
-  assert.deepEqual([up.line, up.icon, up.name, up.cost, up.seconds, up.state], ['light', 'upgrade:lightFactory:1', 'Light Factory upgrade', 200, 9, 'idle']);
+  assert.deepEqual([up.line, up.icon, up.name, up.cost, up.seconds, up.state], ['heavy', 'upgrade:heavyFactory:1', 'Heavy Factory upgrade', 200, 5, 'idle']);
   assert.equal(up.note, 'Level 1 — unlocks Quad');
   assert.equal(m.structures[0].icon, 'concrete', 'other icons are keyed by their type');
-  world.issue('atreides', { type: 'build', typeId: 'upgrade:lightFactory' });
-  run(world, 3);
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });
+  run(world, 1.7);
   const busy = sidebarModel(world, 'atreides').structures.at(-1);
   assert.equal(busy.state, 'building');
   assert.ok(busy.progress > 0.3 && busy.progress < 0.36, `progress ${busy.progress}`);
-  run(world, 6.2);
+  run(world, 3.5);
   m = sidebarModel(world, 'atreides');
-  assert.ok(!m.structures.some((i) => i.typeId === 'upgrade:lightFactory'), 'nothing more to buy');
-  assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'quad']);
+  const next = m.structures.at(-1);
+  assert.deepEqual([next.typeId, next.icon, next.cost, next.note], ['upgrade:heavyFactory', 'upgrade:heavyFactory:2', 300, 'Level 2 — unlocks MCV'], 'the ladder goes on');
+  assert.deepEqual(m.units.map((i) => i.typeId), ['trike', 'quad', 'harvester', 'combatTank']);
 });
 
 test('the Starport\'s wares close the unit strip with their price, stock and what is on order', () => {
@@ -119,7 +141,27 @@ test('the Starport\'s wares close the unit strip with their price, stock and wha
   assert.equal(sidebarModel(world, 'atreides').units.find((i) => i.typeId === 'starport:mcv').state, 'locked');
 });
 
-import { tipText } from '../src/ui/sidebar-model.js';
+import { tipText, badgeOf, wipeOf } from '../src/ui/sidebar-model.js';
+
+test('the item an upgrade sets aside keeps its clock and a badge in the strip, and its tooltip says why it waits', () => {
+  const { world } = base();
+  factories(world);
+  world.issue('atreides', { type: 'build', typeId: 'trike' });
+  run(world, 4);
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });   // one vehicle factory (improve/one-factory)
+  world.step();
+  const m = sidebarModel(world, 'atreides');
+  const trike = m.units.find((i) => i.typeId === 'trike');
+  assert.equal(trike.state, 'queued');
+  assert.ok(trike.progress > 0.1, `the clock stays where the Trike was: ${trike.progress}`);
+  assert.equal(wipeOf(trike), trike.progress.toFixed(3));
+  assert.equal(badgeOf(trike), '1', 'still on order');
+  assert.match(tipText(trike), /resumes after the upgrade/);
+  assert.deepEqual([badgeOf({ state: 'queued', count: 1, progress: 0 }), wipeOf({ state: 'queued', count: 1, progress: 0 })], ['1', '1'], 'any item on order but not begun');
+  const cur = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'upgrade:heavyFactory');
+  assert.deepEqual([cur.state, badgeOf(cur)], ['building', ''], 'the one in work shows its clock, and a number only for more of it');
+  assert.equal(badgeOf({ typeId: 'upgrade:heavyFactory', state: 'queued', count: 1, progress: 0 }), '', 'a queued upgrade: its level arrow has that corner');
+});
 
 test('a Palace puts its weapon at the top of the sidebar with a charging clock', () => {
   const world = flatWorld(40, 30, G.ROCK);

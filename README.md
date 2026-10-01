@@ -18,8 +18,8 @@ Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
 effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
 upgrades, the Repair Facility, infantry capture, aircraft (Carryall, Ornithopter), the Starport and
-the House of IX with its specials and the Palace with its weapons are in; sandworms, music and
-announcer voices follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
+the House of IX with its specials, the Palace with its weapons and each house's announcer voice are
+in; sandworms and music follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
 (house, opponent, difficulty, map size and seed, credits, fog, speed), options, controls, credits and
 full screen, over a slow flight across the dunes; Esc in battle opens the game menu.
 
@@ -30,7 +30,7 @@ full screen, over a slow flight across the dunes; Esc in battle opens the game m
 | Left click | Select a unit; with units selected, order them by context (move, attack) |
 | Left click the selected MCV | Deploy it into a Construction Yard |
 | Right click | Deselect |
-| Left drag | Box select; Shift adds |
+| Left drag | Box select; Shift adds (a box round the army leaves out the Carryalls waiting on duty above it) |
 | Double click | Select all visible units of that type |
 | Ctrl + 1–9 (or Ctrl + Shift + 1–9) | Assign a control group |
 | 1–9, tap twice | Select a group, centre on it |
@@ -48,6 +48,7 @@ full screen, over a slow flight across the dunes; Esc in battle opens the game m
 | Left click an enemy (with units selected) | Attack it (Modern: right click) |
 | Left click an own Repair Facility (damaged vehicles selected) | Drive in for repairs, one at a time (Modern: right click) |
 | Left click a badly damaged enemy building (infantry selected) | Capture it — the cursor shows a flag; other units attack |
+| Carryall selected: left click an own vehicle · the ground · the Repair Facility or a Refinery | Lift it · fly there, or set the load down there · deliver the load (Modern: right click); S holds it off duty, G returns it to duty, D drops the load |
 | A, then click | Attack-move: go there and fight whatever is met on the way |
 | Ctrl + click | Force fire at a unit, building or the ground |
 | G | Area guard: engage what comes near, then return |
@@ -65,19 +66,28 @@ Deploy the MCV to get a Construction Yard; its sidebar strip then offers what th
 Structures go on rock next to your base; tiles without your concrete cost hit points (the ghost shows
 green = concrete, yellow = bare rock, red = blocked). Wind Traps power the base — short power slows
 production and switches the radar off. Every Refinery comes with a Harvester; full loads are worth 700
-credits, Refineries and Silos store them. Selling refunds half the price times the health left;
+credits, Refineries and Silos store them. A Harvester drives into its Refinery's docking pad to unload
+(one at a time, the others wait by the entrance), then backs out and returns to the field. Selling refunds half the price times the health left;
 repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
 
+Vehicles come from one factory, as on the Genesis: the Heavy Factory, on offer as soon as a Refinery
+stands, builds trikes and quads as well as tanks, Harvesters and the MCV, one at a time from one strip.
+A second Heavy Factory speeds that line up by a quarter; vehicles leave by the primary one.
+
 Factory upgrades show up at the end of the structure strip with a gold arrow and the level they reach:
-they are paid and timed like a build on the factory's own line and open better units (Quad, squads,
+they are paid like a build on the factory's own line, take five seconds and start at once — the item in
+hand steps aside, keeping its clock, and carries on afterwards — and open better units (Quad, squads,
 MCV, Missile and Siege Tanks) and the Large Concrete Slab and Rocket Turret. A Repair Facility fixes one
 vehicle at a time for a quarter of its price by the damage; badly damaged enemy buildings (red health)
 can be captured by walking infantry in — except Barracks, WOR, Outposts, the House of IX and Palaces.
 
 The Hi-Tech Factory builds Carryalls — unarmed lifters that fly each new Refinery's Harvester in from the
-map edge, ferry Harvesters on long trips and fly damaged vehicles to a distant Repair Facility — and,
-with its upgrade and a House of IX, Ornithopters that hunt on their own and take attack and move orders.
+map edge and, on duty, wait over the Refineries and the Repair Facility, ferry Harvesters on trips of ten
+tiles or more (and to distant spice when none is near), and lift vehicles at half health or worse off the
+battlefield to the Repair Facility, sending them back afterwards; the player can also fly one somewhere,
+have it lift and set down an own vehicle, or hold it off duty — and, with its upgrade and a House of IX,
+Ornithopters that hunt on their own and take attack and move orders.
 Only Troopers, Missile Tanks and turrets can shoot at aircraft.
 
 A Starport sells the house's vehicles and aircraft at prices that change every minute (40–160 % of
@@ -107,10 +117,37 @@ The game ends when one side has no buildings and no MCV left.
 
 ## Sound
 
-Every sound — rifles, machine guns, cannons, rockets, explosions, construction and the interface — is
-synthesized in the browser at start-up; nothing is loaded from files. Browsers only allow sound after
-a click or key press, so the game is silent until then. Sounds are panned towards where they happen
-and fade with distance from the camera; what fog hides is not heard.
+Every sound — rifles, machine guns, cannons, rockets, explosions and their debris, collapsing
+buildings, construction, the interface and the desert wind — is synthesized in the browser at
+start-up, in a background thread; nothing is loaded from files. Each is built in layers (a crack, a
+body, a tail) and set to a designed loudness, and most come in several variations played at slightly
+different pitches, so a battle never sounds like one sample repeating. Browsers only allow sound after
+a click or key press, so the game is silent until then. Sounds are panned towards where they happen;
+further from the camera they grow quieter, duller and more echoing in a soft desert reverb; what fog
+hides is not heard. A hidden tab is silent, and the menu's own sound sleeps while a battle is open.
+
+## Announcer voices
+
+Like the original, each Great House has its own announcer — Atreides calm and clear, Harkonnen deep
+and harsh, Ordos cool and precise — and the player's house decides which one speaks: construction
+complete, unit ready, building, training, on hold, cancelled, upgrade complete, insufficient funds,
+unit lost, structure destroyed, "Harkonnen unit destroyed", our base is under attack, enemy unit
+approaching, radar activated, frigate has arrived, missile launched, mission accomplished and the rest.
+Units answer their orders ("Reporting", "Acknowledged", "Moving out", "Engaging") over a field radio,
+one voice for every house as in the original. Alerts go before routine news, one line at a time, and
+the message bar still shows every line. Options → Voices sets their volume (`voiceVolume=0` in the URL
+turns them off); M mutes them with everything else.
+
+Unlike the effects, the voices are files: 195 short Ogg Opus lines (about 1.1 MB) in `assets/voice/`,
+listed in `assets/voice/manifest.json`. They were rendered offline by `scripts/voices/generate.py` from
+the lines in `scripts/voices/lines.json` (its header says how to rerun it), with the
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) neural text-to-speech model (weights and voices
+Apache-2.0) run through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT), voices
+`af_heart` (Atreides), `am_fenrir` slowed like a tape (Harkonnen), `af_bella` (Ordos) and `am_michael` (units), then shaped
+with ffmpeg (band-limit, presence, compression, a short console room or a field radio, loudness
+normalised to −16 LUFS). espeak-ng (GPL-3.0) turned the text into phonemes at generation time only; it is
+not part of the game. The generated lines are distributed with this project under the same terms as its
+code. No original game audio is used.
 
 ## Scenes and URL flags
 
@@ -123,7 +160,7 @@ triangle count: `?scene=model&id=combatTank`; `&houses=1` in each house's colour
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
 (skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `credits=5000` · `gameSpeed=slowest…fastest` ·
-`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5`.
+`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5` · `voiceVolume=0.5` (0: no voices).
 
 ## Docs
 

@@ -5,6 +5,7 @@ import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { SoundEngine } from '../audio/engine.js';
+import { VoicePlayer, WebVoiceOutput } from '../audio/voice.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
 import { Overlay } from '../render/overlay.js';
@@ -18,6 +19,7 @@ import { makeCursorSetter, makeScrollCursor } from '../ui/cursors.js';
 import { GameMenu } from '../ui/game-menu.js';
 import { toggleFullscreen, isFullscreen } from '../ui/fullscreen.js';
 import { quitToMenu } from '../core/shell.js';
+import { wakeCheck } from '../render/wake.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
 import { Radar } from '../ui/radar.js';
@@ -34,6 +36,7 @@ import { DT, GAME_SPEED } from '../data/tuning.js';
 import { checkInvariants } from '../sim/invariants.js';
 import { createDebugApi } from './debug.js';
 import { BattleStage } from './battle-stage.js';
+import { Announcer } from './announcer.js';
 
 export class GameView {
   constructor({ world, house, settings, params, focus }) {
@@ -64,6 +67,10 @@ export class GameView {
     this.cameraControl = new CameraControl(this.rig, canvas, settings, { onScroll: makeScrollCursor(document.getElementById('app'), anchor) });
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
+    this.announcer = new Announcer({   // voiced lines for the player's house; the message bar keeps the text
+      world, house, player: new VoicePlayer({ output: new WebVoiceOutput(this.sound, house), volume: settings.voiceVolume }),
+      onMessage: (text) => this.hud.message(text),
+    });
     const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
@@ -71,7 +78,11 @@ export class GameView {
       onCommand: click((cmd) => world.issue(house, cmd)),
       onPlace: click((typeId) => this.controller.startPlacement(typeId)),
       onTool: click((tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool })),
-      onSpecial: click((special) => (special.aim ? this.controller.setMode({ kind: 'palace' }) : world.issue(house, { type: 'palace' }))),
+      onSpecial: click((special) => {
+        if (!special.aim) return world.issue(house, { type: 'palace' });
+        this.announcer.say('selectTarget', performance.now() / 1000);
+        return this.controller.setMode({ kind: 'palace' });
+      }),
       onMenu: click(() => this.openMenu()),
       onFullscreen: click(() => toggleFullscreen()),
     });
@@ -137,17 +148,29 @@ export class GameView {
     new Keyboard((key, code, mods) => this.onKey(key, code, mods));
     this.loop = new FixedLoop(DT);
     this.speed = GAME_SPEED[settings.gameSpeed] ?? 1;
-    this.paused = document.hidden;
+    this.paused = false;
+    this.pausedAt = 0;
     this.lost = false;
     this.last = performance.now();
-    document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); });
+    this.stageNow = this.last;   // the battle's own clock for its animations and effects: it stands still while paused
+    this.updatePaused();   // a battle opened in a hidden tab starts paused
+    document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); this.hush(document.hidden); });
+    this.hush(document.hidden);
     r3d.onContextLost = () => {
       this.lost = true;
-      this.paused = true;
+      this.updatePaused();
       this.hud.message('The graphics device was reset — restoring…', 3600);
       setTimeout(() => { if (this.lost) showCrash(new Error('The graphics device was lost and did not come back.')); }, 5000);
     };
-    r3d.onContextRestored = () => location.reload();
+    // three.js rebuilds every GPU resource from the CPU side, so the battle simply carries on
+    r3d.onContextRestored = () => {
+      const real = this.lost;
+      this.lost = false;
+      this.updatePaused();
+      this.last = performance.now();
+      if (real) this.hud.message('Graphics restored', 2);
+    };
+    this.wake = wakeCheck(() => r3d.refresh());
     this.onFrame = null;
     this.nextInvariantCheck = 0;
   }
@@ -158,7 +181,8 @@ export class GameView {
   }
 
   onEvent(e) {
-    this.stage.onEvent(e);
+    this.stage.onEvent(e, this.stageNow);
+    this.announcer.onEvent(e, performance.now() / 1000);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
@@ -209,7 +233,25 @@ export class GameView {
     else { this.hud.release(); this.hud.message('Resumed', 1.5); }
   }
 
-  updatePaused() { this.paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen; }
+  /**
+   * The battle stops for the game menu, P, a hidden tab or a lost graphics device — and with it what it shows and
+   * says: the sounds hold where they are (the wind, echoes, an announcer line half said) and the effects freeze.
+   */
+  updatePaused() {
+    const paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen;
+    if (paused === this.paused) return;
+    this.paused = paused;
+    const now = performance.now() / 1000;
+    if (paused) this.pausedAt = now;
+    else this.announcer.player.held(now - this.pausedAt);
+    this.sound.setPaused(paused);
+  }
+
+  /** A hidden page is a stopped game: it falls silent (the wind would blow on in a background tab) and has nothing stale to say on return. */
+  hush(hidden) {
+    this.sound.sleep(hidden);
+    if (hidden) this.announcer.player.silence();
+  }
 
   openMenu() {
     if (this.menu.isOpen) return;
@@ -230,15 +272,20 @@ export class GameView {
     if (key === 'gameSpeed') this.speed = GAME_SPEED[value] ?? 1;
     else if (key === 'volume') { this.sound.volume = value; this.sound.setMuted(this.sound.muted); }
     else if (key === 'sound') this.sound.setMuted(!value);
+    else if (key === 'voiceVolume') this.announcer.player.setVolume(value);
   }
 
   frame(now) {
     const { world, r3d } = this;
+    this.wake();
     const raw = Math.max(0, (now - this.last) / 1000);
     const dt = Math.min(0.1, raw);   // camera, HUD and animation step
     this.last = now;
     // the loop gets the real interval: it caps a stall at 0.25 s itself, so slow devices do not play in slow motion
     const { steps, alpha } = this.paused ? { steps: 0, alpha: 1 } : this.loop.advance(raw, this.speed);
+    const live = this.paused ? 0 : dt;   // particles, debris, collapses, rotors: the battle's own motion holds while it is paused
+    this.stageNow += live * 1000;
+    if (!this.paused) this.announcer.frame(now / 1000, this.selection, this.radarWas);   // before the step takes the new orders; paused, it waits too (no sighting warnings under the menu)
     for (let i = 0; i < steps; i++) world.step();
     if (this.debug && world.time >= this.nextInvariantCheck) {
       this.nextInvariantCheck = world.time + 1;
@@ -246,14 +293,14 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
-    this.selection.prune((id) => { const u = world.units.get(id); return !!u && !u.inside && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
+    this.selection.prune((id) => { const u = world.units.get(id); return !!u && (!u.inside || !!u.docked) && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
     this.rig.update(dt, this.heightAt);
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
     const e = r3d.camera.matrixWorld.elements;
     this.sound.setListener(this.rig.target.x, this.rig.target.z, e[0], e[2], this.rig.distance);
-    this.stage.sync(alpha, dt, now);
+    this.stage.sync(alpha, live, this.stageNow);   // paused, the fires, wrecks and smoke hold still with the battle
     r3d.renderer.info.reset();
     r3d.render();
     this.controller.frame();
@@ -272,6 +319,7 @@ export class GameView {
     this.radarWas = sidebar.radar;
     if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
     this.fps?.frame();
+    this.wake.idle();
   }
 
   start() {

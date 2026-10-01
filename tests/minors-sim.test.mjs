@@ -26,7 +26,7 @@ test('every structure but the Wind Trap and slabs needs a Wind Trap', () => {
   for (const [t, x, y] of [['constructionYard', 2, 2], ['refinery', 6, 2], ['outpost', 10, 2]]) world.spawnStructure(t, 'atreides', x, y);
   const offered = buildOptions(world, 'atreides').structure;
   assert.ok(offered.includes('windtrap') && offered.includes('concrete'));
-  for (const t of ['silo', 'barracks', 'lightFactory', 'wall', 'turret']) assert.ok(!offered.includes(t), `${t} without a Wind Trap`);
+  for (const t of ['silo', 'barracks', 'heavyFactory', 'wall', 'turret']) assert.ok(!offered.includes(t), `${t} without a Wind Trap`);
   world.spawnStructure('windtrap', 'atreides', 14, 2);
   assert.ok(buildOptions(world, 'atreides').structure.includes('silo'));
 });

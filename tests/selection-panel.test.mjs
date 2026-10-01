@@ -18,6 +18,21 @@ test('a single harvester shows its load and what it is doing, with a Return butt
   assert.deepEqual(m.buttons.map((b) => b.id), ['stop', 'guard', 'scatter', 'return']);
 });
 
+test('a harvester unloading in its refinery\'s slot has nothing to return for: no Return button', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 10);
+  const hv = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  hv.harvest.load = 700;
+  hv.harvest.state = 'toRefinery';
+  for (let i = 0; i < 200 && hv.harvest.state !== 'unloading'; i++) world.step();
+  assert.equal(hv.docked, ref.id);
+  const sel = new Selection();
+  sel.set([hv.id]);
+  const m = selectionPanelModel(world, sel, 'atreides');
+  assert.equal(m.details.at(-1), 'Unloading');
+  assert.deepEqual(m.buttons.map((b) => b.id), ['stop', 'guard', 'scatter'], 'a Return click would be ignored (sim/harvest.js orderDocked)');
+});
+
 test('a group sums hit points and counts its types; enemies get no buttons', () => {
   const world = flatWorld(24, 24, G.ROCK);
   const a = world.spawnUnit('combatTank', 'atreides', 3, 3);
@@ -37,21 +52,21 @@ test('a group sums hit points and counts its types; enemies get no buttons', () 
 
 test('an own factory offers Repair, Sell and Set primary', () => {
   const world = flatWorld(24, 24, G.ROCK);
-  const lf = world.spawnStructure('lightFactory', 'atreides', 4, 4);
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 4, 4);
   const sel = new Selection();
-  sel.setStructure(lf.id);
+  sel.setStructure(hf.id);
   let m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual(m.buttons.map((b) => b.id), ['repair', 'sell', 'primary']);
   assert.equal(m.buttons[0].disabled, true, 'nothing to repair');
-  lf.primary = true;
-  lf.hp = 100;
-  lf.rally = { x: 9, y: 9 };
+  hf.primary = true;
+  hf.hp = 100;
+  hf.rally = { x: 9, y: 9 };
   m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual(m.buttons.map((b) => b.id), ['repair', 'sell']);
   assert.equal(m.buttons[0].disabled, false);
-  assert.deepEqual(m.details, ['Power use 20', 'Upgrade level 0 of 1', 'Primary factory', 'Rally point set']);
-  world.houses.get('atreides').upgrades.lightFactory = 1;
-  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Upgrade level 1 of 1'));
+  assert.deepEqual(m.details, ['Power use 35', 'Upgrade level 0 of 4', 'Primary factory', 'Rally point set']);
+  world.houses.get('atreides').upgrades.heavyFactory = 1;
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Upgrade level 1 of 4'));
   assert.equal(selectionPanelModel(world, new Selection(), 'atreides'), null);
 });
 
@@ -110,7 +125,7 @@ test('a repair facility tells which vehicle it is fixing and how far along it is
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.some((d) => /^Repairing Combat Tank \d+ %$/.test(d)));
 });
 
-test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall gets buttons', () => {
+test('a Carryall tells its job and offers Stop, Duty and Drop; an idle Ornithopter is hunting', () => {
   const world = flatWorld(24, 24, G.ROCK);
   const c = world.spawnUnit('carryall', 'atreides', 5, 5);
   const o = world.spawnUnit('ornithopter', 'atreides', 9, 9);
@@ -119,9 +134,24 @@ test('a Carryall tells its job; an idle Ornithopter is hunting; neither Carryall
   sel.set([c.id]);
   let m = selectionPanelModel(world, sel, 'atreides');
   assert.ok(m.details.includes('Standing by'));
-  assert.deepEqual(m.buttons, []);
+  assert.deepEqual(m.buttons.map((b) => [b.id, b.label, !!b.active, !!b.disabled]), [['stop', 'Stop', false, false], ['guard', 'Duty', true, false], ['deploy', 'Drop', false, true]]);
   c.job = { stage: 'fetch', unit: t.id };
   assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Fetching Combat Tank'));
+  world.map.unit[world.map.idx(15, 15)] = 0;
+  t.inside = c.id;
+  c.cargo = t.id;
+  c.job = { stage: 'hold', x: 5.5, y: 5.5 };
+  c.manual = true;
+  m = selectionPanelModel(world, sel, 'atreides');
+  assert.ok(m.details.includes('Holding Combat Tank'), m.details.join());
+  assert.deepEqual(m.buttons.map((b) => [b.id, !!b.active, !!b.disabled]), [['stop', false, false], ['guard', false, false], ['deploy', false, false]], 'off duty, with a load to drop');
+  c.job = null;
+  c.cargo = 0;
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Holding position'));
+  const visitor = world.spawnUnit('carryall', 'atreides', 20, 20);
+  visitor.visitor = true;
+  sel.set([visitor.id]);
+  assert.deepEqual(selectionPanelModel(world, sel, 'atreides').buttons, [], 'a visitor only delivers');
   sel.set([o.id]);
   m = selectionPanelModel(world, sel, 'atreides');
   assert.ok(m.details.includes('Hunting'));
@@ -155,6 +185,16 @@ test('a Devastator offers Destruct on D and says when it is counting down', () =
   world.step();
   const m = selectionPanelModel(world, sel, 'harkonnen');
   assert.deepEqual([m.buttons, m.details], [[], ['Self-destructing']]);
+});
+
+test('with an MCV in the selection D means Deploy: the Destruct button shows no key', () => {
+  const world = flatWorld(12, 12, G.ROCK);
+  const dev = world.spawnUnit('devastator', 'harkonnen', 3, 3);
+  const mcv = world.spawnUnit('mcv', 'harkonnen', 6, 3);
+  const sel = new Selection();
+  sel.set([dev.id, mcv.id]);
+  const keys = selectionPanelModel(world, sel, 'harkonnen').buttons.filter((b) => b.id === 'deploy' || b.id === 'destruct').map((b) => [b.id, b.key ?? null]);
+  assert.deepEqual(keys, [['deploy', 'D'], ['destruct', null]]);
 });
 
 test('a deviated unit says whose it was and when it goes back; Fremen hunt; a Saboteur on its way says so', () => {

@@ -14,7 +14,7 @@ import { tryDeploy } from './deploy.js';
 import { updatePower, revokeStartBuffer } from './economy.js';
 import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
-import { initHarvester, updateHarvester, spawnFreeHarvester } from './harvest.js';
+import { initHarvester, updateHarvester, updateRefineries, spawnFreeHarvester } from './harvest.js';
 import { updateFog } from './fog.js';
 import { updateCombat, updateProjectiles, killUnit, retaliate } from './combat.js';
 import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
@@ -135,7 +135,7 @@ export class World {
     this.processPathQueue();
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
     for (const u of [...this.units.values()]) {
-      if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay is moved by the bay
+      if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay or a refinery's slot is moved by the building
       if (!u.isGround) { updateAircraft(this, u); continue; }
       if (u.destructAt !== undefined && this.time >= u.destructAt) { destruct(this, u); continue; }
       if (u.harvest) updateHarvester(this, u);
@@ -149,6 +149,7 @@ export class World {
     updateProduction(this);
     updateRepairs(this);
     updateRepairBays(this);
+    updateRefineries(this);
     updateStarports(this);
     if (this.tick % 10 === 0) updatePower(this);
     if (this.tick % 10 === 5) updateDeviations(this);

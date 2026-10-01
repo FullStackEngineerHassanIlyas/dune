@@ -1,6 +1,7 @@
 // SVG cursors (spec §5.6) in the manner of C&C: a bronze arrow over the whole game, the context
-// cursors on the battlefield (select, move and attack pulse, the Palace reticle turns), and scroll
-// arrows for all eight directions while the map scrolls from an edge or a right-button pull.
+// cursors on the battlefield (select, move and attack pulse, the Palace reticle turns, a Carryall's
+// lift is an arrow rising out of its claws), and scroll arrows for all eight directions while the map
+// scrolls from an edge or a right-button pull.
 const svg = (body, hx, hy) =>
   `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>${body}</svg>`)}") ${hx} ${hy}, auto`;
 
@@ -60,6 +61,7 @@ export const CURSORS = {
   repair: svg(`<path d='${WRENCH}' fill='#8dff6a' stroke='${INK}' stroke-width='1.6' stroke-linejoin='round'/>`, 8, 24),
   noRepair: svg(`<path d='${WRENCH}' fill='#8a8a8a' stroke='${INK}' stroke-width='1.6' stroke-linejoin='round'/>${SLASH}`, 8, 24),
   enter: svg(`<path d='M16 3l11 9h-4v14H9V12H5z' fill='#8dff6a' stroke='${INK}' stroke-width='1.6' stroke-linejoin='round'/><path d='M13 26v-7h6v7' fill='#1d1408'/>`, 16, 16),
+  lift: svg(`<path d='M16 2l8 8h-5v7h-6v-7H8z' fill='#8dff6a' stroke='${INK}' stroke-width='1.6' stroke-linejoin='round'/><path d='M8 19v7h16v-7' fill='none' stroke='${INK}' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 19v7h16v-7' fill='none' stroke='#ffd24a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/>`, 16, 16),
   capture: svg(`<path d='M16 3l11 9h-4v14H9V12H5z' fill='#ffd24a' stroke='${INK}' stroke-width='1.6' stroke-linejoin='round'/><path d='M12 10v12M12 10h9l-2 3 2 3h-9' fill='#e0412f' stroke='${INK}' stroke-width='1'/>`, 16, 16),
   pan,
   ...Object.fromEntries(DIRS.map((d, i) => [`scroll-${d}`, scroll(i)])),

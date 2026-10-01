@@ -1,20 +1,24 @@
 // Computer opponent (spec §4.10): one brain per AI house, thinking once a second. It sees the whole map,
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
-// and add silos when storage runs full. Then an army, rally points, base defence and attack waves. A
-// charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot, the Saboteur
-// into the most valuable enemy building.
+// and add silos when storage runs full; no building goes up on the apron of a Refinery or Repair Facility
+// (harvesters waiting and backing out in a narrow way in would lock horns). Then an army, rally points, base defence and attack waves. A
+// charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
+// only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
+// building its blast brings down.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
 import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, UNIT_ORDER } from './tech.js';
-import { UNITS } from '../data/units.js';
+import { UNITS, MOVE } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
-import { isArmed } from './combat.js';
+import { isArmed, distanceTo } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
+import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
+import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -26,9 +30,9 @@ export const DIFFICULTY = {
 const fighter = (u) => isArmed(u.type) && !u.type.autonomous && !u.type.sabotage;
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -131,7 +135,7 @@ function buildBase(world, house, view) {
   if (item?.state === 'ready') {
     const turret = item.typeId === 'turret' || item.typeId === 'rocketTurret';
     const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
-    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12);
+    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, item.typeId));
     if (spot) issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
     else { b.noRoom[item.typeId] = world.time; issue(world, house, { type: 'hold', typeId: item.typeId }); }   // a ready structure cancels at once, refunded
     return;
@@ -146,12 +150,70 @@ function buildBase(world, house, view) {
   if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
+const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/** Does ground tile `from` lead WAY_OUT tiles away for a vehicle, around buildings and the footprint `covers`? */
+function leadsOut(map, from, covers = () => false) {
+  const fx = map.xOf(from), fy = map.yOf(from);
+  const pass = (i, x, y) => map.moveFactor(i, 'harvester') > 0 && !map.structure[i] && !covers(x, y);
+  if (!pass(from, fx, fy)) return false;
+  const seen = new Set([from]), queue = [from];
+  for (let k = 0; k < queue.length; k++) {
+    const x = map.xOf(queue[k]), y = map.yOf(queue[k]);
+    if (Math.max(Math.abs(x - fx), Math.abs(y - fy)) >= WAY_OUT) return true;
+    for (const [dx, dy] of N4) {
+      const nx = x + dx, ny = y + dy, j = map.inBounds(nx, ny) ? map.idx(nx, ny) : -1;
+      if (j >= 0 && !seen.has(j) && pass(j, nx, ny)) { seen.add(j); queue.push(j); }
+    }
+  }
+  return false;
+}
+
+/**
+ * A placement test for a building of `typeId`: it may not go up on the apron of one of the house's
+ * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
+ * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
+ * a new one needs its own apron clear and an entrance that leads out.
+ */
+export function keepsWaysIn(world, houseId, typeId) {
+  const map = world.map, t = STRUCTURES[typeId], aprons = [];
+  if (!t || t.isConcrete) return () => true;
+  const apron = (x, y) => {   // entrances face south
+    const out = [];
+    for (let dy = 0; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (map.inBounds(x + dx, y + dy)) out.push(map.idx(x + dx, y + dy));
+    return out;
+  };
+  for (const s of world.structures.values()) {
+    if (s.house !== houseId || !s.type.entrance) continue;
+    const door = dockTile(world, s);
+    if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
+    aprons.push({ door, open: apron(map.xOf(door), map.yOf(door)).filter((i) => !map.structure[i]) });
+  }
+  return (x, y) => {
+    const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
+    const clear = (i) => !covers(map.xOf(i), map.yOf(i));
+    if (t.entrance) {
+      const ex = x + t.entrance[0], ey = y + t.entrance[1];
+      if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
+    }
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers));
+  };
+}
+
+/** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
 function nextStructure(world, house, view) {
-  const b = house.brain, id = house.id, d = DIFFICULTY[b.difficulty];
+  const b = house.brain, id = house.id;
   const can = (t) => canBuild(world, id, t) && world.time - (b.noRoom[t] ?? -1e9) >= NO_ROOM_RETRY;
-  const has = (t) => view.count[t] ?? 0;
   const power = computePower(world, id);
   if (power.produced < power.used + 20 && can('windtrap')) return 'windtrap';
+  const t = wantedStructure(world, house, view, can);
+  return t && power.produced < power.used + STRUCTURES[t].power && can('windtrap') ? 'windtrap' : t;
+}
+
+function wantedStructure(world, house, view, can) {
+  const id = house.id, d = DIFFICULTY[house.brain.difficulty];
+  const has = (t) => view.count[t] ?? 0;
   const need = {};
   for (const t of BUILD_ORDER[id] ?? BUILD_ORDER.atreides) {
     need[t] = (need[t] ?? 0) + 1;
@@ -194,7 +256,7 @@ function keepCarryall(world, house, view) {
 }
 
 export const ARMY_WEIGHTS = { sonicTank: 3, devastator: 2, deviator: 2, ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
-const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory'];
+const FACTORIES = ['barracks', 'wor', 'heavyFactory'];
 
 function weightedPick(rng, pool) {
   let r = rng.next() * pool.reduce((n, t) => n + ARMY_WEIGHTS[t], 0);
@@ -202,19 +264,30 @@ function weightedPick(rng, pool) {
   return pool[pool.length - 1];
 }
 
+export const LIGHT_SHARE = 1 / 3;   // of the vehicles in the field: the one vehicle factory keeps light ones coming
+
+/** The vehicle line's pick: a light vehicle whenever they make up less than a third of the army's vehicles, else a tank. */
+function vehicleChoice(view, pool) {
+  const wheeled = (t) => UNITS[t].move === MOVE.WHEELED;
+  const vehicles = view.units.filter((u) => fighter(u) && u.type.builtAt === 'heavyFactory');
+  const light = vehicles.filter((u) => wheeled(u.typeId)).length < LIGHT_SHARE * (vehicles.length + 1);
+  const want = pool.filter((t) => wheeled(t) === light);
+  return want.length ? want : pool;
+}
+
 function buildArmy(world, house, view) {
   const d = DIFFICULTY[house.brain.difficulty];
   if (view.units.filter(fighter).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
-  for (const line of ['heavy', 'light', 'infantry', 'air']) {
+  for (const line of ['heavy', 'infantry', 'air']) {
     const l = house.lines[line];
     if (l.current || l.queue.length || house.credits < d.reserve) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
-    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, pool) });
+    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });
   }
 }
 
-const FACTORY_UPGRADES = ['heavyFactory', 'lightFactory', 'barracks', 'wor', 'hiTech'];   // what the army needs, most useful first
+const FACTORY_UPGRADES = ['heavyFactory', 'barracks', 'wor', 'hiTech'];   // what the army needs, most useful first
 
 /** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
 function buyUpgrades(world, house, view) {
@@ -314,22 +387,32 @@ function nearestEnemyWall(world, houseId, x, y, radius) {
   return best;
 }
 
-/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV (after the upgrade that opens it) and deploy it. */
+/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV (after the upgrades that open it) and deploy it. */
 function rebuildMcv(world, house, view) {
   const heavy = house.lines.heavy;
   if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv')) return;
   if (canBuild(world, house.id, 'mcv')) { issue(world, house, { type: 'build', typeId: 'mcv' }); return; }   // queued behind the current item and paid as it builds
   const up = upgradeId('heavyFactory');
-  if (upgradeLevel(house, 'heavyFactory') < 1 && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
+  if (upgradeLevel(house, 'heavyFactory') < UNITS.mcv.upgrade && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
 }
 
-/** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles. */
-export function richestTarget(world, houseId) {
-  const things = [];
-  for (const s of world.structures.values()) if (s.house !== houseId && !s.type.isWall) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
-  for (const u of world.units.values()) if (u.house !== houseId && u.isGround && !u.inside) things.push({ x: u.x, y: u.y, value: u.type.cost });
+/** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles.
+ *  With `spare`, no spot within that many tiles of the house's own units or buildings; null when there is none. */
+export function richestTarget(world, houseId, spare = 0) {
+  const things = [], own = [];
+  for (const s of world.structures.values()) {
+    if (s.type.isWall) continue;
+    if (s.house !== houseId) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
+    else if (spare) own.push({ kind: 'structure', entity: s });
+  }
+  for (const u of world.units.values()) {
+    if (!u.isGround || u.inside) continue;
+    if (u.house !== houseId) things.push({ x: u.x, y: u.y, value: u.type.cost });
+    else if (spare) own.push({ kind: 'unit', x: u.x, y: u.y });
+  }
   let best = null, bestValue = 0;
   for (const c of things) {
+    if (spare && own.some((o) => distanceTo(c.x, c.y, o, o) <= spare)) continue;   // friends in the blast
     let v = 0;
     for (const o of things) if (Math.hypot(o.x - c.x, o.y - c.y) <= 2.5) v += o.value;
     if (v > bestValue) { bestValue = v; best = c; }
@@ -337,25 +420,29 @@ export function richestTarget(world, houseId) {
   return best && { x: Math.floor(best.x), y: Math.floor(best.y) };
 }
 
+/** How far from the aim the Death Hand can hurt: its scatter, the reach of its blast pattern and each blast's falloff. */
+const DEATH_HAND_REACH = DEATH_HAND.scatter + DEATH_HAND.radius + Math.max(...DEATH_HAND.pattern.map(([dx, dy]) => Math.hypot(dx, dy)));
+
 /** A charged Palace fires at once (spec §4.10); a launch that was refused is tried again after ten seconds. */
 function usePalace(world, house, view) {
   const b = house.brain, s = view.mine.find((x) => x.typeId === 'palace');
   if (!palaceReady(world, s) || world.time < (b.palaceAt ?? 0)) return;
   b.palaceAt = world.time + 10;
   if (palaceWeapon(house.id) === 'saboteur') { issue(world, house, { type: 'palace' }); return; }
-  const t = richestTarget(world, house.id);
+  const t = richestTarget(world, house.id, palaceWeapon(house.id) === 'deathHand' ? DEATH_HAND_REACH : 0);   // Fremen hurt only the enemy
   if (t) issue(world, house, { type: 'palace', x: t.x, y: t.y });
 }
 
-/** Saboteurs head for the most valuable enemy building, the nearest of equals. */
+/** Saboteurs head for the most valuable enemy building their blast brings down (any, when none is that weak), the nearest of equals. */
 function sabotage(world, house, view) {
   for (const u of view.units) {
     if (!u.type.sabotage || u.order.type === 'sabotage') continue;
-    let best = null, bestD = Infinity;
+    let best = null, bestD = Infinity, bestFalls = false;
     for (const s of world.structures.values()) {
       if (s.house === house.id || s.type.isWall) continue;
-      const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y);
-      if (!best || s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD)) { best = s; bestD = d; }
+      const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y), falls = s.hp <= SABOTEUR.blast;
+      const better = !best || (falls !== bestFalls ? falls : s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD));
+      if (better) { best = s; bestD = d; bestFalls = falls; }
     }
     if (best) issue(world, house, { type: 'sabotage', ids: [u.id], structureId: best.id });
   }
