@@ -96,6 +96,7 @@ test('unit orders draw an acknowledgement; production and structure orders do no
   assert.ok(ACK_LINES.includes(pick('move')));
   assert.notEqual(pick('move', 0), pick('move', 0.99));
   assert.ok(['affirmative', 'engaging', 'attacking'].includes(pick('attack', 0.5)));
+  assert.ok(ACK_LINES.includes(pick('lift')), 'a Carryall sent to lift a vehicle answers as one sent somewhere');
   assert.equal(ackForCommand({ type: 'move', ids: [] }), null);
   for (const type of ['build', 'hold', 'place', 'sell', 'repair', 'palace', 'starportOrder', 'setRally', 'deploy', 'stop']) assert.equal(ackForCommand({ type, ids: [1] }), null, type);
   assert.equal(ackForCommand(null), null);

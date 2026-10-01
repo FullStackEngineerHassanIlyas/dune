@@ -93,7 +93,7 @@ export function lineForEvent(e, me, { nearBase = () => true } = {}) {
 // Unit orders (sim commands the player issued) → the acknowledgements a unit may answer with.
 const MOVE_ACKS = ['acknowledged', 'affirmative', 'movingOut', 'onOurWay'];
 const ACKS = {
-  move: MOVE_ACKS, attackMove: MOVE_ACKS, harvest: MOVE_ACKS, returnToBase: MOVE_ACKS, repairAt: MOVE_ACKS,
+  move: MOVE_ACKS, attackMove: MOVE_ACKS, harvest: MOVE_ACKS, returnToBase: MOVE_ACKS, repairAt: MOVE_ACKS, lift: MOVE_ACKS,
   guard: ['acknowledged', 'standingBy'], scatter: ['acknowledged', 'affirmative'],
   attack: ['affirmative', 'engaging', 'attacking'], capture: ['affirmative', 'movingOut'], sabotage: ['affirmative', 'movingOut'],
 };
