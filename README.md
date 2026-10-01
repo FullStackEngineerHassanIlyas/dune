@@ -119,7 +119,7 @@ body, a tail) and set to a designed loudness, and most come in several variation
 different pitches, so a battle never sounds like one sample repeating. Browsers only allow sound after
 a click or key press, so the game is silent until then. Sounds are panned towards where they happen;
 further from the camera they grow quieter, duller and more echoing in a soft desert reverb; what fog
-hides is not heard.
+hides is not heard. A hidden tab is silent, and the menu's own sound sleeps while a battle is open.
 
 ## Announcer voices
 
