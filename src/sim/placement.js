@@ -42,12 +42,12 @@ function touchesBase(world, houseId, slot, x, y, w, h) {
   return false;
 }
 
-/** Nearest valid origin for `typeId` around (cx, cy), searching square rings outwards; null if none. */
-export function findPlacement(world, houseId, typeId, cx, cy, maxR = 10) {
+/** Nearest valid origin for `typeId` around (cx, cy), searching square rings outwards (and passing `accept`, if given); null if none. */
+export function findPlacement(world, houseId, typeId, cx, cy, maxR = 10, accept = null) {
   for (let r = 0; r <= maxR; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-      if (checkPlacement(world, houseId, typeId, cx + dx, cy + dy).ok) return { x: cx + dx, y: cy + dy };
+      if (checkPlacement(world, houseId, typeId, cx + dx, cy + dy).ok && (!accept || accept(cx + dx, cy + dy))) return { x: cx + dx, y: cy + dy };
     }
   }
   return null;

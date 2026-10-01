@@ -170,7 +170,11 @@ test('an AI buys factory upgrades and fields the units they open', () => {
   createBrain(world, 'atreides', 'normal');
   assert.ok(runUntil(world, () => upgradeLevel(h, 'heavyFactory') >= 3, 400) > 0, `heavy factory level ${upgradeLevel(h, 'heavyFactory')}`);
   assert.ok(runUntil(world, () => upgradeLevel(h, 'lightFactory') >= 1, 120) >= 0, 'the light factory too');
-  assert.ok(runUntil(world, () => [...world.units.values()].some((u) => u.house === 'atreides' && (u.typeId === 'siegeTank' || u.typeId === 'missileTank')), 300) > 0, 'a missile or siege tank rolled out');
+  const fielded = () => {   // Combat Tanks are sent away so the army never fills up on them by the luck of the draw
+    for (const u of [...world.units.values()]) if (u.house === 'atreides' && u.typeId === 'combatTank') world.removeUnit(u);
+    return [...world.units.values()].some((u) => u.house === 'atreides' && (u.typeId === 'siegeTank' || u.typeId === 'missileTank'));
+  };
+  assert.ok(runUntil(world, fielded, 300) > 0, 'a missile or siege tank rolled out');
 });
 
 test('the AI builds a repair facility and sends worn vehicles to it', () => {
@@ -277,4 +281,29 @@ test('the AI puts its turrets up before a Starport; the Harkonnen go for a House
   const hk = base('harkonnen', 'wor');
   run(hk, 300);
   assert.ok([...hk.structures.values()].some((s) => s.typeId === 'starport'), 'a Starport on the way to the Devastator');
+});
+
+// Review (logistics): a harvester in a refinery's slot must always have a way out, and its mates a way in.
+import { keepsWaysIn } from '../src/sim/ai.js';
+
+test('the AI never builds over a Refinery\'s entrance, nor shuts one in', () => {
+  const world = flatWorld(24, 24, G.SAND);
+  const m = world.map;
+  for (let y = 6; y <= 11; y++) for (let x = 8; x <= 11; x++) m.ground[m.idx(x, y)] = G.ROCK;   // a cramped plateau …
+  for (const [x, y] of [[8, 10], [8, 11], [12, 10], [12, 11]]) m.ground[m.idx(x, y)] = x === 8 ? G.SAND : G.ROCK;   // … room for a Wind Trap at 9,10 / 10,10 (over the entrance) or 11,10
+  m.revision++;
+  for (const [t, x, y] of [['constructionYard', 8, 6], ['windtrap', 10, 6], ['refinery', 8, 8]]) world.spawnStructure(t, 'harkonnen', x, y);   // entrance 10,10
+  for (const u of [...world.units.values()]) world.removeUnit(u);   // the free Harvester
+  const h = world.houses.get('harkonnen');
+  h.credits = 0;
+  h.lines.structure.current = { typeId: 'windtrap', cost: 300, total: 1, progress: 1, paid: 300, state: 'ready', starved: false };
+  createBrain(world, 'harkonnen', 'normal');
+  assert.ok(runUntil(world, () => !h.lines.structure.current, 5) > 0, 'placed');
+  assert.equal(m.structure[m.idx(10, 10)], 0, 'the entrance is clear');
+  assert.equal(world.structures.get(m.structure[m.idx(11, 10)])?.typeId, 'windtrap', 'built beside it instead');
+  const ok = keepsWaysIn(world, 'harkonnen', 'windtrap');
+  assert.equal(ok(10, 12), true, 'clear of the entrance');
+  world.spawnStructure('wall', 'harkonnen', 9, 10);
+  assert.equal(ok(10, 11), false, 'a building that would shut the entrance in');
+  assert.equal(keepsWaysIn(world, 'harkonnen', 'refinery')(8, 4), false, 'a new Refinery whose entrance is built up');
 });
