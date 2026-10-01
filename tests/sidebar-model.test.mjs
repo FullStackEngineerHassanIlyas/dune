@@ -50,6 +50,26 @@ test('icons carry production state, progress and queue counts', () => {
   assert.equal(sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'windtrap').state, 'hold');
 });
 
+test('the yard upgrade stays open while a structure builds, and the structure it sets aside keeps its progress', () => {
+  const { world, h } = base();
+  factories(world);
+  world.issue('atreides', { type: 'build', typeId: 'windtrap' });
+  run(world, 2);
+  const yardUp = (m) => m.structures.find((i) => i.typeId === 'upgrade:constructionYard');
+  assert.equal(yardUp(sidebarModel(world, 'atreides')).state, 'idle', 'it starts at once, setting the Wind Trap aside');
+  const progress = h.lines.structure.current.progress;
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:constructionYard' });
+  world.step();
+  const wt = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'windtrap');
+  assert.deepEqual([wt.state, wt.count], ['queued', 1]);
+  assert.equal(wt.progress, progress, 'shown as far as it got');
+  run(world, 6);
+  run(world, (1 - progress) * 9);
+  assert.equal(h.lines.structure.current.state, 'ready');
+  world.spawnStructure('outpost', 'atreides', 14, 4);   // the second level needs one
+  assert.equal(yardUp(sidebarModel(world, 'atreides')).state, 'locked', 'a structure waiting to be placed keeps the yard');
+});
+
 test('the sidebar reads storage, power and radar without touching the house', () => {
   const { world, h } = base();
   factories(world);

@@ -54,8 +54,8 @@ function dropOrphan(world, house, l) {
 }
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
-/** Work starting or resuming on a line: soldiers train, everything else is built. */
-const started = (world, house, line) => (line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
+/** Work starting or resuming on a line: soldiers train, factories upgrade, everything else is built. */
+const started = (world, house, line, upgrade = false) => (upgrade ? eva(world, house, 'upgrading', 'Upgrading.') : line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
 
 export function factoriesFor(world, houseId, line) {
   const types = LINE_FACTORIES[line];
@@ -78,12 +78,12 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     return;
   }
   const l = house.lines[line];
-  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line); return; }
+  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line, !!l.current.upgrade); return; }
   const upgrade = !!upgradeTarget(typeId);
   if (upgrade) {   // one at a time, at once: the item in hand steps aside; another upgrade or a ready structure goes first
     if (l.current?.typeId === typeId || l.queue.includes(typeId)) return;
     const cur = l.current;
-    if (cur && (cur.upgrade || cur.state === 'ready' || cur.progress >= 1)) {
+    if (cur && (cur.upgrade || cur.state === 'ready' || cur.progress >= 1 || l.aside)) {   // one item aside at a time
       if (line === 'structure') { eva(world, house, 'busy', 'Unable to comply, building in progress.'); return; }
       l.queue.unshift(typeId);
     } else {
@@ -102,7 +102,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
   const n = Math.max(1, Math.min(MAX_QUEUE, Math.floor(count) || 1));
   for (let k = 0; k < n; k++) {
     if ((l.current ? 1 : 0) + l.queue.length >= MAX_QUEUE) break;
-    if (!l.current) l.current = makeItem(house, typeId); else l.queue.push(typeId);
+    if (!l.current && !l.queue.length) l.current = makeItem(house, typeId); else l.queue.push(typeId);   // never ahead of the queue (the tick after an upgrade, the item it set aside is next)
   }
   started(world, house, line);
 }

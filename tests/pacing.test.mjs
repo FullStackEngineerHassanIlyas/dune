@@ -87,6 +87,25 @@ test('cancelling the unit set aside refunds what it had paid', () => {
   assert.equal(h.lines.heavy.current, null);
 });
 
+test('a unit ordered as an upgrade finishes waits behind the item set aside, which is never lost', () => {
+  const { world, h } = factoryBase();
+  world.issue('atreides', { type: 'build', typeId: 'combatTank' });
+  run(world, 10);
+  const tank = h.lines.heavy.current, paid = tank.paid;
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });
+  runUntil(world, () => upgradeLevel(h, 'heavyFactory') === 1, 10);
+  assert.equal(h.lines.heavy.current, null, 'the line is free for one tick');
+  world.issue('atreides', { type: 'build', typeId: 'harvester' });   // the computer topping up its Harvesters, or a quick click
+  world.step();
+  assert.equal(h.lines.heavy.current, tank, 'the tank set aside comes back first');
+  assert.deepEqual(h.lines.heavy.queue, ['harvester']);
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });   // the next level sets the tank aside again
+  world.step();
+  assert.equal(h.lines.heavy.aside, tank);
+  const inHand = () => [h.lines.heavy.current, h.lines.heavy.aside].reduce((n, it) => n + (it?.paid ?? 0), 0);
+  assert.ok(tank.paid >= paid && Math.abs(h.credits + inHand() - (5000 - 300)) < 1e-6, 'every credit is in the bank, the upgrade done or an item in hand');
+});
+
 test('the yard upgrade sets aside a structure under construction, but waits for a ready one to be placed', () => {
   const { world, h } = factoryBase();
   world.issue('atreides', { type: 'build', typeId: 'outpost' });
