@@ -551,3 +551,45 @@ test('a Saboteur clicked onto an enemy building goes in to blow it up while the 
   assert.deepEqual(issued.at(-2), { type: 'sabotage', ids: [sab.id], structureId: silo.id });
   assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: silo.id, force: false });
 });
+
+test('a Carryall that already holds a load promises no lift: a click on an own vehicle selects it (classic) or sets the load down there (modern)', () => {
+  const { world, tank, c, issued, cursors } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  const load = world.spawnUnit('quad', 'atreides', 3, 10, { inside: cy.id });
+  cy.cargo = load.id;
+  c.selection.set([cy.id]);
+  c.onMove(px(5), px(5));
+  c.frame();
+  assert.equal(cursors.at(-1), 'select', 'no lift cursor: its claws are full');
+  c.onClick(px(5), px(5), 0, NONE, false);
+  assert.ok(!issued.some((cmd) => cmd.type === 'lift'), 'no lift the simulation would ignore');
+  assert.deepEqual(c.selection.list(), [tank.id], 'the click selects the vehicle, as any classic click on an own unit');
+  c.settings.scheme = 'modern';
+  c.selection.set([cy.id]);
+  c.onClick(px(5), px(5), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 5, y: 5 }, 'modern: the order click sets the load down by the vehicle');
+});
+
+test('a drag box over the army leaves out a Carryall waiting on duty above it; a box round Carryalls alone takes them', () => {
+  const { world, tank, tank2, c, issued } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 6, 5);
+  c.onDragEnd(0, 0, px(12) + 20, px(6), NONE);
+  assert.deepEqual(c.selection.list().sort(), [tank.id, tank2.id].sort());
+  c.onClick(px(10), px(15), 0, NONE, false);
+  assert.deepEqual(issued.at(-1).ids.sort(), [tank.id, tank2.id].sort(), 'the army moves out; the Carryall stays on duty');
+  world.step();
+  assert.ok(!cy.manual && cy.job?.stage !== 'goto');
+  c.onDragEnd(px(6) - 10, px(5) - 10, px(6) + 10, px(5) + 10, NONE);
+  assert.deepEqual(c.selection.list(), [cy.id], 'boxed on its own, it is selected');
+  c.onDragEnd(0, 0, px(12) + 20, px(6), { ...NONE, shift: true });
+  assert.deepEqual(c.selection.list().sort(), [cy.id, tank.id, tank2.id].sort(), 'shift adds the army to it');
+});
+
+test('Ctrl + click on an own vehicle is force fire: a Carryall in the group does not lift the target', () => {
+  const { world, tank, tank2, c, issued } = setup();
+  const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+  c.selection.set([tank.id, cy.id]);
+  c.onClick(px(7), px(5), 0, { ...NONE, ctrl: true }, false);
+  assert.ok(!issued.some((cmd) => cmd.type === 'lift'), JSON.stringify(issued));
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: tank2.id, force: true });
+});

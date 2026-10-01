@@ -161,3 +161,16 @@ test('a cue reaches the sound engine with its place; the interface has none', ()
   s.onEvent({ type: 'sold', house: 'atreides', id: 3 });
   assert.deepEqual(calls, [['cannon', 5, 6, 1, 1], ['sell', null, null, 1, 1]]);
 });
+
+test('a paused battle (no time passing) holds its effects: shots in flight lay no new traces', () => {
+  const { world, s } = stage();
+  const a = world.spawnUnit('combatTank', 'atreides', 4, 10);
+  const b = world.spawnUnit('combatTank', 'harkonnen', 9, 10);
+  world.issue('atreides', { type: 'attack', ids: [a.id], targetKind: 'unit', targetId: b.id });
+  for (let i = 0; i < 400 && !world.projectiles.size; i++) world.step();
+  assert.ok(world.projectiles.size > 0, 'a shell in flight');
+  s.sync(1, 1 / 60, 1000);
+  const glow = s.effects.glow.n;
+  for (let k = 0; k < 120; k++) s.sync(1, 0, 1000);   // two seconds under the game menu
+  assert.ok(s.effects.glow.n <= glow, `tracers piled up on the frozen shell: ${glow} → ${s.effects.glow.n}`);
+});

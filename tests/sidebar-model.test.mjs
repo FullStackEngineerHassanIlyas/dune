@@ -141,7 +141,27 @@ test('the Starport\'s wares close the unit strip with their price, stock and wha
   assert.equal(sidebarModel(world, 'atreides').units.find((i) => i.typeId === 'starport:mcv').state, 'locked');
 });
 
-import { tipText } from '../src/ui/sidebar-model.js';
+import { tipText, badgeOf, wipeOf } from '../src/ui/sidebar-model.js';
+
+test('the item an upgrade sets aside keeps its clock and a badge in the strip, and its tooltip says why it waits', () => {
+  const { world } = base();
+  factories(world);
+  world.issue('atreides', { type: 'build', typeId: 'trike' });
+  run(world, 4);
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:lightFactory' });
+  world.step();
+  const m = sidebarModel(world, 'atreides');
+  const trike = m.units.find((i) => i.typeId === 'trike');
+  assert.equal(trike.state, 'queued');
+  assert.ok(trike.progress > 0.1, `the clock stays where the Trike was: ${trike.progress}`);
+  assert.equal(wipeOf(trike), trike.progress.toFixed(3));
+  assert.equal(badgeOf(trike), '1', 'still on order');
+  assert.match(tipText(trike), /resumes after the upgrade/);
+  assert.deepEqual([badgeOf({ state: 'queued', count: 1, progress: 0 }), wipeOf({ state: 'queued', count: 1, progress: 0 })], ['1', '1'], 'any item on order but not begun');
+  const cur = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'upgrade:lightFactory');
+  assert.deepEqual([cur.state, badgeOf(cur)], ['building', ''], 'the one in work shows its clock, and a number only for more of it');
+  assert.equal(badgeOf({ typeId: 'upgrade:heavyFactory', state: 'queued', count: 1, progress: 0 }), '', 'a queued upgrade: its level arrow has that corner');
+});
 
 test('a Palace puts its weapon at the top of the sidebar with a charging clock', () => {
   const world = flatWorld(40, 30, G.ROCK);

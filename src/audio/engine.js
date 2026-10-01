@@ -89,6 +89,7 @@ export class SoundEngine {
     this.enabled = this.available;   // `enabled: false` only starts muted: M can still turn sound on
     this.volume = volume;
     this.muted = !enabled;
+    this.paused = false;   // the battle is paused: the context is held (setPaused)
     this.random = random;
     this.ctx = null;
     this.master = null;
@@ -116,7 +117,7 @@ export class SoundEngine {
     }
   }
 
-  get running() { return !!this.ctx && (this.ctx.state === undefined || this.ctx.state === 'running'); }
+  get running() { return !!this.ctx && !this.paused && (this.ctx.state === undefined || this.ctx.state === 'running'); }
 
   /** Start the bank rendering: in a worker thread where there is one, else in the main thread's idle time. */
   renderAhead() {
@@ -218,7 +219,8 @@ export class SoundEngine {
   unlock() {
     if (!this.enabled) return;
     if (!this.ctx) this.open();
-    if (this.ctx && !this.running && !this.asleep) this.ctx.resume?.()?.catch?.(() => {});
+    if (this.ctx && (this.paused || this.asleep)) { this.hold(); return; }   // a click under the game menu or on a page off stage: held
+    if (this.ctx && !this.running) this.ctx.resume?.()?.catch?.(() => {});
     if (this.running && this.onGesture) {
       this.win.removeEventListener?.('pointerdown', this.onGesture);
       this.win.removeEventListener?.('keydown', this.onGesture);
@@ -230,7 +232,7 @@ export class SoundEngine {
     try {
       const Context = this.win.AudioContext ?? this.win.webkitAudioContext;
       const ctx = (this.ctx = new Context());
-      if (this.asleep) ctx.suspend?.()?.catch?.(() => {});   // opened by a click on a page that is off stage: it waits to be woken
+      if (this.asleep || this.paused) ctx.suspend?.()?.catch?.(() => {});   // opened by a click on a page off stage or under the game menu: it waits
       this.master = ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume;
       const limiter = ctx.createDynamicsCompressor?.();
@@ -377,15 +379,24 @@ export class SoundEngine {
   }
 
   /**
-   * Off stage — the menu's battle behind a skirmish, a paused backdrop, a hidden page — the context sleeps:
-   * suspended, it renders nothing (a muted context still runs its wind, limiter and reverb on the audio
-   * thread) and plays nothing, until it is woken.
+   * Two reasons hold the whole graph where it is (suspended: nothing renders, nothing new starts) until
+   * both are gone. Asleep: off stage — the menu's battle behind a skirmish, a paused backdrop, a hidden
+   * page (a muted context would still run its wind, limiter and reverb on the audio thread). Paused: the
+   * battle paused (the game menu, P, a hidden tab) — effects and their echoes, the wind, an announcer
+   * line half said carry on from where they stood.
    */
   sleep(asleep) {
     this.asleep = !!asleep;
-    if (!this.ctx) return;
-    if (this.asleep) this.ctx.suspend?.()?.catch?.(() => {});
-    else this.ctx.resume?.()?.catch?.(() => {});
+    this.hold();
+  }
+
+  setPaused(paused) {
+    this.paused = !!paused;
+    this.hold();
+  }
+
+  hold() {
+    try { (this.paused || this.asleep ? this.ctx?.suspend?.() : this.ctx?.resume?.())?.catch?.(() => {}); } catch { /* a context that cannot: it simply plays on */ }
   }
 
   setMuted(muted) {

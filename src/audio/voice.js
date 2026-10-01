@@ -97,7 +97,7 @@ export function lineForEvent(e, me, { nearBase = () => true } = {}) {
 // Unit orders (sim commands the player issued) → the acknowledgements a unit may answer with.
 const MOVE_ACKS = ['acknowledged', 'affirmative', 'movingOut', 'onOurWay'];
 const ACKS = {
-  move: MOVE_ACKS, attackMove: MOVE_ACKS, harvest: MOVE_ACKS, returnToBase: MOVE_ACKS, repairAt: MOVE_ACKS,
+  move: MOVE_ACKS, attackMove: MOVE_ACKS, harvest: MOVE_ACKS, returnToBase: MOVE_ACKS, repairAt: MOVE_ACKS, lift: MOVE_ACKS,
   guard: ['acknowledged', 'standingBy'], scatter: ['acknowledged', 'affirmative'],
   attack: ['affirmative', 'engaging', 'attacking'], capture: ['affirmative', 'movingOut'], sabotage: ['affirmative', 'movingOut'],
   lift: MOVE_ACKS,   // a Carryall sent to pick a unit up (src/sim/carryall.js)
@@ -202,6 +202,9 @@ export class VoicePlayer {
       if (this.said.length > 16) this.said.shift();
     }
   }
+
+  /** The audio was held for `seconds` (the battle paused, SoundEngine.setPaused): a line it stopped half-way finishes before the next starts. */
+  held(seconds) { this.busyUntil += seconds; }
 
   setVolume(volume) {
     this.volume = volume;

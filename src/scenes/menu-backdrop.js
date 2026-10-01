@@ -135,7 +135,7 @@ export class MenuBackdrop {
     this.r3d.release();   // the skirmish gets the laptop's shared graphics memory
   }
 
-  /** The loop stops (a hidden tab, a skirmish, paused); the canvas keeps its last picture. */
+  /** The loop stops (a hidden tab, a skirmish, paused); the canvas keeps its last picture, and the sound (the wind loop) is held, not left running muted behind a battle. */
   halt() {
     cancelAnimationFrame(this.raf);
     this.raf = 0;
@@ -475,6 +475,8 @@ export class MenuBackdrop {
       get running() { return self.running; },
       get reduced() { return self.reduced; },
       get paused() { return self.frozen; },
+      /** The backdrop's own sound: its context's state (held while a battle or a pause stops the loop), muted or not. */
+      get sound() { return { state: self.sound.ctx?.state ?? null, muted: self.sound.muted, held: self.sound.paused }; },
       /** The seam overlay while it shows: its age in seconds, its scale (above 1 zooming in, below 1 out) and its opacity. */
       get zoom() { return self.zoom.hidden ? null : { t: self.zoomT, scale: self.zoomScale, opacity: Number(self.zoom.style.opacity) }; },
       /** Zoom rates at the seams: the entry and exit rates in use, and the closing rate the last dive was measured at. */

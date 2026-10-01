@@ -18,6 +18,21 @@ test('a single harvester shows its load and what it is doing, with a Return butt
   assert.deepEqual(m.buttons.map((b) => b.id), ['stop', 'guard', 'scatter', 'return']);
 });
 
+test('a harvester unloading in its refinery\'s slot has nothing to return for: no Return button', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 10);
+  const hv = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  hv.harvest.load = 700;
+  hv.harvest.state = 'toRefinery';
+  for (let i = 0; i < 200 && hv.harvest.state !== 'unloading'; i++) world.step();
+  assert.equal(hv.docked, ref.id);
+  const sel = new Selection();
+  sel.set([hv.id]);
+  const m = selectionPanelModel(world, sel, 'atreides');
+  assert.equal(m.details.at(-1), 'Unloading');
+  assert.deepEqual(m.buttons.map((b) => b.id), ['stop', 'guard', 'scatter'], 'a Return click would be ignored (sim/harvest.js orderDocked)');
+});
+
 test('a group sums hit points and counts its types; enemies get no buttons', () => {
   const world = flatWorld(24, 24, G.ROCK);
   const a = world.spawnUnit('combatTank', 'atreides', 3, 3);

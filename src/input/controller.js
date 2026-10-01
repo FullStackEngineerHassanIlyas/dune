@@ -1,8 +1,9 @@
 // Mouse and keyboard → selection and commands for the Classic (C&C 1995) and Modern schemes
 // (spec §5.7). Classic: left click selects or orders by context, right click deselects.
 // Modern: left click selects, right click orders. A house's own Carryalls take orders too: with only
-// Carryalls selected, the order click on an own vehicle lifts it (shift-click still selects), on the
-// ground flies there or sets the load down, on the Repair Facility or a Refinery delivers the load.
+// Carryalls selected, the order click on an own vehicle lifts it if one of them is empty (shift-click
+// still selects), on the ground flies there or sets the load down, on the Repair Facility or a Refinery
+// delivers the load. Ctrl + click stays force fire: no Carryall lifts the target.
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -61,7 +62,9 @@ export class Controller {
   ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && (!u.type.autonomous || isLifter(u))); }   // Fremen and visiting Carryalls can be looked at, not ordered
   /** Only own Carryalls selected: an order click on an own vehicle lifts it. */
   liftersOnly(own = this.ownSelected()) { return own.length > 0 && own.every(isLifter); }
-  canLift(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && this.liftersOnly(own) && own.some(free); }
+  /** An own vehicle one of the selected Carryalls can go and pick up: one of them has its claws free (sim/carryall.js 'lift'). */
+  lifts(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && own.some(free); }
+  canLift(u, own = this.ownSelected()) { return this.liftersOnly(own) && this.lifts(u, own); }
   /** The load a selected Carryall holds. */
   loadOf(c) { return c.cargo ? this.world.units.get(c.cargo) ?? null : null; }
   issue(cmd) { this.world.issue(this.house, cmd); }
@@ -211,7 +214,8 @@ export class Controller {
       this.issue({ type: 'deploy', ids: [units[0].id] });
       return;
     }
-    if (hit.kind === 'unit' && units.some(free) && hit.unit.house === this.house && liftable(hit.unit)) {   // empty Carryalls lift it; the rest carry on
+    const force = !!mods.ctrl && units.some((u) => isArmed(u.type));
+    if (hit.kind === 'unit' && !force && this.lifts(hit.unit, units)) {   // empty Carryalls lift it (not a Ctrl force-fire target); the rest carry on
       this.issue({ type: 'lift', ids: units.filter(free).map((u) => u.id), targetId: hit.unit.id });
       this.onMarker(hit.unit.x, hit.unit.y);
       units = units.filter((u) => !free(u));
@@ -264,7 +268,11 @@ export class Controller {
 
   onDragEnd(x0, y0, x1, y1, mods) {
     this.onDragBox(null);
-    const ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    let ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    // a box round the army leaves out the Carryalls waiting on duty over it — an order would take them off duty and
+    // along to the front; a box round Carryalls alone (or a click, or a double click) still picks them up
+    const lifter = (id) => isLifter(this.world.units.get(id));
+    if (!ids.every(lifter)) ids = ids.filter((id) => !lifter(id));
     if (mods.shift) this.selection.add(ids);
     else if (ids.length) this.selection.set(ids);
     else this.selection.clear();

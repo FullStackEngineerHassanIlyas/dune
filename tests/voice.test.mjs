@@ -96,6 +96,7 @@ test('unit orders draw an acknowledgement; production and structure orders do no
   assert.ok(ACK_LINES.includes(pick('move')));
   assert.notEqual(pick('move', 0), pick('move', 0.99));
   assert.ok(['affirmative', 'engaging', 'attacking'].includes(pick('attack', 0.5)));
+  assert.ok(ACK_LINES.includes(pick('lift')), 'a Carryall sent to lift a vehicle answers as one sent somewhere');
   assert.equal(ackForCommand({ type: 'move', ids: [] }), null);
   for (const type of ['build', 'hold', 'place', 'sell', 'repair', 'palace', 'starportOrder', 'setRally', 'deploy', 'stop']) assert.equal(ackForCommand({ type, ids: [1] }), null, type);
   assert.equal(ackForCommand(null), null);
@@ -202,6 +203,22 @@ test('a line waits for its decode while fresh; a missing file is skipped', () =>
   p.update(5.21);
   assert.deepEqual(out.played.map(([id]) => id), ['unitReady', 'constructionComplete']);
   assert.equal(new VoicePlayer({ output: fakeOutput({ lines: ['building'] }) }).say('unitReady', 0), false, 'a line the manifest lacks');
+});
+
+test('a line the pause held finishes before the next starts', () => {
+  const out = fakeOutput();
+  const p = new VoicePlayer({ output: out });
+  p.say('baseAttack', 0);
+  p.update(LEAD);   // a one-second line starts …
+  out.live = false;   // … and the battle is paused half-way through it (the audio context is held)
+  p.update(10);
+  out.live = true;
+  p.held(29.5);   // back after 29.5 s: the rest of the line plays on from where it stopped
+  p.say('constructionComplete', 30);
+  p.update(30 + LEAD);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack'], 'not over the half of the line still to come');
+  p.update(LEAD + 1 + GAP + 29.5 + 0.01);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack', 'constructionComplete']);
 });
 
 test('the battle\'s end cuts in over everything else', () => {
