@@ -12,6 +12,7 @@ import { modelDef, unitModelId } from '../render/models/index.js';
 import { StructureViews } from '../render/views/structure-views.js';
 import { ShroudSync } from '../render/shroud.js';
 import { Effects } from '../render/effects.js';
+import { Destruction } from '../render/destruction.js';
 import { MissileViews } from '../render/views/missile-views.js';
 import { ShotFx } from '../render/shot-fx.js';
 import { nearCamera } from '../render/near-camera.js';
@@ -38,6 +39,7 @@ export class BattleStage {
     this.root = new THREE.Group();
     const hf = (this.hf = new Heightfield(world.map, { sub: terrainSubFor(world.map.w, quality), seed: world.map.seed }));
     this.heightAt = (x, z) => hf.heightAt(x, z);
+    this.positionOf = (u) => this.unitViews.renderPos(u);
     this.terrain = new TerrainView(world.map, hf, { plainApron });
     this.root.add(this.terrain.group);
     this.unitViews = new UnitViews(this.root, hf, { viewer });
@@ -48,7 +50,10 @@ export class BattleStage {
     this.shotFx = new ShotFx(this.effects);
     this.seenAt = (x, z) => this.seen(x, z);
     this.volley = new Map();   // unit id → shots fired, to alternate twin barrels
-    this.smokeClock = 0;
+    this.destruction = new Destruction(this.root, quality, {
+      effects: this.effects, hf, decals: this.terrain.decals, onShake,
+      seen: (x, z) => this.seen(x, z), near: (x, z) => nearCamera(x, z, rig.target.x, rig.target.z, rig.distance),
+    });
     this.dustClock = 0;
     this.weldClock = 0;
     this.trackFrom = new Map();
@@ -67,7 +72,7 @@ export class BattleStage {
     if (e.type === 'unitBuilt') this.structureViews.notify(e, now);
     if (e.type === 'structurePlaced') {
       const s = this.world.structures.get(e.id);
-      if (s) this.terrain.flattenFootprint(s.x, s.y, s.w, s.h);
+      if (s) { this.terrain.flattenFootprint(s.x, s.y, s.w, s.h); this.destruction.structurePlaced(s); }
       if (s && !this.catchingUp && this.seen(s.x + s.w / 2, s.y + s.h / 2)) this.constructionDust(s);
     }
     switch (e.type) {
@@ -87,8 +92,12 @@ export class BattleStage {
       case 'unitReverted': if (!this.catchingUp && this.seen(e.x, e.y)) this.effects.gasCloud(e.x, this.heightAt(e.x, e.y) + 0.3, e.y); break;
       case 'unitDestroyed':
         if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.onShake(0.6);
-        if (!this.catchingUp && onFoot(UNITS[e.typeId]?.move) && this.seen(e.x, e.y)) this.effects.smokePuff(e.x, this.heightAt(e.x, e.y) + 0.1, e.y);
         this.volley.delete(e.id);
+        this.destruction.unitDestroyed(e, this.unitViews.notifyDeath(e), !this.catchingUp);
+        break;
+      case 'structureDestroyed':
+        this.structureViews.notify(e, now);
+        this.destruction.structureDestroyed(e, !this.catchingUp);
         break;
     }
   }
@@ -185,6 +194,7 @@ export class BattleStage {
     this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
     this.ambient(dt, now);
+    this.destruction.update(dt);
     this.effects.update(dt);
     this.terrain.update(now);
   }
@@ -197,25 +207,11 @@ export class BattleStage {
     this.missiles.sync(this.world, 1, this.heightAt, this.seenAt);
   }
 
-  /** Tracers and trails for shots in flight (interpolated between ticks; rockets arc) and smoke from the wounded. */
+  /** Tracers and trails for shots in flight (interpolated between ticks; rockets arc), and smoke and fire from the wounded. */
   combatEffects(dt, alpha) {
     const w = this.world;
     this.shotFx.update(w, alpha, this.heightAt, this.seenAt);
-    this.smokeClock += dt;
-    if (this.smokeClock < 0.12) return;
-    this.smokeClock = 0;
-    for (const u of w.units.values()) {
-      if (onFoot(u.move) || u.inside || u.hp > u.maxHp / 2 || !this.seen(u.x, u.y) || Math.random() > 0.6) continue;
-      const p = this.unitViews.renderPos(u);
-      this.effects.smokePuff(p.x, this.heightAt(p.x, p.z) + 0.35 + (u.alt ?? 0), p.z);
-    }
-    for (const s of w.structures.values()) {
-      if (s.hp > s.maxHp / 2 || s.type.isWall || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
-      const x = s.x + Math.random() * s.w, z = s.y + Math.random() * s.h;
-      const y = this.heightAt(x, z) + 0.5;
-      this.effects.smokePuff(x, y, z);
-      if (s.hp < s.maxHp / 4 || Math.random() < 0.5) this.effects.flame(x, y - 0.1, z);
-    }
+    this.destruction.wounded(w, dt, this.positionOf);
   }
 
   /** Dust behind vehicles on sand, tread marks and harvest dust (spec §5.4). */
@@ -271,6 +267,7 @@ export class BattleStage {
     this.unitViews.dispose();
     this.structureViews.dispose();
     this.missiles.dispose();
+    this.destruction.dispose();
     this.effects.dispose();
     this.terrain.dispose();
   }
