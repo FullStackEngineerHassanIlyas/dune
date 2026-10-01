@@ -1,5 +1,5 @@
 // Debug-mode consistency checks (spec §9): positions are finite, every ground unit holds its tile(s)
-// (a vehicle in a repair bay none, or the one it drives out to), no tile is held by a missing unit,
+// (a vehicle in a repair bay or a refinery's slot none, or the one it drives out to), no tile is held by a missing unit,
 // structures own their footprint. Returns a list of problems.
 export function checkInvariants(world) {
   const problems = [];
@@ -11,8 +11,8 @@ export function checkInvariants(world) {
     if (!u.isGround) continue;
     const n = held.get(u.id) ?? 0;
     if (u.inside) {
-      const holder = world.structures.get(u.inside) ?? world.units.get(u.inside);   // a repair bay or a Carryall
-      if (!holder || (holder.occupant !== u.id && holder.cargo !== u.id)) problems.push(`unit ${u.id} is inside something that does not hold it`);
+      const holder = world.structures.get(u.inside) ?? world.units.get(u.inside);   // a repair bay, a refinery's slot or a Carryall
+      if (!holder || (holder.occupant !== u.id && holder.dockedBy !== u.id && holder.cargo !== u.id)) problems.push(`unit ${u.id} is inside something that does not hold it`);
       if (n > 1) problems.push(`unit ${u.id} in a bay holds ${n} tiles`);
       continue;
     }

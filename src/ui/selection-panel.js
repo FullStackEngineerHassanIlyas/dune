@@ -7,7 +7,8 @@ import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
-const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', unloading: 'Unloading' };
+const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', docking: 'Docking', unloading: 'Unloading', undocking: 'Leaving the refinery' };
+const REFINERY_TEXT = { entering: 'Harvester docking', unloading: 'Harvester unloading', leaving: 'Harvester leaving' };
 const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idle', repairAt: 'Going for repairs', capture: 'Moving in to capture', sabotage: 'Moving in to sabotage' };
 
 function structureModel(world, s, houseId) {
@@ -21,7 +22,7 @@ function structureModel(world, s, houseId) {
     if (s.primary) details.push('Primary factory');
     if (s.rally) details.push('Rally point set');
   }
-  if (s.typeId === 'refinery') details.push(s.dockedBy ? 'Harvester unloading' : 'Landing pad free');
+  if (s.typeId === 'refinery') details.push(REFINERY_TEXT[s.slot?.state] ?? (s.incoming ? 'Harvester due' : 'Landing pad free'));
   if (s.typeId === 'repair') {
     const u = world.units.get(s.occupant);
     details.push(!u ? 'Repair bay free' : s.bay?.stalled ? 'Bay paused: no credits' : `Repairing ${u.type.name} ${Math.floor((u.hp / u.maxHp) * 100)} %`);

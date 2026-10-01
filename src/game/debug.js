@@ -5,7 +5,7 @@ import { findPlacement } from '../sim/placement.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 
 export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view }) {
-  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0 };
+  const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0, docked: u.docked ?? 0, harvest: u.harvest ? { state: u.harvest.state, load: Math.round(u.harvest.load) } : null };
   const screen = (x, z, lift) => { const s = project(x, z, lift); return { x: Math.round(s.x), y: Math.round(s.y), visible: s.visible }; };
   const rect = (el) => {
     if (!el) return null;

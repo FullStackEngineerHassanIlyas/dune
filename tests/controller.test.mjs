@@ -368,6 +368,26 @@ test('modern: right click on an own repair facility sends damaged vehicles in; a
   assert.ok(!c.selection.has(tank2.id));
 });
 
+test('a harvester unloading in a refinery\'s slot can still be clicked and ordered', () => {
+  const { world, c, issued } = setup('modern');
+  const ref = world.spawnStructure('refinery', 'atreides', 10, 10);
+  const hv = [...world.units.values()].find((u) => u.typeId === 'harvester');
+  hv.harvest.load = 700;
+  hv.harvest.state = 'toRefinery';
+  for (let i = 0; i < 100 && hv.harvest.state !== 'unloading'; i++) world.step();
+  assert.equal(hv.docked, ref.id);
+  c.onClick(hv.x * 40, hv.y * 40, 0, NONE, false);
+  assert.deepEqual(c.selection.list(), [hv.id]);
+  c.onClick(px(3), px(3), 2, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [hv.id], x: 3, y: 3 });
+  const theirs = world.spawnStructure('refinery', 'harkonnen', 2, 14);
+  const foe = [...world.units.values()].find((u) => u.typeId === 'harvester' && u.house === 'harkonnen');
+  Object.assign(foe, { inside: theirs.id, docked: theirs.id, x: 4.5, y: 15.4 });
+  c.selection.set([]);
+  c.onClick(4.5 * 40, 15.4 * 40, 0, NONE, false);
+  assert.ok(!c.selection.has(foe.id), 'an enemy harvester in its slot is not picked: the click goes to the refinery');
+});
+
 test('infantry clicked onto a badly damaged enemy building capture it while the rest attack', () => {
   const { world, tank, c, issued, cursors } = setup();
   const squad = world.spawnUnit('infantry', 'atreides', 3, 3);

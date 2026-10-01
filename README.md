@@ -65,7 +65,8 @@ Deploy the MCV to get a Construction Yard; its sidebar strip then offers what th
 Structures go on rock next to your base; tiles without your concrete cost hit points (the ghost shows
 green = concrete, yellow = bare rock, red = blocked). Wind Traps power the base — short power slows
 production and switches the radar off. Every Refinery comes with a Harvester; full loads are worth 700
-credits, Refineries and Silos store them. Selling refunds half the price times the health left;
+credits, Refineries and Silos store them. A Harvester drives into its Refinery's docking pad to unload
+(one at a time, the others wait by the entrance), then backs out and returns to the field. Selling refunds half the price times the health left;
 repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
 

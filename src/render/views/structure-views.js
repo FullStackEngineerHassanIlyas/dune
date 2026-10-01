@@ -1,6 +1,7 @@
 // One view per structure (spec §5.3): standing on its flattened footprint, rising out of the ground
 // when placed, sinking away when sold or destroyed, hidden until the viewer has seen it, with its
-// animated parts (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads, the repair hoist).
+// animated parts (turbines, radar dishes, pad lights, factory doors, flags, cranes, turret heads, the repair hoist,
+// a working refinery's rotors, rams and spice chute).
 // Walls get a post plus an arm towards each walled neighbour.
 import { HOUSES } from '../../data/houses.js';
 import { structureVisibleTo } from '../../sim/fog.js';
@@ -10,6 +11,19 @@ import { modelDef, structureModelId } from '../models/index.js';
 const ARMS = [[1, 0, 0], [0, 1, -Math.PI / 2], [-1, 0, Math.PI], [0, -1, Math.PI / 2]];   // E, S, W, N and their yaw
 const RISE_MS = 900, SINK_MS = 700, DOOR_MS = 2000;
 const armOffset = (now) => Math.sin(now * 0.0015) * 0.3;   // the repair hoist runs up and down the gantry
+const ROTOR_SPEED = 7, ROTOR_SPIN_UP = 1.2;   // a working refinery's centrifuges: radians per second, and how fast they get there
+
+/** A refinery at work (research: structures.md, its busy animation): pad lights, rotors, rams, spice in the chute. */
+function refineryParams(s, v, p, now, dt) {
+  const state = s.slot?.state, working = state === 'unloading';
+  if (s.incoming || state === 'entering') p.padLights = 1.3 - 0.5 * ((now * 0.0015) % 1);   // chevrons converge on the pad: a Harvester is due
+  else p.padLights = working ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+  v.rotor = (v.rotor ?? 0) + ((working ? ROTOR_SPEED : 0) - (v.rotor ?? 0)) * Math.min(1, dt * ROTOR_SPIN_UP);
+  v.spin = ((v.spin ?? 0) + v.rotor * dt) % (Math.PI * 2);
+  p.spin = v.spin;
+  p.ram = working ? 0.035 * Math.max(0, Math.sin(now * 0.007)) : 0;
+  p.flow = working ? 0.9 + 0.12 * Math.sin(now * 0.018) : 0.001;
+}
 
 export class StructureViews {
   constructor(scene, hf, { viewer = null } = {}) {
@@ -62,6 +76,8 @@ export class StructureViews {
 
   pose(world, s, v, now) {
     v.last = s;
+    const dt = Math.min(0.1, Math.max(0, (now - (v.now ?? now)) / 1000));
+    v.now = now;
     const visible = !this.viewer || structureVisibleTo(world, this.viewer, s);
     let scale = 1 - Math.pow(1 - Math.min(1, (now - v.born) / RISE_MS), 3);
     if (v.dying !== undefined) scale = Math.max(0.02, 1 - (now - v.dying) / SINK_MS);
@@ -75,7 +91,8 @@ export class StructureViews {
     p.dish = now * 0.0012;
     p.flag = Math.sin(now * 0.002) * 0.3;
     const due = s.typeId === 'starport' && world.houses.get(s.house)?.starport?.batch?.structureId === s.id;   // a Frigate is on its way
-    p.padLights = s.dockedBy || s.occupant || due ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+    p.padLights = s.occupant || due ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
+    if (s.typeId === 'refinery') refineryParams(s, v, p, now, dt);
     p.arm = s.bay?.state === 'repairing' && !s.bay.stalled ? armOffset(now) : 0;
     p.door = now < v.doorUntil ? 0.4 : 0;
     p.turret = s.turret === undefined ? Math.PI / 2 : -s.turret;

@@ -3,7 +3,7 @@ import { findDestinations } from './destinations.js';
 import { orderDeploy } from './deploy.js';
 import { orderBuild, orderHold, orderPlace, orderRally, orderPrimary } from './production.js';
 import { orderSell, orderRepair } from './structure-actions.js';
-import { orderHarvest, orderReturn } from './harvest.js';
+import { orderHarvest, orderReturn, orderDocked } from './harvest.js';
 import { isArmed, deviatable } from './combat.js';
 import { WEAPONS } from '../data/weapons.js';
 import { orderRepairAt } from './repair-bay.js';
@@ -13,6 +13,7 @@ import { orderDestruct, orderSabotage } from './specials.js';
 import { orderPalace } from './palace.js';
 
 export function applyCommand(world, houseId, cmd) {
+  orderDocked(world, houseId, cmd);   // a harvester in a refinery's slot takes its orders once it has backed out
   const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous && u.destructAt === undefined);   // nor do units held in a bay or a Carryall, nor Carryalls, nor a Devastator counting down
   switch (cmd?.type) {
     case 'move': orderMove(world, units, cmd.x, cmd.y); return;
