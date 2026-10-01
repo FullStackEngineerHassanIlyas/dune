@@ -21,6 +21,7 @@ function itemState(l, typeId, line) {
   const cur = l.current;
   const queued = l.queue.reduce((n, t) => n + (t === typeId ? 1 : 0), 0);
   if (cur?.typeId === typeId) return { state: cur.state, progress: cur.progress, count: queued + 1, starved: cur.starved };
+  if (l.aside?.typeId === typeId) return { state: 'queued', progress: l.aside.progress, count: queued, starved: false, note: 'Set aside: resumes after the upgrade' };   // sim/production.js
   if (queued) return { state: 'queued', progress: 0, count: queued, starved: false };
   return { state: line === 'structure' && cur ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
 }
@@ -82,6 +83,12 @@ export function rollCredits(shown, target, dt) {
 }
 
 export const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+/** The number in an icon's corner: how many more are on order beyond the one in work; every one of an item only on order. */
+export const badgeOf = (item) => (item.count > (item.order || item.state === 'queued' ? 0 : 1) ? String(item.count) : '');
+
+/** How far round an icon's clock has come: the item in work, or the one an upgrade set aside; a full face otherwise. */
+export const wipeOf = (item) => (item.state === 'building' || item.state === 'hold' || (item.state === 'queued' && item.progress > 0) ? item.progress.toFixed(3) : '1');
 
 /** The line under an icon's name in its tooltip. */
 export function tipText(item) {
