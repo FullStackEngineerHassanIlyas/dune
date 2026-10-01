@@ -84,8 +84,11 @@ export function rollCredits(shown, target, dt) {
 
 export const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-/** The number in an icon's corner: how many more are on order beyond the one in work; every one of an item only on order. */
-export const badgeOf = (item) => (item.count > (item.order || item.state === 'queued' ? 0 : 1) ? String(item.count) : '');
+/**
+ * The number in an icon's corner: how many more are on order beyond the one in work; every one of an item only on
+ * order. Never on an upgrade: there is only ever one, and its icon wears its level in that corner.
+ */
+export const badgeOf = (item) => (!item.typeId?.startsWith('upgrade:') && item.count > (item.order || item.state === 'queued' ? 0 : 1) ? String(item.count) : '');
 
 /** How far round an icon's clock has come: the item in work, or the one an upgrade set aside; a full face otherwise. */
 export const wipeOf = (item) => (item.state === 'building' || item.state === 'hold' || (item.state === 'queued' && item.progress > 0) ? item.progress.toFixed(3) : '1');

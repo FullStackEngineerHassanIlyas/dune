@@ -138,6 +138,7 @@ test('the item an upgrade sets aside keeps its clock and a badge in the strip, a
   assert.deepEqual([badgeOf({ state: 'queued', count: 1, progress: 0 }), wipeOf({ state: 'queued', count: 1, progress: 0 })], ['1', '1'], 'any item on order but not begun');
   const cur = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'upgrade:lightFactory');
   assert.deepEqual([cur.state, badgeOf(cur)], ['building', ''], 'the one in work shows its clock, and a number only for more of it');
+  assert.equal(badgeOf({ typeId: 'upgrade:heavyFactory', state: 'queued', count: 1, progress: 0 }), '', 'a queued upgrade: its level arrow has that corner');
 });
 
 test('a Palace puts its weapon at the top of the sidebar with a charging clock', () => {
