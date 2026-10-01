@@ -38,7 +38,7 @@ export class MainMenu {
         h('nav', { class: 'mm-nav', 'aria-label': 'Main menu' },
           h('button', { type: 'button', class: 'mm-item primary', dataset: { act: 'skirmish' }, onclick: () => this.go('skirmish') }, 'Skirmish', h('small', {}, 'One battle against the computer')),
           h('button', { type: 'button', class: 'mm-item', disabled: true }, 'Campaign', h('small', {}, 'Coming in a later phase')),
-          h('button', { type: 'button', class: 'mm-item', dataset: { act: 'options' }, onclick: () => this.go('options') }, 'Options', h('small', {}, 'Graphics, mouse, scrolling, sound')),
+          h('button', { type: 'button', class: 'mm-item', dataset: { act: 'options' }, onclick: () => this.go('options') }, 'Options', h('small', {}, 'Graphics, mouse, scrolling, sound, voices')),
           h('button', { type: 'button', class: 'mm-item', dataset: { act: 'controls' }, onclick: () => this.go('controls') }, 'Controls', h('small', {}, 'Mouse and keyboard')),
           h('button', { type: 'button', class: 'mm-item', dataset: { act: 'credits' }, onclick: () => this.go('credits') }, 'Credits')),
         h('footer', { class: 'mm-foot' }, 'Non-commercial fan remake, not affiliated with Electronic Arts. After Westwood Studios’ Dune II (1992).'));
@@ -54,7 +54,7 @@ export class MainMenu {
       body = h('div', { class: 'dm-panel page-credits' }, h('h2', {}, 'Credits'),
         h('p', {}, 'Dune II 3D is a non-commercial fan remake. Every model, texture, sound and line of text in it is newly made.'),
         h('p', {}, 'Dune II: The Battle for Arrakis was made by Westwood Studios in 1992; its code, art and audio belong to Electronic Arts. The Dune name belongs to Herbert Properties.'),
-        h('p', {}, 'Built with three.js.'),
+        h('p', {}, 'Built with three.js. The announcer voices were rendered with the Kokoro-82M text-to-speech model (Apache-2.0).'),
         h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', onclick: back }, 'Back')));
     }
     this.refresh();
