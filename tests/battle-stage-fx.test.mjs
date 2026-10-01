@@ -113,3 +113,12 @@ test('a building destroyed under the shroud shows no rubble until the viewer has
   s.sync(1, 0.016, 32);
   assert.ok(s.destruction.rubble.used > 0, 'the ruins are there once explored');
 });
+
+test('concrete laid over old ruins clears the rubble there', () => {
+  const { s } = stage();
+  s.onEvent({ type: 'structureDestroyed', id: 99, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });
+  assert.ok(s.destruction.rubble.used > 0);
+  s.onEvent({ type: 'concretePlaced', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });
+  const m = new THREE.Matrix4(), sc = new THREE.Vector3();
+  for (let i = 0; i < s.destruction.rubble.used; i++) { s.destruction.rubble.mesh.getMatrixAt(i, m); assert.equal(sc.setFromMatrixScale(m).y, 0); }
+});

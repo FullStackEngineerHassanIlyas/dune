@@ -150,7 +150,7 @@ export class Destruction {
     for (let i = 0; i < this.buried.length; i++) if (this.uncovered(this.buried[i])) this.ruins(this.buried.splice(i--, 1)[0]);
   }
 
-  /** A new building on old ruins: the rubble, the wrecks and the fires there go. */
+  /** A new building (or concrete) on old ruins: the rubble, the wrecks and the fires there go. */
   structurePlaced(s) {
     const apart = (o) => o.x >= s.x + s.w || o.x + o.w <= s.x || o.y >= s.y + s.h || o.y + o.h <= s.y;
     this.rubble.clear(s.x, s.y, s.w, s.h);

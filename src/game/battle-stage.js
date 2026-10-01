@@ -76,6 +76,7 @@ export class BattleStage {
       if (s) { this.terrain.flattenFootprint(s.x, s.y, s.w, s.h); this.destruction.structurePlaced(s); }
       if (s && !this.catchingUp && this.seen(s.x + s.w / 2, s.y + s.h / 2)) this.constructionDust(s);
     }
+    if (e.type === 'concretePlaced') this.destruction.structurePlaced(e);   // fresh slabs over old ruins
     switch (e.type) {
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
       case 'impact': this.onImpact(e); break;
