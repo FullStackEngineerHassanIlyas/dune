@@ -172,23 +172,29 @@ function leadsOut(map, from, covers = () => false) {
 
 /**
  * A placement test for a building of `typeId`: it may not cover the entrance of one of the house's
- * Refineries or Repair Facilities or shut it in, and a new one's own entrance must lead out.
+ * Refineries or Repair Facilities or the tile straight out of it (where a harvester backs out and the
+ * others never wait), nor shut them in; a new one's own entrance and the tile out of it must lead out.
  */
 export function keepsWaysIn(world, houseId, typeId) {
-  const map = world.map, t = STRUCTURES[typeId], docks = [];
+  const map = world.map, t = STRUCTURES[typeId], ways = [];
   if (!t || t.isConcrete) return () => true;
+  const ground = (i) => map.moveFactor(i, 'harvester') > 0 && !map.structure[i];
+  const outOf = (x, y) => (map.inBounds(x, y + 1) ? map.idx(x, y + 1) : -1);   // entrances face south
   for (const s of world.structures.values()) {
     if (s.house !== houseId || !s.type.entrance) continue;
-    const d = dockTile(world, s);
-    if (d >= 0 && leadsOut(map, d)) docks.push(d);   // one already shut in has nothing left to keep
+    const door = dockTile(world, s);
+    if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
+    const lane = outOf(map.xOf(door), map.yOf(door));
+    ways.push({ door, lane: lane >= 0 && ground(lane) ? lane : -1 });
   }
   return (x, y) => {
     const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
+    const clear = (i) => i < 0 || !covers(map.xOf(i), map.yOf(i));
     if (t.entrance) {
-      const ex = x + t.entrance[0], ey = y + t.entrance[1];
-      if (!map.inBounds(ex, ey) || !leadsOut(map, map.idx(ex, ey), covers)) return false;
+      const ex = x + t.entrance[0], ey = y + t.entrance[1], lane = outOf(ex, ey);
+      if (!map.inBounds(ex, ey) || lane < 0 || !ground(map.idx(ex, ey)) || !leadsOut(map, lane, covers)) return false;
     }
-    return docks.every((d) => leadsOut(map, d, covers));
+    return ways.every((w) => clear(w.lane) && leadsOut(map, w.door, covers));
   };
 }
 

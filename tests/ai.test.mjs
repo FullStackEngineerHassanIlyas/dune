@@ -303,6 +303,7 @@ test('the AI never builds over a Refinery\'s entrance, nor shuts one in', () => 
   assert.equal(world.structures.get(m.structure[m.idx(11, 10)])?.typeId, 'windtrap', 'built beside it instead');
   const ok = keepsWaysIn(world, 'harkonnen', 'windtrap');
   assert.equal(ok(10, 12), true, 'clear of the entrance');
+  assert.equal(ok(9, 11), false, 'on the tile straight out of the entrance');
   world.spawnStructure('wall', 'harkonnen', 9, 10);
   assert.equal(ok(10, 11), false, 'a building that would shut the entrance in');
   assert.equal(keepsWaysIn(world, 'harkonnen', 'refinery')(8, 4), false, 'a new Refinery whose entrance is built up');
