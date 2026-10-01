@@ -151,3 +151,13 @@ test('a paused battle (no time passing) stands still: shots in flight do not pil
   assert.ok(particles() <= n, `${particles()} particles, from ${n}: a glowing heap over every shot`);
   assert.equal(wreck.age, age);
 });
+
+test('a cue reaches the sound engine with its place; the interface has none', () => {
+  const { s } = stage();
+  const calls = [];
+  s.viewer = 'atreides';
+  s.sound = { play: (id, { x = null, z = null, volume = 1, rate = 1 } = {}) => calls.push([id, x, z, volume, rate]) };
+  s.onEvent({ type: 'fired', kind: 'structure', id: 0, house: 'harkonnen', weapon: 'cannon', projectile: 'shell', x: 5, y: 6, tx: 9, ty: 6 });
+  s.onEvent({ type: 'sold', house: 'atreides', id: 3 });
+  assert.deepEqual(calls, [['cannon', 5, 6, 1, 1], ['sell', null, null, 1, 1]]);
+});

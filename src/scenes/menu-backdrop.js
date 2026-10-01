@@ -140,10 +140,12 @@ export class MenuBackdrop {
     cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.sound.setMuted(true);
+    this.sound.sleep(true);   // and its audio thread rests: a skirmish has audio of its own
   }
 
   resume() {
     if (this.raf || !this.running || this.frozen || this.stepping || document.hidden) return;
+    this.sound.sleep(false);
     this.raf = requestAnimationFrame((now) => { this.last = now; this.frame(now); });
   }
 

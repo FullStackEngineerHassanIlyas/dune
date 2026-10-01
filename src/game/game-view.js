@@ -151,7 +151,8 @@ export class GameView {
     this.paused = document.hidden;
     this.lost = false;
     this.last = performance.now();
-    document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); });
+    document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); this.hush(document.hidden); });
+    this.hush(document.hidden);
     r3d.onContextLost = () => {
       this.lost = true;
       this.updatePaused();
@@ -230,6 +231,12 @@ export class GameView {
   }
 
   updatePaused() { this.paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen; }
+
+  /** A hidden page is a stopped game: it falls silent (the wind would blow on in a background tab) and has nothing stale to say on return. */
+  hush(hidden) {
+    this.sound.sleep(hidden);
+    if (hidden) this.announcer.player.silence();
+  }
 
   openMenu() {
     if (this.menu.isOpen) return;

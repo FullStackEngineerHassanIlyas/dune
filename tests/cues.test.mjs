@@ -72,6 +72,8 @@ test('destruction has its aftermath: debris after a vehicle, a collapse after a 
   assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'crushed', x: 1, y: 1 }, 'atreides', all).id, 'crush');
   assert.deepEqual(cueFor({ type: 'structureDestroyed', typeId: 'windtrap', x: 4, y: 6, w: 2, h: 2 }, 'atreides', all), { id: 'collapse', x: 5, z: 7 });
   assert.equal(cueFor({ type: 'structureDestroyed', x: 4, y: 6, w: 2, h: 2 }, 'atreides', () => false), null, 'unseen, unheard');
+  // a wall segment only bursts (its large blast is the simulation's 'explosion'): it has no building to bring down (render/destruction.js)
+  assert.equal(cueFor({ type: 'structureDestroyed', typeId: 'wall', x: 4, y: 6, w: 1, h: 1 }, 'atreides', all), null);
 });
 
 test('the base at work: slabs laid, a Frigate landing, a Harvester unloading where it docks', () => {

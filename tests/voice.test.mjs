@@ -274,11 +274,54 @@ test('the browser output marks an unreadable line missing and survives without f
   assert.equal(broken.live, false);
 });
 
+test('a line cut short lets the battle back up: the battle ending while muted, or the voices turned off mid-line', async () => {
+  const b = fakeBrowser(), ducks = [];
+  b.sound.duck = (on) => ducks.push(on);
+  const out = new WebVoiceOutput(b.sound, 'atreides', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn });
+  await out.ready;
+  await out.load('unitLost');
+  const p = new VoicePlayer({ output: out });
+  p.say('unitLost', 0);
+  p.update(LEAD);
+  assert.deepEqual(ducks, [true], 'the effects dip under the line');
+  b.sound.muted = true;   // M, half-way through the line; then the battle ends
+  p.interrupt('missionFailed', LEAD + 0.5);
+  b.started[0].onended?.();   // a stopped source still ends, after the cut
+  assert.deepEqual(ducks, [true, false], 'nothing new can be said, and the effects come back up');
+  b.sound.muted = false;
+  p.say('unitLost', 10);
+  p.update(10 + LEAD);
+  assert.equal(p.speaking, true);
+  p.setVolume(0);   // Options → Voices: Off, half-way through the line
+  assert.deepEqual(ducks, [true, false, true, false], 'the line stops, and the battle is not left dipped under a silent line');
+  assert.equal(p.speaking, false);
+});
+
+test('the voice waits out the error buzz before it speaks; other lines follow the chirp sooner', () => {
+  assert.ok(lineInfo('insufficientFunds').lead >= 0.3 - 0.07, 'the buzz lasts 0.31 s and speech starts ~0.06 s into a line');
+  for (const id of ['cannotPlace', 'unableToComply', 'cannotDeploy', 'soldOut', 'frigateFull', 'notReady']) assert.equal(lineInfo(id).lead, lineInfo('insufficientFunds').lead, id);
+  assert.equal(lineInfo('constructionComplete').lead, LEAD);
+  assert.equal(lineInfo('affirmative').lead, 0, 'acknowledgements come at once');
+  const out = fakeOutput();
+  const p = new VoicePlayer({ output: out });
+  p.say('insufficientFunds', 0);
+  p.update(LEAD + 0.01);
+  assert.deepEqual(out.played, [], 'still buzzing');
+  p.update(lineInfo('insufficientFunds').lead);
+  assert.deepEqual(out.played.map(([id]) => id), ['insufficientFunds']);
+});
+
+test('a Carryall sent to lift a unit answers like any unit given an order', () => {
+  const ack = ackForCommand({ type: 'lift', ids: [7], targetId: 3 }, () => 0);   // right-click on a unit with a Carryall selected
+  assert.ok(ACK_LINES.includes(ack), String(ack));
+});
+
 test('the Voices option may be turned off; the master volume may not', () => {
   assert.equal(DEFAULTS.voiceVolume, 0.8);
   assert.equal(sanitize({ voiceVolume: '0' }).voiceVolume, 0);
   assert.equal(sanitize({ voiceVolume: 0.35 }).voiceVolume, 0.35);
   assert.equal(sanitize({ voiceVolume: -1 }).voiceVolume, DEFAULTS.voiceVolume);
+  for (const junk of [null, '', ' ', false, []]) assert.equal(sanitize({ voiceVolume: junk }).voiceVolume, DEFAULTS.voiceVolume, `${JSON.stringify(junk)} is not 0`);
   assert.equal(sanitize({ volume: 0 }).volume, DEFAULTS.volume);
   const row = OPTION_ROWS.find((r) => r.key === 'voiceVolume');
   assert.deepEqual([row.format(0), row.format(0.5)], ['Off', '50%']);
