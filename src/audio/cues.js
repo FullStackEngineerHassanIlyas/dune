@@ -1,8 +1,10 @@
 // What the player hears (spec §6): simulation events become sound cues placed where they happen. Only
 // what the player can see is heard; interface sounds (placements, errors, sales) belong to the player.
 // A shell that finds its target clangs, one that misses thumps into the sand; a vehicle that blows up
-// rains debris after its blast, and a structure that goes up collapses with a rumble.
+// rains debris after its blast, and a structure that goes up collapses with a rumble (a wall only bursts,
+// as it does on screen: render/destruction.js).
 import { UNITS, onFoot } from '../data/units.js';
+import { STRUCTURES } from '../data/structures.js';
 
 const WEAPON = { rifle: 'rifle', pistol: 'rifle', trooperRocket: 'rifle', mg: 'mg', cannon: 'cannon', turretGun: 'cannon', heavyCannon: 'heavyCannon', plasma: 'heavyCannon', sonic: 'sonic' };
 const EXPLOSION = { small: 'explosionSmall', medium: 'explosionMedium', large: 'explosionLarge' };
@@ -19,7 +21,7 @@ export function cueFor(e, me, seen) {
     case 'explosion': return at(EXPLOSION[e.size] ?? 'explosionSmall', e.x, e.y);
     case 'deathHandBlast': return at('explosionHuge', e.x, e.y);
     case 'unitDestroyed': return e.cause === 'crushed' ? at('crush', e.x, e.y) : UNITS[e.typeId] && !onFoot(UNITS[e.typeId].move) ? at('debris', e.x, e.y) : null;
-    case 'structureDestroyed': return at('collapse', e.x + e.w / 2, e.y + e.h / 2);
+    case 'structureDestroyed': return STRUCTURES[e.typeId]?.isWall ? null : at('collapse', e.x + e.w / 2, e.y + e.h / 2);
     case 'structurePlaced': case 'deployed': return mine ? at('clunk', e.x + 1, e.y + 1) : null;
     case 'concretePlaced': return mine ? at('slab', e.x + e.w / 2, e.y + e.h / 2) : null;
     case 'sold': return mine ? { id: 'sell' } : null;
