@@ -1,8 +1,8 @@
 // Computer opponent (spec §4.10): one brain per AI house, thinking once a second. It sees the whole map,
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
-// and add silos when storage runs full; no building goes up on the way into a Refinery or Repair Facility
-// (a harvester shut in a refinery's slot would hold it for good). Then an army, rally points, base defence and attack waves. A
+// and add silos when storage runs full; no building goes up on the apron of a Refinery or Repair Facility
+// (harvesters waiting and backing out in a narrow way in would lock horns). Then an army, rally points, base defence and attack waves. A
 // charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
 // building its blast brings down.
@@ -171,30 +171,33 @@ function leadsOut(map, from, covers = () => false) {
 }
 
 /**
- * A placement test for a building of `typeId`: it may not cover the entrance of one of the house's
- * Refineries or Repair Facilities or the tile straight out of it (where a harvester backs out and the
- * others never wait), nor shut them in; a new one's own entrance and the tile out of it must lead out.
+ * A placement test for a building of `typeId`: it may not go up on the apron of one of the house's
+ * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
+ * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
+ * a new one needs its own apron clear and an entrance that leads out.
  */
 export function keepsWaysIn(world, houseId, typeId) {
-  const map = world.map, t = STRUCTURES[typeId], ways = [];
+  const map = world.map, t = STRUCTURES[typeId], aprons = [];
   if (!t || t.isConcrete) return () => true;
-  const ground = (i) => map.moveFactor(i, 'harvester') > 0 && !map.structure[i];
-  const outOf = (x, y) => (map.inBounds(x, y + 1) ? map.idx(x, y + 1) : -1);   // entrances face south
+  const apron = (x, y) => {   // entrances face south
+    const out = [];
+    for (let dy = 0; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (map.inBounds(x + dx, y + dy)) out.push(map.idx(x + dx, y + dy));
+    return out;
+  };
   for (const s of world.structures.values()) {
     if (s.house !== houseId || !s.type.entrance) continue;
     const door = dockTile(world, s);
     if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
-    const lane = outOf(map.xOf(door), map.yOf(door));
-    ways.push({ door, lane: lane >= 0 && ground(lane) ? lane : -1 });
+    aprons.push({ door, open: apron(map.xOf(door), map.yOf(door)).filter((i) => !map.structure[i]) });
   }
   return (x, y) => {
     const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
-    const clear = (i) => i < 0 || !covers(map.xOf(i), map.yOf(i));
+    const clear = (i) => !covers(map.xOf(i), map.yOf(i));
     if (t.entrance) {
-      const ex = x + t.entrance[0], ey = y + t.entrance[1], lane = outOf(ex, ey);
-      if (!map.inBounds(ex, ey) || lane < 0 || !ground(map.idx(ex, ey)) || !leadsOut(map, lane, covers)) return false;
+      const ex = x + t.entrance[0], ey = y + t.entrance[1];
+      if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
     }
-    return ways.every((w) => clear(w.lane) && leadsOut(map, w.door, covers));
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers));
   };
 }
 
