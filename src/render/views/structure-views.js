@@ -127,6 +127,9 @@ export class StructureViews {
     out.compose(at, lean, size.set(1 + 0.08 * e, Math.max(0.03, 1 - 0.95 * e), 1 + 0.08 * e));
   }
 
+  /** Whether structure `id` was drawn for the viewer last frame (seen once, it is drawn whole, shroud or not). */
+  shows(id) { return !!this.views.get(id)?.handles[0]?.visible; }
+
   /** Where the welding head is over an occupied repair pad, in world units; null when nothing is being repaired. */
   weldPoint(id, now) {
     const v = this.views.get(id), s = v?.last;

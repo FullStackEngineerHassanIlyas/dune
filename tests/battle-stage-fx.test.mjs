@@ -114,6 +114,20 @@ test('a building destroyed under the shroud shows no rubble until the viewer has
   assert.ok(s.destruction.rubble.used > 0, 'the ruins are there once explored');
 });
 
+test('a building the viewer could see, though only part of its ground was explored, leaves its rubble at once', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  world.spawnUnit('trike', 'atreides', 16, 18);   // sees the refinery's west end, not its east
+  const refinery = world.spawnStructure('refinery', 'harkonnen', 18, 18);
+  const s = new BattleStage({ world, scene: new THREE.Scene(), quality: { particles: 4000, flashLights: 0 }, viewer: 'atreides', rig: { target: new THREE.Vector3(12, 0, 12), distance: 16 } });
+  s.catchingUp = false;
+  updateFog(world);
+  s.sync(1, 0.016, 0);
+  assert.ok(s.structureViews.shows(refinery.id) && !s.destruction.uncovered(refinery), 'drawn whole, half over the black');
+  destroyStructure(world, refinery);
+  for (const e of world.events.drain()) s.onEvent(e);
+  assert.ok(s.destruction.rubble.used > 0, 'its ruins drawn as whole as the building was');
+});
+
 test('concrete laid over old ruins clears the rubble there', () => {
   const { s } = stage();
   s.onEvent({ type: 'structureDestroyed', id: 99, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 });

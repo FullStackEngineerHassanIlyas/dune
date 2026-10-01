@@ -99,7 +99,7 @@ export class BattleStage {
         break;
       case 'structureDestroyed':
         this.structureViews.notify(e, now);
-        this.destruction.structureDestroyed(e, !this.catchingUp);
+        this.destruction.structureDestroyed(e, !this.catchingUp, this.structureViews.shows(e.id));
         break;
     }
   }

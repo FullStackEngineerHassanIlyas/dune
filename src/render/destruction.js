@@ -109,15 +109,16 @@ export class Destruction {
 
   /**
    * A structure was destroyed. Rubble and scorch stay on the footprint for the battle (even when
-   * simulated ahead; rubble under the shroud waits until the viewer explores it); when live and seen,
-   * it goes down in a staged collapse over about 1.5 s.
+   * simulated ahead); when live and seen, it goes down in a staged collapse over about 1.5 s. shown: the
+   * viewer had the building in view (drawn whole); otherwise rubble under the shroud waits until the
+   * viewer has explored its ground.
    */
-  structureDestroyed(e, live = true) {
+  structureDestroyed(e, live = true, shown = false) {
     const { x, y, w, h } = e, cx = x + w / 2, cz = y + h / 2, area = w * h;
     const wall = !!STRUCTURES[e.typeId]?.isWall, house = HOUSES[e.house]?.color ?? 0x888888;
     this.roofs.delete(e.id);
     const ruin = { x, y, w, h, house, wall };
-    if (this.uncovered(ruin)) this.ruins(ruin);
+    if (shown || this.uncovered(ruin)) this.ruins(ruin);
     else this.buried.push(ruin);
     for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++) this.decals?.scorch?.(tx + rnd(0.3, 0.7), ty + rnd(0.3, 0.7), wall ? 0.5 : 0.8);
     if (area >= 4) this.decals?.crater?.(cx, cz, Math.max(w, h) * 0.5, 0.45);
