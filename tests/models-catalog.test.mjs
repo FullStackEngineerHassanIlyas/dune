@@ -47,7 +47,7 @@ test('model sizes stay inside their footprint', () => {
 import { STRUCTURE_MODEL, UNIT_MODEL } from '../src/render/models/index.js';
 
 test('every plan-1b structure has a real model with its animated nodes', () => {
-  for (const id of ['concrete', 'concrete4', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'repair', 'hiTech', 'starport', 'ix', 'turret', 'rocketTurret', 'wall']) {
+  for (const id of ['concrete', 'concrete4', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'heavyFactory', 'repair', 'hiTech', 'starport', 'ix', 'turret', 'rocketTurret', 'wall']) {
     assert.ok(STRUCTURE_MODEL[id], `${id} is mapped`);
     assert.ok(!STRUCTURE_MODEL[id].startsWith('placeholder'));
   }

@@ -4,8 +4,9 @@
 // corners, a finned vent on the north edge and four prongs cantilevered out of the west wall; a
 // stepped, ribbed stack runs down its south leg. The taller assembly hall to the east has a radiator
 // bank on its north strip and ends in a pointed prow; its roof overhangs the south wall, where a
-// roll-up door slides up as a vehicle rolls out onto the open navy bay (two chassis stand there on
-// the line). The house orb sits in the south-west corner.
+// roll-up door slides up as a vehicle rolls out onto the open navy bay, where a four-wheeled chassis
+// and a trike stand on the line: the one vehicle factory builds light and heavy alike. The house orb
+// sits in the south-west corner.
 import * as THREE from 'three';
 import { ModelBuilder, MAT, shape, box, cbox, cyl, sphere, hull, ring } from '../kit.js';
 import { PAL } from '../palette.js';
@@ -174,7 +175,7 @@ export function heavyFactory() {
   for (let k = 0; k < 6; k++) b.add(MAT.PAINT, box(0.72, 0.012, 0.026, { p: [0, -0.1 + k * 0.04, 0], color: PAL.machine }), 'door');
   b.add(MAT.PAINT, box(0.72, 0.02, 0.03, { p: [0, -0.115, 0], color: PAL.navy }), 'door');
 
-  // open navy bay with two chassis on the line
+  // open navy bay with a chassis and a trike on the line
   b.add(MAT.PAINT, box(1.24, 0.012, 1.26, { p: [0.61, T - 0.002, 0.14], color: PAL.navy }));
   b.add(MAT.PAINT, [
     ...[0.3, 0.92].map((x) => box(0.012, 0.004, 0.9, { p: [x, T + 0.005, 0.32], color: PAL.navyLight })),
@@ -184,7 +185,7 @@ export function heavyFactory() {
   ]);
   hazard(b, { w: 0.72, d: 0.04, n: 8, at: { p: [0.48, T + 0.004, -0.33] } });
   chassis(b, 0.49, 0.43);
-  chassis(b, 1.0, 0.2);
+  chassis(b, 1.0, 0.2, { l: 0.34, w: 0.26, trike: true });
 
   houseOrb(b, -1.25, T, 0.75);
   return b.build({ radius: 1.6 });
