@@ -130,11 +130,14 @@ function claimant(world, ref) {
   return null;
 }
 
+/** Waiting in line for a refinery (not one lifted out of the line by a Carryall). */
+const inLine = (o, ref) => o.harvest?.state === 'queued' && o.harvest.refinery === ref.id && o.house === ref.house && o.order.type === 'harvest' && !o.inside;
+
 /** True when no harvester has waited for this refinery longer than u. */
 function firstInLine(world, ref, u) {
   const mine = u.harvest.state === 'queued' ? u.harvest.queuedAt : Infinity;
   for (const o of world.units.values()) {
-    if (o === u || o.house !== ref.house || o.harvest?.state !== 'queued' || o.harvest.refinery !== ref.id || o.order.type !== 'harvest') continue;
+    if (o === u || !inLine(o, ref)) continue;
     if (o.harvest.queuedAt < mine || (o.harvest.queuedAt === mine && o.id < u.id)) return false;
   }
   return true;
@@ -152,7 +155,7 @@ function chooseRefinery(world, u) {
   for (const s of world.structures.values()) if (s.house === u.house && s.typeId === 'refinery' && dockTile(world, s) >= 0) refs.push(s);
   if (refs.length < 2) return refs[0] ?? null;
   const waiting = new Map();   // a busy refinery with a queue is worth a detour to a free one
-  for (const o of world.units.values()) if (o !== u && o.house === u.house && o.harvest?.state === 'queued') waiting.set(o.harvest.refinery, (waiting.get(o.harvest.refinery) ?? 0) + 1);
+  for (const o of world.units.values()) if (o !== u && o.house === u.house && o.harvest?.state === 'queued' && !o.inside) waiting.set(o.harvest.refinery, (waiting.get(o.harvest.refinery) ?? 0) + 1);
   let best = null, bestScore = Infinity;
   for (const s of refs) {
     const dock = dockTile(world, s);

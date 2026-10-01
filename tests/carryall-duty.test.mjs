@@ -220,6 +220,24 @@ test('a Harvester the player sets down on spice gets to work there', () => {
   assert.ok(runUntil(world, () => h.harvest.state === 'harvesting', 5) >= 0, `harvesting at ${h.tx},${h.ty}`);
 });
 
+test('a Harvester lifted out of a refinery\'s queue does not hold the queue up', () => {
+  const { world, c } = airfield();
+  world.issue('atreides', { type: 'stop', ids: [c.id] });   // off duty: only the player's lift
+  const ref = world.spawnStructure('refinery', 'atreides', 20, 12);   // entrance 22,14
+  const load = (u) => { u.harvest.load = 700; u.harvest.state = 'toRefinery'; u.harvest.target = -1; return u; };
+  const first = load(harvesterOf(world));
+  assert.ok(runUntil(world, () => first.docked === ref.id, 5) > 0, 'the first one docks');
+  const a = load(world.spawnUnit('harvester', 'atreides', 24, 16));
+  run(world, 1);
+  const b = load(world.spawnUnit('harvester', 'atreides', 19, 16));
+  run(world, 1);
+  assert.equal(a.harvest.state, 'queued');
+  assert.equal(b.harvest.state, 'queued');
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: a.id });   // the first in line is lifted and held
+  assert.ok(runUntil(world, () => a.inside === c.id, 20) > 0, 'lifted');
+  assert.ok(runUntil(world, () => b.docked === ref.id, 30) > 0, 'the next one in line docks');
+});
+
 test('a loaded Carryall sent to the Repair Facility takes its worn load there', () => {
   const { world, c } = airfield();
   world.issue('atreides', { type: 'stop', ids: [c.id] });
