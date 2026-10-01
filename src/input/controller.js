@@ -266,7 +266,11 @@ export class Controller {
 
   onDragEnd(x0, y0, x1, y1, mods) {
     this.onDragBox(null);
-    const ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    let ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    // a box round the army leaves out the Carryalls waiting on duty over it — an order would take them off duty and
+    // along to the front; a box round Carryalls alone (or a click, or a double click) still picks them up
+    const lifter = (id) => isLifter(this.world.units.get(id));
+    if (!ids.every(lifter)) ids = ids.filter((id) => !lifter(id));
     if (mods.shift) this.selection.add(ids);
     else if (ids.length) this.selection.set(ids);
     else this.selection.clear();

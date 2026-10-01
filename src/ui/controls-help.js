@@ -7,7 +7,7 @@ export function controlRows(scheme) {
   return [
     ['Scroll the map', 'Push the pointer against a screen edge (it keeps going past the edge) · hold the right button and pull · arrow keys · middle drag'],
     ['Zoom · rotate', 'Mouse wheel · Alt + middle drag · Home resets the view'],
-    ['Select', 'Left click · left drag a box · Shift adds or removes · double click takes every visible unit of that type'],
+    ['Select', 'Left click · left drag a box (Carryalls only when nothing else is in it) · Shift adds or removes · double click takes every visible unit of that type'],
     ['Move · attack · harvest', `${order} with units selected — the cursor shows what will happen`],
     ['Deploy the MCV', classic ? 'Left click the selected MCV · D' : 'D'],
     ['Deselect', classic ? 'Right click' : 'Left click on empty ground'],

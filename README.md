@@ -30,7 +30,7 @@ full screen, over a slow flight across the dunes; Esc in battle opens the game m
 | Left click | Select a unit; with units selected, order them by context (move, attack) |
 | Left click the selected MCV | Deploy it into a Construction Yard |
 | Right click | Deselect |
-| Left drag | Box select; Shift adds |
+| Left drag | Box select; Shift adds (a box round the army leaves out the Carryalls waiting on duty above it) |
 | Double click | Select all visible units of that type |
 | Ctrl + 1–9 (or Ctrl + Shift + 1–9) | Assign a control group |
 | 1–9, tap twice | Select a group, centre on it |
