@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { G } from '../src/data/terrain.js';
 import { flatWorld } from './helpers.mjs';
+import { killUnit } from '../src/sim/combat.js';
 
 // The terrain paints its textures on 2D canvases: under Node a stand-in context takes every call.
 const fakeContext = () => new Proxy({}, {
@@ -77,4 +78,19 @@ test('a rocket launch throws backblast behind its launcher; catching up draws no
   s.onEvent({ type: 'impact', weapon: 'rocket', projectile: 'rocket', x: 4.5, y: 4.5, hit: false, alt: 0 });
   assert.equal(particles(), before, 'no fireworks');
   assert.equal(marks.length, 1, 'but the crater');
+});
+
+test('a Carryall shot down with its load: the load falls and crashes as a wreck too, not vanishing in the air', () => {
+  const { world, s } = stage();
+  const carryall = world.spawnUnit('carryall', 'atreides', 10, 10);
+  const load = world.spawnUnit('harvester', 'atreides', 10, 10, { inside: carryall.id });
+  carryall.alt = 1.6;
+  carryall.cargo = load.id;
+  load.alt = 1.18;
+  s.sync(1, 0.016, 0);
+  killUnit(world, carryall);
+  for (const e of world.events.drain()) s.onEvent(e);
+  const wrecks = s.destruction.wrecks.list;
+  assert.deepEqual(wrecks.map((w) => w.model.def.name).sort(), ['carryallWreck', 'harvesterWreck']);
+  assert.ok(wrecks.every((w) => w.fall), 'both falling');
 });

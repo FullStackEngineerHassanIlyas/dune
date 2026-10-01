@@ -145,7 +145,7 @@ export class UnitViews {
     v.heading = heading;
     v.turret = turret;
     v.alt = u.alt ?? 0;
-    v.inside = !!u.inside;
+    v.inside = !!u.inside && u.alt === undefined;   // held in a building; a load under its Carryall hangs in the open
     v.visible = !this.viewer || !world || unitVisibleTo(world, this.viewer, u);
     v.recoil = Math.max(0, v.recoil - dt * 0.3);
     if (v.house !== u.house) {
