@@ -122,10 +122,10 @@ copies them verbatim and `tuning.js` converts them.
 
 | Quantity | Conversion |
 |---|---|
-| Ground speed (tiles/s) | `(0.25 + speedFactor / 24) × terrain / 192` — terrain value from the original movement table (sand 112–160, rock 112–160, concrete 255, mountain 64 for infantry, 0 = blocked). Keeps infantry from being unbearably slow while preserving the original order. |
+| Ground speed (tiles/s) | `(base + speedFactor / 24) × terrain / 192`, base 0.25 for vehicles and 0.6 for foot soldiers — terrain value from the original movement table (sand 112–160, rock 112–160, concrete 255, mountain 64 for infantry, 0 = blocked). Keeps infantry from being unbearably slow while preserving the original order; a Combat Tank still outruns every foot soldier but the Saboteur. |
 | Air speed (tiles/s) | `speedFactor / 40` (Carryall 5, Ornithopter 3.75, Frigate 3.25) |
 | Fire delay (s) | `fireDelay / 40` (Combat Tank 2.0 s, Soldier 1.1 s, Launcher 3.0 s) |
-| Build time (s) | `buildTime × 0.45` at Normal speed (Wind Trap ≈ 22 s, Combat Tank ≈ 29 s, Heavy Factory ≈ 65 s) |
+| Build time (s) | Units: `buildTime × 0.45` at Normal speed (Combat Tank ≈ 29 s). Structures below 120 steps: `buildTime × 0.45 × buildTime / 120`, at least 2 s (Wind Trap ≈ 9 s, wall ≈ 6 s, Refinery 24 s); 120 and above as units (Heavy Factory ≈ 65 s). Upgrades 5 s, starting at once (notes/2026-10-01-pacing.md) |
 | Sight radius | original `fogUncoverRadius + 1` for units, original value for structures |
 | Game speed | Slowest 0.5 · Slow 0.75 · Normal 1 · Fast 1.25 · Fastest 1.5 |
 

@@ -3,11 +3,12 @@
 // icon's state, progress and queue count. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
-import { buildSeconds, UPGRADE_BUILD_TIME, STARPORT, PALACE } from '../data/tuning.js';
+import { STARPORT, PALACE } from '../data/tuning.js';
 import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon } from '../sim/palace.js';
+import { itemSeconds } from '../sim/production.js';
 
 const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
 
@@ -37,7 +38,7 @@ export function sidebarModel(world, houseId) {
   const options = buildOptions(world, houseId);
   const entry = (line) => (typeId) => {
     const t = STRUCTURES[typeId] ?? UNITS[typeId];
-    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(buildSeconds(t.buildTime)), ...itemState(house.lines[line], typeId, line) };
+    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(itemSeconds(typeId)), ...itemState(house.lines[line], typeId, line) };
   };
   const upgrade = (typeId) => {
     const target = upgradeTarget(typeId), line = lineOfItem(typeId);
@@ -46,7 +47,7 @@ export function sidebarModel(world, houseId) {
     const opens = upgradeUnlocks(houseId, target, upgradeLevel(house, target), level);
     return {
       typeId, line, icon: `${typeId}:${level}`, name: `${STRUCTURES[target].name} upgrade`, cost: cur?.cost ?? upgradeCost(house, target),
-      seconds: Math.round(buildSeconds(UPGRADE_BUILD_TIME)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
+      seconds: Math.round(itemSeconds(typeId)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
       ...itemState(house.lines[line], typeId, line),
     };
   };

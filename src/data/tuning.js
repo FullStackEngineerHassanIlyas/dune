@@ -1,14 +1,44 @@
 // Every conversion from original Dune II numbers to real time and tiles (spec §4.1). Tune here only.
+// Pacing choices and their before/after numbers: docs/superpowers/notes/2026-10-01-pacing.md.
+import { onFoot } from './units.js';
+
 export const SIM_HZ = 20;
 export const DT = 1 / SIM_HZ;
 export const TERRAIN_REF = 192;
 
+/** A ground unit covers `(base + factor / 24) × terrain / 192` tiles per second. The base lifts the slow
+ *  original factors (infantry 5–15 against a tank's 25) so nobody crawls, yet keeps the original order
+ *  within each class. Foot soldiers get the larger base: at the vehicles' 0.25 an Infantry Squad took 37 s
+ *  over ten tiles of sand and could never keep up with a battle; at 0.6 it takes 21 s, and a Combat Tank
+ *  still outruns every foot soldier but the Saboteur on any ground they share (a base above 0.66 would not). */
+export const SPEED_BASE = { vehicle: 0.25, foot: 0.6 };
+
 /** Tiles per second for a ground unit with original speed factor on terrain value 0..255. */
-export function groundSpeed(factor, terrain) { return ((0.25 + factor / 24) * terrain) / TERRAIN_REF; }
+export function groundSpeed(factor, terrain, move) { return (((onFoot(move) ? SPEED_BASE.foot : SPEED_BASE.vehicle) + factor / 24) * terrain) / TERRAIN_REF; }
 /** Tiles per second for aircraft. */
 export function airSpeed(factor) { return factor / 40; }
 export function fireDelaySeconds(fireDelay) { return fireDelay / 40; }
+
+/** Seconds for an item of `buildTime` original steps (spec §4.1): units, and structures of the Hi-Tech tier and up. */
 export function buildSeconds(buildTime) { return buildTime * 0.45; }
+
+/** Structures: the original's steps make small things slow (a 5-credit slab 7 s, one wall segment 18 s,
+ *  a Wind Trap 22 s) against C&C's habit of near-instant cheap items. Below the Hi-Tech tier (`knee`
+ *  steps: Hi-Tech Factory, Starport, House of IX) a structure's time shrinks in proportion to its size,
+ *  `steps × 0.45 × steps / knee`, so the time grows with the square of the original number: a Wind Trap
+ *  builds in 9 s, a wall segment in 6 s, a Gun Turret in 15 s, a Refinery in 24 s. The order of the
+ *  original table is kept exactly (more steps never builds quicker) and the late-game buildings keep
+ *  their original pace. Nothing builds in under `min` seconds, so the sweep and the EVA call still read. */
+export const STRUCTURE_BUILD = { knee: 120, min: 2 };
+export function structureSeconds(buildTime) {
+  return Math.max(STRUCTURE_BUILD.min, buildSeconds(buildTime) * Math.min(1, buildTime / STRUCTURE_BUILD.knee));
+}
+
+/** A factory upgrade: 20 original steps (a countdown of 100 in steps of 5), which put it between a slab
+ *  (16) and a wall (40). It keeps that place on the new curve, and it starts at once, setting aside the
+ *  item in hand (src/sim/production.js), instead of waiting its turn behind it. */
+export const UPGRADE_SECONDS = 5;
+
 export function unitSight(radius) { return radius + 1; }
 
 /** Radians per second by original turning class (1 = heavy tracked … 3 = infantry). */
@@ -37,8 +67,6 @@ export const GUARD_LEASH = 6;                   // … and a guard chases at mos
 export const RETALIATE_RANGE = 8;               // idle units answer fire from this close
 export const LOW_POWER_TURRET_RATE = 0.5;       // turrets fire at half rate on low power (spec §4.4)
 export const CHASE_GIVEUP_SECONDS = 8;          // an attacker that gets no closer for this long gives up
-
-export const UPGRADE_BUILD_TIME = 20;           // original steps per upgrade level (a countdown of 100 in steps of 5): 9 s
 
 export const UNIT_REPAIR_COST = 0.25;           // a full repair at the Repair Facility costs a quarter of the unit (original: build rate ÷ 4)
 export const BAY_DRIVE_SECONDS = 1;             // driving onto or off the repair pad
