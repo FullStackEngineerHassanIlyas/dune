@@ -30,6 +30,7 @@ const REVERB_CUT = 250;   // Hz: rumble stays out of the reverb, where it would 
 const LIKELY_RATE = 48000;   // the rate most audio outputs, and so most contexts, run at: the worker makes the impulse for it
 const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 12 dB under a rifle beside the camera
 const DUCK_GAIN = 0.63;   // about -4 dB on every effect while an announcer line plays
+const HERALDS = new Set(['beep']);   // the chirp before an announcement: over a line already being spoken it heralds nothing
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
 const FIRST = ['click', 'rifle', 'mg', 'cannon', 'explosionSmall', 'hit', 'sandHit', 'rocket', 'bulletHit', 'error', 'ready', 'clunk'];
@@ -104,6 +105,8 @@ export class SoundEngine {
     this.recent = new Map();   // id → { at, n }: when it last started, and how many times within FLAM of that
     this.limiter = new VoiceLimiter();
     this.listener = { x: 0, z: 0, rightX: 1, rightZ: 0, range: 16 };
+    this.ducked = false;   // an announcer line is being spoken
+    this.asleep = false;   // off stage: the context is kept suspended (sleep)
     if (this.enabled) {
       // kept until the context really runs: a first key such as Escape or Shift is not a user activation
       this.onGesture = () => this.unlock();
@@ -215,7 +218,7 @@ export class SoundEngine {
   unlock() {
     if (!this.enabled) return;
     if (!this.ctx) this.open();
-    if (this.ctx && !this.running) this.ctx.resume?.()?.catch?.(() => {});
+    if (this.ctx && !this.running && !this.asleep) this.ctx.resume?.()?.catch?.(() => {});
     if (this.running && this.onGesture) {
       this.win.removeEventListener?.('pointerdown', this.onGesture);
       this.win.removeEventListener?.('keydown', this.onGesture);
@@ -227,6 +230,7 @@ export class SoundEngine {
     try {
       const Context = this.win.AudioContext ?? this.win.webkitAudioContext;
       const ctx = (this.ctx = new Context());
+      if (this.asleep) ctx.suspend?.()?.catch?.(() => {});   // opened by a click on a page that is off stage: it waits to be woken
       this.master = ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume;
       const limiter = ctx.createDynamicsCompressor?.();
@@ -301,6 +305,7 @@ export class SoundEngine {
 
   play(id, { x = null, z = null, volume = 1, rate = 1 } = {}) {
     if (!this.running || this.muted) return false;   // a suspended context would hold voices it cannot finish
+    if (this.ducked && HERALDS.has(id)) return false;
     const bank = this.buffers.get(id);
     if (!bank?.length) return false;
     let pan = 0, gain = volume, cutoff = AIR.open, wet = DRY.has(id) ? 0 : WET.ui;
@@ -364,10 +369,23 @@ export class SoundEngine {
 
   /** Speech over the battle: the effects bus dips while an announcer line plays (src/audio/voice.js). */
   duck(on) {
+    this.ducked = !!on;
     const g = this.fx?.gain;
     if (!g) return;
     if (g.setTargetAtTime) g.setTargetAtTime(on ? DUCK_GAIN : 1, this.ctx.currentTime, on ? 0.04 : 0.3);
     else g.value = on ? DUCK_GAIN : 1;
+  }
+
+  /**
+   * Off stage — the menu's battle behind a skirmish, a paused backdrop, a hidden page — the context sleeps:
+   * suspended, it renders nothing (a muted context still runs its wind, limiter and reverb on the audio
+   * thread) and plays nothing, until it is woken.
+   */
+  sleep(asleep) {
+    this.asleep = !!asleep;
+    if (!this.ctx) return;
+    if (this.asleep) this.ctx.suspend?.()?.catch?.(() => {});
+    else this.ctx.resume?.()?.catch?.(() => {});
   }
 
   setMuted(muted) {

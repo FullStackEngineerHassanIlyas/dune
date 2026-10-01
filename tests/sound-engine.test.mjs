@@ -48,6 +48,7 @@ function fakeWindow({ suspended = false, full = false, idle = false, worker = fa
     createBuffer(channels, length, sampleRate) { return { numberOfChannels: channels, length, sampleRate, copyToChannel() {} }; }
     createBufferSource() { const s = Object.assign(new Node(), { playbackRate: { value: 1 }, start: () => this.started.push(s) }); return s; }
     resume() { if (win.userActivation) this.state = 'running'; return Promise.resolve(); }
+    suspend() { this.state = 'suspended'; return Promise.resolve(); }
   }
   if (full) {
     FakeContext.prototype.createBiquadFilter = function () { return Object.assign(new Node(), { type: 'lowpass', frequency: { value: 350 }, Q: { value: 1 } }); };
@@ -186,6 +187,38 @@ test('an announcer line ducks the effects bus about 4 dB and lets it back up aft
   e.duck(false);
   assert.ok(ducked > 0.55 && ducked < 0.7, `ducked to ${ducked}`);
   assert.equal(e.fx.gain.value, 1);
+});
+
+test('an announcement\'s chirp is not sounded over a line already being spoken; a refusal still buzzes', () => {
+  const win = fakeWindow();
+  const e = new SoundEngine({ win });
+  win.listeners.pointerdown();
+  assert.equal(e.play('beep'), true, 'the chirp before a line');
+  e.duck(true);   // a line is being spoken
+  assert.equal(e.play('beep'), false, 'news arriving meanwhile is told by the voice and the message bar');
+  assert.equal(e.play('error'), true);
+  e.duck(false);
+  assert.equal(e.play('beep'), true);
+});
+
+test('off stage the engine sleeps: its context stops rendering until it is woken, and a sleeping engine is not woken by a click', () => {
+  const win = fakeWindow({ worker: true });
+  const e = new SoundEngine({ win });
+  e.sleep(true);   // asleep before the audio ever opened: nothing to do yet
+  win.userActivation = true;
+  win.listeners.pointerdown();
+  assert.equal(e.ctx.state, 'suspended', 'the first click opens the context, which stays asleep');
+  assert.equal(e.play('click'), false);
+  e.sleep(false);
+  assert.equal(e.ctx.state, 'running');
+  win.workers[0].deliver();
+  assert.equal(e.play('click'), true);
+  e.sleep(true);   // the menu behind a battle, or a hidden page
+  assert.equal(e.ctx.state, 'suspended', 'no CPU spent rendering silence');
+  assert.equal(e.play('cannon'), false, 'and no voices taken');
+  e.sleep(false);
+  assert.equal(e.ctx.state, 'running');
+  assert.equal(e.play('cannon'), true);
 });
 
 test('each play picks a variation at random, never the same twice running, at a slightly random pitch', () => {
