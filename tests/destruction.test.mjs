@@ -8,6 +8,7 @@ import { Debris } from '../src/render/debris.js';
 import { Rubble } from '../src/render/rubble.js';
 import { Wrecks, wreckDef } from '../src/render/wrecks.js';
 import { Destruction } from '../src/render/destruction.js';
+import * as burn from '../src/render/burn-fx.js';
 import { modelDef } from '../src/render/models/index.js';
 import { MAT } from '../src/render/models/kit.js';
 import { UnitViews } from '../src/render/views/unit-views.js';
@@ -324,4 +325,22 @@ test('a destroyed building collapses over 1.9 s; a sold one still sinks in 0.7 s
   assert.ok(views.views.has(trap.id), 'still coming down after the 0.7 s a sale takes');
   views.sync(world, 4000);
   assert.equal(views.views.has(trap.id), false);
+});
+
+test('fire, smoke and blasts fill their particles from constant templates, allocating nothing per call', () => {
+  const seen = new Set();
+  const pool = { spawn: (t) => { seen.add(t); return 0; }, emit: () => assert.fail('a fresh object per particle') };
+  const fx = { glow: pool, smoke: pool };
+  const all = () => {
+    burn.greySmoke(fx, 0, 0, 0, 1.2); burn.blackSmoke(fx, 0, 0, 0, 0.6); burn.fire(fx, 0, 0, 0, 0.8); burn.sparks(fx, 0, 0, 0, 4);
+    burn.fireball(fx, 0, 0, 0, 1.3); burn.blast(fx, 0, 0, 0, 0.9); burn.spiceBurst(fx, 0, 0, 0); burn.collapseDust(fx, 0, 0, 0, 3, 3);
+  };
+  for (let k = 0; k < 20; k++) all();   // a flame's tip comes only now and then
+  const templates = seen.size;
+  for (let k = 0; k < 20; k++) all();
+  assert.equal(seen.size, templates, 'the same few templates every time');
+  const debris = new Debris(new THREE.Scene(), { capacity: 4 });
+  debris.emit({ x: 0, y: 1, z: 0, vy: 3, size: [0.1, 0.1, 0.1], burn: 2 });
+  for (let k = 0; k < 30; k++) debris.update(1 / 30, () => 0, fx);
+  assert.ok(seen.size > templates && seen.size <= templates + 2, 'a burning piece trails from its own two');
 });
