@@ -12,6 +12,7 @@ export const VOICE_BASE = new URL('../../assets/voice/', import.meta.url).href;
 export const VOICE_LEVEL = 0.85;  // lines are mastered to -16 LUFS; at the default Voices 80 % they sit ~5 dB over one effect (-21…-32 LUFS)
 export const GAP = 0.18;          // seconds of quiet between two lines
 export const LEAD = 0.15;         // an announcement waits this long so the interface's chirp comes first; acknowledgements do not
+export const ERROR_LEAD = 0.27;   // a refusal waits out the error buzz (0.31 s; speech starts ≥0.05 s into a line), not talk over it
 
 /** How urgent a class of line is, how long it may wait for its turn and how soon it may repeat (seconds). */
 export const CLASSES = {
@@ -38,15 +39,18 @@ const GROUPS = {
 };
 export const ACK_LINES = ['reporting', 'standingBy', 'awaitingOrders', 'acknowledged', 'affirmative', 'movingOut', 'onOurWay', 'engaging', 'attacking'];
 
+// The refusals: their 'eva' keys sound the error buzz rather than the chirp (src/audio/cues.js ERRORS).
+const REFUSALS = new Set(['unableToComply', 'insufficientFunds', 'cannotPlace', 'cannotDeploy', 'soldOut', 'frigateFull', 'notReady']);
+
 const groupOf = (id) => (ACK_LINES.includes(id) ? 'ack' : id.split('.')[0]);
 
-/** Class, priority, patience and cooldown of a line id, or null for an unknown one. */
+/** Class, priority, patience, cooldown and lead (the wait for the interface's sound) of a line id, or null for an unknown one. */
 export function lineInfo(id) {
   const group = groupOf(id);
   const [cls, cooldown] = group === 'ack' ? ['ack'] : GROUPS[group] ?? [];
   if (!cls) return null;
-  const c = CLASSES[cls];
-  return { id, group, cls, priority: c.priority, maxAge: c.maxAge, cooldown: cooldown ?? c.cooldown };
+  const c = CLASSES[cls], lead = cls === 'ack' ? 0 : REFUSALS.has(group) ? ERROR_LEAD : LEAD;
+  return { id, group, cls, priority: c.priority, maxAge: c.maxAge, cooldown: cooldown ?? c.cooldown, lead };
 }
 
 // 'eva' keys (src/sim/*.js) → line ids; the kill and Palace keys are resolved in lineForEvent.
@@ -96,6 +100,7 @@ const ACKS = {
   move: MOVE_ACKS, attackMove: MOVE_ACKS, harvest: MOVE_ACKS, returnToBase: MOVE_ACKS, repairAt: MOVE_ACKS,
   guard: ['acknowledged', 'standingBy'], scatter: ['acknowledged', 'affirmative'],
   attack: ['affirmative', 'engaging', 'attacking'], capture: ['affirmative', 'movingOut'], sabotage: ['affirmative', 'movingOut'],
+  lift: MOVE_ACKS,   // a Carryall sent to pick a unit up (src/sim/carryall.js)
 };
 export const SELECT_ACKS = ['reporting', 'standingBy', 'awaitingOrders'];
 const WARM = ['building', 'training', 'constructionComplete', 'unitReady', 'onHold', 'cancelled', 'insufficientFunds', 'baseAttack', 'unitLost', ...SELECT_ACKS, ...MOVE_ACKS];
@@ -187,7 +192,7 @@ export class VoicePlayer {
     const status = this.output.status(next.id);
     if (status === 'missing') { this.queue.drop(next); return; }
     if (status !== 'ready') { this.output.load(next.id); return; }   // it keeps its place while it decodes and stays fresh
-    if (next.cls !== 'ack' && now < next.at + LEAD) return;
+    if (now < next.at + next.lead) return;
     this.queue.take(next, now);
     const seconds = this.output.play(next.id, this.volume * VOICE_LEVEL);
     if (seconds > 0) {
@@ -201,13 +206,20 @@ export class VoicePlayer {
   setVolume(volume) {
     this.volume = volume;
     this.output?.setVolume?.(volume * VOICE_LEVEL);
+    if (!(volume > 0)) this.silence();   // Off: the line being said stops too, rather than play on unheard under a dipped battle
+  }
+
+  /** Nothing said or waiting: the line being spoken is cut short and the queue emptied. */
+  silence() {
+    this.queue.clear();
+    this.output?.stop?.();
+    this.busyUntil = 0;
+    this.current = null;
   }
 
   /** The battle is over, or a line matters more than whatever is being said: silence, then this line first. */
   interrupt(id, now) {
-    this.queue.clear();
-    this.output?.stop?.();
-    this.busyUntil = 0;
+    this.silence();
     return this.say(id, now);
   }
 }
@@ -294,5 +306,12 @@ export class WebVoiceOutput {
       shortest: Math.min(...seconds), longest: Math.max(...seconds), total: seconds.reduce((a, b) => a + b, 0),
     };
   }
-  stop() { try { this.source?.stop(); } catch { /* already ended */ } this.source = null; }
+  /** Cuts the line short. Its 'ended' no longer lets the effects back up (it is not the current line), so this does. */
+  stop() {
+    const src = this.source;
+    if (!src) return;
+    this.source = null;
+    try { src.stop(); } catch { /* already ended */ }
+    this.sound.duck?.(false);
+  }
 }

@@ -17,7 +17,7 @@ export function sanitize(obj) {
     if (!(k in DEFAULTS)) continue;
     if (CHOICES[k]) { if (CHOICES[k].includes(v)) out[k] = v; }
     else if (typeof DEFAULTS[k] === 'boolean') out[k] = v === true || v === 'true' || v === '1';
-    else if (typeof DEFAULTS[k] === 'number') { const n = Number(v); if (Number.isFinite(n) && (n > 0 || (n === 0 && ZERO_OK.has(k))) && n <= 4) out[k] = n; }
+    else if (typeof DEFAULTS[k] === 'number') { const n = typeof v === 'number' || (typeof v === 'string' && v.trim()) ? Number(v) : NaN; if (Number.isFinite(n) && (n > 0 || (n === 0 && ZERO_OK.has(k))) && n <= 4) out[k] = n; }
   }
   return out;
 }
