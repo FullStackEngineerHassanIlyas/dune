@@ -37,21 +37,21 @@ test('a group sums hit points and counts its types; enemies get no buttons', () 
 
 test('an own factory offers Repair, Sell and Set primary', () => {
   const world = flatWorld(24, 24, G.ROCK);
-  const lf = world.spawnStructure('lightFactory', 'atreides', 4, 4);
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 4, 4);
   const sel = new Selection();
-  sel.setStructure(lf.id);
+  sel.setStructure(hf.id);
   let m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual(m.buttons.map((b) => b.id), ['repair', 'sell', 'primary']);
   assert.equal(m.buttons[0].disabled, true, 'nothing to repair');
-  lf.primary = true;
-  lf.hp = 100;
-  lf.rally = { x: 9, y: 9 };
+  hf.primary = true;
+  hf.hp = 100;
+  hf.rally = { x: 9, y: 9 };
   m = selectionPanelModel(world, sel, 'atreides');
   assert.deepEqual(m.buttons.map((b) => b.id), ['repair', 'sell']);
   assert.equal(m.buttons[0].disabled, false);
-  assert.deepEqual(m.details, ['Power use 20', 'Upgrade level 0 of 1', 'Primary factory', 'Rally point set']);
-  world.houses.get('atreides').upgrades.lightFactory = 1;
-  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Upgrade level 1 of 1'));
+  assert.deepEqual(m.details, ['Power use 35', 'Upgrade level 0 of 4', 'Primary factory', 'Rally point set']);
+  world.houses.get('atreides').upgrades.heavyFactory = 1;
+  assert.ok(selectionPanelModel(world, sel, 'atreides').details.includes('Upgrade level 1 of 4'));
   assert.equal(selectionPanelModel(world, new Selection(), 'atreides'), null);
 });
 

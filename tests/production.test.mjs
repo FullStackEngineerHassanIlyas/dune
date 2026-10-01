@@ -83,14 +83,14 @@ test('placing on an invalid spot keeps the structure ready', () => {
 test('units leave by the factory\'s south side and drive to the rally point', () => {
   const { world } = base();
   powered(world);
-  const lf = world.spawnStructure('lightFactory', 'atreides', 10, 10);
-  world.issue('atreides', { type: 'setRally', structureId: lf.id, x: 11, y: 20 });
+  const hf = world.spawnStructure('heavyFactory', 'atreides', 10, 10);
+  world.issue('atreides', { type: 'setRally', structureId: hf.id, x: 11, y: 20 });
   world.issue('atreides', { type: 'build', typeId: 'trike' });
   run(world, 18.2);
   const trike = [...world.units.values()].find((u) => u.typeId === 'trike');
   assert.ok(trike, 'built after 18 s');
   assert.equal(trike.ty, 12);
-  assert.ok(world.events.drain().some((e) => e.type === 'unitBuilt' && e.structureId === lf.id));
+  assert.ok(world.events.drain().some((e) => e.type === 'unitBuilt' && e.structureId === hf.id));
   run(world, 12);
   assert.ok(Math.max(Math.abs(trike.tx - 11), Math.abs(trike.ty - 20)) <= 1, `trike at ${trike.tx},${trike.ty}`);
 });

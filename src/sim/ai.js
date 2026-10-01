@@ -8,7 +8,7 @@ import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
 import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, UNIT_ORDER } from './tech.js';
-import { UNITS } from '../data/units.js';
+import { UNITS, MOVE } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 import { isArmed } from './combat.js';
 import { findPlacement } from './placement.js';
@@ -26,9 +26,9 @@ export const DIFFICULTY = {
 const fighter = (u) => isArmed(u.type) && !u.type.autonomous && !u.type.sabotage;
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'lightFactory', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -194,7 +194,7 @@ function keepCarryall(world, house, view) {
 }
 
 export const ARMY_WEIGHTS = { sonicTank: 3, devastator: 2, deviator: 2, ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
-const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory'];
+const FACTORIES = ['barracks', 'wor', 'heavyFactory'];
 
 function weightedPick(rng, pool) {
   let r = rng.next() * pool.reduce((n, t) => n + ARMY_WEIGHTS[t], 0);
@@ -202,19 +202,30 @@ function weightedPick(rng, pool) {
   return pool[pool.length - 1];
 }
 
+export const LIGHT_SHARE = 1 / 3;   // of the vehicles in the field: the one vehicle factory keeps light ones coming
+
+/** The vehicle line's pick: a light vehicle whenever they make up less than a third of the army's vehicles, else a tank. */
+function vehicleChoice(view, pool) {
+  const wheeled = (t) => UNITS[t].move === MOVE.WHEELED;
+  const vehicles = view.units.filter((u) => fighter(u) && u.type.builtAt === 'heavyFactory');
+  const light = vehicles.filter((u) => wheeled(u.typeId)).length < LIGHT_SHARE * (vehicles.length + 1);
+  const want = pool.filter((t) => wheeled(t) === light);
+  return want.length ? want : pool;
+}
+
 function buildArmy(world, house, view) {
   const d = DIFFICULTY[house.brain.difficulty];
   if (view.units.filter(fighter).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
-  for (const line of ['heavy', 'light', 'infantry', 'air']) {
+  for (const line of ['heavy', 'infantry', 'air']) {
     const l = house.lines[line];
     if (l.current || l.queue.length || house.credits < d.reserve) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
-    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, pool) });
+    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });
   }
 }
 
-const FACTORY_UPGRADES = ['heavyFactory', 'lightFactory', 'barracks', 'wor', 'hiTech'];   // what the army needs, most useful first
+const FACTORY_UPGRADES = ['heavyFactory', 'barracks', 'wor', 'hiTech'];   // what the army needs, most useful first
 
 /** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
 function buyUpgrades(world, house, view) {
@@ -314,13 +325,13 @@ function nearestEnemyWall(world, houseId, x, y, radius) {
   return best;
 }
 
-/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV (after the upgrade that opens it) and deploy it. */
+/** Without a Construction Yard or an MCV the base cannot grow: buy an MCV (after the upgrades that open it) and deploy it. */
 function rebuildMcv(world, house, view) {
   const heavy = house.lines.heavy;
   if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv')) return;
   if (canBuild(world, house.id, 'mcv')) { issue(world, house, { type: 'build', typeId: 'mcv' }); return; }   // queued behind the current item and paid as it builds
   const up = upgradeId('heavyFactory');
-  if (upgradeLevel(house, 'heavyFactory') < 1 && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
+  if (upgradeLevel(house, 'heavyFactory') < UNITS.mcv.upgrade && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
 }
 
 /** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles. */

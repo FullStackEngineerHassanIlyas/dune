@@ -18,9 +18,13 @@ test('a bare Construction Yard offers concrete and wind traps', () => {
 test('each prerequisite opens the next buildings', () => {
   const world = withStructures('atreides', ['constructionYard', 'windtrap']);
   assert.deepEqual(buildOptions(world, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'outpost']);
-  const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'lightFactory']);
+  const refined = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery']);
+  assert.deepEqual(buildOptions(refined, 'atreides').structure, ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'heavyFactory', 'starport'], 'the vehicle factory right after a Refinery');
+  const more = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost', 'heavyFactory']);
   assert.deepEqual(buildOptions(more, 'atreides').structure,
-    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'lightFactory', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'starport']);
+    ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'starport']);
+  const noFactory = buildOptions(withStructures('atreides', ['constructionYard', 'windtrap', 'refinery', 'outpost']), 'atreides').structure;
+  assert.ok(!noFactory.includes('hiTech') && !noFactory.includes('repair'), 'the Hi-Tech Factory and the Repair Facility need the Heavy Factory');
 });
 
 test('infantry buildings follow the house', () => {
@@ -34,30 +38,34 @@ test('infantry buildings follow the house', () => {
 
 test('factories offer their house roster, the House of IX specials included', () => {
   const opts = (house) => {
-    const world = withStructures(house, ['constructionYard', 'heavyFactory', 'lightFactory', 'barracks', 'wor', 'ix']);
-    world.houses.get(house).upgrades = { heavyFactory: 3, lightFactory: 1, barracks: 1, wor: 1 };
+    const world = withStructures(house, ['constructionYard', 'heavyFactory', 'barracks', 'wor', 'ix']);
+    world.houses.get(house).upgrades = { heavyFactory: 4, barracks: 1, wor: 1 };
     return buildOptions(world, house);
   };
-  assert.deepEqual(opts('atreides').heavy, ['harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank']);
-  assert.deepEqual(opts('ordos').heavy, ['harvester', 'combatTank', 'siegeTank', 'mcv', 'deviator']);
-  assert.deepEqual(opts('harkonnen').light, ['quad']);
-  assert.deepEqual(opts('ordos').light, ['raider', 'quad']);
+  assert.deepEqual(opts('atreides').heavy, ['trike', 'quad', 'harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank']);
+  assert.deepEqual(opts('ordos').heavy, ['raider', 'quad', 'harvester', 'combatTank', 'siegeTank', 'mcv', 'deviator']);
+  assert.deepEqual(opts('harkonnen').heavy, ['quad', 'harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'devastator']);
+  assert.ok(!('light' in opts('atreides')), 'no separate light vehicle line');
   assert.deepEqual(opts('ordos').infantry, ['soldier', 'infantry', 'trooper', 'troopers']);
   assert.ok(!buildOptions(withStructures('atreides', ['constructionYard', 'heavyFactory']), 'atreides').heavy.includes('sonicTank'), 'the Sonic Tank needs a House of IX');
 });
 
-test('tech level gates structures, with the per-house light factory rule', () => {
+test('tech level gates structures, with the original per-house rule for the first vehicle factory', () => {
   const world = withStructures('harkonnen', ['constructionYard', 'windtrap', 'refinery']);
   world.houses.get('harkonnen').techLevel = 2;
-  assert.ok(!buildOptions(world, 'harkonnen').structure.includes('lightFactory'));
+  assert.ok(!buildOptions(world, 'harkonnen').structure.includes('heavyFactory'));
+  world.houses.get('harkonnen').techLevel = 3;
+  assert.ok(buildOptions(world, 'harkonnen').structure.includes('heavyFactory'));
   const a = withStructures('atreides', ['constructionYard', 'windtrap', 'refinery']);
   a.houses.get('atreides').techLevel = 2;
-  assert.ok(buildOptions(a, 'atreides').structure.includes('lightFactory'));
+  assert.ok(buildOptions(a, 'atreides').structure.includes('heavyFactory'));
 });
 
 test('lines and direct checks', () => {
   assert.equal(lineOfItem('windtrap'), 'structure');
-  assert.equal(lineOfItem('quad'), 'light');
+  assert.equal(lineOfItem('quad'), 'heavy');
+  assert.equal(lineOfItem('trike'), 'heavy');
+  assert.equal(lineOfItem('combatTank'), 'heavy');
   assert.equal(lineOfItem('troopers'), 'infantry');
   assert.equal(lineOfItem('saboteur'), null);
   const world = withStructures('atreides', ['constructionYard']);

@@ -1,4 +1,4 @@
-// Production lines (spec §4.5): structure, infantry, light, heavy and air. Each line builds one item
+// Production lines (spec §4.5): structure, infantry, heavy (all ground vehicles) and air. Each line builds one item
 // at a time and pays for it progressively; without credits it stalls, low power slows it, and every
 // extra factory of the line's type adds 25 % speed (cap 2x). Units leave by the factory's south side
 // and drive to its rally point; structures wait, ready, until the player places them. Factory upgrades
@@ -13,7 +13,7 @@ import { spend, addCredits } from './economy.js';
 import { exitTile } from './spawn.js';
 import { orderMove } from './orders.js';
 
-export const LINES = ['structure', 'infantry', 'light', 'heavy', 'air'];
+export const LINES = ['structure', 'infantry', 'heavy', 'air'];
 export const MAX_QUEUE = 9;
 const FUNDS_WARNING_SECONDS = 10;
 

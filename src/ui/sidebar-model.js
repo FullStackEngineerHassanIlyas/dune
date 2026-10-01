@@ -9,7 +9,7 @@ import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon } from '../sim/palace.js';
 
-const UNIT_LINES = ['infantry', 'light', 'heavy', 'air'];
+const UNIT_LINES = ['infantry', 'heavy', 'air'];
 
 export function powerLevel({ produced, used }) {
   if (used <= produced) return 'ok';
