@@ -314,11 +314,12 @@ function carry(world, c, job) {
  * other one instead, or set down right here when there is none.
  */
 function reroute(world, c, job, u) {
-  const id = job.bay || (u.order.type === 'repairAt' ? u.order.structureId : 0), s = id ? world.structures.get(id) : null;
+  const own = !job.then && u.order.type === 'repairAt' ? u.order.structureId : 0;   // a lift on duty for a vehicle bound there (not a load the player placed)
+  const id = job.bay ?? own, s = id ? world.structures.get(id) : null;
   if (!id || s?.house === c.house) return;
   const near = nearestBay(world, u);
   if (near) Object.assign(job, { to: near.to, bay: near.bay.id });
-  else Object.assign(job, { to: { x: c.tx, y: c.ty }, bay: 0, then: afterDrop(u) });
+  else Object.assign(job, { to: { x: c.tx, y: c.ty }, bay: 0, then: afterDrop(u) });   // once: then it is set down like any load
 }
 
 /** The job is over: a visitor leaves, a player's order is carried out (back on duty). */

@@ -274,10 +274,18 @@ test('with no Repair Facility left, a worn vehicle in the claws is set down wher
   assert.ok(runUntil(world, () => t.inside === c.id, 20) > 0, 'picked up');
   run(world, 2);
   const x = c.tx;
+  world.spawnUnit('trike', 'atreides', c.tx, c.ty);   // right below it: it sets the load down beside the Trike
   transferStructure(world, bay, 'harkonnen');
   assert.ok(runUntil(world, () => !t.inside, 10) > 0, 'set down');
   assert.ok(Math.abs(t.tx - x) <= 6 && t.tx > 20, `near where the news reached it (${t.tx},${t.ty}), not by the lost bay`);
   assert.deepEqual(checkInvariants(world), []);
+  const u = world.spawnUnit('combatTank', 'atreides', 30, 4);   // the player lifts a vehicle that was on its way to the lost bay …
+  u.order = { type: 'repairAt', structureId: bay.id, tries: 0, retryAt: 0, wait: 0, resume: null };
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: u.id });
+  assert.ok(runUntil(world, () => u.inside === c.id, 20) > 0);
+  world.issue('atreides', { type: 'move', ids: [c.id], x: 40, y: 4 });   // … and has it set down somewhere
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0);
+  assert.deepEqual([u.tx, u.ty], [40, 4], 'where the player said');
 });
 
 test('a loaded Carryall sent to the Repair Facility takes its worn load there', () => {
