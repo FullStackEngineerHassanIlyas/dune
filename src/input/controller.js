@@ -19,6 +19,8 @@ import { isLifter, liftable } from '../sim/carryall.js';
 export const placementOrigin = (g, size) => Math.round(g - size / 2);
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
+/** An own Carryall with empty claws: one with a load cannot lift another (an order click sets the load down instead). */
+const free = (u) => isLifter(u) && !u.cargo;
 
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 
@@ -59,7 +61,7 @@ export class Controller {
   ownSelected() { return this.selection.list().map((id) => this.world.units.get(id)).filter((u) => u && u.house === this.house && (!u.type.autonomous || isLifter(u))); }   // Fremen and visiting Carryalls can be looked at, not ordered
   /** Only own Carryalls selected: an order click on an own vehicle lifts it. */
   liftersOnly(own = this.ownSelected()) { return own.length > 0 && own.every(isLifter); }
-  canLift(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && this.liftersOnly(own); }
+  canLift(u, own = this.ownSelected()) { return u.house === this.house && liftable(u) && this.liftersOnly(own) && own.some(free); }
   /** The load a selected Carryall holds. */
   loadOf(c) { return c.cargo ? this.world.units.get(c.cargo) ?? null : null; }
   issue(cmd) { this.world.issue(this.house, cmd); }
@@ -209,10 +211,10 @@ export class Controller {
       this.issue({ type: 'deploy', ids: [units[0].id] });
       return;
     }
-    if (hit.kind === 'unit' && units.some(isLifter) && hit.unit.house === this.house && liftable(hit.unit)) {   // Carryalls lift it; the rest carry on
-      this.issue({ type: 'lift', ids: units.filter(isLifter).map((u) => u.id), targetId: hit.unit.id });
+    if (hit.kind === 'unit' && units.some(free) && hit.unit.house === this.house && liftable(hit.unit)) {   // empty Carryalls lift it; the rest carry on
+      this.issue({ type: 'lift', ids: units.filter(free).map((u) => u.id), targetId: hit.unit.id });
       this.onMarker(hit.unit.x, hit.unit.y);
-      units = units.filter((u) => !isLifter(u));
+      units = units.filter((u) => !free(u));
       if (!units.length) return;
     }
     const entity = hit.kind === 'unit' ? hit.unit : hit.kind === 'structure' ? hit.structure : null;
