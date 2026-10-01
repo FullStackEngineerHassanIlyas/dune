@@ -18,8 +18,8 @@ Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
 effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
 upgrades, the Repair Facility, infantry capture, aircraft (Carryall, Ornithopter), the Starport and
-the House of IX with its specials and the Palace with its weapons are in; sandworms, music and
-announcer voices follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
+the House of IX with its specials, the Palace with its weapons and each house's announcer voice are
+in; sandworms and music follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
 (house, opponent, difficulty, map size and seed, credits, fog, speed), options, controls, credits and
 full screen, over a slow flight across the dunes; Esc in battle opens the game menu.
 
@@ -72,7 +72,8 @@ repairs cost up to 40 % of the price. An Outpost with enough power turns the rad
 stays visible; enemies show only inside your units' and buildings' sight.
 
 Factory upgrades show up at the end of the structure strip with a gold arrow and the level they reach:
-they are paid and timed like a build on the factory's own line and open better units (Quad, squads,
+they are paid like a build on the factory's own line, take five seconds and start at once — the item in
+hand steps aside, keeping its clock, and carries on afterwards — and open better units (Quad, squads,
 MCV, Missile and Siege Tanks) and the Large Concrete Slab and Rocket Turret. A Repair Facility fixes one
 vehicle at a time for a quarter of its price by the damage; badly damaged enemy buildings (red health)
 can be captured by walking infantry in — except Barracks, WOR, Outposts, the House of IX and Palaces.
@@ -155,7 +156,7 @@ triangle count: `?scene=model&id=combatTank`; `&houses=1` in each house's colour
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
 (skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `credits=5000` · `gameSpeed=slowest…fastest` ·
-`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5`.
+`debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5` · `voiceVolume=0.5` (0: no voices).
 
 ## Docs
 
