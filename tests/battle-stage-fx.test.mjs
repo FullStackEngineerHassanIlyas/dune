@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { G } from '../src/data/terrain.js';
 import { flatWorld } from './helpers.mjs';
-import { killUnit } from '../src/sim/combat.js';
+import { killUnit, destroyStructure } from '../src/sim/combat.js';
+import { updateFog } from '../src/sim/fog.js';
 
 // The terrain paints its textures on 2D canvases: under Node a stand-in context takes every call.
 const fakeContext = () => new Proxy({}, {
@@ -93,4 +94,22 @@ test('a Carryall shot down with its load: the load falls and crashes as a wreck 
   const wrecks = s.destruction.wrecks.list;
   assert.deepEqual(wrecks.map((w) => w.model.def.name).sort(), ['carryallWreck', 'harvesterWreck']);
   assert.ok(wrecks.every((w) => w.fall), 'both falling');
+});
+
+test('a building destroyed under the shroud shows no rubble until the viewer has explored its ground', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  world.spawnUnit('trike', 'atreides', 2, 2);
+  const trap = world.spawnStructure('windtrap', 'harkonnen', 18, 18);
+  const s = new BattleStage({ world, scene: new THREE.Scene(), quality: { particles: 4000, flashLights: 0 }, viewer: 'atreides', rig: { target: new THREE.Vector3(12, 0, 12), distance: 16 } });
+  s.catchingUp = false;
+  updateFog(world);
+  s.sync(1, 0.016, 0);
+  destroyStructure(world, trap);
+  for (const e of world.events.drain()) s.onEvent(e);
+  s.sync(1, 0.016, 16);
+  assert.equal(s.destruction.rubble.used, 0, 'nothing drawn over the black');
+  world.spawnUnit('trike', 'atreides', 19, 17);
+  updateFog(world);
+  s.sync(1, 0.016, 32);
+  assert.ok(s.destruction.rubble.used > 0, 'the ruins are there once explored');
 });

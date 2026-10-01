@@ -52,7 +52,7 @@ export class BattleStage {
     this.volley = new Map();   // unit id → shots fired, to alternate twin barrels
     this.destruction = new Destruction(this.root, quality, {
       effects: this.effects, hf, decals: this.terrain.decals, onShake,
-      seen: (x, z) => this.seen(x, z), near: (x, z) => nearCamera(x, z, rig.target.x, rig.target.z, rig.distance),
+      seen: (x, z) => this.seen(x, z), explored: (x, z) => this.explored(x, z), near: (x, z) => nearCamera(x, z, rig.target.x, rig.target.z, rig.distance),
     });
     this.dustClock = 0;
     this.weldClock = 0;
@@ -109,6 +109,14 @@ export class BattleStage {
     if (!w.fogOfWar || !this.viewer) return true;
     const tx = Math.floor(x), ty = Math.floor(z);
     return w.map.inBounds(tx, ty) && isVisible(w, this.viewer, tx, ty);
+  }
+
+  /** Whether the viewer has explored (x, z): the shroud there has lifted, if only to fog. */
+  explored(x, z) {
+    const w = this.world, fog = this.viewer && w.fogOfWar ? w.houses.get(this.viewer)?.fog : null;
+    if (!fog) return true;
+    const tx = Math.floor(x), ty = Math.floor(z);
+    return w.map.inBounds(tx, ty) && fog.explored[ty * fog.w + tx] === 1;
   }
 
   /** What the ground is at (x, z) for dust and marks: 'concrete', 'sand', 'dune', 'rock' or 'mountain'. */
@@ -189,7 +197,10 @@ export class BattleStage {
   sync(alpha, dt, now) {
     if (this.disposed) return;
     const world = this.world;
-    if (world.fogOfWar && this.shroud.update(world.houses.get(this.viewer)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
+    if (world.fogOfWar && this.shroud.update(world.houses.get(this.viewer)?.fog)) {
+      this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
+      this.destruction.uncover();
+    }
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
     this.combatEffects(dt, alpha);
