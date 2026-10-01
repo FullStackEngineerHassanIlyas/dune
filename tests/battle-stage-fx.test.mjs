@@ -78,3 +78,13 @@ test('a rocket launch throws backblast behind its launcher; catching up draws no
   assert.equal(particles(), before, 'no fireworks');
   assert.equal(marks.length, 1, 'but the crater');
 });
+
+test('a cue reaches the sound engine with its place; the interface has none', () => {
+  const { s } = stage();
+  const calls = [];
+  s.viewer = 'atreides';
+  s.sound = { play: (id, { x = null, z = null, volume = 1, rate = 1 } = {}) => calls.push([id, x, z, volume, rate]) };
+  s.onEvent({ type: 'fired', kind: 'structure', id: 0, house: 'harkonnen', weapon: 'cannon', projectile: 'shell', x: 5, y: 6, tx: 9, ty: 6 });
+  s.onEvent({ type: 'sold', house: 'atreides', id: 3 });
+  assert.deepEqual(calls, [['cannon', 5, 6, 1, 1], ['sell', null, null, 1, 1]]);
+});

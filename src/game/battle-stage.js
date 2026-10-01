@@ -67,8 +67,8 @@ export class BattleStage {
   onEvent(e, now = performance.now()) {
     if (this.disposed) return;
     if (!this.catchingUp && this.sound) {
-      const cue = cueFor(e, this.viewer, (x, z) => this.seen(x, z));
-      if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null });   // the engine varies each effect's pitch itself
+      const cue = cueFor(e, this.viewer, this.seenAt);   // no closure per event: a battle raises hundreds a second
+      if (cue) this.sound.play(cue.id, cue);   // where it is ({x, z}, none for the interface); the engine varies each effect's pitch itself
     }
     if (e.type === 'unitBuilt') this.structureViews.notify(e, now);
     if (e.type === 'structurePlaced') {
