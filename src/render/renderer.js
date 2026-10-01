@@ -75,8 +75,43 @@ export class Renderer3D {
 
     this.resize();
     addEventListener('resize', () => this.resize());
-    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; this.onContextLost?.(); });
-    canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this.onContextRestored?.(); });
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.lost = true;
+      if (this.cycling) { this.cycling = false; setTimeout(() => this.renderer.forceContextRestore()); }
+      else if (!this.held) this.onContextLost?.();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.lost = false;
+      // everything re-uploads from the CPU side except what the GPU drew itself: the sky's light probe
+      const probe = this.scene.environment;
+      try { this.scene.environment = createEnvironment(this.renderer); probe?.dispose(); } catch { /* keep the old one */ }
+      this.onContextRestored?.();
+    });
+  }
+
+  /** Drop the WebGL context and take it straight back: three.js re-uploads every buffer, texture and
+   *  shader from what the CPU keeps. The cure for a driver that woke from sleep with scrambled memory. */
+  refresh() {
+    if (this.lost || this.held || this.cycling) return false;
+    this.cycling = true;
+    this.renderer.forceContextLoss();
+    return true;
+  }
+
+  /** Give the GPU memory back while something else draws (the menu behind a battle)… */
+  release() {
+    if (this.held) return;
+    this.held = true;
+    if (!this.lost) this.renderer.forceContextLoss();
+  }
+
+  /** …and take it again, rebuilt from scratch. */
+  reclaim() {
+    if (!this.held) return;
+    this.held = false;
+    if (this.lost) this.renderer.forceContextRestore();
+    else this.cycling = true;   // the loss has not landed yet: restore as soon as it does
   }
 
   resize() {

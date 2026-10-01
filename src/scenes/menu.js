@@ -9,6 +9,7 @@ import { Heightfield } from '../render/heightfield.js';
 import { TerrainView } from '../render/terrain.js';
 import { CameraRig } from '../render/camera-rig.js';
 import { generateMap } from '../sim/mapgen.js';
+import { wakeCheck } from '../render/wake.js';
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { MainMenu } from '../ui/main-menu.js';
@@ -34,7 +35,9 @@ function flyover(settings, seed) {
     rig.lookAt(SIZE / 2 + Math.cos(t * 0.021) * 18, SIZE / 2 + Math.sin(t * 0.017) * 18, true);
     rig.yaw = rig.goalYaw = t * 0.035;
   };
+  const wake = wakeCheck(() => r3d.refresh());
   const frame = (now) => {
+    wake();
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     t += dt;
@@ -43,13 +46,15 @@ function flyover(settings, seed) {
     r3d.follow(rig.target.x, rig.target.z, rig.distance * 1.2);
     terrain.update(now);
     r3d.render();
+    wake.idle();
     raf = requestAnimationFrame(frame);
   };
   place();
   rig.update(1, heightAt);
   return {
-    start() { if (!raf) raf = requestAnimationFrame((now) => { last = now; frame(now); }); },
-    stop() { cancelAnimationFrame(raf); raf = 0; },
+    // behind a battle the flight gives its GPU memory back, and comes back rebuilt from scratch
+    start() { if (raf) return; r3d.reclaim(); wake.reset(); raf = requestAnimationFrame((now) => { last = now; frame(now); }); },
+    stop() { cancelAnimationFrame(raf); raf = 0; r3d.release(); },
   };
 }
 
