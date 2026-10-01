@@ -57,7 +57,7 @@ function unitButtons(own) {
   const deploys = own.some((u) => u.type.deploysTo);
   if (deploys) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
   if (own.some((u) => u.type.destructs)) b.push(deploys ? { id: 'destruct', label: 'Destruct' } : { id: 'destruct', label: 'Destruct', key: 'D' });   // D deploys an MCV first (orders.js)
-  if (own.some((u) => u.harvest)) b.push({ id: 'return', label: 'Return' });
+  if (own.some((u) => u.harvest && !u.docked)) b.push({ id: 'return', label: 'Return' });   // one in a refinery's slot is already back
   return b;
 }
 
