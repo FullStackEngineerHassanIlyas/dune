@@ -107,10 +107,14 @@ The game ends when one side has no buildings and no MCV left.
 
 ## Sound
 
-Every sound — rifles, machine guns, cannons, rockets, explosions, construction and the interface — is
-synthesized in the browser at start-up; nothing is loaded from files. Browsers only allow sound after
-a click or key press, so the game is silent until then. Sounds are panned towards where they happen
-and fade with distance from the camera; what fog hides is not heard.
+Every sound — rifles, machine guns, cannons, rockets, explosions and their debris, collapsing
+buildings, construction, the interface and the desert wind — is synthesized in the browser at
+start-up, in a background thread; nothing is loaded from files. Each is built in layers (a crack, a
+body, a tail) and set to a designed loudness, and most come in several variations played at slightly
+different pitches, so a battle never sounds like one sample repeating. Browsers only allow sound after
+a click or key press, so the game is silent until then. Sounds are panned towards where they happen;
+further from the camera they grow quieter, duller and more echoing in a soft desert reverb; what fog
+hides is not heard.
 
 ## Scenes and URL flags
 
