@@ -335,6 +335,18 @@ test('a harvester whose entrance was built over while it unloaded backs out by t
   assert.deepEqual(checkInvariants(world), []);
 });
 
+test('a unit parked in an entrance with one way out is let out before the harvester drives in', () => {
+  const { world, h, m, ref } = dockedWorld();
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnStructure('wall', 'atreides', 9, 10);   // the entrance 10,10 is an alcove: in and out by 11,10 only
+  world.spawnStructure('wall', 'atreides', 10, 11);
+  world.spawnStructure('wall', 'atreides', 11, 11);
+  world.spawnUnit('soldier', 'atreides', 10, 10);
+  const u = loaded(world, 11, 10);   // right at its mouth
+  assert.ok(runUntil(world, () => u.docked === ref.id, 40) > 0, `docked (stuck at ${u.tx},${u.ty})`);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 20) > 0);
+});
+
 test('a harvester whose entrance became a closed pocket with a unit stuck in it still backs out', () => {
   const { world, m, ref, u } = dockedWorld();
   assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
