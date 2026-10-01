@@ -320,3 +320,29 @@ test('a damaged refinery refines more slowly, never below a third of the rate', 
   assert.ok(Math.abs(half - 10) < 0.3, `half health: ${half}s`);
   assert.ok(Math.abs(wreck - 15) < 0.4, `a wreck: ${wreck}s`);
 });
+
+// Review (logistics): the slot is never held for good.
+test('a harvester whose entrance was built over while it unloaded backs out by the new one, friends making room', () => {
+  const { world, m, ref, u } = dockedWorld();
+  assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
+  world.spawnStructure('windtrap', 'atreides', 10, 10);   // over the entrance 10,10 (the AI packs its base like this)
+  for (let y = 7; y <= 10; y++) for (let x = 7; x <= 11; x++) {   // idle troops on every other tile around the refinery
+    const i = m.idx(x, y);
+    if (!m.structure[i] && !m.unit[i]) world.spawnUnit('combatTank', 'atreides', x, y);
+  }
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0, 'out of the slot');
+  assert.equal(ref.dockedBy || 0, 0, 'the slot is free again');
+  assert.deepEqual(checkInvariants(world), []);
+});
+
+test('a harvester whose entrance became a closed pocket with a unit stuck in it still backs out', () => {
+  const { world, m, ref, u } = dockedWorld();
+  assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
+  world.spawnUnit('soldier', 'atreides', 10, 10);   // on the entrance …
+  world.spawnStructure('wall', 'atreides', 9, 10);   // … walled in on every side but the refinery's
+  world.spawnStructure('wall', 'atreides', 11, 10);
+  for (let x = 9; x <= 11; x++) world.spawnStructure('wall', 'atreides', x, 11);
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0, 'out of the slot by another side');
+  assert.equal(ref.dockedBy || 0, 0);
+  assert.deepEqual(checkInvariants(world), []);
+});

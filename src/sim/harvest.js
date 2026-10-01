@@ -391,24 +391,34 @@ function unload(world, ref, u, slot) {
   h.state = 'undocking';
 }
 
-/** The entrance when it is clear; after a short wait for it, any free tile beside the building on the same ground. -1 while boxed in. */
+/**
+ * The entrance when it is clear (where it is now, should a building have gone up on the old one while the
+ * harvester unloaded); after a short wait for it, any free tile beside the building on the same ground —
+ * parked friends there are asked to make room — or, when the entrance is shut in a pocket of its own, on
+ * any ground. -1 while boxed in.
+ */
 function exitTile(world, ref, u, slot) {
-  const map = world.map, door = slot.door;
-  const open = (i) => !map.unit[i] && !map.structure[i] && map.moveFactor(i, 'harvester') > 0;
+  const map = world.map;
+  if (map.structure[slot.door]) { const d = dockTile(world, ref); if (d >= 0) slot.door = d; }   // built over: the entrance moved
+  const door = slot.door;
+  const ground = (i) => !map.structure[i] && map.moveFactor(i, 'harvester') > 0;
+  const open = (i) => !map.unit[i] && ground(i);
   if (open(door)) return door;
-  const blocker = world.units.get(map.unit[door]);
-  if (blocker) clearDock(world, blocker.id, u);   // ask a parked friend to make room
+  if (map.unit[door]) clearDock(world, map.unit[door], u);   // ask a parked friend to make room
   if ((slot.waited += DT) < EXIT_PATIENCE) return -1;
-  const sameGround = !map.structure[door];
-  let best = -1, bestD = Infinity;
+  const sameGround = ground(door);
+  let best = -1, bestD = Infinity, stray = -1, strayD = Infinity, linked = false;
   for (let y = ref.y - 1; y <= ref.y + ref.h; y++) for (let x = ref.x - 1; x <= ref.x + ref.w; x++) {
     if (!map.inBounds(x, y)) continue;
     const i = map.idx(x, y);
-    if (!open(i) || (sameGround && !world.reach.connected(door, i, 'harvester'))) continue;
+    if (i === door || !ground(i)) continue;
     const d = Math.hypot(x - map.xOf(door), y - map.yOf(door));
+    if (sameGround && !world.reach.connected(door, i, 'harvester')) { if (!map.unit[i] && d < strayD) { strayD = d; stray = i; } continue; }
+    linked = true;
+    if (map.unit[i]) { clearDock(world, map.unit[i], u); continue; }
     if (d < bestD) { bestD = d; best = i; }
   }
-  return best;
+  return best >= 0 || linked ? best : stray;
 }
 
 function release(world, ref, u) {
