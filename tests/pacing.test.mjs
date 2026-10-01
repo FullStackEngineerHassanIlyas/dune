@@ -103,7 +103,7 @@ test('a unit ordered as an upgrade finishes waits behind the item set aside, whi
   world.step();
   assert.equal(h.lines.heavy.aside, tank);
   const inHand = () => [h.lines.heavy.current, h.lines.heavy.aside].reduce((n, it) => n + (it?.paid ?? 0), 0);
-  assert.ok(tank.paid >= paid && Math.abs(h.credits + inHand() - (5000 - 300)) < 1e-6, 'every credit is in the bank, the upgrade done or an item in hand');
+  assert.ok(tank.paid >= paid && Math.abs(h.credits + inHand() - (5000 - 200)) < 1e-6, 'every credit is in the bank, the upgrade done (level 1, 200) or an item in hand');
 });
 
 test('the yard upgrade sets aside a structure under construction, but waits for a ready one to be placed', () => {
