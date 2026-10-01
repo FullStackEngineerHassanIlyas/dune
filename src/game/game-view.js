@@ -278,7 +278,7 @@ export class GameView {
     const { steps, alpha } = this.paused ? { steps: 0, alpha: 1 } : this.loop.advance(raw, this.speed);
     const live = this.paused ? 0 : dt;   // particles, debris, collapses, rotors: the battle's own motion holds while it is paused
     this.stageNow += live * 1000;
-    this.announcer.frame(now / 1000, this.selection, this.radarWas);   // before the step takes the new orders
+    if (!this.paused) this.announcer.frame(now / 1000, this.selection, this.radarWas);   // before the step takes the new orders; paused, it waits too (no sighting warnings under the menu)
     for (let i = 0; i < steps; i++) world.step();
     if (this.debug && world.time >= this.nextInvariantCheck) {
       this.nextInvariantCheck = world.time + 1;
