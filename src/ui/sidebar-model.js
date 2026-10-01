@@ -17,12 +17,16 @@ export function powerLevel({ produced, used }) {
   return used > 2 * produced ? 'critical' : 'low';
 }
 
-function itemState(l, typeId, line) {
+/** The yard takes one structure at a time; an upgrade sets aside one under construction (production.js), so
+ *  only a structure waiting to be placed, another upgrade or an item already set aside keeps it from the yard. */
+const yardBusy = (l, upgrade) => (upgrade ? !!l.current && (!!l.current.upgrade || l.current.state === 'ready' || l.current.progress >= 1 || !!l.aside) : !!l.current || l.queue.length > 0);
+
+function itemState(l, typeId, line, upgrade = false) {
   const cur = l.current;
   const queued = l.queue.reduce((n, t) => n + (t === typeId ? 1 : 0), 0);
   if (cur?.typeId === typeId) return { state: cur.state, progress: cur.progress, count: queued + 1, starved: cur.starved };
-  if (queued) return { state: 'queued', progress: 0, count: queued, starved: false };
-  return { state: line === 'structure' && cur ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
+  if (queued) return { state: 'queued', progress: l.aside?.typeId === typeId ? l.aside.progress : 0, count: queued, starved: false };   // set aside: as far as it got
+  return { state: line === 'structure' && yardBusy(l, upgrade) ? 'locked' : 'idle', progress: 0, count: 0, starved: false };
 }
 
 /** The Palace weapon (spec §4.7): what it is, how far it has charged, whether it needs a target. */
@@ -48,7 +52,7 @@ export function sidebarModel(world, houseId) {
     return {
       typeId, line, icon: `${typeId}:${level}`, name: `${STRUCTURES[target].name} upgrade`, cost: cur?.cost ?? upgradeCost(house, target),
       seconds: Math.round(itemSeconds(typeId)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,
-      ...itemState(house.lines[line], typeId, line),
+      ...itemState(house.lines[line], typeId, line, true),
     };
   };
   const m = house.starport, open = m && starportOf(world, houseId);

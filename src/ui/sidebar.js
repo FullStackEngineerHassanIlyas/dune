@@ -95,7 +95,7 @@ export class Sidebar {
       b.item = item;
       const cls = `sb-item state-${item.state}${item.starved ? ' starved' : ''}`;
       if (b.className !== cls) b.className = cls;
-      const p = item.state === 'building' || item.state === 'hold' ? item.progress.toFixed(3) : '1';
+      const p = item.state === 'building' || item.state === 'hold' || (item.state === 'queued' && item.progress > 0) ? item.progress.toFixed(3) : '1';   // queued with progress: set aside by an upgrade
       if (b.style.getPropertyValue('--p') !== p) b.style.setProperty('--p', p);
       const label = item.state === 'ready' ? 'READY' : item.state === 'hold' ? 'ON HOLD' : '';
       if (b.stateEl.textContent !== label) b.stateEl.textContent = label;
