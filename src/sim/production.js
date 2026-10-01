@@ -54,8 +54,8 @@ function dropOrphan(world, house, l) {
 }
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
-/** Work starting or resuming on a line: soldiers train, everything else is built. */
-const started = (world, house, line) => (line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
+/** Work starting or resuming on a line: soldiers train, factories upgrade, everything else is built. */
+const started = (world, house, line, upgrade = false) => (upgrade ? eva(world, house, 'upgrading', 'Upgrading.') : line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
 
 export function factoriesFor(world, houseId, line) {
   const types = LINE_FACTORIES[line];
@@ -78,7 +78,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     return;
   }
   const l = house.lines[line];
-  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line); return; }
+  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line, !!l.current.upgrade); return; }
   const upgrade = !!upgradeTarget(typeId);
   if (upgrade) {   // one at a time, at once: the item in hand steps aside; another upgrade or a ready structure goes first
     if (l.current?.typeId === typeId || l.queue.includes(typeId)) return;

@@ -42,6 +42,17 @@ test('resuming a held soldier trains again; resuming a held structure builds aga
   assert.deepEqual(said(world), ['training:Training.', 'building:Building.', 'onHold:Production on hold.', 'building:Building.']);
 });
 
+test('resuming a held upgrade says Upgrading, on the infantry line too', () => {
+  const { world } = base();
+  world.spawnStructure('outpost', 'atreides', 14, 4);
+  world.spawnStructure('barracks', 'atreides', 10, 10);
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:barracks' });
+  world.issue('atreides', { type: 'hold', typeId: 'upgrade:barracks' });
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:barracks' });
+  world.step();
+  assert.deepEqual(said(world), ['upgrading:Upgrading.', 'onHold:Production on hold.', 'upgrading:Upgrading.']);
+});
+
 test('a finished unit is ready; a finished harvester is deployed', () => {
   const { world } = base();
   world.spawnStructure('lightFactory', 'atreides', 10, 10);
