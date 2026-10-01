@@ -185,14 +185,18 @@ export class BattleStage {
     else decals.stamp('scorch', x, z, 0.5, 0.4);
   }
 
-  /** The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. */
+  /**
+   * The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. A paused
+   * battle passes dt 0 and a `now` that stands still: everything holds, and shots in flight lay no new traces
+   * (a tracer is laid every frame and lives for one, so frozen frames would pile them up on the spot).
+   */
   sync(alpha, dt, now) {
     if (this.disposed) return;
     const world = this.world;
     if (world.fogOfWar && this.shroud.update(world.houses.get(this.viewer)?.fog)) this.terrain.setShroud(this.shroud.explored, this.shroud.visible);
     this.unitViews.sync(world, alpha, dt);
     this.structureViews.sync(world, now);
-    this.combatEffects(dt, alpha);
+    if (dt > 0) this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
     this.ambient(dt, now);
     this.destruction.update(dt);
