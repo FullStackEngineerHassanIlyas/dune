@@ -329,8 +329,8 @@ export function updateHarvester(world, u) {
       const door = dockTile(world, ref);
       h.refinery = ref.id;
       const free = slotFree(world, ref, u);
-      if (here === door) {
-        if (free) enter(world, u, ref, door); else queue(world, u, ref, door);
+      if (here === door) {   // already at the entrance: in it goes whenever the slot is empty, claimed or not
+        if (!occupantOf(world, ref)) enter(world, u, ref, door); else queue(world, u, ref, door);
         return;
       }
       const close = near(map, u, door, CLAIM_RADIUS);
@@ -350,6 +350,7 @@ export function updateHarvester(world, u) {
       h.wait = 0.5;
       const door = dockTile(world, ref);
       if (door < 0) { h.state = 'toRefinery'; return; }
+      if (here === door && !u.step && !occupantOf(world, ref)) { enter(world, u, ref, door); return; }   // set down on the entrance: nobody else could get in past it
       if (slotFree(world, ref, u)) {
         ref.incoming = u.id;
         h.state = 'toRefinery';

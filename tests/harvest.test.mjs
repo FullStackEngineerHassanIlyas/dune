@@ -347,6 +347,18 @@ test('a unit parked in an entrance with one way out is let out before the harves
   assert.ok(runUntil(world, () => h.credits >= 699.9, 20) > 0);
 });
 
+test('a harvester set down on an entrance at the end of a narrow way in does not lock horns with the one coming in', () => {
+  const { world, h, ref } = dockedWorld();
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnStructure('silo', 'atreides', 8, 10);   // the entrance 10,10 and the tile below it run between two buildings
+  world.spawnStructure('silo', 'atreides', 11, 10);
+  const a = loaded(world, 10, 13);
+  run(world, 0.3);
+  assert.equal(ref.incoming, a.id, 'the first one has claimed the slot');
+  const b = loaded(world, 10, 10);   // a Carryall sets the second one down on the entrance
+  assert.ok(runUntil(world, () => h.credits >= 1399.9, 60) > 0, `both unloaded (credits ${h.credits}; ${a.harvest.state} at ${a.tx},${a.ty}, ${b.harvest.state} at ${b.tx},${b.ty})`);
+});
+
 test('a harvester whose entrance became a closed pocket with a unit stuck in it still backs out', () => {
   const { world, m, ref, u } = dockedWorld();
   assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
