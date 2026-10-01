@@ -269,8 +269,9 @@ export class WebVoiceOutput {
       const src = ctx.createBufferSource();
       src.buffer = buffer;
       src.connect(this.bus);
-      src.onended = () => { if (this.source === src) this.source = null; };
+      src.onended = () => { if (this.source === src) { this.source = null; this.sound.duck?.(false); } };
       src.start();
+      this.sound.duck?.(true);   // the battle steps back a little while the announcer speaks
       this.source = src;
       return buffer.duration;
     } catch {

@@ -172,8 +172,20 @@ test('a soft stereo wind loops under everything, through the master volume, once
   assert.equal(loops[0].buffer.numberOfChannels, 2, 'in stereo');
   const gain = loops[0].outputs[0];
   assert.ok(gain.gain.value > 0 && gain.gain.value < VOICE_GAIN, 'quieter than any voice');
-  assert.equal(gain.outputs[0], e.master, 'so mute and volume apply to it');
+  assert.equal(gain.outputs[0], e.fx, 'into the effects bus, which an announcer line ducks');
+  assert.equal(e.fx.outputs[0], e.master, 'and on through the master, so mute and volume apply to it');
   assert.equal(e.limiter.total, 0, 'it takes no voice');
+});
+
+test('an announcer line ducks the effects bus about 4 dB and lets it back up afterwards', () => {
+  const win = fakeWindow();
+  const e = new SoundEngine({ win });
+  win.listeners.pointerdown();
+  e.duck(true);
+  const ducked = e.fx.gain.value;
+  e.duck(false);
+  assert.ok(ducked > 0.55 && ducked < 0.7, `ducked to ${ducked}`);
+  assert.equal(e.fx.gain.value, 1);
 });
 
 test('each play picks a variation at random, never the same twice running, at a slightly random pitch', () => {

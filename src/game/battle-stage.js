@@ -56,6 +56,7 @@ export class BattleStage {
     });
     this.dustClock = 0;
     this.weldClock = 0;
+    this.weldSound = 0;   // seconds until the repair weld may sound again
     this.trackFrom = new Map();
     this.catchingUp = true;   // events simulated ahead: marks yes, fireworks and sound no — cleared when the battle goes live
     this.disposed = false;
@@ -67,7 +68,7 @@ export class BattleStage {
     if (this.disposed) return;
     if (!this.catchingUp && this.sound) {
       const cue = cueFor(e, this.viewer, (x, z) => this.seen(x, z));
-      if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null, rate: 0.94 + Math.random() * 0.12 });
+      if (cue) this.sound.play(cue.id, { x: cue.x ?? null, z: cue.z ?? null });   // the engine varies each effect's pitch itself
     }
     if (e.type === 'unitBuilt') this.structureViews.notify(e, now);
     if (e.type === 'structurePlaced') {
@@ -241,12 +242,14 @@ export class BattleStage {
     }
     for (const id of this.trackFrom.keys()) if (!w.units.has(id)) this.trackFrom.delete(id);
     this.weldClock += dt;
-    if (this.weldClock >= 0.12) {   // welding sparks over occupied repair pads the viewer can see
+    this.weldSound -= dt;
+    if (this.weldClock >= 0.12) {   // welding sparks over occupied repair pads the viewer can see, and now and then their crackle
       this.weldClock = 0;
       for (const s of w.structures.values()) {
         if (!s.bay || !nearCamera(s.x + s.w / 2, s.y + s.h / 2, rig.target.x, rig.target.z, rig.distance) || !this.seen(s.x + s.w / 2, s.y + s.h / 2)) continue;
         const p = this.structureViews.weldPoint(s.id, now);
         if (p) this.effects.weld(p.x, p.y, p.z);
+        if (p && this.weldSound <= 0 && !this.catchingUp) { this.sound?.play('weld', { x: p.x, z: p.z }); this.weldSound = 0.9 + Math.random() * 0.8; }
       }
     }
   }

@@ -29,6 +29,7 @@ const PAN = 0.85;   // never hard to one side: an off-screen sound still reaches
 const REVERB_CUT = 250;   // Hz: rumble stays out of the reverb, where it would only muddy the tail
 const LIKELY_RATE = 48000;   // the rate most audio outputs, and so most contexts, run at: the worker makes the impulse for it
 const AMBIENT = 'wind', AMBIENT_GAIN = 0.4;   // the wind bed: about 12 dB under a rifle beside the camera
+const DUCK_GAIN = 0.63;   // about -4 dB on every effect while an announcer line plays
 
 /** Interface sounds first, then the busiest battle sounds, then the rest: the order they are rendered ahead in. */
 const FIRST = ['click', 'rifle', 'mg', 'cannon', 'explosionSmall', 'hit', 'sandHit', 'rocket', 'bulletHit', 'error', 'ready', 'clunk'];
@@ -204,7 +205,7 @@ export class SoundEngine {
       src.loop = true;
       gain.gain.value = AMBIENT_GAIN;
       src.connect(gain);
-      gain.connect(this.master);
+      gain.connect(this.fx ?? this.master);
       src.start();
       this.ambience = { src, gain };
     } catch { /* no wind, then */ }
@@ -238,6 +239,8 @@ export class SoundEngine {
         this.master.connect(limiter);
         limiter.connect(ctx.destination);
       } else this.master.connect(ctx.destination);
+      this.fx = ctx.createGain();   // effects, reverb and wind: the bus an announcer line ducks; voices go straight to master
+      this.fx.connect(this.master);
       this.reverb = this.openReverb();
       for (const id of RENDER_ORDER) for (const data of this.samples.get(id) ?? []) if (data) this.addBuffer(id, data);
       this.samples.clear();
@@ -257,7 +260,7 @@ export class SoundEngine {
     cut.type = 'highpass';
     cut.frequency.value = REVERB_CUT;
     cut.connect(conv);
-    conv.connect(this.master);
+    conv.connect(this.fx ?? this.master);
     this.fitImpulse();
     return cut;
   }
@@ -339,7 +342,7 @@ export class SoundEngine {
         head.connect(p);
         nodes.push((head = p));
       }
-      head.connect(this.master);
+      head.connect(this.fx ?? this.master);
       if (this.reverb && wet > 0) {
         const send = ctx.createGain();
         send.gain.value = wet;
@@ -357,6 +360,14 @@ export class SoundEngine {
       this.limiter.end(id);
       return false;
     }
+  }
+
+  /** Speech over the battle: the effects bus dips while an announcer line plays (src/audio/voice.js). */
+  duck(on) {
+    const g = this.fx?.gain;
+    if (!g) return;
+    if (g.setTargetAtTime) g.setTargetAtTime(on ? DUCK_GAIN : 1, this.ctx.currentTime, on ? 0.04 : 0.3);
+    else g.value = on ? DUCK_GAIN : 1;
   }
 
   setMuted(muted) {
