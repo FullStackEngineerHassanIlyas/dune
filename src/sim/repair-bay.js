@@ -87,7 +87,9 @@ function besideTile(world, u, s) {
  * such tile around the building, up to `radius` tiles out (never a closed pocket); null when there is none.
  */
 function wayOut(world, s, u, radius = 1) {
-  const map = world.map, door = s.bay?.door ?? -1;
+  const map = world.map;
+  let door = s.bay?.door ?? -1;
+  if (door >= 0 && map.structure[door]) door = s.bay.door = dockTile(world, s);   // built over while it was inside: the entrance as it is now
   const ok = (i) => !map.unit[i] && !map.structure[i] && map.moveFactor(i, u.move) > 0 && (door < 0 || world.reach.connected(door, i, u.move));
   if (door >= 0 && ok(door)) return { x: map.xOf(door), y: map.yOf(door) };
   for (let r = 1; r <= radius; r++) {

@@ -205,3 +205,19 @@ test('a repaired vehicle with no rally point drives clear of the door', () => {
   const gap = Math.max(s.x - u.tx, u.tx - (s.x + s.w - 1), s.y - u.ty, u.ty - (s.y + s.h - 1));
   assert.ok(gap >= 2, `waits ${gap} tiles out, not in the doorway`);
 });
+
+// Review (logistics): a building put up on the tile a vehicle came in by must not shut it in.
+for (const how of ['repaired', 'sold']) {
+  test(`a vehicle whose way in was built over while it was in the bay still gets out (${how})`, () => {
+    const { world, s } = bay();
+    const u = tank(world, 11, 16, 120);
+    sendIn(world, [u], s);
+    assert.ok(runUntil(world, () => u.inside === s.id, 20) > 0);
+    world.spawnStructure('wall', 'atreides', 11, 12);   // on the entrance it came in by
+    if (how === 'sold') { run(world, 2); world.issue('atreides', { type: 'sell', structureId: s.id }); world.step(); }
+    else assert.ok(runUntil(world, () => !u.inside, 30) > 0, 'out of the bay');
+    assert.ok(world.units.has(u.id) && !u.inside, 'out and alive');
+    assert.ok(world.reach.connected(world.map.idx(u.tx, u.ty), world.map.idx(20, 20), 'tracked'), `free to drive away from ${u.tx},${u.ty}`);
+    assert.deepEqual(checkInvariants(world), []);
+  });
+}
