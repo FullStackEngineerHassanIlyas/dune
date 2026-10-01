@@ -59,3 +59,12 @@ test('the map lines up with the ground and uploads at most five times a second',
   const big = new DecalMap(64, 64);
   assert.ok(big.interval >= 4 * map.interval - 1, 'and uploads it less often, moving no more data than a small one');
 });
+
+test('the map uploads as plain bytes and the terrain decodes its sRGB itself', async () => {
+  const THREE = await import('three');
+  const { readFile } = await import('node:fs/promises');
+  // an sRGB texture takes the browser's slow path: on an Intel laptop each 2048² upload stalled its frame by 100 ms or more
+  assert.equal(new DecalMap(64, 64).texture.colorSpace, THREE.NoColorSpace);
+  const shader = await readFile(new URL('../src/render/terrain-shader.js', import.meta.url), 'utf8');
+  assert.match(shader, /pow\(texture2D\(uDecals, [^;]*\)\.rgb, vec3\(2\.2\)\)/, 'decoded to linear before it darkens the ground');
+});
