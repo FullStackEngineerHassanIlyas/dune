@@ -19,7 +19,7 @@ export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
   const house = params.str('house', 'atreides');
-  const { world, starts, rival } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house, credits: 5000, fog: params.bool('fog', true) });
+  const { world, starts, rival } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house, credits: 5000, fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined });
   const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');
   world.issue(house, { type: 'deploy', ids: [mcv.id] });
   world.step();

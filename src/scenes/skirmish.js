@@ -9,7 +9,7 @@ export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
   const house = params.str('house', 'atreides');
-  const { world, starts } = setupSkirmish({ seed: params.num('seed', 1), size: params.num('size', 64), house, enemy: params.str('enemy'), credits: params.num('credits', 3000), fog: params.bool('fog', true), difficulty: params.str('ai', 'normal') });
+  const { world, starts } = setupSkirmish({ seed: params.num('seed', 1), size: params.num('size', 64), house, enemy: params.str('enemy'), credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty: params.str('ai', 'normal') });
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   if (params.bool('deploy')) {
     const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');

@@ -10,8 +10,8 @@ import { GameMenu } from '../src/ui/game-menu.js';
 const memory = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
 
 test('the skirmish set-up becomes the battle URL', () => {
-  const q = new URLSearchParams(skirmishQuery({ house: 'harkonnen', enemy: 'ordos', difficulty: 'hard', size: 96, seed: 42, credits: 5000, fog: false }));
-  assert.deepEqual(Object.fromEntries(q), { scene: 'skirmish', house: 'harkonnen', enemy: 'ordos', ai: 'hard', size: '96', seed: '42', credits: '5000', fog: '0' });
+  const q = new URLSearchParams(skirmishQuery({ house: 'harkonnen', enemy: 'ordos', difficulty: 'hard', size: 96, seed: 42, credits: 5000, visibility: 'fog' }));
+  assert.deepEqual(Object.fromEntries(q), { scene: 'skirmish', house: 'harkonnen', enemy: 'ordos', ai: 'hard', size: '96', seed: '42', credits: '5000', visibility: 'fog' });
 });
 
 test('a random opponent is another house and an empty seed is rolled', () => {
@@ -23,7 +23,9 @@ test('a random opponent is another house and an empty seed is rolled', () => {
 });
 
 test('stored set-ups are cleaned: unknown houses, sizes, seeds and credits fall back', () => {
-  assert.deepEqual(cleanSetup({ house: 'fremen', enemy: 'sardaukar', difficulty: 'insane', size: 1000, seed: -3, credits: 7, fog: 'yes' }), { ...DEFAULT_SETUP });
+  assert.deepEqual(cleanSetup({ house: 'fremen', enemy: 'sardaukar', difficulty: 'insane', size: 1000, seed: -3, credits: 7, visibility: 'darkness' }), { ...DEFAULT_SETUP });
+  assert.equal(cleanSetup({ fog: false }).visibility, 'revealed', 'a setup saved with fog off keeps its revealed map');
+  assert.equal(cleanSetup({ fog: true }).visibility, 'shroud', 'and one saved with fog on now gets the Dune II shroud');
   assert.equal(cleanSetup({ house: 'ordos', enemy: 'ordos' }).enemy, 'ordos', 'cleanSetup keeps it; the query replaces a clash');
   assert.notEqual(new URLSearchParams(skirmishQuery({ house: 'ordos', enemy: 'ordos' }, () => 0)).get('enemy'), 'ordos');
 });

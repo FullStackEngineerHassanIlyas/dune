@@ -33,7 +33,8 @@ export class World {
     this.map = map;
     this.rng = new Rng(seed);
     this.tick = 0;
-    this.fogOfWar = true;    // skirmish option; false reveals everything
+    this.fogOfWar = true;    // false reveals everything
+    this.visibility = 'fog';   // 'shroud' (Dune II), 'fog' (C&C-style fog of war) or 'revealed' (sim/fog.js); skirmishes start in 'shroud'
     this.rules = { victory: false, airDelivery: false };   // skirmish and campaign switch victory checks and Carryall deliveries on
     this.outcome = null;
     this.time = 0;

@@ -20,10 +20,13 @@ export function spawnStartingForces(world, house, start) {
   return units;
 }
 
-export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true, difficulty = 'normal', aiPlayer = false } = {}) {
+export const VISIBILITY = ['shroud', 'fog', 'revealed'];
+
+export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed', difficulty = 'normal', aiPlayer = false } = {}) {
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 2 });
   const world = new World({ map, seed });
-  world.fogOfWar = fog;
+  world.visibility = VISIBILITY.includes(visibility) ? visibility : 'shroud';   // Dune II's shroud unless the player picks otherwise
+  world.fogOfWar = world.visibility !== 'revealed';
   world.rules.victory = true;
   world.rules.airDelivery = true;   // Refineries get their Harvester by Carryall
   const rival = enemy && enemy !== house ? enemy : PLAYABLE_HOUSES.find((h) => h !== house);
@@ -33,6 +36,6 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   spawnStartingForces(world, rival, starts[1]);
   createBrain(world, rival, difficulty);
   if (aiPlayer) createBrain(world, house, difficulty);
-  if (fog) updateFog(world);   // shroud from the very first frame
+  if (world.fogOfWar) updateFog(world);   // shroud from the very first frame
   return { world, starts, house, rival };
 }

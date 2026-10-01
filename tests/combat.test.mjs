@@ -71,10 +71,11 @@ test('a projectile whose target died lands without error', () => {
 
 test('the player\'s units engage only what their fog shows; the AI sees everything', () => {
   const world = flatWorld(32, 16, G.ROCK);
+  world.visibility = 'shroud';   // Dune II: sight as the original had it, so the shroud hides what a launcher could reach
   world.spawnUnit('missileTank', 'atreides', 4, 8, { heading: 0 });
   world.spawnUnit('mcv', 'harkonnen', 12, 8);
   run(world, 5);
-  assert.equal(world.events.drain().filter((e) => e.type === 'fired').length, 0, 'eight tiles away is beyond its sight');
+  assert.equal(world.events.drain().filter((e) => e.type === 'fired').length, 0, 'eight tiles away, unexplored, is beyond its sight');
   world.houses.get('atreides').isAI = true;
   run(world, 5);
   assert.ok(world.events.drain().some((e) => e.type === 'fired'));

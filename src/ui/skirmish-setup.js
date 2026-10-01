@@ -1,5 +1,5 @@
 // Skirmish set-up (spec §5.8): house, opponent, difficulty, map size and seed, starting credits,
-// fog and game speed. The choice is remembered for next time and becomes the battle's URL.
+// map visibility and game speed. The choice is remembered for next time and becomes the battle's URL.
 import { h } from './dom.js';
 import { HOUSES, PLAYABLE_HOUSES } from '../data/houses.js';
 import { DIFFICULTY } from '../sim/ai.js';
@@ -7,7 +7,13 @@ import { changeSetting } from './options.js';
 
 export const MAP_SIZES = [[48, 'Small'], [64, 'Medium'], [96, 'Large'], [128, 'Huge']];
 export const CREDITS = [1000, 3000, 5000, 10000];
-export const DEFAULT_SETUP = { house: 'atreides', enemy: 'random', difficulty: 'normal', size: 64, seed: null, credits: 3000, fog: true };
+export const DEFAULT_SETUP = { house: 'atreides', enemy: 'random', difficulty: 'normal', size: 64, seed: null, credits: 3000, visibility: 'shroud' };
+export const VISIBILITY_CHOICES = [['shroud', 'Dune II shroud'], ['fog', 'Fog of war'], ['revealed', 'Revealed']];
+const VISIBILITY_NOTES = {
+  shroud: 'As in the original: black until explored; ground once seen stays in view, enemies on it too.',
+  fog: 'C&C style: explored ground goes dim out of sight and hides enemy units; everything sees at least as far as it shoots.',
+  revealed: 'The whole map and everything on it, from the start.',
+};
 const KEY = 'dune2-3d.skirmish';
 const SPECIALS = { atreides: 'Sonic Tank · Fremen warriors', harkonnen: 'Devastator · Death Hand missile', ordos: 'Deviator · Saboteur' };
 
@@ -22,7 +28,7 @@ export function cleanSetup(raw = {}) {
     size: pick(Number(s.size), MAP_SIZES.map(([n]) => n), DEFAULT_SETUP.size),
     seed: Number.isInteger(s.seed) && s.seed > 0 && s.seed < 1e6 ? s.seed : null,
     credits: pick(Number(s.credits), CREDITS, DEFAULT_SETUP.credits),
-    fog: s.fog !== false,
+    visibility: pick(raw.visibility, VISIBILITY_CHOICES.map(([v]) => v), raw.fog === false ? 'revealed' : DEFAULT_SETUP.visibility),   // a setup saved before: fog off was a revealed map
   };
 }
 
@@ -32,7 +38,7 @@ export function skirmishQuery(setup, random = Math.random) {
   const rivals = PLAYABLE_HOUSES.filter((id) => id !== s.house);
   const enemy = rivals.includes(s.enemy) ? s.enemy : rivals[Math.floor(random() * rivals.length)];
   const seed = s.seed ?? 1 + Math.floor(random() * 99999);
-  return new URLSearchParams({ scene: 'skirmish', house: s.house, enemy, ai: s.difficulty, size: String(s.size), seed: String(seed), credits: String(s.credits), fog: s.fog ? '1' : '0' }).toString();
+  return new URLSearchParams({ scene: 'skirmish', house: s.house, enemy, ai: s.difficulty, size: String(s.size), seed: String(seed), credits: String(s.credits), visibility: s.visibility }).toString();
 }
 
 function storage() { try { return globalThis.localStorage ?? null; } catch { return null; } }
@@ -44,9 +50,9 @@ export function saveSetup(setup, store = storage()) {
 }
 
 const hex = (id) => `#${HOUSES[id].color.toString(16).padStart(6, '0')}`;
-const seg = (label, choices, value, set) => h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, label),
+const seg = (label, choices, value, set, note = null) => h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, label),
   h('div', { class: 'dm-control' }, h('div', { class: 'dm-seg', role: 'group', 'aria-label': label }, choices.map(([v, text]) =>
-    h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), onclick: () => set(v) }, text)))));
+    h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), onclick: () => set(v) }, text))), note && h('small', {}, note)));
 
 /** The set-up screen; `onStart(query)` launches the battle. */
 export function skirmishPanel(settings, { onBack, onStart }) {
@@ -72,7 +78,7 @@ export function skirmishPanel(settings, { onBack, onStart }) {
         h('button', { type: 'button', class: 'dm-btn small', title: 'A new random map every battle', onclick: () => set('seed', null) }, 'Random')),
         h('small', {}, 'The same seed gives the same map; leave it empty for a new one each time.'))),
       seg('Starting credits', CREDITS.map((c) => [c, c.toLocaleString('en-US')]), setup.credits, (v) => set('credits', v)),
-      seg('Fog of war', [[true, 'On'], [false, 'Off']], setup.fog, (v) => set('fog', v)),
+      seg('Visibility', VISIBILITY_CHOICES, setup.visibility, (v) => set('visibility', v), VISIBILITY_NOTES[setup.visibility]),
       seg('Game speed', [['slowest', 'Slowest'], ['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['fastest', 'Fastest']], settings.gameSpeed, (v) => { changeSetting(settings, 'gameSpeed', v); render(); }),
       h('div', { class: 'dm-actions' },
         h('button', { type: 'button', class: 'dm-btn', onclick: onBack }, 'Back'),
