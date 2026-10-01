@@ -283,6 +283,7 @@ function fetch(world, c, job) {
 function carry(world, c, job) {
   const u = world.units.get(c.cargo);
   if (!u) { finish(c, job); return; }
+  if (!c.visitor) reroute(world, c, job, u);
   if (!hoverTo(world, c, job.to.x + 0.5, job.to.y + 0.5)) { climb(c, AIR.cruise); return; }
   const map = world.map, i = map.idx(job.to.x, job.to.y);
   if (map.unit[i] || map.structure[i] || map.moveFactor(i, u.move) <= 0) {   // taken or blocked: the nearest free tile
@@ -298,11 +299,27 @@ function carry(world, c, job) {
   c.cargo = 0;
   world.events.push('setDown', { id: u.id, carrier: c.id, house: c.house, x: u.x, y: u.y });
   if (job.announce) world.events.push('eva', { house: c.house, key: job.announce.key, text: job.announce.text });
-  if (job.bay) orderRepairAt(world, c.house, [u], job.bay);   // into the repair queue
-  else if (job.then === 'harvest') orderHarvest(world, [u], u.tx, u.ty);
+  if (job.bay) {   // into the repair queue (a recovered vehicle still heads back afterwards)
+    const back = u.order.back;
+    orderRepairAt(world, c.house, [u], job.bay);
+    if (back && u.order.type === 'repairAt') u.order.back = back;
+  } else if (job.then === 'harvest') orderHarvest(world, [u], u.tx, u.ty);
   else if (job.then === 'return') orderReturn(world, [u]);
   else if (job.then === 'stop') stopUnit(u);
   finish(c, job);
+}
+
+/**
+ * A load bound for a Repair Facility that is gone or in enemy hands is taken to the house's nearest
+ * other one instead, or set down right here when there is none.
+ */
+function reroute(world, c, job, u) {
+  const own = !job.then && u.order.type === 'repairAt' ? u.order.structureId : 0;   // a lift on duty for a vehicle bound there (not a load the player placed)
+  const id = job.bay ?? own, s = id ? world.structures.get(id) : null;
+  if (!id || s?.house === c.house) return;
+  const near = nearestBay(world, u);
+  if (near) Object.assign(job, { to: near.to, bay: near.bay.id });
+  else Object.assign(job, { to: { x: c.tx, y: c.ty }, bay: 0, then: afterDrop(u) });   // once: then it is set down like any load
 }
 
 /** The job is over: a visitor leaves, a player's order is carried out (back on duty). */
@@ -364,7 +381,8 @@ function setDownAt(world, c, x, y) {
  * Orders for a house's own Carryalls, validated like every command: move (fly there and make it the
  * station, or set the load down there), lift (targetId: an own vehicle), stop (hold here, off duty),
  * guard or duty (back to automatic duty), deploy or drop (set the load down below), repairAt
- * (structureId: take a worn load into that Repair Facility's queue) and returnToBase (a Harvester load to its Refinery).
+ * (structureId: take a worn load into that Repair Facility's queue) and returnToBase (a Harvester load to the
+ * Refinery structureId, else the nearest). A load bound for a Repair Facility that is lost on the way goes to another.
  */
 export function orderCarryalls(world, houseId, lifters, cmd) {
   lifters = lifters.filter((c) => isLifter(c) && c.house === houseId);
@@ -439,20 +457,23 @@ export function orderCarryalls(world, houseId, lifters, cmd) {
       }
       return;
     }
-    case 'returnToBase':
+    case 'returnToBase': {
+      const chosen = world.structures.get(cmd.structureId);   // the Refinery clicked, else the nearest
+      const ok = (s) => s?.house === houseId && s.typeId === 'refinery' && dockTile(world, s) >= 0;
       for (const c of lifters) {
         const u = world.units.get(c.cargo);
         if (!u?.harvest) continue;
-        let best = -1, bestD = Infinity;
-        for (const s of world.structures.values()) {
-          if (s.house !== houseId || s.typeId !== 'refinery') continue;
-          const d = dockTile(world, s);
-          if (d >= 0 && Math.hypot(map.xOf(d) - c.x, map.yOf(d) - c.y) < bestD) { bestD = Math.hypot(map.xOf(d) - c.x, map.yOf(d) - c.y); best = d; }
+        let best = ok(chosen) ? dockTile(world, chosen) : -1, bestD = Infinity;
+        for (const s of best < 0 ? world.structures.values() : []) {
+          if (!ok(s)) continue;
+          const d = dockTile(world, s), far = Math.hypot(map.xOf(d) - c.x, map.yOf(d) - c.y);
+          if (far < bestD) { bestD = far; best = d; }
         }
         if (best < 0) continue;
         c.job = { stage: 'carry', to: tileOf(world, best), then: 'return', manual: true };
         c.manual = true;
       }
       return;
+    }
   }
 }

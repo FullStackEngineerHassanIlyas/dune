@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { callCarryall, deliverByAir } from '../src/sim/carryall.js';
 import { checkInvariants } from '../src/sim/invariants.js';
+import { transferStructure } from '../src/sim/capture.js';
 import { flatWorld, run, runUntil } from './helpers.mjs';
 
 function airfield(w = 64, h = 32, house = 'atreides') {
@@ -218,6 +219,73 @@ test('a Harvester the player sets down on spice gets to work there', () => {
   world.issue('atreides', { type: 'move', ids: [c.id], x: 45, y: 21 });
   assert.ok(runUntil(world, () => !h.inside, 20) > 0);
   assert.ok(runUntil(world, () => h.harvest.state === 'harvesting', 5) >= 0, `harvesting at ${h.tx},${h.ty}`);
+});
+
+test('a Harvester lifted out of a refinery\'s queue does not hold the queue up', () => {
+  const { world, c } = airfield();
+  world.issue('atreides', { type: 'stop', ids: [c.id] });   // off duty: only the player's lift
+  const ref = world.spawnStructure('refinery', 'atreides', 20, 12);   // entrance 22,14
+  const load = (u) => { u.harvest.load = 700; u.harvest.state = 'toRefinery'; u.harvest.target = -1; return u; };
+  const first = load(harvesterOf(world));
+  assert.ok(runUntil(world, () => first.docked === ref.id, 5) > 0, 'the first one docks');
+  const a = load(world.spawnUnit('harvester', 'atreides', 24, 16));
+  run(world, 1);
+  const b = load(world.spawnUnit('harvester', 'atreides', 19, 16));
+  run(world, 1);
+  assert.equal(a.harvest.state, 'queued');
+  assert.equal(b.harvest.state, 'queued');
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: a.id });   // the first in line is lifted and held
+  assert.ok(runUntil(world, () => a.inside === c.id, 20) > 0, 'lifted');
+  assert.ok(runUntil(world, () => b.docked === ref.id, 30) > 0, 'the next one in line docks');
+});
+
+test('a Carryall told to deliver its Harvester to a Refinery takes it to that one, not the nearest', () => {
+  const { world, c } = airfield(64, 32);
+  world.issue('atreides', { type: 'stop', ids: [c.id] });
+  world.spawnStructure('refinery', 'atreides', 20, 12);   // entrance 22,14
+  const far = world.spawnStructure('refinery', 'atreides', 50, 12);   // entrance 52,14
+  for (const u of [...world.units.values()]) if (u.typeId === 'harvester') world.removeUnit(u);
+  const h = world.spawnUnit('harvester', 'atreides', 18, 20);
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: h.id });
+  assert.ok(runUntil(world, () => h.inside === c.id, 20) > 0);
+  world.issue('atreides', { type: 'returnToBase', ids: [c.id], structureId: far.id });
+  assert.ok(runUntil(world, () => !h.inside, 40) > 0, 'set down');
+  assert.ok(Math.hypot(h.tx - 52, h.ty - 14) <= 2, `at the far Refinery (${h.tx},${h.ty})`);
+});
+
+test('a worn vehicle on its way to a Repair Facility that falls to the enemy is not delivered to it', () => {
+  const { world, c } = airfield(64, 32);
+  const lost = world.spawnStructure('repair', 'atreides', 8, 20);   // entrance 9,22
+  const t = world.spawnUnit('combatTank', 'atreides', 50, 12);
+  t.hp = 90;
+  assert.ok(runUntil(world, () => t.inside === c.id, 20) > 0, 'picked up');
+  transferStructure(world, lost, 'harkonnen');
+  const other = world.spawnStructure('repair', 'atreides', 30, 24);   // entrance 31,26
+  assert.ok(runUntil(world, () => t.inside === other.id, 40) > 0, `into the House's other bay (at ${t.tx},${t.ty}, ${t.order.type})`);
+  assert.ok(runUntil(world, () => !t.inside && t.hp === t.maxHp, 60) > 0, 'repaired and out');
+  assert.ok(runUntil(world, () => Math.hypot(t.x - 50.5, t.y - 12.5) < 3, 60) > 0, `and back where it was lifted (${t.tx},${t.ty})`);
+});
+
+test('with no Repair Facility left, a worn vehicle in the claws is set down where it is', () => {
+  const { world, c } = airfield(64, 32);
+  const bay = world.spawnStructure('repair', 'atreides', 8, 20);
+  const t = world.spawnUnit('combatTank', 'atreides', 50, 12);
+  t.hp = 90;
+  assert.ok(runUntil(world, () => t.inside === c.id, 20) > 0, 'picked up');
+  run(world, 2);
+  const x = c.tx;
+  world.spawnUnit('trike', 'atreides', c.tx, c.ty);   // right below it: it sets the load down beside the Trike
+  transferStructure(world, bay, 'harkonnen');
+  assert.ok(runUntil(world, () => !t.inside, 10) > 0, 'set down');
+  assert.ok(Math.abs(t.tx - x) <= 6 && t.tx > 20, `near where the news reached it (${t.tx},${t.ty}), not by the lost bay`);
+  assert.deepEqual(checkInvariants(world), []);
+  const u = world.spawnUnit('combatTank', 'atreides', 30, 4);   // the player lifts a vehicle that was on its way to the lost bay …
+  u.order = { type: 'repairAt', structureId: bay.id, tries: 0, retryAt: 0, wait: 0, resume: null };
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: u.id });
+  assert.ok(runUntil(world, () => u.inside === c.id, 20) > 0);
+  world.issue('atreides', { type: 'move', ids: [c.id], x: 40, y: 4 });   // … and has it set down somewhere
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0);
+  assert.deepEqual([u.tx, u.ty], [40, 4], 'where the player said');
 });
 
 test('a loaded Carryall sent to the Repair Facility takes its worn load there', () => {

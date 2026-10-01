@@ -71,13 +71,49 @@ function onOwnDock(world, u) {
 
 const onTheMove = (u) => !!u.step || u.pathState === 'waiting' || (u.pathState === 'ready' && u.pathIndex < u.path.length);
 
-/** Send a parked friendly unit off a dock (an idle harvester keeps its routine). */
+/** A free tile two to four tiles from unit o that it can drive to without crossing tile `skip`, the nearest first; null if none. */
+function roomFor(world, o, skip = -1) {
+  const map = world.map, start = map.idx(o.tx, o.ty);
+  const pass = (i) => i !== skip && map.moveFactor(i, o.move) > 0;
+  const seen = new Set([start]), queue = [start];
+  for (let k = 0; k < queue.length; k++) {
+    const i = queue[k], x = map.xOf(i), y = map.yOf(i);
+    if (Math.max(Math.abs(x - o.tx), Math.abs(y - o.ty)) >= 2 && !map.unit[i]) return { x, y };
+    for (const [dx, dy] of N8) {
+      const nx = x + dx, ny = y + dy;
+      if (!map.inBounds(nx, ny) || Math.max(Math.abs(nx - o.tx), Math.abs(ny - o.ty)) > 4) continue;
+      const j = map.idx(nx, ny);
+      if (seen.has(j) || !pass(j) || (dx && dy && (!pass(map.idx(nx, y)) || !pass(map.idx(x, ny))))) continue;   // no corner cutting
+      seen.add(j);
+      queue.push(j);
+    }
+  }
+  return null;
+}
+
+/**
+ * Send a parked friendly unit off a dock (an idle harvester keeps its routine), somewhere it can go
+ * without driving through the requester. When the requester — a harvester on its way in — stands in its
+ * only way out, the harvester backs off and waits its turn while the unit leaves.
+ */
 export function clearDock(world, id, requester) {
   const o = world.units.get(id);
   if (!o || o.house !== requester.house || o.inside || onTheMove(o)) return;
-  const spot = findFreeTile(world, o.tx, o.ty, o.move, 4, 2);
+  const map = world.map, at = requester !== o && !requester.inside ? map.idx(requester.tx, requester.ty) : -1;
+  let spot = roomFor(world, o, at);
+  if (!spot && at >= 0 && requester.order.type === 'harvest' && requester.harvest.state === 'toRefinery' && !onTheMove(requester)) {
+    const back = roomFor(world, requester, map.idx(o.tx, o.ty));
+    spot = back && roomFor(world, o, map.idx(back.x, back.y));
+    if (!spot) return;
+    const h = requester.harvest;
+    h.queuedAt = world.tick;
+    h.state = 'queued';
+    h.target = -1;
+    h.wait = 3;
+    world.requestPath(requester, map.idx(back.x, back.y));
+  }
   if (!spot) return;
-  if (o.harvest && o.order.type === 'harvest') { o.harvest.wait = Math.max(o.harvest.wait, 3); world.requestPath(o, world.map.idx(spot.x, spot.y)); }
+  if (o.harvest && o.order.type === 'harvest') { o.harvest.wait = Math.max(o.harvest.wait, 3); world.requestPath(o, map.idx(spot.x, spot.y)); }
   else orderMove(world, [o], spot.x, spot.y);
 }
 
@@ -130,11 +166,14 @@ function claimant(world, ref) {
   return null;
 }
 
+/** Waiting in line for a refinery (not one lifted out of the line by a Carryall). */
+const inLine = (o, ref) => o.harvest?.state === 'queued' && o.harvest.refinery === ref.id && o.house === ref.house && o.order.type === 'harvest' && !o.inside;
+
 /** True when no harvester has waited for this refinery longer than u. */
 function firstInLine(world, ref, u) {
   const mine = u.harvest.state === 'queued' ? u.harvest.queuedAt : Infinity;
   for (const o of world.units.values()) {
-    if (o === u || o.house !== ref.house || o.harvest?.state !== 'queued' || o.harvest.refinery !== ref.id || o.order.type !== 'harvest') continue;
+    if (o === u || !inLine(o, ref)) continue;
     if (o.harvest.queuedAt < mine || (o.harvest.queuedAt === mine && o.id < u.id)) return false;
   }
   return true;
@@ -152,7 +191,7 @@ function chooseRefinery(world, u) {
   for (const s of world.structures.values()) if (s.house === u.house && s.typeId === 'refinery' && dockTile(world, s) >= 0) refs.push(s);
   if (refs.length < 2) return refs[0] ?? null;
   const waiting = new Map();   // a busy refinery with a queue is worth a detour to a free one
-  for (const o of world.units.values()) if (o !== u && o.house === u.house && o.harvest?.state === 'queued') waiting.set(o.harvest.refinery, (waiting.get(o.harvest.refinery) ?? 0) + 1);
+  for (const o of world.units.values()) if (o !== u && o.house === u.house && o.harvest?.state === 'queued' && !o.inside) waiting.set(o.harvest.refinery, (waiting.get(o.harvest.refinery) ?? 0) + 1);
   let best = null, bestScore = Infinity;
   for (const s of refs) {
     const dock = dockTile(world, s);
@@ -290,15 +329,15 @@ export function updateHarvester(world, u) {
       const door = dockTile(world, ref);
       h.refinery = ref.id;
       const free = slotFree(world, ref, u);
-      if (here === door) {
-        if (free) enter(world, u, ref, door); else queue(world, u, ref, door);
+      if (here === door) {   // already at the entrance: in it goes whenever the slot is empty, claimed or not
+        if (!occupantOf(world, ref)) enter(world, u, ref, door); else queue(world, u, ref, door);
         return;
       }
       const close = near(map, u, door, CLAIM_RADIUS);
       if (close && !free) { queue(world, u, ref, door); return; }
       if (close) ref.incoming = u.id;
       const occupant = map.unit[door];
-      if (occupant && occupant !== u.id) clearDock(world, occupant, u);
+      if (occupant && occupant !== u.id) { clearDock(world, occupant, u); if (h.state !== 'toRefinery') return; }   // it may have to back off first
       h.target = door;
       world.requestPath(u, door);
       if (!close) callCarryall(world, u, { x: map.xOf(door), y: map.yOf(door) });   // a long way: a Carryall may fly it to the entrance
@@ -311,6 +350,7 @@ export function updateHarvester(world, u) {
       h.wait = 0.5;
       const door = dockTile(world, ref);
       if (door < 0) { h.state = 'toRefinery'; return; }
+      if (here === door && !u.step && !occupantOf(world, ref)) { enter(world, u, ref, door); return; }   // set down on the entrance: nobody else could get in past it
       if (slotFree(world, ref, u)) {
         ref.incoming = u.id;
         h.state = 'toRefinery';
@@ -391,24 +431,34 @@ function unload(world, ref, u, slot) {
   h.state = 'undocking';
 }
 
-/** The entrance when it is clear; after a short wait for it, any free tile beside the building on the same ground. -1 while boxed in. */
+/**
+ * The entrance when it is clear (where it is now, should a building have gone up on the old one while the
+ * harvester unloaded); after a short wait for it, any free tile beside the building on the same ground —
+ * parked friends there are asked to make room — or, when the entrance is shut in a pocket of its own, on
+ * any ground. -1 while boxed in.
+ */
 function exitTile(world, ref, u, slot) {
-  const map = world.map, door = slot.door;
-  const open = (i) => !map.unit[i] && !map.structure[i] && map.moveFactor(i, 'harvester') > 0;
+  const map = world.map;
+  if (map.structure[slot.door]) { const d = dockTile(world, ref); if (d >= 0) slot.door = d; }   // built over: the entrance moved
+  const door = slot.door;
+  const ground = (i) => !map.structure[i] && map.moveFactor(i, 'harvester') > 0;
+  const open = (i) => !map.unit[i] && ground(i);
   if (open(door)) return door;
-  const blocker = world.units.get(map.unit[door]);
-  if (blocker) clearDock(world, blocker.id, u);   // ask a parked friend to make room
+  if (map.unit[door]) clearDock(world, map.unit[door], u);   // ask a parked friend to make room
   if ((slot.waited += DT) < EXIT_PATIENCE) return -1;
-  const sameGround = !map.structure[door];
-  let best = -1, bestD = Infinity;
+  const sameGround = ground(door);
+  let best = -1, bestD = Infinity, stray = -1, strayD = Infinity, linked = false;
   for (let y = ref.y - 1; y <= ref.y + ref.h; y++) for (let x = ref.x - 1; x <= ref.x + ref.w; x++) {
     if (!map.inBounds(x, y)) continue;
     const i = map.idx(x, y);
-    if (!open(i) || (sameGround && !world.reach.connected(door, i, 'harvester'))) continue;
+    if (i === door || !ground(i)) continue;
     const d = Math.hypot(x - map.xOf(door), y - map.yOf(door));
+    if (sameGround && !world.reach.connected(door, i, 'harvester')) { if (!map.unit[i] && d < strayD) { strayD = d; stray = i; } continue; }
+    linked = true;
+    if (map.unit[i]) { clearDock(world, map.unit[i], u); continue; }
     if (d < bestD) { bestD = d; best = i; }
   }
-  return best;
+  return best >= 0 || linked ? best : stray;
 }
 
 function release(world, ref, u) {

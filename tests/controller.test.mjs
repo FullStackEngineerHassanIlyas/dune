@@ -461,6 +461,24 @@ test('modern: right click on an own vehicle has the selected Carryall lift it; l
   assert.deepEqual(c.selection.list(), [tank.id]);
 });
 
+test('a Carryall that already has a load does not offer to lift another', () => {
+  for (const scheme of ['classic', 'modern']) {
+    const { world, tank, tank2, c, issued, cursors } = setup(scheme);
+    const cy = world.spawnUnit('carryall', 'atreides', 3, 10);
+    world.map.unit[world.map.idx(tank2.tx, tank2.ty)] = 0;
+    tank2.inside = cy.id;
+    cy.cargo = tank2.id;
+    c.selection.set([cy.id]);
+    c.onMove(px(5), px(5));
+    c.frame();
+    assert.notEqual(cursors.at(-1), 'lift', `${scheme}: no lift cursor`);
+    c.onClick(px(5), px(5), scheme === 'modern' ? 2 : 0, NONE, false);
+    assert.ok(!issued.some((cmd) => cmd.type === 'lift'), `${scheme}: no lift order that could not be carried out`);
+    if (scheme === 'classic') assert.deepEqual(c.selection.list(), [tank.id], 'classic: the click selects the vehicle');
+    else assert.deepEqual(issued.at(-1), { type: 'move', ids: [cy.id], x: 5, y: 5 }, 'modern: the load is set down by it');
+  }
+});
+
 test('a Carryall with a load: the Repair Facility takes a worn one, a Refinery a Harvester', () => {
   const { world, c, issued, cursors } = setup();
   const bay = world.spawnStructure('repair', 'atreides', 1, 13);
@@ -484,8 +502,7 @@ test('a Carryall with a load: the Repair Facility takes a worn one, a Refinery a
   c.frame();
   assert.equal(cursors.at(-1), 'move');
   c.onClick(px(11), px(13), 0, NONE, false);
-  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id] });
-  assert.ok(ref);
+  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id], structureId: ref.id }, 'to the Refinery clicked');
 });
 
 test('over an enemy aircraft the cursor tells whether the selection can shoot upwards', () => {

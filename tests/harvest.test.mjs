@@ -320,3 +320,53 @@ test('a damaged refinery refines more slowly, never below a third of the rate', 
   assert.ok(Math.abs(half - 10) < 0.3, `half health: ${half}s`);
   assert.ok(Math.abs(wreck - 15) < 0.4, `a wreck: ${wreck}s`);
 });
+
+// Review (logistics): the slot is never held for good.
+test('a harvester whose entrance was built over while it unloaded backs out by the new one, friends making room', () => {
+  const { world, m, ref, u } = dockedWorld();
+  assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
+  world.spawnStructure('windtrap', 'atreides', 10, 10);   // over the entrance 10,10 (the AI packs its base like this)
+  for (let y = 7; y <= 10; y++) for (let x = 7; x <= 11; x++) {   // idle troops on every other tile around the refinery
+    const i = m.idx(x, y);
+    if (!m.structure[i] && !m.unit[i]) world.spawnUnit('combatTank', 'atreides', x, y);
+  }
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0, 'out of the slot');
+  assert.equal(ref.dockedBy || 0, 0, 'the slot is free again');
+  assert.deepEqual(checkInvariants(world), []);
+});
+
+test('a unit parked in an entrance with one way out is let out before the harvester drives in', () => {
+  const { world, h, m, ref } = dockedWorld();
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnStructure('wall', 'atreides', 9, 10);   // the entrance 10,10 is an alcove: in and out by 11,10 only
+  world.spawnStructure('wall', 'atreides', 10, 11);
+  world.spawnStructure('wall', 'atreides', 11, 11);
+  world.spawnUnit('soldier', 'atreides', 10, 10);
+  const u = loaded(world, 11, 10);   // right at its mouth
+  assert.ok(runUntil(world, () => u.docked === ref.id, 40) > 0, `docked (stuck at ${u.tx},${u.ty})`);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 20) > 0);
+});
+
+test('a harvester set down on an entrance at the end of a narrow way in does not lock horns with the one coming in', () => {
+  const { world, h, ref } = dockedWorld();
+  for (const u of harvesters(world)) world.removeUnit(u);
+  world.spawnStructure('silo', 'atreides', 8, 10);   // the entrance 10,10 and the tile below it run between two buildings
+  world.spawnStructure('silo', 'atreides', 11, 10);
+  const a = loaded(world, 10, 13);
+  run(world, 0.3);
+  assert.equal(ref.incoming, a.id, 'the first one has claimed the slot');
+  const b = loaded(world, 10, 10);   // a Carryall sets the second one down on the entrance
+  assert.ok(runUntil(world, () => h.credits >= 1399.9, 60) > 0, `both unloaded (credits ${h.credits}; ${a.harvest.state} at ${a.tx},${a.ty}, ${b.harvest.state} at ${b.tx},${b.ty})`);
+});
+
+test('a harvester whose entrance became a closed pocket with a unit stuck in it still backs out', () => {
+  const { world, m, ref, u } = dockedWorld();
+  assert.ok(runUntil(world, () => u.harvest.state === 'unloading', 5) > 0);
+  world.spawnUnit('soldier', 'atreides', 10, 10);   // on the entrance …
+  world.spawnStructure('wall', 'atreides', 9, 10);   // … walled in on every side but the refinery's
+  world.spawnStructure('wall', 'atreides', 11, 10);
+  for (let x = 9; x <= 11; x++) world.spawnStructure('wall', 'atreides', x, 11);
+  assert.ok(runUntil(world, () => !u.inside, 20) > 0, 'out of the slot by another side');
+  assert.equal(ref.dockedBy || 0, 0);
+  assert.deepEqual(checkInvariants(world), []);
+});

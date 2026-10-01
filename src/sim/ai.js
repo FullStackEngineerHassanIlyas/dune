@@ -1,7 +1,8 @@
 // Computer opponent (spec §4.10): one brain per AI house, thinking once a second. It sees the whole map,
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
-// and add silos when storage runs full. Then an army, rally points, base defence and attack waves. A
+// and add silos when storage runs full; no building goes up on the apron of a Refinery or Repair Facility
+// (harvesters waiting and backing out in a narrow way in would lock horns). Then an army, rally points, base defence and attack waves. A
 // charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
 // building its blast brings down.
@@ -15,6 +16,7 @@ import { isArmed, distanceTo } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
+import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
 import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
 
@@ -133,7 +135,7 @@ function buildBase(world, house, view) {
   if (item?.state === 'ready') {
     const turret = item.typeId === 'turret' || item.typeId === 'rocketTurret';
     const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
-    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12);
+    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, item.typeId));
     if (spot) issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
     else { b.noRoom[item.typeId] = world.time; issue(world, house, { type: 'hold', typeId: item.typeId }); }   // a ready structure cancels at once, refunded
     return;
@@ -146,6 +148,57 @@ function buildBase(world, house, view) {
   }
   const yardUp = upgradeId('constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
   if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
+}
+
+const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/** Does ground tile `from` lead WAY_OUT tiles away for a vehicle, around buildings and the footprint `covers`? */
+function leadsOut(map, from, covers = () => false) {
+  const fx = map.xOf(from), fy = map.yOf(from);
+  const pass = (i, x, y) => map.moveFactor(i, 'harvester') > 0 && !map.structure[i] && !covers(x, y);
+  if (!pass(from, fx, fy)) return false;
+  const seen = new Set([from]), queue = [from];
+  for (let k = 0; k < queue.length; k++) {
+    const x = map.xOf(queue[k]), y = map.yOf(queue[k]);
+    if (Math.max(Math.abs(x - fx), Math.abs(y - fy)) >= WAY_OUT) return true;
+    for (const [dx, dy] of N4) {
+      const nx = x + dx, ny = y + dy, j = map.inBounds(nx, ny) ? map.idx(nx, ny) : -1;
+      if (j >= 0 && !seen.has(j) && pass(j, nx, ny)) { seen.add(j); queue.push(j); }
+    }
+  }
+  return false;
+}
+
+/**
+ * A placement test for a building of `typeId`: it may not go up on the apron of one of the house's
+ * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
+ * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
+ * a new one needs its own apron clear and an entrance that leads out.
+ */
+export function keepsWaysIn(world, houseId, typeId) {
+  const map = world.map, t = STRUCTURES[typeId], aprons = [];
+  if (!t || t.isConcrete) return () => true;
+  const apron = (x, y) => {   // entrances face south
+    const out = [];
+    for (let dy = 0; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (map.inBounds(x + dx, y + dy)) out.push(map.idx(x + dx, y + dy));
+    return out;
+  };
+  for (const s of world.structures.values()) {
+    if (s.house !== houseId || !s.type.entrance) continue;
+    const door = dockTile(world, s);
+    if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
+    aprons.push({ door, open: apron(map.xOf(door), map.yOf(door)).filter((i) => !map.structure[i]) });
+  }
+  return (x, y) => {
+    const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
+    const clear = (i) => !covers(map.xOf(i), map.yOf(i));
+    if (t.entrance) {
+      const ex = x + t.entrance[0], ey = y + t.entrance[1];
+      if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
+    }
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers));
+  };
 }
 
 /** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
