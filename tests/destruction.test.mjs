@@ -344,3 +344,14 @@ test('fire, smoke and blasts fill their particles from constant templates, alloc
   for (let k = 0; k < 30; k++) debris.update(1 / 30, () => 0, fx);
   assert.ok(seen.size > templates && seen.size <= templates + 2, 'a burning piece trails from its own two');
 });
+
+test('a whole base brought down keeps all its rubble, even on Low', () => {
+  for (const particles of [1500, 4000]) {
+    const { d } = stage({ particles, shadows: 0, flashLights: 0 });
+    const base = [['constructionYard', 2, 2], ['windtrap', 2, 2], ['windtrap', 2, 2], ['windtrap', 2, 2], ['windtrap', 2, 2], ['silo', 2, 2], ['silo', 2, 2], ['outpost', 2, 2],
+      ['barracks', 2, 2], ['lightFactory', 2, 2], ['refinery', 3, 2], ['refinery', 3, 2], ['heavyFactory', 3, 2], ['hiTech', 3, 2], ['repair', 3, 2], ['starport', 3, 3], ['palace', 3, 3],
+      ...Array.from({ length: 4 }, () => ['turret', 1, 1]), ...Array.from({ length: 16 }, () => ['wall', 1, 1])];
+    base.forEach(([typeId, w, h], k) => d.structureDestroyed({ id: k + 1, typeId, house: 'ordos', x: 1 + (k % 6) * 4, y: 1 + Math.floor(k / 6) * 4, w, h }, false));
+    assert.ok(d.rubble.used < d.rubble.capacity, `${particles}: ${d.rubble.used} pieces in a ring of ${d.rubble.capacity}: the first ruins are being taken apart`);
+  }
+});

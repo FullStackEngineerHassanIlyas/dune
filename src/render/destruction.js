@@ -35,7 +35,8 @@ export class Destruction {
     const budget = quality.particles ?? 4000, shadows = (quality.shadows ?? 0) > 0;
     this.density = clamp(budget / 4000, 0.45, 1.5);   // Low 0.45, Medium 1, High 1.5
     this.debris = new Debris(scene, { capacity: Math.round(budget / 25), castShadow: shadows });
-    this.rubble = new Rubble(scene, { capacity: Math.round(budget / 8), castShadow: shadows });
+    // rubble is one static draw call: room for two or three whole bases' ruins (Low 750, Medium 2000, High 4000 pieces)
+    this.rubble = new Rubble(scene, { capacity: Math.round(budget / 2), castShadow: shadows });
     this.wrecks = new Wrecks(scene, hf, { cap: Math.round(6 + budget / 250), castShadow: shadows });
     this.heightAt = (x, z) => hf.heightAt(x, z);
     this.visible = (x, z) => this.near(x, z) && this.seen(x, z);
