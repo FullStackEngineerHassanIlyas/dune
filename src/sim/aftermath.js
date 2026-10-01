@@ -42,7 +42,7 @@ export function aftermathOfUnit(world, u, attacker) {
   if (u.type.sabotage) { splash(world, u.x, u.y, SABOTEUR.splash, SABOTEUR.radius, { house: u.house, id: u.id, kind: 'unit' }, 'large'); return; }   // its charge goes off where it falls
   if (!u.isGround) { world.events.push('explosion', { x: u.x, y: u.y, size: 'small', alt: u.alt ?? 0 }); return; }   // blown up in the air
   if (u.type.explodes) splash(world, u.x, u.y, DEATH_SPLASH.damage, DEATH_SPLASH.radius, attacker);
-  else if (!onFoot(u.move)) world.events.push('explosion', { x: u.x, y: u.y, size: 'small' });
+  else if (!onFoot(u.move)) world.events.push('explosion', { x: u.x, y: u.y, size: 'small', alt: u.alt ?? 0 });   // a load goes up under its Carryall
 }
 
 export function aftermathOfStructure(world, s) {

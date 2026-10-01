@@ -84,16 +84,19 @@ test('a rocket launch throws backblast behind its launcher; catching up draws no
 test('a Carryall shot down with its load: the load falls and crashes as a wreck too, not vanishing in the air', () => {
   const { world, s } = stage();
   const carryall = world.spawnUnit('carryall', 'atreides', 10, 10);
-  const load = world.spawnUnit('harvester', 'atreides', 10, 10, { inside: carryall.id });
+  const load = world.spawnUnit('combatTank', 'atreides', 10, 10, { inside: carryall.id });   // on its way to repairs
   carryall.alt = 1.6;
   carryall.cargo = load.id;
   load.alt = 1.18;
   s.sync(1, 0.016, 0);
   killUnit(world, carryall);
-  for (const e of world.events.drain()) s.onEvent(e);
+  const events = world.events.drain();
+  for (const e of events) s.onEvent(e);
   const wrecks = s.destruction.wrecks.list;
-  assert.deepEqual(wrecks.map((w) => w.model.def.name).sort(), ['carryallWreck', 'harvesterWreck']);
+  assert.deepEqual(wrecks.map((w) => w.model.def.name).sort(), ['carryallWreck', 'combatTankWreck']);
   assert.ok(wrecks.every((w) => w.fall), 'both falling');
+  const blasts = events.filter((e) => e.type === 'explosion');
+  assert.ok(blasts.length === 2 && blasts.every((e) => e.alt > 0.5), 'both blow up in the air, not one of them on the sand below');
 });
 
 test('a building destroyed under the shroud shows no rubble until the viewer has explored its ground', () => {
