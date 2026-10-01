@@ -91,8 +91,8 @@ test('production chaos: builds, upgrades that set work aside, holds, cancels and
   world.issue(house, { type: 'deploy', ids: [mcv.id] });
   world.step();
   const books = ledger(world), yard = [...world.structures.values()].find((s) => s.house === house);
-  const BASE = ['windtrap', 'windtrap', 'windtrap', 'windtrap', 'refinery', 'outpost', 'barracks', 'wor', 'lightFactory', 'heavyFactory', 'hiTech'];
-  const FACTORIES = ['barracks', 'wor', 'lightFactory', 'heavyFactory', 'hiTech'];
+  const BASE = ['windtrap', 'windtrap', 'windtrap', 'windtrap', 'refinery', 'outpost', 'barracks', 'wor', 'heavyFactory', 'heavyFactory', 'hiTech'];
+  const FACTORIES = ['barracks', 'wor', 'heavyFactory', 'hiTech'];
   const restock = () => {   // lost factories come back, so every line keeps working
     const have = {}, need = {};
     for (const s of world.structures.values()) if (s.house === house) have[s.typeId] = (have[s.typeId] ?? 0) + 1;

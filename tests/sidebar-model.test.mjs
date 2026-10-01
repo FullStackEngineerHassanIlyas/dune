@@ -148,7 +148,7 @@ test('the item an upgrade sets aside keeps its clock and a badge in the strip, a
   factories(world);
   world.issue('atreides', { type: 'build', typeId: 'trike' });
   run(world, 4);
-  world.issue('atreides', { type: 'build', typeId: 'upgrade:lightFactory' });
+  world.issue('atreides', { type: 'build', typeId: 'upgrade:heavyFactory' });   // one vehicle factory (improve/one-factory)
   world.step();
   const m = sidebarModel(world, 'atreides');
   const trike = m.units.find((i) => i.typeId === 'trike');
@@ -158,7 +158,7 @@ test('the item an upgrade sets aside keeps its clock and a badge in the strip, a
   assert.equal(badgeOf(trike), '1', 'still on order');
   assert.match(tipText(trike), /resumes after the upgrade/);
   assert.deepEqual([badgeOf({ state: 'queued', count: 1, progress: 0 }), wipeOf({ state: 'queued', count: 1, progress: 0 })], ['1', '1'], 'any item on order but not begun');
-  const cur = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'upgrade:lightFactory');
+  const cur = sidebarModel(world, 'atreides').structures.find((i) => i.typeId === 'upgrade:heavyFactory');
   assert.deepEqual([cur.state, badgeOf(cur)], ['building', ''], 'the one in work shows its clock, and a number only for more of it');
   assert.equal(badgeOf({ typeId: 'upgrade:heavyFactory', state: 'queued', count: 1, progress: 0 }), '', 'a queued upgrade: its level arrow has that corner');
 });
