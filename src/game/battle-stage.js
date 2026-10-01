@@ -194,7 +194,7 @@ export class BattleStage {
     else decals.stamp('scorch', x, z, 0.5, 0.4);
   }
 
-  /** The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. */
+  /** The per-frame view update: fog shroud, views, shots in flight, dust and tracks, particles, ground. dt 0: time stands still. */
   sync(alpha, dt, now) {
     if (this.disposed) return;
     const world = this.world;
@@ -220,10 +220,14 @@ export class BattleStage {
     this.missiles.sync(this.world, 1, this.heightAt, this.seenAt);
   }
 
-  /** Tracers and trails for shots in flight (interpolated between ticks; rockets arc), and smoke and fire from the wounded. */
+  /**
+   * Tracers and trails for shots in flight (interpolated between ticks; rockets arc), and smoke and fire from the
+   * wounded. With no time passing (a paused game, a still redrawn) shots hang where they are and lay nothing:
+   * a tracer that never ages would pile up, frame after frame, into a glowing heap.
+   */
   combatEffects(dt, alpha) {
     const w = this.world;
-    this.shotFx.update(w, alpha, this.heightAt, this.seenAt);
+    if (dt > 0) this.shotFx.update(w, alpha, this.heightAt, this.seenAt);
     this.destruction.wounded(w, dt, this.positionOf);
   }
 

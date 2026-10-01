@@ -122,3 +122,15 @@ test('concrete laid over old ruins clears the rubble there', () => {
   const m = new THREE.Matrix4(), sc = new THREE.Vector3();
   for (let i = 0; i < s.destruction.rubble.used; i++) { s.destruction.rubble.mesh.getMatrixAt(i, m); assert.equal(sc.setFromMatrixScale(m).y, 0); }
 });
+
+test('a paused battle (no time passing) stands still: shots in flight do not pile up tracers and smoke', () => {
+  const { world, s, particles } = stage();
+  world.projectiles.set(1, { id: 1, projectile: 'bullet', weapon: 'mg', house: 'atreides', x: 6, y: 6, px: 5.5, py: 6, sx: 4, sy: 6, tx: 9, ty: 6, speed: 15 });
+  world.projectiles.set(2, { id: 2, projectile: 'rocket', weapon: 'rocket', house: 'atreides', x: 6, y: 9, px: 5.5, py: 9, sx: 4, sy: 9, tx: 12, ty: 9, speed: 12.5 });
+  s.onEvent({ type: 'unitDestroyed', id: 77, typeId: 'combatTank', house: 'ordos', x: 12.5, y: 12.5, cause: 'destroyed' });
+  s.sync(1, 0.016, 0);
+  const n = particles(), wreck = s.destruction.wrecks.list[0], age = wreck.age;
+  for (let k = 0; k < 300; k++) s.sync(1, 0, 16);   // five seconds of a paused game
+  assert.ok(particles() <= n, `${particles()} particles, from ${n}: a glowing heap over every shot`);
+  assert.equal(wreck.age, age);
+});
