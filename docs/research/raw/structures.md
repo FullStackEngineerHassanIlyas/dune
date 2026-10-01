@@ -532,6 +532,11 @@ formula. [OpenDUNE `structure.c` `GameLoop_Structure()`]
   "Barracks, trooper").
 
 ### Light Factory
+> **Remake note (2026-10-01):** the remake has no Light Factory. As on the Genesis (see **Sega**
+> below), its Heavy Factory is the one vehicle factory: it takes this building's place in the tree,
+> tech level, price and build time, builds Trike/Raider/Quad too, and its first upgrade level is this
+> building's (Quad; Harkonnen start with it). Spec §4.5.
+
 - **Stats**: 2×2, cost 400, build 96, HP 350, power 20, fog radius 3, prereq Refinery+Wind Trap,
   all houses (generic tech mission 3, but forced to mission 2 for every house except Harkonnen —
   see Tech tree § note), sort priority 14. Builds Trike (Ordos variant: Raider Trike) and Quad;
@@ -563,6 +568,9 @@ formula. [OpenDUNE `structure.c` `GameLoop_Structure()`]
 - Sources: OpenDUNE structureinfo.c/structure.c/animation.c; Ledmeister PC FAQ §23; StrategyWiki.
 
 ### Heavy Factory
+> **Remake note (2026-10-01):** in the remake this is the only vehicle factory (Refinery + Wind Trap,
+> tech 3, cost 400, build 96, four upgrade levels: Quad, then the three below). See Light Factory §.
+
 - **Stats**: 3×2, cost 600, build 144, HP 200, power 35, fog radius 3, prereq
   Outpost+Wind Trap+Light Factory, all houses, tech mission 4, sort priority 28. Builds Siege
   Tank, Launcher (Missile Tank), Harvester, (Combat) Tank, Devastator, Deviator, MCV, Sonic Tank
