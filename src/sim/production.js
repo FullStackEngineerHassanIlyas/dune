@@ -79,7 +79,7 @@ export function orderHold(world, houseId, typeId) {
   if (!house || !line) return;
   const l = house.lines[line];
   if (l.current?.typeId === typeId) {
-    if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'On hold.'); return; }
+    if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'Production on hold.'); return; }
     addCredits(world, house, l.current.paid);   // second press, or a ready structure: cancel with a refund (up to the storage)
     l.current = null;
     eva(world, house, 'cancelled', 'Cancelled.');

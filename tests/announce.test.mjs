@@ -33,13 +33,13 @@ test('resuming a held soldier trains again; resuming a held structure builds aga
   world.issue('atreides', { type: 'build', typeId: 'soldier' });
   world.issue('atreides', { type: 'hold', typeId: 'soldier' });
   world.step();
-  assert.deepEqual(said(world), ['training:Training.', 'onHold:On hold.']);
+  assert.deepEqual(said(world), ['training:Training.', 'onHold:Production on hold.']);
   world.issue('atreides', { type: 'build', typeId: 'soldier' });
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
   world.issue('atreides', { type: 'hold', typeId: 'windtrap' });
   world.issue('atreides', { type: 'build', typeId: 'windtrap' });
   world.step();
-  assert.deepEqual(said(world), ['training:Training.', 'building:Building.', 'onHold:On hold.', 'building:Building.']);
+  assert.deepEqual(said(world), ['training:Training.', 'building:Building.', 'onHold:Production on hold.', 'building:Building.']);
 });
 
 test('a finished unit is ready; a finished harvester is deployed', () => {
