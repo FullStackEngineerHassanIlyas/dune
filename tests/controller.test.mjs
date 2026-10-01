@@ -484,8 +484,7 @@ test('a Carryall with a load: the Repair Facility takes a worn one, a Refinery a
   c.frame();
   assert.equal(cursors.at(-1), 'move');
   c.onClick(px(11), px(13), 0, NONE, false);
-  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id] });
-  assert.ok(ref);
+  assert.deepEqual(issued.at(-1), { type: 'returnToBase', ids: [cy.id], structureId: ref.id }, 'to the Refinery clicked');
 });
 
 test('over an enemy aircraft the cursor tells whether the selection can shoot upwards', () => {

@@ -178,7 +178,7 @@ export class Controller {
   deliverOrder(s, lifters) {
     const ids = lifters.filter((c) => this.delivers(c, s)).map((c) => c.id);
     if (!ids.length) return false;
-    this.issue(s.typeId === 'repair' ? { type: 'repairAt', ids, structureId: s.id } : { type: 'returnToBase', ids });
+    this.issue({ type: s.typeId === 'repair' ? 'repairAt' : 'returnToBase', ids, structureId: s.id });
     return true;
   }
 
