@@ -26,9 +26,9 @@ export const DIFFICULTY = {
 const fighter = (u) => isArmed(u.type) && !u.type.autonomous && !u.type.sabotage;
 
 export const BUILD_ORDER = {
-  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
-  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'heavyFactory', 'windtrap', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  atreides:  ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  harkonnen: ['windtrap', 'refinery', 'windtrap', 'outpost', 'wor', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
+  ordos:     ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
@@ -146,12 +146,19 @@ function buildBase(world, house, view) {
   if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
+/** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
 function nextStructure(world, house, view) {
-  const b = house.brain, id = house.id, d = DIFFICULTY[b.difficulty];
+  const b = house.brain, id = house.id;
   const can = (t) => canBuild(world, id, t) && world.time - (b.noRoom[t] ?? -1e9) >= NO_ROOM_RETRY;
-  const has = (t) => view.count[t] ?? 0;
   const power = computePower(world, id);
   if (power.produced < power.used + 20 && can('windtrap')) return 'windtrap';
+  const t = wantedStructure(world, house, view, can);
+  return t && power.produced < power.used + STRUCTURES[t].power && can('windtrap') ? 'windtrap' : t;
+}
+
+function wantedStructure(world, house, view, can) {
+  const id = house.id, d = DIFFICULTY[house.brain.difficulty];
+  const has = (t) => view.count[t] ?? 0;
   const need = {};
   for (const t of BUILD_ORDER[id] ?? BUILD_ORDER.atreides) {
     need[t] = (need[t] ?? 0) + 1;

@@ -99,7 +99,7 @@ test('the AI builds the Heavy Factory early and fields light vehicles and tanks 
   const { world, rival } = setupSkirmish({ seed: 11, difficulty: 'normal' });
   const kinds = new Set();
   let factoryAt = -1;
-  for (let k = 0; k < 20 * 420; k++) {
+  for (let k = 0; k < 20 * 600; k++) {
     world.step();
     for (const e of world.events.drain()) {
       if (e.house !== rival) continue;
@@ -107,6 +107,6 @@ test('the AI builds the Heavy Factory early and fields light vehicles and tanks 
       if (e.type === 'unitBuilt' && e.unitType !== 'harvester') kinds.add(UNITS[e.unitType].move === MOVE.WHEELED ? 'light' : UNITS[e.unitType].move === MOVE.TRACKED ? 'tank' : 'other');
     }
   }
-  assert.ok(factoryAt > 0 && factoryAt < 240, `the Heavy Factory went up at ${factoryAt} s`);
+  assert.ok(factoryAt > 0 && factoryAt < 270, `the Heavy Factory went up at ${factoryAt} s`);
   assert.ok(kinds.has('light') && kinds.has('tank'), [...kinds].join(', '));
 });

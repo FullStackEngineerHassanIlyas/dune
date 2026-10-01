@@ -24,11 +24,15 @@ test('the AI deploys its MCV and builds power and a refinery first', () => {
 test('the AI follows its build order and keeps its power up', () => {
   const { world, rival } = setupSkirmish({ seed: 5, enemy: 'harkonnen' });
   createBrain(world, rival, 'normal');
-  run(world, 600);
+  const short = [];
+  for (let s = 0; s < 600; s++) {   // never short: a Wind Trap goes up before a building that would overdraw
+    run(world, 1);
+    const p = computePower(world, rival);
+    if (p.produced < p.used) short.push(`${world.time.toFixed(0)} s ${p.produced}/${p.used}`);
+  }
   const n = owned(world, rival);
   for (const t of ['outpost', 'wor', 'heavyFactory']) assert.ok(n[t] >= 1, `${t} in ${JSON.stringify(n)}`);
-  const p = computePower(world, rival);
-  assert.ok(p.produced >= p.used, `power ${p.produced}/${p.used}`);
+  assert.deepEqual(short, [], 'power');
 });
 
 test('an AI without room or money does not spam commands', () => {
