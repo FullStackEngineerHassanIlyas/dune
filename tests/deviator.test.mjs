@@ -98,6 +98,16 @@ test('an attack order at a Harvester or a building leaves a Deviator be', () => 
   assert.equal(dev.order.type, 'attack');
 });
 
+test('a Deviator shot by a turret does not answer with gas it cannot use', () => {
+  const world = flatWorld(30, 20);
+  world.spawnStructure('turret', 'atreides', 10, 10);
+  const dev = world.spawnUnit('deviator', 'ordos', 14, 10);
+  run(world, 6);
+  assert.ok(dev.hp < dev.maxHp, 'it was shot');
+  assert.notEqual(dev.order.type, 'attack');
+  assert.ok(!world.events.drain().some((e) => e.type === 'fired' && e.id === dev.id));
+});
+
 test('the Deviator joins the Ordos roster once a House of IX stands', () => {
   const world = flatWorld(20, 20);
   world.spawnStructure('heavyFactory', 'ordos', 1, 1);

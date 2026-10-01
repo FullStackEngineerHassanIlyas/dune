@@ -36,7 +36,11 @@ export class Sidebar {
     this.weapon = el.querySelector('.sb-weapon');
     this.weaponImg = this.weapon.querySelector('img');
     this.weaponState = this.weapon.querySelector('.sb-state');
-    this.weapon.addEventListener('click', () => { if (this.weapon.item?.ready) this.onSpecial(this.weapon.item); });
+    this.weapon.addEventListener('click', () => {
+      const item = this.weapon.item;
+      if (item?.ready) this.onSpecial(item);
+      else if (item) this.onCommand({ type: 'palace' });   // still charging: the Palace says it is not ready
+    });
     this.weapon.addEventListener('pointerenter', () => this.showTip(this.weapon));
     this.weapon.addEventListener('pointerleave', () => this.hideTip());
     this.tipFor = null;

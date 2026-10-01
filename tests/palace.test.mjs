@@ -48,6 +48,27 @@ test('the Death Hand fires only when charged; it rises from the Palace and comes
   assert.ok(world.events.drain().some((e) => e.type === 'deathHandBlast'));
 });
 
+test('a Death Hand launch is announced to every house: "Missile launched" (spec §6)', () => {
+  const { world, s } = palace('harkonnen');
+  charge(world, s);
+  world.events.drain();
+  world.issue('harkonnen', { type: 'palace', x: 40, y: 20 });
+  world.step();
+  const heard = world.events.drain().filter((e) => e.type === 'eva' && e.key === 'missileLaunched').map((e) => e.house);
+  assert.deepEqual(heard.sort(), [...world.houses.keys()].sort());
+});
+
+test('asked before any aim (the sidebar button while it charges), a charging weapon says it is not ready', () => {
+  const { world, s } = palace('harkonnen');
+  world.issue('harkonnen', { type: 'palace' });
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'notReady'));
+  charge(world, s);
+  world.issue('harkonnen', { type: 'palace' });   // charged, but nowhere to go: refused, the charge kept
+  world.step();
+  assert.ok(world.events.drain().some((e) => e.type === 'commandRejected') && palaceReady(world, s) && world.projectiles.size === 0);
+});
+
 test('the Death Hand bursts in 17 blasts that wreck what stands there, friend or foe', () => {
   const { world, s } = palace('harkonnen');
   const yard = world.spawnStructure('constructionYard', 'atreides', 30, 20);

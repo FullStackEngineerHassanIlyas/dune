@@ -43,8 +43,9 @@ function unitButtons(own) {
   own = own.filter((u) => !u.type.autonomous && u.destructAt === undefined);   // Carryalls, Fremen and a Devastator counting down take no orders
   if (!own.length) return [];
   const b = [{ id: 'stop', label: 'Stop', key: 'S' }, { id: 'guard', label: 'Guard', key: 'G' }, { id: 'scatter', label: 'Scatter', key: 'X' }];
-  if (own.some((u) => u.type.deploysTo)) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
-  if (own.some((u) => u.type.destructs)) b.push({ id: 'destruct', label: 'Destruct', key: 'D' });
+  const deploys = own.some((u) => u.type.deploysTo);
+  if (deploys) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
+  if (own.some((u) => u.type.destructs)) b.push(deploys ? { id: 'destruct', label: 'Destruct' } : { id: 'destruct', label: 'Destruct', key: 'D' });   // D deploys an MCV first (orders.js)
   if (own.some((u) => u.harvest)) b.push({ id: 'return', label: 'Return' });
   return b;
 }

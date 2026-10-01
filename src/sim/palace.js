@@ -43,8 +43,10 @@ export function orderPalace(world, houseId, x, y) {
   const s = palaceOf(world, houseId), weapon = palaceWeapon(houseId);
   const launch = { deathHand: launchDeathHand, fremen: callFremen, saboteur: sendSaboteur }[weapon];
   const aimed = weapon !== 'saboteur';
-  if (!s || !launch || (aimed && !(Number.isFinite(x) && Number.isFinite(y)))) { world.events.push('commandRejected', { house: houseId, command: 'palace' }); return; }
-  if (!palaceReady(world, s)) { eva(world, houseId, 'notReady', `The ${PALACE.names[weapon]} is not ready.`); return; }
+  const reject = () => world.events.push('commandRejected', { house: houseId, command: 'palace' });
+  if (!s || !launch) { reject(); return; }
+  if (!palaceReady(world, s)) { eva(world, houseId, 'notReady', `The ${PALACE.names[weapon]} is not ready.`); return; }   // also for a click on the charging button
+  if (aimed && !(Number.isFinite(x) && Number.isFinite(y))) { reject(); return; }
   const map = world.map;
   const tx = aimed ? Math.max(0, Math.min(map.w - 1, Math.floor(x))) : null, ty = aimed ? Math.max(0, Math.min(map.h - 1, Math.floor(y))) : null;
   if (!launch(world, s, tx, ty)) return;
@@ -63,6 +65,7 @@ function launchDeathHand(world, s, tx, ty) {
     accurate: true, homing: false, target: null, airburst: false, fromAlt: 0, toAlt: 0, deathHand: true,
   });
   world.events.push('fired', { id: s.id, kind: 'structure', house: s.house, weapon: 'deathHand', projectile: 'deathHand', x: fx, y: fy, tx: x, ty: y });
+  for (const h of world.houses.keys()) eva(world, h, 'missileLaunched', 'Missile launched.');   // everyone hears it (spec §6 announcer list)
   return true;
 }
 
@@ -86,7 +89,7 @@ function callFremen(world, s, x, y) {
   return true;
 }
 
-/** Free sand near (x, y), nearest rings first; open ground if there is no sand within reach. */
+/** Free sand near (x, y), nearest rings first; with too little sand within reach, the rest from open ground, nearest first. */
 function risingSpots(world, x, y) {
   const map = world.map, sand = [], ground = [], want = FREMEN.squads * 2;
   for (let r = 0; r <= FREMEN.reach && sand.length < want; r++) {
@@ -97,7 +100,8 @@ function risingSpots(world, x, y) {
       (map.isSand(i) ? sand : ground).push(i);
     }
   }
-  return sand.length ? sand : ground.slice(0, want);
+  if (sand.length >= FREMEN.squads) return sand;
+  return sand.length ? sand.concat(ground.slice(0, FREMEN.squads - sand.length)) : ground.slice(0, want);
 }
 
 /** One Saboteur walks out beside the Palace, the player's to command. */

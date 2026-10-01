@@ -19,7 +19,7 @@ export function applyCommand(world, houseId, cmd) {
     case 'stop': units.forEach(stopUnit); return;
     case 'guard': units.forEach((u) => { stopUnit(u); u.order = { type: 'guard', x: u.tx, y: u.ty }; }); return;
     case 'scatter': scatter(world, units); return;
-    case 'deploy': units.forEach((u) => (u.type.destructs ? orderDestruct(world, u) : orderDeploy(world, u))); return;   // D: Deploy or Destruct (spec §5.6)
+    case 'deploy': deployOrDestruct(world, units); return;
     case 'destruct': units.forEach((u) => orderDestruct(world, u)); return;
     case 'build': orderBuild(world, houseId, cmd.typeId, cmd.count ?? 1); return;
     case 'hold': orderHold(world, houseId, cmd.typeId); return;
@@ -40,6 +40,13 @@ export function applyCommand(world, houseId, cmd) {
     case 'attackMove': orderAttackMove(world, units, cmd.x, cmd.y); return;
     default: world.events.push('commandRejected', { house: houseId, command: cmd?.type });
   }
+}
+
+/** D (spec §5.6): Deploy, or Destruct. A selection with an MCV deploys it and blows nothing up. */
+function deployOrDestruct(world, units) {
+  const deployers = units.filter((u) => u.type.deploysTo);
+  if (deployers.length) deployers.forEach((u) => orderDeploy(world, u));
+  else units.forEach((u) => orderDestruct(world, u));
 }
 
 export function stopUnit(u) {

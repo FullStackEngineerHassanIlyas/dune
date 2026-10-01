@@ -41,6 +41,7 @@ export function orderDestruct(world, u) {
   stopUnit(u);
   u.target = null;
   u.aiming = false;
+  u.noNudge = true;   // it keeps its tile: friends drive round
   u.destructAt = world.time + DESTRUCT.delay;
   world.events.push('destructArmed', { id: u.id, house: u.house, x: u.x, y: u.y });
 }
