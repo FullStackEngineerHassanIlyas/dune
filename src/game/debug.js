@@ -49,5 +49,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     paused: () => !!view?.paused,
     outcome: () => world.outcome,
     sound: () => ({ ready: !!view?.sound?.ctx, state: view?.sound?.ctx?.state ?? null, buffers: view?.sound?.buffers.size ?? 0, voices: view?.sound?.limiter.total ?? 0, ambience: !!view?.sound?.ambience }),
+    voice: () => view?.announcer?.status() ?? null,
+    /** Opens the audio context if need be (it may stay suspended: decoding does not need it running) and decodes every line of the house. */
+    voiceCheck: async () => { if (!view?.sound?.ctx) view?.sound?.open(); return view?.announcer?.player.output.check?.() ?? null; },
   };
 }

@@ -5,6 +5,7 @@ import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
 import { PlacementGhost } from '../render/placement-ghost.js';
 import { SoundEngine } from '../audio/engine.js';
+import { VoicePlayer, WebVoiceOutput } from '../audio/voice.js';
 import { EndScreen } from '../ui/end-screen.js';
 import { endStats } from '../sim/victory.js';
 import { Overlay } from '../render/overlay.js';
@@ -35,6 +36,7 @@ import { DT, GAME_SPEED } from '../data/tuning.js';
 import { checkInvariants } from '../sim/invariants.js';
 import { createDebugApi } from './debug.js';
 import { BattleStage } from './battle-stage.js';
+import { Announcer } from './announcer.js';
 
 export class GameView {
   constructor({ world, house, settings, params, focus }) {
@@ -65,6 +67,10 @@ export class GameView {
     this.cameraControl = new CameraControl(this.rig, canvas, settings, { onScroll: makeScrollCursor(document.getElementById('app'), anchor) });
     this.overlay = new Overlay(document.getElementById('overlay'));
     this.hud = new Hud(document.getElementById('ui'));
+    this.announcer = new Announcer({   // voiced lines for the player's house; the message bar keeps the text
+      world, house, player: new VoicePlayer({ output: new WebVoiceOutput(this.sound, house), volume: settings.voiceVolume }),
+      onMessage: (text) => this.hud.message(text),
+    });
     const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
@@ -72,7 +78,11 @@ export class GameView {
       onCommand: click((cmd) => world.issue(house, cmd)),
       onPlace: click((typeId) => this.controller.startPlacement(typeId)),
       onTool: click((tool) => this.controller.setMode(this.controller.mode?.kind === tool ? null : { kind: tool })),
-      onSpecial: click((special) => (special.aim ? this.controller.setMode({ kind: 'palace' }) : world.issue(house, { type: 'palace' }))),
+      onSpecial: click((special) => {
+        if (!special.aim) return world.issue(house, { type: 'palace' });
+        this.announcer.say('selectTarget', performance.now() / 1000);
+        return this.controller.setMode({ kind: 'palace' });
+      }),
       onMenu: click(() => this.openMenu()),
       onFullscreen: click(() => toggleFullscreen()),
     });
@@ -168,6 +178,7 @@ export class GameView {
 
   onEvent(e) {
     this.stage.onEvent(e);
+    this.announcer.onEvent(e, performance.now() / 1000);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
@@ -239,6 +250,7 @@ export class GameView {
     if (key === 'gameSpeed') this.speed = GAME_SPEED[value] ?? 1;
     else if (key === 'volume') { this.sound.volume = value; this.sound.setMuted(this.sound.muted); }
     else if (key === 'sound') this.sound.setMuted(!value);
+    else if (key === 'voiceVolume') this.announcer.player.setVolume(value);
   }
 
   frame(now) {
@@ -249,6 +261,7 @@ export class GameView {
     this.last = now;
     // the loop gets the real interval: it caps a stall at 0.25 s itself, so slow devices do not play in slow motion
     const { steps, alpha } = this.paused ? { steps: 0, alpha: 1 } : this.loop.advance(raw, this.speed);
+    this.announcer.frame(now / 1000, this.selection, this.radarWas);   // before the step takes the new orders
     for (let i = 0; i < steps; i++) world.step();
     if (this.debug && world.time >= this.nextInvariantCheck) {
       this.nextInvariantCheck = world.time + 1;

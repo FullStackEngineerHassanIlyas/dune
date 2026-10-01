@@ -54,6 +54,8 @@ function dropOrphan(world, house, l) {
 }
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
+/** Work starting or resuming on a line: soldiers train, everything else is built. */
+const started = (world, house, line) => (line === 'infantry' ? eva(world, house, 'training', 'Training.') : eva(world, house, 'building', 'Building.'));
 
 export function factoriesFor(world, houseId, line) {
   const types = LINE_FACTORIES[line];
@@ -76,7 +78,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     return;
   }
   const l = house.lines[line];
-  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; eva(world, house, 'building', 'Building.'); return; }
+  if (l.current?.typeId === typeId && l.current.state === 'hold') { l.current.state = 'building'; started(world, house, line); return; }
   const upgrade = !!upgradeTarget(typeId);
   if (upgrade) {   // one at a time, at once: the item in hand steps aside; another upgrade or a ready structure goes first
     if (l.current?.typeId === typeId || l.queue.includes(typeId)) return;
@@ -102,7 +104,7 @@ export function orderBuild(world, houseId, typeId, count = 1) {
     if ((l.current ? 1 : 0) + l.queue.length >= MAX_QUEUE) break;
     if (!l.current) l.current = makeItem(house, typeId); else l.queue.push(typeId);
   }
-  eva(world, house, 'building', 'Building.');
+  started(world, house, line);
 }
 
 export function orderHold(world, houseId, typeId) {
@@ -111,7 +113,7 @@ export function orderHold(world, houseId, typeId) {
   if (!house || !line) return;
   const l = house.lines[line];
   if (l.current?.typeId === typeId) {
-    if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'On hold.'); return; }
+    if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'Production on hold.'); return; }
     addCredits(world, house, l.current.paid);   // second press, or a ready structure: cancel with a refund (up to the storage)
     l.current = null;
     eva(world, house, 'cancelled', 'Cancelled.');
@@ -178,7 +180,8 @@ function complete(world, house, line, item) {
   }
   if (!spawnFromFactory(world, house, item.typeId)) return;   // exit blocked: retry next tick
   house.lines[line].current = null;
-  eva(world, house, 'unitDeployed', item.typeId === 'harvester' ? 'Harvester deployed.' : 'Unit deployed.');
+  if (item.typeId === 'harvester') eva(world, house, 'harvesterDeployed', 'Harvester deployed.');
+  else eva(world, house, 'unitReady', 'Unit ready.');
 }
 
 export function updateProduction(world) {
