@@ -101,7 +101,7 @@ export function clearDock(world, id, requester) {
   if (!o || o.house !== requester.house || o.inside || onTheMove(o)) return;
   const map = world.map, at = requester !== o && !requester.inside ? map.idx(requester.tx, requester.ty) : -1;
   let spot = roomFor(world, o, at);
-  if (!spot && at >= 0 && requester.harvest?.state === 'toRefinery' && !onTheMove(requester)) {
+  if (!spot && at >= 0 && requester.order.type === 'harvest' && requester.harvest.state === 'toRefinery' && !onTheMove(requester)) {
     const back = roomFor(world, requester, map.idx(o.tx, o.ty));
     spot = back && roomFor(world, o, map.idx(back.x, back.y));
     if (!spot) return;
