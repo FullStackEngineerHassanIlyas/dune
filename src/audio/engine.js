@@ -88,6 +88,7 @@ export class SoundEngine {
     this.enabled = this.available;   // `enabled: false` only starts muted: M can still turn sound on
     this.volume = volume;
     this.muted = !enabled;
+    this.paused = false;   // the battle is paused: the context is held (setPaused)
     this.random = random;
     this.ctx = null;
     this.master = null;
@@ -113,7 +114,7 @@ export class SoundEngine {
     }
   }
 
-  get running() { return !!this.ctx && (this.ctx.state === undefined || this.ctx.state === 'running'); }
+  get running() { return !!this.ctx && !this.paused && (this.ctx.state === undefined || this.ctx.state === 'running'); }
 
   /** Start the bank rendering: in a worker thread where there is one, else in the main thread's idle time. */
   renderAhead() {
@@ -215,6 +216,7 @@ export class SoundEngine {
   unlock() {
     if (!this.enabled) return;
     if (!this.ctx) this.open();
+    if (this.ctx && this.paused) { this.hold(); return; }   // opened by a click under the game menu: held until the battle goes on
     if (this.ctx && !this.running) this.ctx.resume?.()?.catch?.(() => {});
     if (this.running && this.onGesture) {
       this.win.removeEventListener?.('pointerdown', this.onGesture);
@@ -368,6 +370,19 @@ export class SoundEngine {
     if (!g) return;
     if (g.setTargetAtTime) g.setTargetAtTime(on ? DUCK_GAIN : 1, this.ctx.currentTime, on ? 0.04 : 0.3);
     else g.value = on ? DUCK_GAIN : 1;
+  }
+
+  /**
+   * The battle paused (the game menu, P, a hidden tab): the whole graph holds where it is — effects and their
+   * echoes, the wind, an announcer line half said — and carries on from there; nothing new starts meanwhile.
+   */
+  setPaused(paused) {
+    this.paused = !!paused;
+    this.hold();
+  }
+
+  hold() {
+    try { (this.paused ? this.ctx?.suspend?.() : this.ctx?.resume?.())?.catch?.(() => {}); } catch { /* a context that cannot: it simply plays on */ }
   }
 
   setMuted(muted) {

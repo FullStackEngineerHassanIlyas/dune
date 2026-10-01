@@ -198,6 +198,9 @@ export class VoicePlayer {
     }
   }
 
+  /** The audio was held for `seconds` (the battle paused, SoundEngine.setPaused): a line it stopped half-way finishes before the next starts. */
+  held(seconds) { this.busyUntil += seconds; }
+
   setVolume(volume) {
     this.volume = volume;
     this.output?.setVolume?.(volume * VOICE_LEVEL);

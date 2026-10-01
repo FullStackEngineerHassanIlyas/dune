@@ -204,6 +204,22 @@ test('a line waits for its decode while fresh; a missing file is skipped', () =>
   assert.equal(new VoicePlayer({ output: fakeOutput({ lines: ['building'] }) }).say('unitReady', 0), false, 'a line the manifest lacks');
 });
 
+test('a line the pause held finishes before the next starts', () => {
+  const out = fakeOutput();
+  const p = new VoicePlayer({ output: out });
+  p.say('baseAttack', 0);
+  p.update(LEAD);   // a one-second line starts …
+  out.live = false;   // … and the battle is paused half-way through it (the audio context is held)
+  p.update(10);
+  out.live = true;
+  p.held(29.5);   // back after 29.5 s: the rest of the line plays on from where it stopped
+  p.say('constructionComplete', 30);
+  p.update(30 + LEAD);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack'], 'not over the half of the line still to come');
+  p.update(LEAD + 1 + GAP + 29.5 + 0.01);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack', 'constructionComplete']);
+});
+
 test('the battle\'s end cuts in over everything else', () => {
   const out = fakeOutput();
   const p = new VoicePlayer({ output: out });

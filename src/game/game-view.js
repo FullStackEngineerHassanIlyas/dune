@@ -148,9 +148,12 @@ export class GameView {
     new Keyboard((key, code, mods) => this.onKey(key, code, mods));
     this.loop = new FixedLoop(DT);
     this.speed = GAME_SPEED[settings.gameSpeed] ?? 1;
-    this.paused = document.hidden;
+    this.paused = false;
+    this.pausedAt = 0;
     this.lost = false;
     this.last = performance.now();
+    this.stageNow = this.last;   // the battle's own clock for its animations and effects: it stands still while paused
+    this.updatePaused();   // a battle opened in a hidden tab starts paused
     document.addEventListener('visibilitychange', () => { this.updatePaused(); this.last = performance.now(); });
     r3d.onContextLost = () => {
       this.lost = true;
@@ -177,7 +180,7 @@ export class GameView {
   }
 
   onEvent(e) {
-    this.stage.onEvent(e);
+    this.stage.onEvent(e, this.stageNow);
     this.announcer.onEvent(e, performance.now() / 1000);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
@@ -229,7 +232,19 @@ export class GameView {
     else { this.hud.release(); this.hud.message('Resumed', 1.5); }
   }
 
-  updatePaused() { this.paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen; }
+  /**
+   * The battle stops for the game menu, P, a hidden tab or a lost graphics device — and with it what it shows and
+   * says: the sounds hold where they are (the wind, echoes, an announcer line half said) and the effects freeze.
+   */
+  updatePaused() {
+    const paused = document.hidden || this.lost || this.userPaused || this.menu.isOpen;
+    if (paused === this.paused) return;
+    this.paused = paused;
+    const now = performance.now() / 1000;
+    if (paused) this.pausedAt = now;
+    else this.announcer.player.held(now - this.pausedAt);
+    this.sound.setPaused(paused);
+  }
 
   openMenu() {
     if (this.menu.isOpen) return;
@@ -261,6 +276,8 @@ export class GameView {
     this.last = now;
     // the loop gets the real interval: it caps a stall at 0.25 s itself, so slow devices do not play in slow motion
     const { steps, alpha } = this.paused ? { steps: 0, alpha: 1 } : this.loop.advance(raw, this.speed);
+    const live = this.paused ? 0 : dt;   // particles, debris, collapses, rotors: the battle's own motion holds while it is paused
+    this.stageNow += live * 1000;
     this.announcer.frame(now / 1000, this.selection, this.radarWas);   // before the step takes the new orders
     for (let i = 0; i < steps; i++) world.step();
     if (this.debug && world.time >= this.nextInvariantCheck) {
@@ -276,7 +293,7 @@ export class GameView {
     r3d.follow(this.rig.target.x, this.rig.target.z, this.rig.distance * 1.1);
     const e = r3d.camera.matrixWorld.elements;
     this.sound.setListener(this.rig.target.x, this.rig.target.z, e[0], e[2], this.rig.distance);
-    this.stage.sync(alpha, dt, now);
+    this.stage.sync(alpha, live, this.stageNow);
     r3d.renderer.info.reset();
     r3d.render();
     this.controller.frame();

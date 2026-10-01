@@ -48,6 +48,7 @@ function fakeWindow({ suspended = false, full = false, idle = false, worker = fa
     createBuffer(channels, length, sampleRate) { return { numberOfChannels: channels, length, sampleRate, copyToChannel() {} }; }
     createBufferSource() { const s = Object.assign(new Node(), { playbackRate: { value: 1 }, start: () => this.started.push(s) }); return s; }
     resume() { if (win.userActivation) this.state = 'running'; return Promise.resolve(); }
+    suspend() { this.state = 'suspended'; return Promise.resolve(); }
   }
   if (full) {
     FakeContext.prototype.createBiquadFilter = function () { return Object.assign(new Node(), { type: 'lowpass', frequency: { value: 350 }, Q: { value: 1 } }); };
@@ -313,6 +314,36 @@ test('a context that starts suspended resumes on a later real gesture and holds 
   assert.equal(e.limiter.total, 0, 'no voices taken while suspended');
   win.userActivation = true;
   win.listeners.pointerdown();   // a real click
+  assert.equal(e.ctx.state, 'running');
+  assert.equal(e.play('cannon'), true);
+});
+
+test('a paused battle holds every sound where it is (effects, echoes, the wind, an announcer line); a click in the game menu does not wake it', () => {
+  const win = fakeWindow();
+  win.userActivation = true;
+  const e = new SoundEngine({ win });
+  win.listeners.pointerdown();
+  assert.equal(e.running, true);
+  e.setPaused(true);
+  assert.equal(e.ctx.state, 'suspended', 'the whole graph stops where it is and carries on from there');
+  assert.equal(e.running, false, 'voices (src/audio/voice.js) see it at once, before the suspension settles');
+  assert.equal(e.play('cannon'), false, 'nothing new starts');
+  e.unlock();   // a click on a menu button
+  assert.equal(e.ctx.state, 'suspended');
+  e.setPaused(false);
+  assert.equal(e.ctx.state, 'running');
+  assert.equal(e.play('cannon'), true);
+});
+
+test('paused before the first gesture: the context opens held and runs once the battle goes on', () => {
+  const win = fakeWindow({ suspended: true });
+  win.userActivation = true;
+  const e = new SoundEngine({ win });
+  e.setPaused(true);
+  win.listeners.pointerdown();   // the click that opens it lands on the game menu
+  assert.ok(e.ctx, 'the context opens on the first gesture anyway');
+  assert.equal(e.ctx.state, 'suspended', 'but stays silent under the menu');
+  e.setPaused(false);
   assert.equal(e.ctx.state, 'running');
   assert.equal(e.play('cannon'), true);
 });
