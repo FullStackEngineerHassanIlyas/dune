@@ -13,6 +13,7 @@ export function controlRows(scheme) {
     ['Deselect', classic ? 'Right click' : 'Left click on empty ground'],
     ['Force fire · attack-move', 'Ctrl + click · A, then click'],
     ['Stop · guard · scatter', 'S · G · X'],
+    ['Carryall', `Select it, then ${order.toLowerCase()} an own vehicle to lift it, the ground to fly there or set the load down, the Repair Facility or a Refinery to deliver it · S holds it · G back to duty · D drops the load`],
     ['Control groups', 'Ctrl + 1–9 assigns (Ctrl + Shift + 1–9 if the browser keeps Ctrl + digit) · 1–9 selects · tap twice to centre'],
     ['Build', 'Sidebar icon: left click builds or places · right click holds, twice cancels · Shift + left click queues five'],
     ['Rally point · primary', `Select a factory, then ${order.toLowerCase()} the ground · double click a factory`],

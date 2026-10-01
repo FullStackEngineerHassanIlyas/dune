@@ -1,10 +1,13 @@
 // Selection panel (spec §5.6): bottom-left of the battlefield — portrait (model icon), name, hit
 // points and what the selection is doing, with order buttons: Stop / Guard / Scatter / Deploy /
-// Destruct / Return for units, Repair / Sell / Set primary for own structures. The model part is pure.
+// Destruct / Return for units, Stop / Duty / Drop for a house's own Carryalls (Duty lit while on
+// automatic duty; they reuse the Stop, Guard and Deploy commands and keys), Repair / Sell / Set primary
+// for own structures. The model part is pure.
 import { UNITS } from '../data/units.js';
 import { HOUSES } from '../data/houses.js';
 import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
+import { isLifter } from '../sim/carryall.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
 const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', docking: 'Docking', unloading: 'Unloading', undocking: 'Leaving the refinery' };
@@ -41,8 +44,15 @@ function structureModel(world, s, houseId) {
 }
 
 function unitButtons(own) {
-  own = own.filter((u) => !u.type.autonomous && u.destructAt === undefined);   // Carryalls, Fremen and a Devastator counting down take no orders
+  own = own.filter((u) => (!u.type.autonomous || isLifter(u)) && u.destructAt === undefined);   // Fremen, visiting Carryalls and a Devastator counting down take no orders
   if (!own.length) return [];
+  if (own.every(isLifter)) {
+    return [
+      { id: 'stop', label: 'Stop', key: 'S' },
+      { id: 'guard', label: 'Duty', key: 'G', active: own.every((c) => !c.manual) },
+      { id: 'deploy', label: 'Drop', key: 'D', disabled: !own.some((c) => c.cargo) },
+    ];
+  }
   const b = [{ id: 'stop', label: 'Stop', key: 'S' }, { id: 'guard', label: 'Guard', key: 'G' }, { id: 'scatter', label: 'Scatter', key: 'X' }];
   const deploys = own.some((u) => u.type.deploysTo);
   if (deploys) b.push({ id: 'deploy', label: 'Deploy', key: 'D' });
@@ -55,10 +65,13 @@ function unitText(world, u) {
   if (u.destructAt !== undefined) return 'Self-destructing';
   if (u.type.hunts) return 'Hunting';
   if (u.typeId === 'carryall') {
-    const load = world.units.get(u.cargo) ?? world.units.get(u.job?.unit);
-    if (u.job?.stage === 'leave') return 'Leaving';
-    if (u.cargo) return `Carrying ${load?.type.name ?? 'a unit'}`;
-    return u.job ? `Fetching ${load?.type.name ?? 'a unit'}` : 'Standing by';
+    const job = u.job, load = world.units.get(u.cargo) ?? world.units.get(job?.unit), name = load?.type.name ?? 'a unit';
+    if (job?.stage === 'leave') return 'Leaving';
+    if (job?.stage === 'hold') return `Holding ${name}`;
+    if (u.cargo) return job?.bay || load?.order.type === 'repairAt' ? `Carrying ${name} to repairs` : `Carrying ${name}`;
+    if (job?.stage === 'fetch') return `Fetching ${name}`;
+    if (job?.stage === 'goto') return 'Flying to its station';
+    return u.manual ? 'Holding position' : 'Standing by';
   }
   if (u.typeId === 'ornithopter' && u.order.type === 'idle') return 'Hunting';
   return u.order.type === 'harvest' ? HARVEST_TEXT[u.harvest.state] ?? 'Harvesting' : ORDER_TEXT[u.order.type] ?? 'Busy';

@@ -11,16 +11,20 @@ import { orderCapture } from './capture.js';
 import { orderStarport, cancelStarport } from './starport.js';
 import { orderDestruct, orderSabotage } from './specials.js';
 import { orderPalace } from './palace.js';
+import { isLifter, orderCarryalls } from './carryall.js';
 
 export function applyCommand(world, houseId, cmd) {
   orderDocked(world, houseId, cmd);   // a harvester in a refinery's slot takes its orders once it has backed out
-  const units = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && !u.type.autonomous && u.destructAt === undefined);   // nor do units held in a bay or a Carryall, nor Carryalls, nor a Devastator counting down
+  const own = (Array.isArray(cmd?.ids) ? cmd.ids : []).map((id) => world.units.get(id)).filter((u) => u && u.house === houseId && !u.inside && u.destructAt === undefined);   // units held in a bay or a Carryall take no orders, 
+  const units = own.filter((u) => !u.type.autonomous);   // nor Carryalls, Fremen or the Frigate …
+  const lifters = own.filter(isLifter);   // … though a house's own Carryalls take orders of their own
   switch (cmd?.type) {
-    case 'move': orderMove(world, units, cmd.x, cmd.y); return;
-    case 'stop': units.forEach(stopUnit); return;
-    case 'guard': units.forEach((u) => { stopUnit(u); u.order = { type: 'guard', x: u.tx, y: u.ty }; }); return;
+    case 'move': orderMove(world, units, cmd.x, cmd.y); orderCarryalls(world, houseId, lifters, cmd); return;
+    case 'stop': units.forEach(stopUnit); orderCarryalls(world, houseId, lifters, cmd); return;
+    case 'guard': units.forEach((u) => { stopUnit(u); u.order = { type: 'guard', x: u.tx, y: u.ty }; }); orderCarryalls(world, houseId, lifters, cmd); return;   // G: a Carryall's Duty
     case 'scatter': scatter(world, units); return;
-    case 'deploy': deployOrDestruct(world, units); return;
+    case 'deploy': deployOrDestruct(world, units); orderCarryalls(world, houseId, lifters, cmd); return;   // D: Deploy or Destruct (spec §5.6), a Carryall's Drop
+    case 'lift': case 'duty': case 'drop': orderCarryalls(world, houseId, lifters, cmd); return;
     case 'destruct': units.forEach((u) => orderDestruct(world, u)); return;
     case 'build': orderBuild(world, houseId, cmd.typeId, cmd.count ?? 1); return;
     case 'hold': orderHold(world, houseId, cmd.typeId); return;
@@ -30,8 +34,8 @@ export function applyCommand(world, houseId, cmd) {
     case 'sell': orderSell(world, houseId, cmd.structureId); return;
     case 'repair': orderRepair(world, houseId, cmd.structureId, cmd.on); return;
     case 'harvest': orderHarvest(world, units, cmd.x, cmd.y); return;
-    case 'returnToBase': orderReturn(world, units); return;
-    case 'repairAt': orderRepairAt(world, houseId, units, cmd.structureId); return;
+    case 'returnToBase': orderReturn(world, units); orderCarryalls(world, houseId, lifters, cmd); return;
+    case 'repairAt': orderRepairAt(world, houseId, units, cmd.structureId); orderCarryalls(world, houseId, lifters, cmd); return;
     case 'capture': orderCapture(world, houseId, units, cmd.structureId); return;
     case 'sabotage': orderSabotage(world, houseId, units, cmd.structureId); return;
     case 'starportOrder': orderStarport(world, houseId, cmd.typeId, cmd.count ?? 1); return;

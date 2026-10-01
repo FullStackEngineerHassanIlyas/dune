@@ -78,8 +78,14 @@ export const AIR = {
   low: 0.45,            // a Carryall's height as it picks up or sets down
   climb: 1.5,           // tiles per second up or down
   orbit: 1.5,           // an Ornithopter's turning radius (tiles)
-  ferryDistance: 16,    // a trip this long is worth a Carryall (tiles)
+  ferryDistance: 10,    // a trip this long may be worth a Carryall (tiles) …
+  ferrySaving: 2,       // … when the lift beats the drive by this many seconds
+  detour: 1.25,         // a drive is this much longer than the straight line (rock, buildings)
   ferryCancel: 6,       // … and no longer once the unit is this close to its goal
+  recoverBelow: 0.5,    // on duty, a Carryall lifts a vehicle this worn to the Repair Facility …
+  recoverClear: 3,      // … unless an armed enemy is this close to it (tiles)
+  recoverSnooze: 20,    // seconds a vehicle the player sent elsewhere is left alone
+  dutyScan: 1,          // seconds between an idle Carryall's looks for work
   hitChance: 0.5,       // inaccurate rockets that reach an aircraft hit it this often
   aimCone: 0.35,        // an Ornithopter fires within this angle of its nose (radians)
   huntRadius: 96,       // an idle Ornithopter looks this far for prey (tiles)
