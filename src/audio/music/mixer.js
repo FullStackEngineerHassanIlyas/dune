@@ -7,6 +7,7 @@ import { compile } from './score.js';
 import { TRACKS } from './songs/index.js';
 import { PATCHES } from './patches.js';
 
+export const BLOCK = 2048;  // samples per block the render-ahead worker sends (worker.js)
 export const KNEE = 0.8;   // the sum is untouched below this, then rounds off smoothly towards full scale
 const MIN_FADE = 0.03;     // seconds: even a cut is a short fade, never a click
 const HP_HZ = 40;          // the high-pass under the music
