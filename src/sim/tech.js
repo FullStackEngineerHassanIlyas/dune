@@ -119,13 +119,20 @@ export function buildOptions(world, houseId) {
   return out;
 }
 
-/** What tech level `level` adds for a house (the set-up screen's note): the buildings it opens and what the
- *  factory upgrades it allows bring. */
+/** What tech level `level` adds for a house (the set-up screen's note): the buildings it opens, the units those
+ *  buildings build from the start (a factory's first units, the House of IX special) and what the factory upgrades
+ *  it allows bring. */
 export function techOpens(level, houseId) {
   const names = [];
+  const usable = (id) => offered(id, houseId) && !DEFERRED.has(id);
   for (const id of STRUCTURE_ORDER) {
     const t = STRUCTURES[id];
-    if (offered(id, houseId) && !DEFERRED.has(id) && structureTechLevel(t, houseId) === level) names.push(t.name);
+    if (usable(id) && structureTechLevel(t, houseId) === level) names.push(t.name);
+  }
+  for (const id of UNIT_ORDER) {   // a unit opens with the last of its factory and prerequisites
+    const u = UNITS[id], needs = [u.builtAt, ...(u.requires ?? [])];
+    if ((u.upgrade ?? 0) || !LINE_OF_FACTORY[u.builtAt] || !usable(id) || !needs.every(usable)) continue;
+    if (Math.max(...needs.map((r) => structureTechLevel(STRUCTURES[r], houseId))) === level) names.push(u.name);
   }
   for (const type of UPGRADE_ORDER) {
     const t = STRUCTURES[type];

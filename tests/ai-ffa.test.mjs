@@ -60,3 +60,43 @@ test('a wave whose rival is beaten turns on the next one', () => {
   run(world, 30);
   assert.equal(world.outcome?.winner, 'harkonnen');
 });
+
+test('a wave keeps its own foe: a later wave going for another house does not pull it off a half-razed base', () => {
+  const world = flatWorld(64, 34, G.ROCK);
+  world.spawnStructure('constructionYard', 'harkonnen', 2, 12);
+  for (const [t, x, y] of [['constructionYard', 24, 3], ['windtrap', 30, 3], ['refinery', 36, 3], ['heavyFactory', 44, 3], ['refinery', 50, 3], ['heavyFactory', 56, 3], ['windtrap', 44, 9], ['windtrap', 50, 9]]) {
+    world.spawnStructure(t, 'ordos', x, y);
+  }
+  world.spawnStructure('constructionYard', 'atreides', 28, 26);
+  for (let k = 0; k < 4; k++) world.spawnUnit('combatTank', 'harkonnen', 6, 8 + k * 2);
+  const brain = createBrain(world, 'harkonnen', 'normal');
+  world.houses.get('harkonnen').credits = 0;
+  brain.nextAttack = 0;
+  assert.equal(firstWave(world, 10)?.target, 'ordos');
+  const first = [...brain.wave];
+  run(world, 40);
+  world.spawnUnit('quad', 'atreides', 3, 22);   // a raid on the Harkonnen base: the next wave pays the Atreides back
+  for (let k = 0; k < 6; k++) world.spawnUnit('combatTank', 'harkonnen', 8, 6 + k * 2);
+  run(world, 15);
+  world.events.drain();
+  brain.nextAttack = world.time;
+  assert.equal(firstWave(world, 30)?.target, 'atreides');
+  const ordosLeft = () => [...world.structures.values()].some((s) => s.house === 'ordos');
+  for (let k = 0; k < 8 && ordosLeft(); k++) {
+    run(world, 5);
+    for (const u of first.map((id) => world.units.get(id)).filter(Boolean)) {
+      assert.ok(u.y < 16, `wave 1 tank ${u.id} left the Ordos base for the Atreides (${Math.round(u.x)},${Math.round(u.y)} ${u.order.type})`);
+    }
+  }
+});
+
+test('a sandworm is no house: the AI sends nobody at it and bears it no grudge', () => {
+  const { world, brain } = threeBases();
+  const worm = world.spawnUnit('sandworm', 'worm', 5, 20);   // a worm of no house surfacing beside the Harkonnen yard
+  const aimed = [];
+  const issue = world.issue.bind(world);
+  world.issue = (house, cmd) => { if (cmd.targetId === worm.id || (cmd.type === 'attackMove' && Math.hypot(cmd.x - worm.tx, cmd.y - worm.ty) < 1)) aimed.push(cmd.type); return issue(house, cmd); };
+  run(world, 20);
+  assert.deepEqual(aimed, []);
+  assert.notEqual(brain.grudge?.house, 'worm');
+});

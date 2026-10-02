@@ -40,11 +40,11 @@ export function parseOpponents(text, difficulty = 'normal') {
 export const formatOpponents = (list) => list.map((o) => `${o.house}:${o.difficulty}`).join(',');
 
 /** setupSkirmish's arguments from a battle URL (core/params.js readParams): opponents=house:difficulty,…, tech=,
- *  worms=, or an older URL's enemy= and ai=. */
+ *  worms=, or an older URL's enemy= and ai=. A battle URL is a player's skirmish: a few worms unless it says otherwise. */
 export function skirmishOptions(params) {
   const difficulty = params.str('ai', 'normal');
   return { seed: params.num('seed', 1), size: params.num('size', 64), house: params.str('house', 'atreides'), enemy: params.str('enemy'), opponents: parseOpponents(params.str('opponents'), difficulty),
-    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: params.str('worms') ?? undefined };
+    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: WORMS.includes(params.str('worms')) ? params.str('worms') : 'few' };
 }
 
 /** Each opponent its own house: a clash, an unknown house or 'random' takes the first house still free. */
@@ -60,7 +60,7 @@ function resolveOpponents(house, list, size, difficulty) {
 }
 
 export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, opponents = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed',
-  difficulty = 'normal', techLevel = 9, worms = 'few', aiPlayer = false } = {}) {
+  difficulty = 'normal', techLevel = 9, worms = 'off', aiPlayer = false } = {}) {   // no worms unless asked: scenes and tests stay as they were
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
   const rivals = resolveOpponents(house, opponents?.length ? opponents : [{ house: enemy, difficulty: level }], size, level);
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 1 + rivals.length });
@@ -69,7 +69,7 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   world.fogOfWar = world.visibility !== 'revealed';
   world.rules.victory = true;
   world.rules.airDelivery = true;   // Refineries get their Harvester by Carryall
-  world.rules.worms = WORMS.includes(worms) ? worms : 'few';
+  world.rules.worms = WORMS.includes(worms) ? worms : 'off';
   const tech = TECH_LEVELS.includes(techLevel) ? techLevel : 9;
   world.addHouse(house, { credits, techLevel: tech });
   for (const r of rivals) world.addHouse(r.house, { credits, ai: true, techLevel: tech });

@@ -31,6 +31,17 @@ test('a house with no buildings and no MCV is defeated; the last one standing wi
   assert.equal(events(world, 'gameOver').length, 0, 'announced once');
 });
 
+test('a plain 1v1 loss: the winner is the winner, nobody "fights on"', () => {
+  const { world, a } = duel();
+  run(world, 1.05);
+  destroyStructure(world, a, { house: 'harkonnen', id: 0, kind: 'unit' });
+  run(world, 2);
+  assert.deepEqual([world.outcome.winner, world.outcome.draw], ['harkonnen', false]);
+  const s = endStats(world, 'atreides');
+  assert.deepEqual([s.won, s.draw, s.standing], [false, false, []]);
+  assert.deepEqual(s.houses.map((h) => [h.id, h.winner]), [['atreides', false], ['harkonnen', true], ['ordos', false]]);
+});
+
 test('an MCV keeps a house in the game', () => {
   const { world, h } = duel();
   world.spawnUnit('mcv', 'harkonnen', 20, 10);

@@ -48,7 +48,7 @@ export function createBrain(world, houseId, difficulty = 'normal') {
   house.isAI = true;
   house.buildSpeed = d.buildSpeed;
   house.incomeRate = d.income;
-  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waves: 0, nextAttack: d.firstAttack, commands: 0 };
+  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waveFoe: {}, waves: 0, nextAttack: d.firstAttack, commands: 0 };
   return house.brain;
 }
 
@@ -104,10 +104,10 @@ function deployMcv(world, house, view) {
 }
 
 /** Where to send an attack: below the nearest enemy building (reachable ground), else the nearest enemy unit;
- *  with `only`, that house's alone. */
+ *  with `only`, that house's alone. A sandworm belongs to no house in the game and is nobody's target. */
 export function nearestEnemyTarget(world, houseId, x, y, only = null) {
   let best = null, bestD = Infinity;
-  const skip = (h) => h === houseId || (only !== null && h !== only);
+  const skip = (h) => h === houseId || (only !== null && h !== only) || !world.houses.has(h);
   for (const s of world.structures.values()) {
     if (skip(s.house) || s.type.isWall) continue;
     const d = Math.hypot(s.x + s.w / 2 - x, s.y + s.h / 2 - y);
@@ -369,7 +369,7 @@ function defend(world, house, view, repairing = []) {
   const b = house.brain;
   let intruder = null, best = 10;
   for (const u of world.units.values()) {
-    if (u.house === house.id || !u.isGround || u.inside) continue;   // a vehicle in a repair bay is no intruder
+    if (u.house === house.id || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm
     for (const s of view.mine) {
       const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
       if (d < best) { best = d; intruder = u; }
@@ -409,14 +409,14 @@ function attack(world, house, view, defending = []) {
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
-  if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target, the foe's first (at most every 10 s)
+  if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target, their own wave's foe first (at most every 10 s)
     b.huntAt = world.time + 10;
-    const lead = idle[0], ids = idle.map((u) => u.id);
-    const t = (b.foe && nearestEnemyTarget(world, house.id, lead.x, lead.y, b.foe)) || nearestEnemyTarget(world, house.id, lead.x, lead.y);
-    const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
-    const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
-    if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
-    else if (t) issue(world, house, { type: 'attackMove', ids, x: t.x, y: t.y });
+    const byFoe = new Map();   // a later wave may have gone for another house: each keeps to its own
+    for (const u of idle) {
+      const own = b.waveFoe[u.id], foe = own && !world.houses.get(own)?.defeated ? own : null;
+      if (byFoe.has(foe)) byFoe.get(foe).push(u); else byFoe.set(foe, [u]);
+    }
+    for (const [foe, members] of byFoe) hunt(world, house, members, foe);
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
@@ -427,10 +427,22 @@ function attack(world, house, view, defending = []) {
   if (!foe) return;
   const group = units.map((u) => u.id), target = foe.at;
   issue(world, house, { type: 'attackMove', ids: group, x: target.x, y: target.y });
+  b.waveFoe = Object.fromEntries(b.wave.map((id) => [id, b.waveFoe[id]]));   // forget the fallen
   b.wave.push(...group);
+  for (const id of group) b.waveFoe[id] = foe.house;
   b.waves++;
   b.nextAttack = world.time + d.waveEvery;
   world.events.push('aiAttack', { house: house.id, target: foe.house, size: group.length, x: target.x, y: target.y });
+}
+
+/** Idle members of one wave go for the nearest target of their foe (any rival's, when it is beaten). */
+function hunt(world, house, members, foe) {
+  const lead = members[0], ids = members.map((u) => u.id);
+  const t = (foe && nearestEnemyTarget(world, house.id, lead.x, lead.y, foe)) || nearestEnemyTarget(world, house.id, lead.x, lead.y);
+  const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
+  const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
+  if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
+  else if (t) issue(world, house, { type: 'attackMove', ids, x: t.x, y: t.y });
 }
 
 function nearestEnemyWall(world, houseId, x, y, radius) {

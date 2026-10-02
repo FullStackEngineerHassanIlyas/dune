@@ -44,16 +44,21 @@ for the manager.
 (`maxOpponents`). The screen hides "Add opponent" at the cap; a stored set-up or URL is trimmed.
 
 **Tech level** 1–9 (default 9) goes to every house. The screen says what the chosen level adds for the player's
-house, from the data (`techOpens`): e.g. level 5 "Hi-Tech Factory, Repair Facility, Gun Turret, Missile Tank".
+house, from the data (`techOpens`): the buildings, the units those buildings build from the start and what the
+factory upgrades bring, e.g. level 5 "Hi-Tech Factory, Repair Facility, Gun Turret, Carryall, Missile Tank".
 Level 1 has no factory at all: the opening forces fight it out.
 
-**Worms** off/few/many (default few) → `world.rules.worms` (contract 1). The base showcase scene defaults to off.
+**Worms** off/few/many → `world.rules.worms` (contract 1). The set-up screen and a battle URL default to few
+(`DEFAULT_SETUP`, `skirmishOptions`); `setupSkirmish` called from code defaults to off, so scenes and the long
+Node tests run as before. The base showcase scene asks for off.
 
 **AI targeting** (`ai.js`). Every wave sizes up every house still in the game (`sizeUpRivals`: nearest building
 or, failing that, ground unit; armed units and turrets valued at cost) and picks a foe:
 `cost = distance × (0.5 + their force / (their force + the wave's))`, halved for a house that raided the base in
-the last two minutes, × 0.8 for the current foe (no flip-flopping). Wave members that stop hunt the foe's nearest
-building first; a beaten foe is dropped. Units the AI sends at an intruder no longer leave in a wave launched the
+the last two minutes, × 0.8 for the current foe (no flip-flopping). Each wave remembers its own foe
+(`brain.waveFoe`, by unit id): members that stop hunt that foe's nearest building first, so a later wave going for
+another house does not pull an earlier one off a half-razed base; a beaten foe is dropped (then the nearest
+target). Units of no house in the game (a sandworm) are never intruders or targets. Units the AI sends at an intruder no longer leave in a wave launched the
 same second (a bug that showed with grudges). Rally points and turrets face the nearest rival. The AI still sees
 through the shroud.
 
@@ -90,6 +95,25 @@ Computer-vs-computer kills in the 64 run: Harkonnen → Sardaukar 91, Sardaukar 
 - Menu → Skirmish → Add opponent ×2, pick houses → Start battle.
 - `?scene=skirmish&seed=5&house=atreides&opponents=harkonnen:normal,sardaukar:normal,mercenary:normal&visibility=revealed&ticks=4800&deploy=1&radar=1&focus=3`
   — four bases after four minutes, the radar online, looking at the Mercenaries.
+
+## Review fixes
+
+- Critical — worms on in the long tests after the merge with the worms branch: `setupSkirmish` now defaults to
+  worms off; `skirmishOptions` (battle URLs) and `DEFAULT_SETUP` (the screen) still give few. Checked on a scratch
+  merge of `phase2/worms` with this branch: `ai`, `money`, `soak-ai`, `soak`, `soak-ffa` and this stream's tests
+  pass 68/68 (they failed 5 before). With worms forced to few, soak-ai's game still breaks the tile invariant at
+  180 s (unit 33 holds 0 tiles) — a worms-stream bug, for the lead.
+- A 1v1 loss said "Harkonnen fights on.": `endStats` leaves `standing` empty when the battle has a winner, so the
+  line shows only when the player fell and several computers fight on. Test in `victory`.
+- e2e-menu's "the set-up reaches the battle" tests `/ai=normal/`, which the battle URL no longer has. That file is
+  the options stream's: change it to `/opponents=[a-z]+(%3A|:)normal/` (integration note for the lead).
+- A wave razing one rival walked off when a later wave chose another foe: each wave keeps its own foe. Test in
+  `ai-ffa`.
+- The AI attacked sandworms (28 attack orders in the review's 15-minute soak with worms on, scratch merge; 0
+  now): `defend` and `nearestEnemyTarget` skip units whose house is not in `world.houses`. Test in `ai-ffa`.
+- The tech-level note left out units (House of IX specials, the Carryall, a new factory's first units):
+  `techOpens` lists units whose factory and prerequisites all open at that level; levels 2, 3, 5 and 7 pinned for
+  the Great Houses in `opponents`.
 
 ## Open questions
 

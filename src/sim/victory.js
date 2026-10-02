@@ -54,7 +54,7 @@ export function endStats(world, houseId) {
     draw: !!world.outcome?.draw,
     seconds: Math.round(world.outcome?.seconds ?? world.time),
     houses,
-    standing: (world.outcome?.standing ?? []).filter((id) => id !== houseId).map(shown),
+    standing: winner ? [] : (world.outcome?.standing ?? []).filter((id) => id !== houseId).map(shown),   // who fights on: only when nobody has won
     rows: [
       row('Spice harvested', 'spiceHarvested'),
       row('Units destroyed', 'unitsKilled'),

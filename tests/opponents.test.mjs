@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { SKIRMISH_HOUSES, PLAYABLE_HOUSES, HOUSES, LIGHT_VEHICLE, INFANTRY } from '../src/data/houses.js';
 import { STRUCTURE_ORDER, buildOptions, canBuildStructure, techOpens, structureTechLevel } from '../src/sim/tech.js';
-import { setupSkirmish, maxOpponents, parseOpponents, formatOpponents } from '../src/game/setup.js';
+import { setupSkirmish, skirmishOptions, maxOpponents, parseOpponents, formatOpponents } from '../src/game/setup.js';
+import { readParams } from '../src/core/params.js';
 import { flatWorld } from './helpers.mjs';
 
 function subHouseWorld(house, types) {
@@ -76,6 +77,14 @@ test('the set-up screen can say what each tech level opens', () => {
   assert.ok(techOpens(3, 'atreides').includes('Quad'), techOpens(3, 'atreides').join());
   assert.ok(techOpens(6, 'atreides').includes('Siege Tank') && techOpens(6, 'atreides').includes('Rocket Turret'));
   assert.deepEqual(techOpens(8, 'ordos'), ['Palace']);
+  assert.deepEqual(techOpens(2, 'harkonnen'), ['Spice Silo', 'Radar Outpost', 'WOR Trooper Facility', 'Heavy Trooper'], 'a new factory names the units it builds');
+  assert.deepEqual(techOpens(3, 'harkonnen'), ['Heavy Factory', 'Harvester', 'Combat Tank', 'Quad']);
+  assert.deepEqual(techOpens(5, 'atreides'), ['Hi-Tech Factory', 'Repair Facility', 'Gun Turret', 'Carryall', 'Missile Tank']);
+  assert.deepEqual(techOpens(5, 'harkonnen'), ['Hi-Tech Factory', 'Repair Facility', 'Gun Turret', 'Carryall', 'Trooper Squad', 'Missile Tank']);
+  assert.deepEqual(techOpens(5, 'ordos'), ['WOR Trooper Facility', 'Hi-Tech Factory', 'Repair Facility', 'Gun Turret', 'Heavy Trooper', 'Carryall']);
+  assert.deepEqual(techOpens(7, 'atreides'), ['House of IX', 'Sonic Tank', 'Ornithopter'], 'the House of IX special comes with level 7');
+  assert.deepEqual(techOpens(7, 'harkonnen'), ['House of IX', 'Devastator']);
+  assert.deepEqual(techOpens(7, 'ordos'), ['House of IX', 'Deviator', 'Ornithopter']);
   for (let level = 1; level <= 8; level++) for (const h of PLAYABLE_HOUSES) assert.ok(techOpens(level, h).length, `${h} ${level}`);
 });
 
@@ -118,8 +127,11 @@ test('tech level and worms reach the world: every house gets the tech level', ()
   assert.deepEqual([...world.houses.values()].map((h) => h.techLevel), [4, 4, 4]);
   assert.equal(world.rules.worms, 'many');
   assert.equal(setupSkirmish({ seed: 2, worms: 'off' }).world.rules.worms, 'off');
-  assert.equal(setupSkirmish({ seed: 2 }).world.rules.worms, 'few', 'few unless the set-up says otherwise');
-  assert.equal(setupSkirmish({ seed: 2, worms: 'plenty' }).world.rules.worms, 'few');
+  assert.equal(setupSkirmish({ seed: 2 }).world.rules.worms, 'off', 'code callers (scenes, tests) get no worms unless they ask');
+  assert.equal(setupSkirmish({ seed: 2, worms: 'plenty' }).world.rules.worms, 'off');
+  const fromUrl = (q) => setupSkirmish(skirmishOptions(readParams(q))).world.rules.worms;
+  assert.deepEqual([fromUrl('?scene=skirmish&seed=2'), fromUrl('?scene=skirmish&seed=2&worms=plenty'), fromUrl('?scene=skirmish&seed=2&worms=many')], ['few', 'few', 'many'],
+    'a battle URL is a player\'s skirmish: few worms unless it says otherwise');
   assert.equal(setupSkirmish({ seed: 2 }).world.houses.get('atreides').techLevel, 9);
   assert.equal(setupSkirmish({ seed: 2, techLevel: 0 }).world.houses.get('atreides').techLevel, 9, 'out of range: everything');
 });
