@@ -5,11 +5,13 @@
 // (harvesters waiting and backing out in a narrow way in would lock horns). Then an army, rally points, base defence and attack waves. A
 // charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
-// building its blast brings down.
+// building its blast brings down. A skirmish is a free-for-all: every other house is a rival, computer or
+// not, and each wave picks its foe — near and weakly guarded first, a house that raided the base before others.
+// (The original's campaign allied every computer house against the player; see the phase 2 opponents notes.)
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, UNIT_ORDER } from './tech.js';
+import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, offered, UNIT_ORDER } from './tech.js';
 import { UNITS, MOVE } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 import { isArmed, distanceTo } from './combat.js';
@@ -80,8 +82,8 @@ function think(world, house) {
   if (!rebuilding) { buyUpgrades(world, house, view); buildArmy(world, house, view); }   // the new MCV comes first
   rally(world, house, view);
   const repairing = sendForRepairs(world, house, view);
-  defend(world, house, view, repairing);
-  attack(world, house, view);
+  const defending = defend(world, house, view, repairing);
+  attack(world, house, view, defending);
   usePalace(world, house, view);
   sabotage(world, house, view);
 }
@@ -99,32 +101,79 @@ function deployMcv(world, house, view) {
   }
 }
 
-export function enemyCentre(world, houseId) {
-  let sx = 0, sy = 0, n = 0;
-  for (const s of world.structures.values()) if (s.house !== houseId && !s.type.isWall) { sx += s.x + s.w / 2; sy += s.y + s.h / 2; n++; }
-  if (!n) for (const u of world.units.values()) if (u.house !== houseId && u.isGround) { sx += u.x; sy += u.y; n++; }
-  return n ? { x: sx / n, y: sy / n } : null;
-}
-
-/** Where to send an attack: below the nearest enemy building (reachable ground), else the nearest enemy unit. */
-export function nearestEnemyTarget(world, houseId, x, y) {
+/** Where to send an attack: below the nearest enemy building (reachable ground), else the nearest enemy unit;
+ *  with `only`, that house's alone. */
+export function nearestEnemyTarget(world, houseId, x, y, only = null) {
   let best = null, bestD = Infinity;
+  const skip = (h) => h === houseId || (only !== null && h !== only);
   for (const s of world.structures.values()) {
-    if (s.house === houseId || s.type.isWall) continue;
+    if (skip(s.house) || s.type.isWall) continue;
     const d = Math.hypot(s.x + s.w / 2 - x, s.y + s.h / 2 - y);
     if (d < bestD) { bestD = d; best = { x: s.x + Math.floor(s.w / 2), y: Math.min(world.map.h - 1, s.y + s.h) }; }
   }
   if (best) return best;
   for (const u of world.units.values()) {
-    if (u.house === houseId || !u.isGround) continue;
+    if (skip(u.house) || !u.isGround) continue;
     const d = Math.hypot(u.x - x, u.y - y);
     if (d < bestD) { bestD = d; best = { x: u.tx, y: u.ty }; }
   }
   return best;
 }
 
+/**
+ * Every other house still in the game (a free-for-all: computers fight each other too), sized up from `from`:
+ * how far its nearest building is (its nearest ground unit when it has none), where to aim at it, and what its
+ * armed units and turrets are worth. The AI sees through the shroud, as the original's does.
+ */
+export function sizeUpRivals(world, houseId, from) {
+  const rivals = new Map();
+  for (const h of world.houses.values()) if (h.id !== houseId && !h.defeated) rivals.set(h.id, { house: h.id, d: Infinity, at: null, army: 0, ud: Infinity, uat: null });
+  for (const s of world.structures.values()) {
+    const r = rivals.get(s.house);
+    if (!r || s.type.isWall) continue;
+    if (s.type.weapon) r.army += s.type.cost;
+    const d = Math.hypot(s.x + s.w / 2 - from.x, s.y + s.h / 2 - from.y);
+    if (d < r.d) { r.d = d; r.at = { x: s.x + Math.floor(s.w / 2), y: Math.min(world.map.h - 1, s.y + s.h) }; }
+  }
+  for (const u of world.units.values()) {
+    const r = rivals.get(u.house);
+    if (!r) continue;
+    if (fighter(u)) r.army += u.type.cost;
+    const d = u.isGround ? Math.hypot(u.x - from.x, u.y - from.y) : Infinity;
+    if (d < r.ud) { r.ud = d; r.uat = { x: u.tx, y: u.ty }; }
+  }
+  const out = [];
+  for (const r of rivals.values()) {
+    if (!r.at) { r.d = r.ud; r.at = r.uat; }
+    if (r.at) out.push({ house: r.house, d: r.d, at: r.at, army: r.army });
+  }
+  return out;
+}
+
+const GRUDGE = 120;   // seconds a raid on the base is remembered
+
+/**
+ * The house the next wave goes for: the nearest, unless it is much better guarded than the wave is strong —
+ * a bare rival a little further off comes first — and a house that raided the base lately before the others.
+ * The last foe keeps a small edge, so waves do not swap targets on a whim.
+ */
+function chooseFoe(world, house, view, strength) {
+  const b = house.brain;
+  let best = null, bestCost = Infinity;
+  for (const r of sizeUpRivals(world, house.id, view.home)) {
+    let cost = r.d * (0.5 + r.army / (r.army + strength + 1));
+    if (b.grudge?.house === r.house && world.time - b.grudge.at < GRUDGE) cost *= 0.5;
+    if (r.house === b.foe) cost *= 0.8;
+    if (cost < bestCost) { bestCost = cost; best = r; }
+  }
+  b.foe = best?.house ?? null;
+  return best;
+}
+
+/** A point `reach` tiles from home towards the nearest rival's base (the map centre when there is none). */
 function towardsEnemy(world, house, view, reach) {
-  const foe = enemyCentre(world, house.id) ?? { x: world.map.w / 2, y: world.map.h / 2 };
+  let foe = { x: world.map.w / 2, y: world.map.h / 2 }, bestD = Infinity;
+  for (const r of sizeUpRivals(world, house.id, view.home)) if (r.d < bestD) { bestD = r.d; foe = r.at; }
   const dx = foe.x - view.home.x, dy = foe.y - view.home.y, d = Math.hypot(dx, dy) || 1;
   return { x: Math.round(view.home.x + (dx / d) * reach), y: Math.round(view.home.y + (dy / d) * reach) };
 }
@@ -234,7 +283,7 @@ function wantedStructure(world, house, view, can) {
 }
 
 /** The House of IX is worth building only when it opens a unit the house can use (the AI never shops at the Starport). */
-const ixOpensSomething = (houseId) => UNIT_ORDER.some((t) => UNITS[t].requires?.includes('ix') && UNITS[t].houses.includes(houseId) && !DEFERRED.has(t));
+const ixOpensSomething = (houseId) => UNIT_ORDER.some((t) => UNITS[t].requires?.includes('ix') && offered(t, houseId) && !DEFERRED.has(t));
 
 function keepHarvesters(world, house, view) {
   const refineries = view.count.refinery ?? 0;
@@ -305,10 +354,11 @@ function buyUpgrades(world, house, view) {
 
 function rally(world, house, view) {
   const b = house.brain;
-  const spot = towardsEnemy(world, house, view, 5);
+  let spot = null;
   for (const s of view.mine) {
     if (!FACTORIES.includes(s.typeId) || b.rallied.includes(s.id)) continue;
     b.rallied.push(s.id);
+    spot ??= towardsEnemy(world, house, view, 5);
     issue(world, house, { type: 'setRally', structureId: s.id, x: spot.x, y: spot.y });
   }
 }
@@ -323,11 +373,13 @@ function defend(world, house, view, repairing = []) {
       if (d < best) { best = d; intruder = u; }
     }
   }
-  if (!intruder) return;
+  if (!intruder) return [];
+  b.grudge = { house: intruder.house, at: world.time };   // the next wave pays them back
   const ids = view.units
     .filter((u) => fighter(u) && !b.wave.includes(u.id) && u.order.type !== 'attack' && u.order.type !== 'repairAt' && !repairing.includes(u.id) && !u.inside && Math.hypot(u.x - intruder.x, u.y - intruder.y) < 24)
     .map((u) => u.id);
   if (ids.length) issue(world, house, { type: 'attack', ids, targetKind: 'unit', targetId: intruder.id });
+  return ids;
 }
 
 const REPAIR_BELOW = 0.5, RETREAT_BELOW = 0.3;
@@ -350,14 +402,15 @@ function sendForRepairs(world, house, view) {
   return ids;
 }
 
-function attack(world, house, view) {
+function attack(world, house, view, defending = []) {
   const b = house.brain, d = DIFFICULTY[b.difficulty];
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
-  if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target (at most every 10 s)
+  if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
+  if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target, the foe's first (at most every 10 s)
     b.huntAt = world.time + 10;
     const lead = idle[0], ids = idle.map((u) => u.id);
-    const t = nearestEnemyTarget(world, house.id, lead.x, lead.y);
+    const t = (b.foe && nearestEnemyTarget(world, house.id, lead.x, lead.y, b.foe)) || nearestEnemyTarget(world, house.id, lead.x, lead.y);
     const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
     const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
     if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
@@ -365,16 +418,17 @@ function attack(world, house, view) {
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
-  const ready = view.units.filter((u) => fighter(u) && !b.wave.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));
+  const ready = view.units.filter((u) => fighter(u) && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder
   if (ready.length < size) { b.nextAttack = world.time + 15; return; }
-  const target = nearestEnemyTarget(world, house.id, view.home.x, view.home.y);
-  if (!target) return;
-  const group = ready.slice(0, size).map((u) => u.id);
+  const units = ready.slice(0, size);
+  const foe = chooseFoe(world, house, view, units.reduce((n, u) => n + u.type.cost, 0));
+  if (!foe) return;
+  const group = units.map((u) => u.id), target = foe.at;
   issue(world, house, { type: 'attackMove', ids: group, x: target.x, y: target.y });
   b.wave.push(...group);
   b.waves++;
   b.nextAttack = world.time + d.waveEvery;
-  world.events.push('aiAttack', { house: house.id, size: group.length, x: target.x, y: target.y });
+  world.events.push('aiAttack', { house: house.id, target: foe.house, size: group.length, x: target.x, y: target.y });
 }
 
 function nearestEnemyWall(world, houseId, x, y, radius) {
