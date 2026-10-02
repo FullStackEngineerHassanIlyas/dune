@@ -2,17 +2,15 @@
 // from opponents=harkonnen:hard,ordos:normal (an older URL's enemy= and ai= still work), with tech= and worms=.
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
-import { setupSkirmish, parseOpponents } from '../game/setup.js';
+import { setupSkirmish, skirmishOptions } from '../game/setup.js';
 import { GameView } from '../game/game-view.js';
 import { placeStructure, findPlacement } from '../sim/placement.js';
 
 export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
-  const house = params.str('house', 'atreides');
-  const difficulty = params.str('ai', 'normal');
-  const { world, starts } = setupSkirmish({ seed: params.num('seed', 1), size: params.num('size', 64), house, enemy: params.str('enemy'), opponents: parseOpponents(params.str('opponents'), difficulty),
-    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: params.str('worms') ?? undefined });
+  const options = skirmishOptions(params), house = options.house;
+  const { world, starts } = setupSkirmish(options);
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   if (params.bool('deploy')) {
     const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');

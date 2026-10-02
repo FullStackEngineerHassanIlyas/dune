@@ -1,44 +1,70 @@
-// Skirmish set-up (spec §5.8): house, opponent, difficulty, map size and seed, starting credits,
-// map visibility and game speed. The choice is remembered for next time and becomes the battle's URL.
+// Skirmish set-up (spec §5.8): the player's house, one to three computer opponents (each its own house and
+// difficulty), tech level, sandworms, map size and seed, starting credits, map visibility and game speed. The
+// choice is remembered for next time and becomes the battle's URL (opponents=harkonnen:hard,ordos:normal …).
+// House rule (docs/superpowers/notes/2026-10-03-phase2-opponents.md): no house plays twice; the player picks a
+// Great House, the computer may also field the Sardaukar or the Mercenaries; a Small map holds two opponents.
 import { h } from './dom.js';
-import { HOUSES, PLAYABLE_HOUSES } from '../data/houses.js';
+import { HOUSES, PLAYABLE_HOUSES, SKIRMISH_HOUSES } from '../data/houses.js';
 import { DIFFICULTY } from '../sim/ai.js';
+import { techOpens } from '../sim/tech.js';
+import { maxOpponents, formatOpponents, WORMS, TECH_LEVELS } from '../game/setup.js';
 import { changeSetting } from './options.js';
 
 export const MAP_SIZES = [[48, 'Small'], [64, 'Medium'], [96, 'Large'], [128, 'Huge']];
 export const CREDITS = [1000, 3000, 5000, 10000];
-export const DEFAULT_SETUP = { house: 'atreides', enemy: 'random', difficulty: 'normal', size: 64, seed: null, credits: 3000, visibility: 'shroud' };
+export const DEFAULT_SETUP = { house: 'atreides', opponents: [{ house: 'random', difficulty: 'normal' }], techLevel: 9, worms: 'few', size: 64, seed: null, credits: 3000, visibility: 'shroud' };
 export const VISIBILITY_CHOICES = [['shroud', 'Dune II shroud'], ['fog', 'Fog of war'], ['revealed', 'Revealed']];
 const VISIBILITY_NOTES = {
   shroud: 'As in the original: black until explored; ground once seen stays in view, enemies on it too.',
   fog: 'C&C style: explored ground goes dim out of sight and hides enemy units; everything sees at least as far as it shoots.',
   revealed: 'The whole map and everything on it, from the start.',
 };
+const WORM_NOTES = { off: 'No sandworms.', few: 'Sandworms roam the open sand and swallow what crosses it: keep to the rock.', many: 'More worms, and hungrier: the open sand is no place to linger.' };
 const KEY = 'dune2-3d.skirmish';
 const SPECIALS = { atreides: 'Sonic Tank · Fremen warriors', harkonnen: 'Devastator · Death Hand missile', ordos: 'Deviator · Saboteur' };
+const DIFFICULTIES = () => Object.keys(DIFFICULTY);
 
-/** A set-up with every field valid, from whatever was stored. */
+/** A set-up with every field valid, from whatever was stored; a set-up saved with one `enemy` becomes its one opponent. */
 export function cleanSetup(raw = {}) {
   const s = { ...DEFAULT_SETUP, ...raw };
   const pick = (value, allowed, fallback) => (allowed.includes(value) ? value : fallback);
+  const house = pick(s.house, PLAYABLE_HOUSES, DEFAULT_SETUP.house);
+  const size = pick(Number(s.size), MAP_SIZES.map(([n]) => n), DEFAULT_SETUP.size);
+  const listed = Array.isArray(raw.opponents) ? raw.opponents : [{ house: raw.enemy, difficulty: raw.difficulty }];
+  const taken = new Set([house]);
+  const opponents = listed.slice(0, maxOpponents(size)).map((o) => {
+    let id = pick(o?.house, ['random', ...SKIRMISH_HOUSES], 'random');
+    if (id !== 'random' && taken.has(id)) id = 'random';   // a house plays once
+    taken.add(id);
+    return { house: id, difficulty: pick(o?.difficulty, DIFFICULTIES(), 'normal') };
+  });
   return {
-    house: pick(s.house, PLAYABLE_HOUSES, DEFAULT_SETUP.house),
-    enemy: pick(s.enemy, ['random', ...PLAYABLE_HOUSES], 'random'),
-    difficulty: pick(s.difficulty, Object.keys(DIFFICULTY), DEFAULT_SETUP.difficulty),
-    size: pick(Number(s.size), MAP_SIZES.map(([n]) => n), DEFAULT_SETUP.size),
+    house,
+    opponents: opponents.length ? opponents : DEFAULT_SETUP.opponents.map((o) => ({ ...o })),
+    techLevel: pick(Number(s.techLevel), TECH_LEVELS, DEFAULT_SETUP.techLevel),
+    worms: pick(s.worms, WORMS, DEFAULT_SETUP.worms),
+    size,
     seed: Number.isInteger(s.seed) && s.seed > 0 && s.seed < 1e6 ? s.seed : null,
     credits: pick(Number(s.credits), CREDITS, DEFAULT_SETUP.credits),
     visibility: pick(raw.visibility, VISIBILITY_CHOICES.map(([v]) => v), raw.fog === false ? 'revealed' : DEFAULT_SETUP.visibility),   // a setup saved before: fog off was a revealed map
   };
 }
 
-/** The battle's query string; a random opponent and an empty seed are rolled here. */
+/** The battle's query string; random opponents (a free Great House first, then a sub-house) and an empty seed are rolled here. */
 export function skirmishQuery(setup, random = Math.random) {
   const s = cleanSetup(setup);
-  const rivals = PLAYABLE_HOUSES.filter((id) => id !== s.house);
-  const enemy = rivals.includes(s.enemy) ? s.enemy : rivals[Math.floor(random() * rivals.length)];
+  const taken = new Set([s.house, ...s.opponents.map((o) => o.house)]);
+  const opponents = s.opponents.map((o) => {
+    if (o.house !== 'random') return o;
+    const great = PLAYABLE_HOUSES.filter((id) => !taken.has(id));
+    const pool = great.length ? great : SKIRMISH_HOUSES.filter((id) => !taken.has(id));
+    const id = pool[Math.floor(random() * pool.length)];
+    taken.add(id);
+    return { house: id, difficulty: o.difficulty };
+  });
   const seed = s.seed ?? 1 + Math.floor(random() * 99999);
-  return new URLSearchParams({ scene: 'skirmish', house: s.house, enemy, ai: s.difficulty, size: String(s.size), seed: String(seed), credits: String(s.credits), visibility: s.visibility }).toString();
+  return new URLSearchParams({ scene: 'skirmish', house: s.house, opponents: formatOpponents(opponents), tech: String(s.techLevel), worms: s.worms,
+    size: String(s.size), seed: String(seed), credits: String(s.credits), visibility: s.visibility }).toString();
 }
 
 function storage() { try { return globalThis.localStorage ?? null; } catch { return null; } }
@@ -49,19 +75,52 @@ export function saveSetup(setup, store = storage()) {
   try { store?.setItem(KEY, JSON.stringify(cleanSetup(setup))); } catch { /* private mode: this session only */ }
 }
 
+/** The set-up screen's note for a tech level: what it adds for the player's house. */
+export function techNote(level, houseId) {
+  if (level >= 9) return 'Level 9: everything, as in the last missions.';
+  if (level <= 1) return 'Level 1: Wind Traps, Refineries and concrete only — the opening forces fight it out.';
+  const opens = techOpens(level, houseId);
+  return `Level ${level} adds ${opens.length ? opens.join(', ') : 'nothing new for this house'}.`;
+}
+
 const hex = (id) => `#${HOUSES[id].color.toString(16).padStart(6, '0')}`;
 const seg = (label, choices, value, set, note = null) => h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, label),
-  h('div', { class: 'dm-control' }, h('div', { class: 'dm-seg', role: 'group', 'aria-label': label }, choices.map(([v, text]) =>
-    h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), onclick: () => set(v) }, text))), note && h('small', {}, note)));
+  h('div', { class: 'dm-control' }, segButtons(label, choices, value, set), note && h('small', {}, note)));
+function segButtons(label, choices, value, set, taken = new Set()) {
+  return h('div', { class: 'dm-seg', role: 'group', 'aria-label': label }, choices.map(([v, text, dot]) => {
+    const off = taken.has(v);
+    return h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), disabled: off, title: off ? 'Already in this battle' : null,
+      style: off ? 'opacity: .35; cursor: not-allowed;' : null, dataset: { value: String(v) }, onclick: () => set(v) },
+    dot && h('span', { 'aria-hidden': 'true', style: `display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: ${dot}; box-shadow: 0 0 0 1px rgba(0,0,0,.6);` }), text);
+  }));
+}
 
 /** The set-up screen; `onStart(query)` launches the battle. */
 export function skirmishPanel(settings, { onBack, onStart }) {
-  const setup = loadSetup();
+  let setup = loadSetup();
   const el = h('div', { class: 'dm-panel wide page-skirmish' });
-  const set = (key, value) => { setup[key] = value; saveSetup(setup); render(); };
+  const save = () => { setup = cleanSetup(setup); saveSetup(setup); render(); };
+  const set = (key, value) => { setup[key] = value; save(); };
+  const setOpponent = (k, key, value) => { setup.opponents = setup.opponents.map((o, i) => (i === k ? { ...o, [key]: value } : o)); save(); };
+  const houseChoices = [['random', 'Random'], ...SKIRMISH_HOUSES.map((id) => [id, HOUSES[id].plural ?? HOUSES[id].name, hex(id)])];
+  const difficulties = DIFFICULTIES().map((d) => [d, d[0].toUpperCase() + d.slice(1)]);
+  const opponentRows = () => {
+    const cap = maxOpponents(setup.size);
+    return h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, 'Opponents'), h('div', { class: 'dm-control' },
+      setup.opponents.map((o, k) => {
+        const others = new Set([setup.house, ...setup.opponents.filter((_, i) => i !== k).map((x) => x.house)]);
+        others.delete('random');
+        return h('div', { dataset: { opponent: String(k) }, style: 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;' },
+          segButtons(`Opponent ${k + 1} house`, houseChoices, o.house, (v) => setOpponent(k, 'house', v), others),
+          segButtons(`Opponent ${k + 1} difficulty`, difficulties, o.difficulty, (v) => setOpponent(k, 'difficulty', v)),
+          setup.opponents.length > 1 && h('button', { type: 'button', class: 'dm-btn small', 'aria-label': `Remove opponent ${k + 1}`, dataset: { act: 'remove' },
+            onclick: () => { setup.opponents = setup.opponents.filter((_, i) => i !== k); save(); } }, 'Remove'));
+      }),
+      h('button', { type: 'button', class: 'dm-btn small', dataset: { act: 'add' }, disabled: setup.opponents.length >= cap,
+        onclick: () => { setup.opponents = [...setup.opponents, { house: 'random', difficulty: setup.opponents.at(-1)?.difficulty ?? 'normal' }]; save(); } }, 'Add opponent'),
+      h('small', {}, `Every house for itself. The Sardaukar and the Mercenaries fight only as computer houses. ${cap < 3 ? 'A Small map holds two opponents.' : 'Up to three opponents, one in each corner.'}`)));
+  };
   const render = () => {
-    const rivals = PLAYABLE_HOUSES.filter((id) => id !== setup.house);
-    if (!rivals.includes(setup.enemy)) setup.enemy = 'random';
     const seed = h('input', { type: 'number', min: 1, max: 999999, placeholder: 'random', value: setup.seed ?? '', 'aria-label': 'Map seed',
       onchange: () => { const n = Math.floor(Number(seed.value)); setup.seed = n > 0 && n < 1e6 ? n : null; saveSetup(setup); } });
     el.replaceChildren(
@@ -71,8 +130,9 @@ export function skirmishPanel(settings, { onBack, onStart }) {
           h('span', { class: 'mm-crest' }, HOUSES[id].name[0]),
           h('b', {}, HOUSES[id].name),
           h('small', {}, SPECIALS[id])))),
-      seg('Opponent', [['random', 'Random'], ...rivals.map((id) => [id, HOUSES[id].name])], setup.enemy, (v) => set('enemy', v)),
-      seg('Difficulty', Object.keys(DIFFICULTY).map((d) => [d, d[0].toUpperCase() + d.slice(1)]), setup.difficulty, (v) => set('difficulty', v)),
+      opponentRows(),
+      seg('Tech level', TECH_LEVELS.map((n) => [n, String(n)]), setup.techLevel, (v) => set('techLevel', v), techNote(setup.techLevel, setup.house)),
+      seg('Sandworms', [['off', 'Off'], ['few', 'Few'], ['many', 'Many']], setup.worms, (v) => set('worms', v), WORM_NOTES[setup.worms]),
       seg('Map size', MAP_SIZES.map(([n, text]) => [n, `${text} ${n}`]), setup.size, (v) => set('size', v)),
       h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, 'Map seed'), h('div', { class: 'dm-control' }, h('div', { class: 'mm-seed' }, seed,
         h('button', { type: 'button', class: 'dm-btn small', title: 'A new random map every battle', onclick: () => set('seed', null) }, 'Random')),

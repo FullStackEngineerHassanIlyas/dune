@@ -39,6 +39,14 @@ export function parseOpponents(text, difficulty = 'normal') {
 
 export const formatOpponents = (list) => list.map((o) => `${o.house}:${o.difficulty}`).join(',');
 
+/** setupSkirmish's arguments from a battle URL (core/params.js readParams): opponents=house:difficulty,…, tech=,
+ *  worms=, or an older URL's enemy= and ai=. */
+export function skirmishOptions(params) {
+  const difficulty = params.str('ai', 'normal');
+  return { seed: params.num('seed', 1), size: params.num('size', 64), house: params.str('house', 'atreides'), enemy: params.str('enemy'), opponents: parseOpponents(params.str('opponents'), difficulty),
+    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: params.str('worms') ?? undefined };
+}
+
 /** Each opponent its own house: a clash, an unknown house or 'random' takes the first house still free. */
 function resolveOpponents(house, list, size, difficulty) {
   const taken = new Set([house]), out = [];
