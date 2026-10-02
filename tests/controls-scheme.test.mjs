@@ -43,13 +43,18 @@ test('classic: Alt + left click moves onto an enemy instead of attacking it, and
   assert.ok(!world.units.has(soldier.id), 'crushed under the tracks');
 });
 
-test('modern: Alt + right click is the force move; a plain right click on the enemy attacks', () => {
-  const { tank, c, issued } = setup('modern');
+test('modern: Alt + right or left click is the force move (either button, as with Ctrl); a plain right click on the enemy attacks', () => {
+  const { world, tank, c, issued } = setup('modern');
   c.selection.set([tank.id]);
   c.onClick(px(9), px(5), 2, NONE, false);
   assert.equal(issued.at(-1).type, 'attack');
   c.onClick(px(9), px(5), 2, ALT, false);
   assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 9, y: 5 });
+  const quad = world.spawnUnit('quad', 'atreides', 9, 8);
+  c.onClick(px(9), px(8), 0, ALT, false);
+  assert.deepEqual(issued.at(-1), { type: 'move', ids: [tank.id], x: 9, y: 8 }, 'onto an own unit, without selecting it');
+  assert.deepEqual(c.selection.list(), [tank.id]);
+  assert.ok(quad);
 });
 
 test('Alt + click: harvesters drive onto spice without harvesting, onto own units and buildings without selecting them', () => {
@@ -109,6 +114,20 @@ test('other houses\' alerts, own-goal hits and chatter do not move the jump poin
   assert.equal(own.looked.length, 0, 'friendly fire leaves no place to jump to');
 });
 
+test('battles relay every event GameView handles to the controller, so Space has an alert to jump to', () => {
+  const { world, c, looked } = setup();
+  const handled = [];
+  const view = { controller: c, onEvent(e) { handled.push([this, e]); }, handleEvents() { for (const e of world.events.drain()) this.onEvent(e); } };
+  c.listenTo(view);
+  world.events.drain();   // the set-up's own events
+  world.events.push('eva', { house: 'atreides', key: 'wormsign', text: 'Warning! Wormsign!', x: 7.5, y: 8.5 });
+  view.handleEvents();
+  assert.equal(handled.length, 1, 'GameView still handles it');
+  assert.equal(handled[0][0], view, 'as itself');
+  c.onKey(' ', 'Space', NONE);
+  assert.deepEqual(looked.at(-1), [7.5, 8.5]);
+});
+
 test('the radar order on the ground sets the selected factory\'s rally point (modern right click on the radar)', () => {
   const { world, c, issued } = setup('modern');
   const hf = world.spawnStructure('heavyFactory', 'atreides', 2, 14);
@@ -121,7 +140,7 @@ test('the controls screen names every row of the spec §5.7 table, in the words 
   const text = (scheme) => controlRows(scheme).map(([what, how]) => `${what}: ${how}`).join('\n');
   for (const scheme of ['classic', 'modern']) {
     const t = text(scheme);
-    for (const must of [/Ctrl \+ click/, /Alt \+ (right )?click/, /Space/, /\bH\b/, /Home/, /Double click|double click/, /Ctrl \+ 1–9/, /\bA\b/, /\bS\b/, /\bG\b/, /\bX\b/, /\bD\b/, /Radar/, /Esc/, /\bP\b/, /Shift \+ left click/]) {
+    for (const must of [/Ctrl \+ click/, /Alt \+ (left or right )?click/, /Space/, /\bH\b/, /Home/, /Double click|double click/, /Ctrl \+ 1–9/, /\bA\b/, /\bS\b/, /\bG\b/, /\bX\b/, /\bD\b/, /Radar/, /Esc/, /\bP\b/, /Shift \+ left click/]) {
       assert.match(t, must, `${scheme}: ${must}`);
     }
   }
@@ -129,5 +148,5 @@ test('the controls screen names every row of the spec §5.7 table, in the words 
   assert.match(radar('classic'), /left click orders/i);
   assert.match(radar('modern'), /right click orders/i);
   assert.match(text('classic'), /Alt \+ click/);
-  assert.match(text('modern'), /Alt \+ right click/);
+  assert.match(text('modern'), /Alt \+ left or right click/, 'Modern: either button, as the controller takes it');
 });

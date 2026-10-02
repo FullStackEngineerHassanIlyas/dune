@@ -12,7 +12,7 @@ export function controlRows(scheme) {
     ['Move · attack · harvest', `${order} with units selected — the cursor shows what will happen`],
     ['Deploy · destruct', `${order} the selected MCV · D deploys an MCV, or blows up a Devastator`],
     ['Deselect', classic ? 'Right click (it cancels placement, Sell, Repair or aiming first)' : 'Left click on empty ground'],
-    ['Force fire · force move', `Ctrl + click fires at the ground or a friend · Alt + ${classic ? 'click' : 'right click'} drives there, over enemy soldiers`],
+    ['Force fire · force move', `Ctrl + click fires at the ground or a friend · Alt + ${classic ? 'click' : 'left or right click'} drives there, over enemy soldiers`],
     ['Attack-move · stop · guard · scatter', 'A, then click · S · G · X'],
     ['Carryall', `Select it, then ${order.toLowerCase()} an own vehicle to lift it, the ground to fly there or set the load down, the Repair Facility or a Refinery to deliver it · S holds it · G back to duty · D drops the load`],
     ['Control groups', 'Ctrl + 1–9 assigns (Ctrl + Shift + 1–9 if the browser keeps Ctrl + digit) · 1–9 selects · tap twice to centre'],

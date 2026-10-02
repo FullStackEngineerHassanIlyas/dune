@@ -5,7 +5,7 @@
 // still selects), on the ground flies there or sets the load down, on the Repair Facility or a Refinery
 // delivers the load. Ctrl + click stays force fire: no Carryall lifts the target. Alt + the order click
 // (either button in Modern) is force move: onto whatever is there, so tracks crush enemy infantry. Space
-// jumps to the last alert, which noteEvent() learns from the simulation's events.
+// jumps to the last alert, which noteEvent() learns from the simulation's events (listenTo() hands them over).
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -276,7 +276,14 @@ export class Controller {
     this.onMarker(tx + 0.5, ty + 0.5);
   }
 
-  /** A simulation event (GameView hands each one over): keeps where the latest alert for Space happened. No allocation. */
+  /** Space's alerts (spec §5.7): has the battle's GameView hand every simulation event it handles to noteEvent as
+   *  well. main.js calls it for the battle scenes, at once, so not even the first frame's events are missed. */
+  listenTo(view) {
+    const onEvent = view.onEvent;
+    view.onEvent = (e) => { onEvent.call(view, e); this.noteEvent(e); };
+  }
+
+  /** A simulation event (GameView hands each one over, see listenTo): keeps where the latest alert for Space happened. No allocation. */
   noteEvent(e) {
     if (e.house !== this.house) return;
     if (e.type === 'damaged' && e.by && e.by !== this.house) {
