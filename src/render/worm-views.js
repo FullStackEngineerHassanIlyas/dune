@@ -158,7 +158,7 @@ export class WormViews {
       v.furrowX = x;
       v.furrowZ = z;
     }
-    if (this.clock >= v.rumbleAt) { v.rumbleAt = this.clock + 1.4; this.onRumble(x, z); }
+    if (this.clock >= v.rumbleAt) { v.rumbleAt = this.clock + 1.25; this.onRumble(x, z); }   // each rumble 1.6 s long: they overlap into one
   }
 
   poseHead(v, dt) {

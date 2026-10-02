@@ -535,7 +535,7 @@ export const RECIPES = {
 
   // ——— the desert ———
   wormRumble: (d) => {   // a worm passing under the sand: a deep grinding rumble with the sand hissing over it, swelling and fading
-    const s = 1.8, env = [[0, 0], [0.45, 1], [1.25, 1], [s, 0]];
+    const s = 1.6, env = [[0, 0], [0.4, 1], [1.1, 1], [s, 0]];
     return out([
       [shape(wobble(biquad(brown(s, d.s()), 'lp', 110, 0.8), d.s(), 6, 0.5), env), 1],
       [shape(drive(wobble(biquad(noise(s, d.s()), 'bp', 260, 1.2), d.s(), 11, 0.7), 1.6), env), 0.55],   // the grind a small speaker can play
@@ -554,15 +554,17 @@ export const RECIPES = {
       [grit(d, 1500, 0.5, 2400, 0.8), 0.25, 0.1],   // sand raining back
     ], -14, s);
   },
-  wormGulp: (d) => {   // a worm swallowing its prey: the maw slams shut, metal crumples and sand pours, a deep gulp
+  wormGulp: (d) => {   // a worm swallowing its prey: the maw slams shut, metal crumples and sand pours, a deep gulp and a growl
+    const growl = glide(1, (t) => 78 - 22 * t + 5 * Math.sin(t * 41), 'saw');
     const parts = [[thump(110, 45, 0.03, 0.12, 2.6), 0.55], [metal(d, 260, 0.12, PLATE), 0.45, 0.02], [crack(d, 900, 0.006, 3), 0.6], [chest(d, 700, 300, 0.08, 0.14, 2.2), 0.6]];
     for (let k = 0, at = 0.03; k < 5; k++, at += d.u(0.03, 0.07)) parts.push([decay(biquad(noise(0.08, d.s()), 'bp', d.u(400, 1600), 1.4), 0.0005, 0.02), d.u(0.6, 1), at]);
     parts.push([decay(drive(biquad(glide(0.5, (t) => 160 * Math.exp(-t * 3) + 45, 'saw'), 'lp', 700), 1.8), 0.03, 0.15), 0.55, 0.25]);
     parts.push([grit(d, 1800, 0.35, 2000, 0.8), 0.3, 0.1]);
-    return out(parts, -15, 1.4);
+    parts.push([shape(drive(stack([[biquad(Float32Array.from(growl), 'bp', 380, 2.2), 1], [biquad(Float32Array.from(growl), 'bp', 880, 3), 0.4]]), 2), [[0, 0], [0.12, 1], [0.6, 0.6], [1, 0]]), 0.5, 0.3]);
+    return out(parts, -15, 1.5);
   },
   bloom: (d) => {   // a spice bloom bursting: a deep whump under the ground, a geyser of sand hissing up, grains pattering down
-    const s = 2.2;
+    const s = 2;
     return out([
       [thump(70, 30, 0.08, 0.3, 2.6), 0.6],
       [chest(d, 600, 220, 0.25, 0.35, 2.2), 0.85],
