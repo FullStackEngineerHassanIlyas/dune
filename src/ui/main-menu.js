@@ -8,7 +8,7 @@ import { skirmishPanel } from './skirmish-setup.js';
 
 /** The title screen's entries: [act, label, note, disabled]. */
 export const MENU_ITEMS = [
-  ['skirmish', 'Skirmish', 'One battle against the computer'],
+  ['skirmish', 'Skirmish', 'One battle against up to three computer houses'],
   ['campaign', 'Campaign', 'Coming in a later phase', true],
   ['options', 'Options', 'Graphics, mouse, scrolling, sound, voices, music'],
   ['original-files', 'Original Game Files', 'Voices and music from your own Dune II'],
