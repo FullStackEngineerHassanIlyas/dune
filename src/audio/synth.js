@@ -533,6 +533,45 @@ export const RECIPES = {
     return out(parts, -19);
   },
 
+  // ——— the desert ———
+  wormRumble: (d) => {   // a worm passing under the sand: a deep grinding rumble with the sand hissing over it, swelling and fading
+    const s = 1.8, env = [[0, 0], [0.45, 1], [1.25, 1], [s, 0]];
+    return out([
+      [shape(wobble(biquad(brown(s, d.s()), 'lp', 110, 0.8), d.s(), 6, 0.5), env), 1],
+      [shape(drive(wobble(biquad(noise(s, d.s()), 'bp', 260, 1.2), d.s(), 11, 0.7), 1.6), env), 0.55],   // the grind a small speaker can play
+      [shape(wobble(biquad(crackle(s, d.s(), 2600), 'bp', 2200, 0.8), d.s(), 8, 0.6), env), 0.3],
+    ], -22, s);
+  },
+  wormRoar: (d) => {   // a worm breaking the sand: a burst of sand, then a deep guttural roar that rattles and falls away
+    const s = 1.8, env = [[0, 0], [0.12, 1], [0.9, 0.85], [s, 0]];
+    const growl = glide(s, (t) => 92 - 30 * t + 6 * Math.sin(t * 37), 'saw');
+    return out([
+      [thump(90, 40, 0.05, 0.18, 2.2), 0.6],
+      [decay(biquad(noise(0.9, d.s()), 'lp', (t) => 300 + 2600 * Math.exp(-t / 0.08), 0.7), 0.004, 0.18), 0.7],   // the sand bursting up
+      [shape(wobble(drive(stack([[biquad(Float32Array.from(growl), 'bp', 420, 2.2), 1], [biquad(Float32Array.from(growl), 'bp', 950, 3), 0.5]]), 2), d.s(), 18, 0.45), env), 0.9],
+      [shape(wobble(biquad(noise(s, d.s()), 'bp', 650, 0.9), d.s(), 9, 0.5), env), 0.45],   // its breath
+      [shape(biquad(brown(s, d.s()), 'lp', 140, 0.7), env), 0.5],
+      [grit(d, 1500, 0.5, 2400, 0.8), 0.25, 0.1],   // sand raining back
+    ], -14, s);
+  },
+  wormGulp: (d) => {   // a worm swallowing its prey: the maw slams shut, metal crumples and sand pours, a deep gulp
+    const parts = [[thump(110, 45, 0.03, 0.12, 2.6), 0.55], [metal(d, 260, 0.12, PLATE), 0.45, 0.02], [crack(d, 900, 0.006, 3), 0.6], [chest(d, 700, 300, 0.08, 0.14, 2.2), 0.6]];
+    for (let k = 0, at = 0.03; k < 5; k++, at += d.u(0.03, 0.07)) parts.push([decay(biquad(noise(0.08, d.s()), 'bp', d.u(400, 1600), 1.4), 0.0005, 0.02), d.u(0.6, 1), at]);
+    parts.push([decay(drive(biquad(glide(0.5, (t) => 160 * Math.exp(-t * 3) + 45, 'saw'), 'lp', 700), 1.8), 0.03, 0.15), 0.55, 0.25]);
+    parts.push([grit(d, 1800, 0.35, 2000, 0.8), 0.3, 0.1]);
+    return out(parts, -15, 1.4);
+  },
+  bloom: (d) => {   // a spice bloom bursting: a deep whump under the ground, a geyser of sand hissing up, grains pattering down
+    const s = 2.2;
+    return out([
+      [thump(70, 30, 0.08, 0.3, 2.6), 0.6],
+      [chest(d, 600, 220, 0.25, 0.35, 2.2), 0.85],
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 900 + 1400 * Math.exp(-t / 0.5), 0.6), [[0, 0], [0.06, 1], [0.5, 0.6], [1.4, 0.15], [s, 0]]), 1],
+      [shape(biquad(brown(s, d.s()), 'lp', 160, 0.7), [[0, 0], [0.1, 1], [s, 0]]), 0.35],
+      [grit(d, 2200, 0.7, 2600, 0.7), 0.4, 0.3],
+    ], -14, s);
+  },
+
   // ——— the base at work ———
   clunk: (d) => {   // something heavy set down: a deep metal thunk, the frame ringing, a latch clanking home
     const p = d.u(0.92, 1.08);
