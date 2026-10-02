@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { SKIRMISH_HOUSES, PLAYABLE_HOUSES, HOUSES, LIGHT_VEHICLE, INFANTRY } from '../src/data/houses.js';
-import { STRUCTURE_ORDER, buildOptions, canBuildStructure, techOpens } from '../src/sim/tech.js';
+import { STRUCTURE_ORDER, buildOptions, canBuildStructure, techOpens, structureTechLevel } from '../src/sim/tech.js';
 import { setupSkirmish, maxOpponents, parseOpponents, formatOpponents } from '../src/game/setup.js';
 import { flatWorld } from './helpers.mjs';
 
@@ -57,6 +57,17 @@ test('the tech level gates buildings level by level, as the campaign opened them
   assert.ok(!offered('harkonnen', 2).includes('heavyFactory') && offered('harkonnen', 3).includes('heavyFactory'), 'the Harkonnen wait a level for theirs');
   assert.ok(offered('harkonnen', 2).includes('wor') && !offered('harkonnen', 2).includes('barracks'));
   assert.ok(offered('sardaukar', 2).includes('barracks') && !offered('sardaukar', 4).includes('wor') && offered('sardaukar', 5).includes('wor'));
+});
+
+test('computer houses keep to the tech level too', () => {
+  const { world, house, opponents } = setupSkirmish({ seed: 4, techLevel: 3, aiPlayer: true, fog: false, opponents: [{ house: 'harkonnen' }, { house: 'sardaukar' }] });
+  for (let t = 0; t < 8 * 60 * 20; t++) world.step();
+  for (const id of [house, ...opponents]) {
+    const built = [...world.structures.values()].filter((s) => s.house === id);
+    assert.ok(built.length >= 4, `${id} built ${built.length}`);
+    for (const s of built) assert.ok(structureTechLevel(s.type, id) <= 3, `${id} put up a ${s.typeId}`);
+  }
+  assert.ok([...world.structures.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'heavyFactory'), 'level 3 opens the Harkonnen Heavy Factory');
 });
 
 test('the set-up screen can say what each tech level opens', () => {
