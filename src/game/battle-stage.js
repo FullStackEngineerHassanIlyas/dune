@@ -1,7 +1,9 @@
 // Everything between a World and the picture that is not input or HUD (menu backdrop spec): terrain,
 // unit, structure and missile views, particle effects, tracks and dust, and the sound cues of
 // simulation events. The game view and the main menu's battle both draw through one. All of its
-// scene objects hang under `root`, so dispose() can take a finished battle off the GPU.
+// scene objects hang under `root`, so dispose() can take a finished battle off the GPU. Sandworms (their
+// ridges and heads) and spice bloom mounds have views of their own (render/worm-views.js, bloom-views.js);
+// a unit a worm swallows leaves no wreck, and a worm under the sand rumbles near the camera.
 // `catchingUp` gates only onEvent's effects and sounds; sync() always draws.
 import * as THREE from 'three';
 import { terrainSubFor } from '../render/quality.js';
@@ -15,6 +17,8 @@ import { Effects } from '../render/effects.js';
 import { Destruction } from '../render/destruction.js';
 import { MissileViews } from '../render/views/missile-views.js';
 import { ShotFx } from '../render/shot-fx.js';
+import { WormViews } from '../render/worm-views.js';
+import { BloomViews } from '../render/bloom-views.js';
 import { nearCamera } from '../render/near-camera.js';
 import { cueFor } from '../audio/cues.js';
 import { isVisible } from '../sim/fog.js';
@@ -39,7 +43,7 @@ export class BattleStage {
     this.root = new THREE.Group();
     const hf = (this.hf = new Heightfield(world.map, { sub: terrainSubFor(world.map.w, quality), seed: world.map.seed }));
     this.heightAt = (x, z) => hf.heightAt(x, z);
-    this.positionOf = (u) => this.unitViews.renderPos(u);
+    this.positionOf = (u) => this.unitViews.renderPos(u);   // worms included (UnitViews hands them to the worm views)
     this.terrain = new TerrainView(world.map, hf, { plainApron });
     this.root.add(this.terrain.group);
     this.unitViews = new UnitViews(this.root, hf, { viewer });
@@ -48,6 +52,14 @@ export class BattleStage {
     this.effects = new Effects(this.root, quality);
     this.missiles = new MissileViews(this.root);
     this.shotFx = new ShotFx(this.effects);
+    const near = (x, z) => nearCamera(x, z, rig.target.x, rig.target.z, rig.distance);
+    this.worms = new WormViews(this.root, hf, {
+      effects: this.effects, decals: this.terrain.decals, near, onShake,
+      onRumble: (x, z) => { if (!this.catchingUp) this.sound?.play('wormRumble', { x, z }); },
+    });
+    this.unitViews.others = this.worms;
+    this.blooms = new BloomViews(this.root, hf);
+    this.exploredAt = (x, z) => this.explored(x, z);
     this.seenAt = (x, z) => this.seen(x, z);
     this.volley = new Map();   // unit id → shots fired, to alternate twin barrels
     this.destruction = new Destruction(this.root, quality, {
@@ -95,7 +107,18 @@ export class BattleStage {
       case 'unitDestroyed':
         if (!this.catchingUp && e.cause === 'destructed' && this.seen(e.x, e.y)) this.onShake(0.6);
         this.volley.delete(e.id);
+        if (e.typeId === 'sandworm') { this.worms.died(e, !this.catchingUp); break; }   // it sinks, it does not burn
+        if (e.cause === 'eaten') { this.unitViews.notifyDeath(e); break; }   // swallowed whole: nothing left behind
         this.destruction.unitDestroyed(e, this.unitViews.notifyDeath(e), !this.catchingUp);
+        break;
+      case 'wormSurfaced': if (this.seen(e.x, e.y)) this.worms.surfaced(e, !this.catchingUp); break;
+      case 'wormAte': if (this.seen(e.x, e.y)) this.worms.ate(e, !this.catchingUp); break;
+      case 'bloomErupted':
+        if (!this.seen(e.x, e.y)) break;
+        this.terrain.decals?.crater?.(e.x, e.y, 0.9, 0.5);
+        if (this.catchingUp) break;
+        this.blooms.erupt(this.effects, e.x, this.heightAt(e.x, e.y), e.y);
+        if (nearCamera(e.x, e.y, this.rig.target.x, this.rig.target.z, this.rig.distance)) this.onShake(0.25);
         break;
       case 'structureDestroyed':
         this.structureViews.notify(e, now);
@@ -207,6 +230,8 @@ export class BattleStage {
       this.destruction.uncover();
     }
     this.unitViews.sync(world, alpha, dt);
+    this.worms.sync(world, alpha, dt, this.seenAt, !this.catchingUp);
+    this.blooms.sync(world, dt, this.exploredAt);
     this.structureViews.sync(world, now);
     if (dt > 0) this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
@@ -220,6 +245,8 @@ export class BattleStage {
   prime(now) {
     if (this.disposed) return;
     this.unitViews.sync(this.world, 1, 0);
+    this.worms.sync(this.world, 1, 0, this.seenAt, false);
+    this.blooms.sync(this.world, 0, this.exploredAt);
     this.structureViews.sync(this.world, now);
     this.missiles.sync(this.world, 1, this.heightAt, this.seenAt);
   }
@@ -242,7 +269,7 @@ export class BattleStage {
     const puff = this.dustClock >= 0.09;
     if (puff) this.dustClock = 0;
     for (const u of w.units.values()) {
-      if (onFoot(u.move)) continue;
+      if (onFoot(u.move) || u.move === 'worm') continue;   // a worm's wake is its own (render/worm-views.js)
       const i = map.idx(u.tx, u.ty);
       const soft = (map.ground[i] === G.SAND || map.ground[i] === G.DUNE) && !map.concrete[i];
       const p = this.unitViews.renderPos(u);
@@ -288,6 +315,8 @@ export class BattleStage {
     this.disposed = true;
     this.root.removeFromParent();
     this.unitViews.dispose();
+    this.worms.dispose();
+    this.blooms.dispose();
     this.structureViews.dispose();
     this.missiles.dispose();
     this.destruction.dispose();

@@ -3,7 +3,9 @@
 // Modern: left click selects, right click orders. A house's own Carryalls take orders too: with only
 // Carryalls selected, the order click on an own vehicle lifts it if one of them is empty (shift-click
 // still selects), on the ground flies there or sets the load down, on the Repair Facility or a Refinery
-// delivers the load. Ctrl + click stays force fire: no Carryall lifts the target.
+// delivers the load. Ctrl + click stays force fire: no Carryall lifts the target. Alt + the order click
+// (either button in Modern) is force move: onto whatever is there, so tracks crush enemy infantry. Space
+// jumps to the last alert, which noteEvent() learns from the simulation's events (listenTo() hands them over).
 import { pickAt, inBox } from './selection.js';
 import { deploySpot } from '../sim/deploy.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -24,6 +26,8 @@ const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) =>
 const free = (u) => isLifter(u) && !u.cargo;
 
 const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
+/** Announcer lines that Space jumps to (spec §5.7), placed at the latest enemy hit on the house; a line that names its own place counts too. */
+const ALERTS = new Set(['baseAttack', 'harvesterAttack', 'structureLost']);
 
 export class Controller {
   constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
@@ -32,12 +36,14 @@ export class Controller {
     this.hoverId = null;
     this.hoverStructureId = null;
     this.mode = null;
+    this.hurt = { at: false, x: 0, z: 0 };    // the latest enemy hit on the house
+    this.alert = { at: false, x: 0, z: 0 };   // the latest alert: where Space looks
   }
 
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
-      if ((u.inside && !(u.docked && u.house === this.house)) || u.type.untargetable || !this.canSee(u)) continue;   // held units and the Frigate cannot be picked; our harvester in a refinery's slot can
+      if ((u.inside && !(u.docked && u.house === this.house)) || u.type.untargetable || u.submerged || !this.canSee(u)) continue;   // held units, the Frigate and a worm under the sand cannot be picked; our harvester in a refinery's slot can
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;
@@ -68,7 +74,12 @@ export class Controller {
   /** The load a selected Carryall holds. */
   loadOf(c) { return c.cargo ? this.world.units.get(c.cargo) ?? null : null; }
   issue(cmd) { this.world.issue(this.house, cmd); }
-  orderTile(tx, ty) { this.order({ kind: 'ground', tx, ty }); }
+  /** The radar's order: the selection goes there, or else the selected factory's rally point moves there. */
+  orderTile(tx, ty) {
+    const hit = { kind: 'ground', tx, ty };
+    if (!this.ownSelected().length && this.rally(hit)) return;
+    this.order(hit);
+  }
 
   setMode(mode) {
     this.mode = mode;
@@ -135,6 +146,7 @@ export class Controller {
     if (this.mode) { this.modeClick(x, y, button); return; }
     const classic = this.settings.scheme !== 'modern';
     const hit = this.hitTest(x, y);
+    if (mods.alt && (button === 0 || !classic) && hit && this.ownSelected().length) { this.forceMove(hit); return; }
     if (button === 2) {
       if (classic) this.selection.clear();
       else if (!this.rally(hit)) this.order(hit, mods);
@@ -257,6 +269,33 @@ export class Controller {
     this.onMarker(tx + 0.5, ty + 0.5);
   }
 
+  /** Alt + click (spec §5.7): go there whatever is there — no attack, harvest, lift or selection; tracks crush enemy infantry on the way. */
+  forceMove(hit) {
+    const tx = hit.kind === 'unit' ? hit.unit.tx : hit.tx, ty = hit.kind === 'unit' ? hit.unit.ty : hit.ty;
+    this.issue({ type: 'move', ids: this.ownSelected().map((u) => u.id), x: tx, y: ty });
+    this.onMarker(tx + 0.5, ty + 0.5);
+  }
+
+  /** Space's alerts (spec §5.7): has the battle's GameView hand every simulation event it handles to noteEvent as
+   *  well. main.js calls it for the battle scenes, at once, so not even the first frame's events are missed. */
+  listenTo(view) {
+    const onEvent = view.onEvent;
+    view.onEvent = (e) => { onEvent.call(view, e); this.noteEvent(e); };
+  }
+
+  /** A simulation event (GameView hands each one over, see listenTo): keeps where the latest alert for Space happened. No allocation. */
+  noteEvent(e) {
+    if (e.house !== this.house) return;
+    if (e.type === 'damaged' && e.by && e.by !== this.house) {
+      const thing = e.kind === 'unit' ? this.world.units.get(e.id) : this.world.structures.get(e.id);
+      if (thing) setSpot(this.hurt, e.kind === 'unit' ? thing.x : thing.x + thing.w / 2, e.kind === 'unit' ? thing.y : thing.y + thing.h / 2);
+    } else if (e.type === 'structureDestroyed' && e.by && e.by !== this.house) setSpot(this.hurt, e.x + e.w / 2, e.y + e.h / 2);
+    else if (e.type === 'eva') {
+      if (Number.isFinite(e.x) && Number.isFinite(e.y)) setSpot(this.alert, e.x, e.y);
+      else if (ALERTS.has(e.key) && this.hurt.at) setSpot(this.alert, this.hurt.x, this.hurt.z);
+    }
+  }
+
   selectSameType(u) {
     const v = this.viewport();
     this.selection.set(this.candidates()
@@ -303,6 +342,7 @@ export class Controller {
     }
     if (key === 'Home') { this.rig.reset?.(); this.centerOnBase(); return true; }   // spec §5.5: Home resets the view
     if (key === 'h') { this.centerOnBase(); return true; }
+    if (key === ' ') { if (this.alert.at) this.rig.lookAt(this.alert.x, this.alert.z); return true; }   // the last alert
     if (key === 'Escape') { if (this.mode) this.setMode(null); else this.selection.clear(); return true; }
     return false;
   }
@@ -368,3 +408,5 @@ export class Controller {
   }
 
 }
+
+function setSpot(spot, x, z) { spot.at = true; spot.x = x; spot.z = z; }

@@ -2,7 +2,9 @@
 // what the player can see is heard; interface sounds (placements, errors, sales) belong to the player.
 // A shell that finds its target clangs, one that misses thumps into the sand; a vehicle that blows up
 // rains debris after its blast, and a structure that goes up collapses with a rumble (a wall only bursts,
-// as it does on screen: render/destruction.js).
+// as it does on screen: render/destruction.js). A sandworm roars as it breaks the sand, gulps down what it
+// swallows (eaten units leave no debris) and roars again as it flees or dies; a spice bloom bursts with a
+// whump and a hiss. The rumble of a worm under the sand is the battle stage's (game/battle-stage.js).
 import { UNITS, onFoot } from '../data/units.js';
 import { STRUCTURES } from '../data/structures.js';
 
@@ -20,7 +22,13 @@ export function cueFor(e, me, seen) {
     case 'impact': return at(IMPACT[e.projectile]?.(e.hit) ?? null, e.x, e.y);
     case 'explosion': return at(EXPLOSION[e.size] ?? 'explosionSmall', e.x, e.y);
     case 'deathHandBlast': return at('explosionHuge', e.x, e.y);
-    case 'unitDestroyed': return e.cause === 'crushed' ? at('crush', e.x, e.y) : UNITS[e.typeId] && !onFoot(UNITS[e.typeId].move) ? at('debris', e.x, e.y) : null;
+    case 'unitDestroyed':
+      if (e.cause === 'eaten') return null;   // the worm's gulp ('wormAte') says it all
+      if (e.typeId === 'sandworm') return at('wormRoar', e.x, e.y);
+      return e.cause === 'crushed' ? at('crush', e.x, e.y) : UNITS[e.typeId] && !onFoot(UNITS[e.typeId].move) ? at('debris', e.x, e.y) : null;
+    case 'wormSurfaced': case 'wormFled': return at('wormRoar', e.x, e.y);
+    case 'wormAte': return at('wormGulp', e.x, e.y);
+    case 'bloomErupted': return at('bloom', e.x, e.y);
     case 'structureDestroyed': return STRUCTURES[e.typeId]?.isWall ? null : at('collapse', e.x + e.w / 2, e.y + e.h / 2);
     case 'structurePlaced': case 'deployed': return mine ? at('clunk', e.x + 1, e.y + 1) : null;
     case 'concretePlaced': return mine ? at('slab', e.x + e.w / 2, e.y + e.h / 2) : null;

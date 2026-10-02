@@ -1,7 +1,8 @@
 // The simulation world: map, houses, entities and the fixed-step update (spec §3).
-import { Rng } from '../core/rng.js';
+import { Rng, hashString } from '../core/rng.js';
 import { EventQueue } from '../core/events.js';
 import { STRUCTURES } from '../data/structures.js';
+import { MOVE } from '../data/units.js';
 import { DT, AIR } from '../data/tuning.js';
 import { PathFinder } from './pathfind.js';
 import { Reachability } from './reach.js';
@@ -27,15 +28,20 @@ import { updateAircraft } from './air.js';
 import { updateStarports } from './starport.js';
 import { deviate, updateDeviations, destruct, updateSabotage } from './specials.js';
 import { armPalace, updatePalaces, deathHandBlast, updateHunters } from './palace.js';
+import { initWorm, updateWorm, updateWorms } from './worm.js';
+import { bloomStep, eruptBloom, updateBlooms } from './bloom.js';
 
 export class World {
   constructor({ map, seed = 1 }) {
     this.map = map;
     this.rng = new Rng(seed);
+    this.wildRng = new Rng(seed ^ hashString('shai-hulud'));   // worms and blooms (sim/worm.js): their own dice, so they never reshuffle the rest
     this.tick = 0;
     this.fogOfWar = true;    // false reveals everything
     this.visibility = 'fog';   // 'shroud' (Dune II), 'fog' (C&C-style fog of war) or 'revealed' (sim/fog.js); skirmishes start in 'shroud'
-    this.rules = { victory: false, airDelivery: false };   // skirmish and campaign switch victory checks and Carryall deliveries on
+    // Skirmish and campaign switch victory checks and Carryall deliveries on and set the worms ('off', 'few' or
+    // 'many'; sim/worm.js reads a missing setting as 'few'). A bare world — tests, showcases — has none.
+    this.rules = { victory: false, airDelivery: false, worms: 'off' };
     this.outcome = null;
     this.time = 0;
     this.houses = new Map();
@@ -52,13 +58,18 @@ export class World {
     this.pathNodeBudget = 6000;    // A* expansions per tick across all units (~8 ms on the target laptop)
     this.pathSearchCap = 10000;    // expansions for any single search; longer ones return a partial path
     this.onDeploy = (u) => tryDeploy(this, u);
-    this.onTileEntered = null;     // crush, bloom and worm hooks (plan 1b and later)
+    this.bloomRevision = 0;        // bumps whenever a bloom mound bursts or grows (render/bloom-views.js)
+    this.onTileEntered = (u) => bloomStep(this, u);   // a ground unit driving onto a bloom sets it off
+    this.onBloomHit = (i, by) => eruptBloom(this, i, by);   // so does a shot landing on one
     this.onStructurePlaced = (s) => {
       if (s.type.storage) revokeStartBuffer(this, this.houses.get(s.house));
       if (s.typeId === 'refinery') spawnFreeHarvester(this, s);
       if (s.typeId === 'palace') armPalace(this, s);
     };
-    this.onUnitKilled = (u, attacker) => { aftermathOfUnit(this, u, attacker); alertUnitKilled(this, u, attacker); };
+    this.onUnitKilled = (u, attacker, cause) => {   // swallowed whole by a worm: no wreck, no blast, no spilled spice; a worm sinks
+      if (cause !== 'eaten' && u.move !== MOVE.WORM) aftermathOfUnit(this, u, attacker);
+      alertUnitKilled(this, u, attacker);
+    };
     this.onStructureKilled = (s, attacker) => { emptyBay(this, s, 'destroyed', attacker); aftermathOfStructure(this, s); alertStructureKilled(this, s, attacker); };
     this.onCrush = (tank, victim) => killUnit(this, victim, { house: tank.house, id: tank.id, kind: 'unit' }, 'crushed');
     this.onGas = (p) => deviate(this, p);
@@ -76,6 +87,7 @@ export class World {
     if (!this.map.inBounds(x, y)) throw new Error(`spawn outside the map at ${x},${y}`);
     const unit = createUnit(this.nextId++, typeId, houseId, x, y, opts);
     if (opts.inside) unit.inside = opts.inside;   // born in a Carryall's claws (a delivery)
+    else if (unit.move === MOVE.WORM) initWorm(unit);   // under the sand: a worm holds no tile
     else if (unit.isGround) {
       const i = this.map.idx(x, y);
       if (this.map.unit[i] || this.map.structure[i]) throw new Error(`tile ${x},${y} is taken`);
@@ -137,6 +149,7 @@ export class World {
     for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
     for (const u of [...this.units.values()]) {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay or a refinery's slot is moved by the building
+      if (u.move === MOVE.WORM) { updateWorm(this, u); continue; }
       if (!u.isGround) { updateAircraft(this, u); continue; }
       if (u.destructAt !== undefined && this.time >= u.destructAt) { destruct(this, u); continue; }
       if (u.harvest) updateHarvester(this, u);
@@ -156,6 +169,8 @@ export class World {
     if (this.tick % 10 === 5) updateDeviations(this);
     if (this.tick % 20 === 5) updatePalaces(this);
     if (this.tick % 20 === 15) updateHunters(this);
+    if (this.tick % 20 === 12) updateWorms(this);
+    if (this.tick % 20 === 17) updateBlooms(this);
     if (this.fogOfWar && this.tick % 5 === 0) updateFog(this);
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);

@@ -83,3 +83,13 @@ test('the base at work: slabs laid, a Frigate landing, a Harvester unloading whe
   assert.equal(cueFor({ type: 'docked', id: 7, refinery: 3, x: 5, y: 6 }, 'atreides', all).id, 'harvesterUnload');
   assert.equal(cueFor({ type: 'docked', id: 7, refinery: 3 }, 'atreides', all), null, 'without a place it stays silent');
 });
+
+test('a sandworm roars as it surfaces, flees or dies, gulps what it eats (no debris); a bloom bursts', () => {
+  assert.deepEqual(cueFor({ type: 'wormSurfaced', id: 9, x: 4, y: 5 }, 'atreides', all), { id: 'wormRoar', x: 4, z: 5 });
+  assert.equal(cueFor({ type: 'wormFled', id: 9, x: 4, y: 5 }, 'atreides', all).id, 'wormRoar');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'sandworm', cause: 'destroyed', x: 4, y: 5 }, 'atreides', all).id, 'wormRoar');
+  assert.equal(cueFor({ type: 'wormAte', id: 9, typeId: 'trike', x: 4, y: 5 }, 'atreides', all).id, 'wormGulp');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'trike', cause: 'eaten', x: 4, y: 5 }, 'atreides', all), null, 'swallowed whole: no debris');
+  assert.deepEqual(cueFor({ type: 'bloomErupted', x: 7.5, y: 2.5, by: null }, 'atreides', all), { id: 'bloom', x: 7.5, z: 2.5 });
+  assert.equal(cueFor({ type: 'bloomErupted', x: 7.5, y: 2.5 }, 'atreides', () => false), null, 'unseen, unheard');
+});

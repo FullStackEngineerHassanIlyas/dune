@@ -1,8 +1,8 @@
 // In-game menu (spec §5.7, §5.8): Esc, F10 or the sidebar's Menu button pause the battle and open
-// it — resume, options, controls, full screen, restart, and back to the main menu. While it is open
-// it has the keyboard; Esc steps back a page, then closes it.
+// it — resume, options (with the Original Game Files page), controls, full screen, restart, and back to
+// the main menu. While it is open it has the keyboard; Esc steps back a page, then closes it.
 import { h } from './dom.js';
-import { optionsPanel } from './options.js';
+import { optionsPanel, originalFilesRow, originalFilesPage } from './options.js';
 import { controlsTable } from './controls-help.js';
 
 export class GameMenu {
@@ -12,6 +12,7 @@ export class GameMenu {
     this.el.addEventListener('pointerdown', (e) => { if (e.target === this.el) this.close(); });
     root.appendChild(this.el);
     this.page = null;
+    this.visit = 0;
   }
 
   get isOpen() { return this.page !== null; }
@@ -21,6 +22,7 @@ export class GameMenu {
   close() {
     if (!this.isOpen) return;
     this.page = null;
+    this.visit++;
     this.el.classList.remove('show');
     this.el.replaceChildren();
     this.onClose();
@@ -28,6 +30,7 @@ export class GameMenu {
 
   show(page) {
     this.page = page;
+    const visit = ++this.visit;
     this.el.classList.add('show');
     const back = h('button', { type: 'button', class: 'dm-btn', onclick: () => this.show('main') }, 'Back');
     let body;
@@ -46,7 +49,15 @@ export class GameMenu {
         h('p', { class: 'dm-hint' }, 'Esc resumes'),
       ];
     } else if (page === 'options') {
-      body = [h('h2', {}, 'Options'), optionsPanel(this.settings, { onChange: (key, value) => this.onSettings(key, value) }), h('div', { class: 'dm-actions' }, back)];
+      body = [h('h2', {}, 'Options'), optionsPanel(this.settings, { onChange: (key, value) => this.onSettings(key, value) }),
+        originalFilesRow(() => this.show('original-files')), h('div', { class: 'dm-actions' }, back)];
+    } else if (page === 'original-files') {
+      body = [h('h2', {}, 'Original Game Files'), h('p', { class: 'dm-hint' }, 'Loading…')];
+      originalFilesPage(this.settings, { onBack: () => this.show('options') }).then((panel) => {
+        if (this.visit !== visit) return;   // closed or moved on meanwhile
+        this.el.replaceChildren(panel);
+        panel.querySelector?.('.dm-btn.primary, .dm-actions .dm-btn, button')?.focus({ preventScroll: true });
+      });
     } else if (page === 'controls') {
       body = [h('h2', {}, 'Controls'), controlsTable(this.settings.scheme), h('div', { class: 'dm-actions' }, back)];
     } else {
@@ -65,7 +76,7 @@ export class GameMenu {
   /** Keys while the menu is open: Esc and F10 step back or close; the rest (Tab, Enter) work its buttons, never the battle. */
   onKey(key) {
     if (key !== 'Escape' && key !== 'F10') return false;
-    if (this.page === 'main') this.close(); else this.show('main');
+    if (this.page === 'main') this.close(); else this.show(this.page === 'original-files' ? 'options' : 'main');
     return true;
   }
 }

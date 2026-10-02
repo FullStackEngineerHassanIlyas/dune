@@ -6,7 +6,11 @@
 // decoded after the first click has opened the audio and play on their own gain into the sound engine's
 // master bus, so the master volume and the M mute apply to them too. The message bar keeps every text.
 // Without Web Audio, the manifest or a decodable file the game simply stays quiet; nothing here throws.
+// With "Use the original sounds" on (Options → Original Game Files, spec §6), the lines the original spoke
+// come from the player's own Dune II clips instead, strung together from its word clips as it did
+// (src/formats/dune2-sounds.js); any line they cannot make keeps its pre-rendered voice.
 import { HOUSES } from '../data/houses.js';
+import { ORIGINAL_LINES, RATE, resolveLine, voiceLine } from '../formats/dune2-sounds.js';
 
 export const VOICE_BASE = new URL('../../assets/voice/', import.meta.url).href;
 export const VOICE_LEVEL = 0.85;  // lines are mastered to -16 LUFS; at the default Voices 80 % they sit ~5 dB over one effect (-21…-32 LUFS)
@@ -227,22 +231,57 @@ export class VoicePlayer {
   }
 }
 
+/** The player's original clips (src/core/user-files.js, loaded only now), followed so a change on the Original Game Files page applies at once. */
+async function storedVoices(output) {
+  const files = await import('../core/user-files.js');
+  if (!output.following) { output.following = true; files.follow(output); }
+  return files.originalVoices();
+}
+
 /**
  * The browser output: reads assets/voice/manifest.json at once, and after the audio unlock decodes the
  * house's lines on demand, warming the rest in the background one file at a time. `sound` is the
- * SoundEngine; lines go through a gain of their own into its master bus.
+ * SoundEngine; lines go through a gain of their own into its master bus. `originals(output)` gives the
+ * player's original clips (name → { rate, pcm }) or null; null instead of a function: never.
  */
 export class WebVoiceOutput {
-  constructor(sound, house, { base = VOICE_BASE, fetchFn = globalThis.fetch?.bind(globalThis) } = {}) {
-    Object.assign(this, { sound, house, base, fetchFn });
+  constructor(sound, house, { base = VOICE_BASE, fetchFn = globalThis.fetch?.bind(globalThis), originals = storedVoices } = {}) {
+    Object.assign(this, { sound, house, base, fetchFn, originals });
     this.lines = null;               // id → file, for this house (announcer) and the units
+    this.original = null;            // id → the original clip names that make it, while the player's own are in use
+    this.clips = null;
+    this.generation = 0;             // bumped when the source of the lines changes: a decode for the old one is let go
+    this.asked = 0;                  // the latest request for the original clips: an older answer arriving late is ignored
     this.buffers = new Map();
     this.loading = new Set();
     this.missing = new Set();
     this.bus = null;
     this.source = null;
     this.warmed = false;
-    this.ready = fetchFn ? fetchFn(new URL('manifest.json', base).href).then((r) => (r.ok ? r.json() : null)).then((m) => this.useManifest(m)).catch(() => null) : Promise.resolve(null);
+    const manifest = fetchFn ? fetchFn(new URL('manifest.json', base).href).then((r) => (r.ok ? r.json() : null)).then((m) => this.useManifest(m)).catch(() => null) : Promise.resolve(null);
+    this.ready = Promise.all([manifest, this.loadOriginals()]).then(([m]) => m);
+  }
+
+  /** Asks for the player's original clips again (also what the store calls when the player changes them). */
+  loadOriginals() {
+    if (typeof this.originals !== 'function') return Promise.resolve(null);
+    const asked = ++this.asked;
+    return Promise.resolve().then(() => this.originals(this)).catch(() => null).then((clips) => { if (asked === this.asked) this.useOriginals(clips); return clips; });
+  }
+
+  originalsChanged() { return this.loadOriginals(); }
+
+  /** Lines from these clips (name → { rate, pcm }) where they can make them; null: none. Lines already decoded are let go. */
+  useOriginals(clips) {
+    const lines = {};
+    if (clips?.size) for (const id of ORIGINAL_LINES) { const names = resolveLine(id, this.house, (n) => clips.has(n)); if (names) lines[id] = names; }
+    const any = Object.keys(lines).length > 0;
+    if (!any && !this.original) return;
+    this.original = any ? lines : null;
+    this.clips = any ? clips : null;
+    this.generation++;
+    this.buffers.clear();
+    this.missing.clear();
   }
 
   useManifest(m) {
@@ -252,19 +291,30 @@ export class WebVoiceOutput {
     return m;
   }
 
-  get live() { return !!this.lines && !!this.sound?.running && !this.sound.muted; }
-  has(id) { return !!this.lines?.[id]; }
+  get live() { return (!!this.lines || !!this.original) && !!this.sound?.running && !this.sound.muted; }
+  has(id) { return !!this.original?.[id] || !!this.lines?.[id]; }
   status(id) { return this.buffers.has(id) ? 'ready' : this.missing.has(id) || !this.has(id) ? 'missing' : 'loading'; }
 
   load(id) {
     if (!this.has(id) || this.buffers.has(id) || this.loading.has(id) || this.missing.has(id) || !this.sound?.ctx) return null;
+    const ctx = this.sound.ctx, gen = this.generation;
+    if (this.original?.[id]) {   // the original's words, back to back: no decoding to wait for
+      try {
+        const data = voiceLine(this.original[id].map((n) => this.clips.get(n))), buffer = ctx.createBuffer(1, data.length, RATE);
+        buffer.copyToChannel(data, 0);
+        this.buffers.set(id, buffer);
+        return Promise.resolve();
+      } catch {
+        delete this.original[id];   // this one keeps the pre-rendered voice
+        return this.has(id) ? this.load(id) : (this.missing.add(id), null);
+      }
+    }
     this.loading.add(id);
-    const ctx = this.sound.ctx;
     return this.fetchFn(new URL(this.lines[id].file, this.base).href)
       .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.arrayBuffer(); })
       .then((bytes) => new Promise((resolve, reject) => { const p = ctx.decodeAudioData(bytes, resolve, reject); p?.catch?.(reject); }))
-      .then((buffer) => { this.buffers.set(id, buffer); })
-      .catch(() => { this.missing.add(id); })
+      .then((buffer) => { if (gen === this.generation) this.buffers.set(id, buffer); })
+      .catch(() => { if (gen === this.generation) this.missing.add(id); })
       .finally(() => { this.loading.delete(id); });
   }
 
@@ -300,12 +350,13 @@ export class WebVoiceOutput {
   async check() {
     await this.ready;
     const ctx = this.sound?.ctx;
-    if (!this.lines || !ctx) return { lines: this.lines ? Object.keys(this.lines).length : 0, decoded: 0, context: !!ctx };
-    const ids = Object.keys(this.lines);
+    const original = this.original ? Object.keys(this.original).length : 0;
+    if ((!this.lines && !original) || !ctx) return { lines: this.lines ? Object.keys(this.lines).length : 0, original, decoded: 0, context: !!ctx };
+    const ids = [...new Set([...Object.keys(this.lines ?? {}), ...Object.keys(this.original ?? {})])];
     for (const id of ids) await this.load(id);
     const seconds = ids.filter((id) => this.buffers.has(id)).map((id) => this.buffers.get(id).duration);
     return {
-      lines: ids.length, decoded: seconds.length, missing: [...this.missing], state: ctx.state, sampleRate: ctx.sampleRate,
+      lines: ids.length, original, decoded: seconds.length, missing: [...this.missing], state: ctx.state, sampleRate: ctx.sampleRate,
       shortest: Math.min(...seconds), longest: Math.max(...seconds), total: seconds.reduce((a, b) => a + b, 0),
     };
   }

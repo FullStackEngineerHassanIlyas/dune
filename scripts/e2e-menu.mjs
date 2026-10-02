@@ -1,6 +1,7 @@
 // End-to-end check of the main menu, the in-game menu and the scrolling controls in real Chrome:
-// menu → skirmish set-up → battle in its frame; edge scrolling past the window edge; right-drag
-// scrolling that neither clicks nor deselects; Esc and the Menu button; quitting back to the menu.
+// menu → skirmish set-up → battle in its frame; the Music option and the Original Game Files page
+// (the real panel, or "Not available" without its module); edge scrolling past the window edge;
+// right-drag scrolling that neither clicks nor deselects; Esc and the Menu button; quitting back to the menu.
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -35,9 +36,27 @@ try {
   await clickOn('.dm-seg [data-key="scheme"]:nth-child(2)');
   check('options change and are saved', (await ev('JSON.parse(localStorage.getItem("dune2-3d.settings")).scheme')) === 'modern');
   await clickOn('.dm-seg [data-key="scheme"]:nth-child(1)');
+  check('Options has a Music row', await ev('!!document.querySelector(\'.main-menu input[aria-label="Music"]\')'));
+  await ev('(() => { const i = document.querySelector(\'.main-menu input[aria-label="Music"]\'); i.value = "0.25"; i.dispatchEvent(new Event("input")); i.dispatchEvent(new Event("change")); })()');
+  check('the Music volume is saved', (await ev('JSON.parse(localStorage.getItem("dune2-3d.settings")).musicVolume')) === 0.25);
+  const filesShown = 'window.__dune.menu.screen === "original-files" && !!document.querySelector(".main-menu > .dm-panel") && !/Loading…/.test(document.querySelector(".main-menu > .dm-panel").textContent)';
+  await clickOn('.page-options [data-act="original-files"]');
+  await page.waitFor(filesShown, 10000);
+  check('the Options page opens Original Game Files', await ev(filesShown), await ev('document.querySelector(".main-menu > .dm-panel").textContent.slice(0, 80)'));
+  await page.key('Escape');
+  await sleep(150);
+  check('Esc on Original Game Files goes back to Options', await ev('window.__dune.menu.screen === "options"'));
   await page.key('Escape');
   await sleep(150);
   check('Esc goes back to the title', await ev('!!document.querySelector(".mm-nav")'));
+
+  await clickOn('[data-act="original-files"]');
+  await page.waitFor(filesShown, 10000);
+  check('the main menu entry opens Original Game Files', await ev(filesShown));
+  await page.screenshot(path.join(shots, '02b-original-files.png'));
+  await page.key('Escape');
+  await sleep(150);
+  check('and Esc goes back to the title', await ev('!!document.querySelector(".mm-nav")'));
 
   await clickOn('[data-act="controls"]');
   await page.screenshot(path.join(shots, '03-controls.png'));
@@ -53,7 +72,7 @@ try {
   const g = (expr) => ev(`window.__dune.frame.contentWindow.__dune.${expr}`);
   check('Start battle opens the battle in its frame, as the chosen house', (await g('house')) === 'ordos');
   const src = await ev('window.__dune.frame.src');
-  check('the set-up reaches the battle', /size=64/.test(src) && /ai=normal/.test(src) && /credits=3000/.test(src), src);
+  check('the set-up reaches the battle', /size=64/.test(src) && /opponents=[a-z]+(%3A|:)normal/.test(src) && /credits=3000/.test(src), src);
   await page.screenshot(path.join(shots, '05-battle.png'));
   check('the battlefield has a game cursor', (await g('cursor()')).canvas.includes('data:image/svg'));
 
@@ -120,6 +139,8 @@ try {
   };
   await inFrame('[data-act="options"]');
   await page.screenshot(path.join(shots, '08-game-options.png'));
+  check('the in-game Options have the Music row and the Original Game Files button',
+    await ev('!!window.__dune.frame.contentDocument.querySelector(\'input[aria-label="Music"]\') && !!window.__dune.frame.contentDocument.querySelector(\'.game-menu [data-act="original-files"]\')'));
   await page.key('Escape');
   await sleep(150);
   await inFrame('[data-act="quit"]');

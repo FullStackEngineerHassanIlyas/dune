@@ -39,6 +39,7 @@ export const SCENARIOS = {
   'base-frigate': { query: 'scene=base&house=atreides&fog=0&frigate=1&ticks=585&dist=14', settleMs: 1200 },
   'base-palace': { query: 'scene=base&house=harkonnen&fog=0&palace=1&dist=14', settleMs: 1500 },
   'battle-specials': { query: 'scene=battle&specials=1&dist=24&ticks=140', settleMs: 1500 },
+  'battle-worms': { query: 'scene=battle&worms=many&dist=22&ticks=160', settleMs: 1500 },
   'skirmish-ai-base': { query: 'scene=skirmish&seed=11&house=atreides&fog=0&ticks=6000&dist=34&focus=rival', settleMs: 1500 },
   // the menu's planet alone (scene=planet): the framing with the moon mid-pass, the dive half-way and at the seam
   'planet-framing': { query: 'scene=planet&dive=0&moon=5&freeze=1' },

@@ -37,6 +37,7 @@ import { checkInvariants } from '../sim/invariants.js';
 import { createDebugApi } from './debug.js';
 import { BattleStage } from './battle-stage.js';
 import { Announcer } from './announcer.js';
+import { BattleMusic } from '../audio/music/music.js';
 
 export class GameView {
   constructor({ world, house, settings, params, focus }) {
@@ -71,6 +72,8 @@ export class GameView {
       world, house, player: new VoicePlayer({ output: new WebVoiceOutput(this.sound, house), volume: settings.voiceVolume }),
       onMessage: (text) => this.hud.message(text),
     });
+    // the soundtrack (spec §6 Music): peace and battle tracks as the fighting comes and goes, through the master
+    this.music = new BattleMusic({ world, house, engine: this.sound, settings });
     const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
@@ -183,9 +186,11 @@ export class GameView {
   onEvent(e) {
     this.stage.onEvent(e, this.stageNow);
     this.announcer.onEvent(e, performance.now() / 1000);
+    this.music.onEvent(e);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
+    else if (e.type === 'houseDefeated' && e.house !== this.house && e.text) this.hud.message(e.text);   // 'House Ordos has been defeated.' (sim/victory.js)
     if (e.type === 'gameOver') this.endAt = performance.now() + 2500;
   }
 
@@ -245,6 +250,7 @@ export class GameView {
     if (paused) this.pausedAt = now;
     else this.announcer.player.held(now - this.pausedAt);
     this.sound.setPaused(paused);
+    this.music.setPaused(paused);   // the FM music holds with the context; a player's file has to be paused itself
   }
 
   /** A hidden page is a stopped game: it falls silent (the wind would blow on in a background tab) and has nothing stale to say on return. */
@@ -293,6 +299,7 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
+    this.music.frame();   // the mood (paused, the battle's clock stands still), the music volume read live
     this.selection.prune((id) => { const u = world.units.get(id); return !!u && (!u.inside || !!u.docked) && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
@@ -317,7 +324,12 @@ export class GameView {
     this.radar.update(dt, { online: sidebar.radar, view: this.viewQuad() });
     if (this.radarWas !== undefined && sidebar.radar !== this.radarWas) this.sound.play('static');
     this.radarWas = sidebar.radar;
-    if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
+    if (this.endAt && now >= this.endAt) {
+      this.endAt = 0;
+      const stats = endStats(world, this.house);
+      this.endScreen.show(stats);
+      this.music.end(stats.won, stats.draw);   // victory or defeat once through; a draw stays silent
+    }
     this.fps?.frame();
     this.wake.idle();
   }
@@ -330,6 +342,7 @@ export class GameView {
       this.rig.update(1, this.heightAt);
       if (!tick(now)) return;
       window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller, view: this });
+      window.__dune.music = this.music.debug();
       window.__dune.ready = true;
       requestAnimationFrame(loop);
     });

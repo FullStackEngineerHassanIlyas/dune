@@ -11,8 +11,24 @@ export const RADAR_THICK_SPICE = [170, 66, 34];
 export const RADAR_CONCRETE = [158, 154, 144];
 
 const rgb = (hex) => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
-const STRUCTURE_RGB = Object.fromEntries(Object.entries(HOUSES).map(([id, h]) => [id, rgb(h.color)]));
-const UNIT_RGB = Object.fromEntries(Object.entries(STRUCTURE_RGB).map(([id, c]) => [id, c.map((v) => Math.round(v + (255 - v) * 0.4))]));
+// Radar paint for the skirmish houses, [structures, units]: buildings in the house colour, units lighter. The
+// Sardaukar purple is pushed off the Atreides blue and the units brightened clear of the sand and spice they
+// cross, so up to four houses stay apart on a pixel per tile (tests/radar-model.test.mjs measures it).
+const RADAR_HOUSE = {
+  atreides: [[47, 111, 224], [120, 170, 255]],
+  harkonnen: [[200, 38, 30], [255, 60, 50]],
+  ordos: [[46, 158, 62], [100, 225, 100]],
+  sardaukar: [[150, 60, 210], [205, 125, 255]],
+  mercenary: [[225, 200, 20], [255, 245, 90]],
+};
+/** A house's radar colours, [structure, unit]; houses without their own get the house colour and a lighter one. */
+export function radarColours(houseId) {
+  if (RADAR_HOUSE[houseId]) return RADAR_HOUSE[houseId];
+  const c = rgb(HOUSES[houseId]?.color ?? 0xffffff);
+  return [c, c.map((v) => Math.round(v + (255 - v) * 0.4))];
+}
+const STRUCTURE_RGB = Object.fromEntries(Object.keys(HOUSES).map((id) => [id, radarColours(id)[0]]));
+const UNIT_RGB = Object.fromEntries(Object.keys(HOUSES).map((id) => [id, radarColours(id)[1]]));
 
 export function radarImage(world, houseId, out = new Uint8ClampedArray(world.map.w * world.map.h * 4)) {
   const map = world.map, n = map.w * map.h;
