@@ -1,12 +1,13 @@
 // The soundtrack's conductor (spec §6 Music): what plays, where it comes from and how loud. A mood ('menu', 'peace',
 // 'battle', 'victory', 'defeat', a house's 'briefing', or 'over': silence) is played from the player's own files when
 // they have assigned some to that playlist (Original Game Files, src/core/user-files.js, read lazily — it may not be
-// there), else from the FM pool for it; shuffled, track after track, a queued FM track starting on the sample the
-// last one ends. The music has its own gain at settings.musicVolume (0–1, 0.5 by default), read live; at 0 it is
-// silent and its synth is taken down. Under an announcer line it dips. BattleMusic follows a battle through the
-// director (director.js); MenuMusic plays the title on the main menu, on an audio context of its own.
+// there — and read again when the store says they changed, or the menu comes back), else from the FM pool for it;
+// shuffled, track after track, a queued FM track starting on the sample the last one ends. The music has its own
+// gain at settings.musicVolume (0–1, 0.5 by default), read live; at 0 it is silent and its synth is taken down.
+// Under an announcer line it dips. BattleMusic follows a battle through the director (director.js); MenuMusic plays
+// the title on the main menu, on an audio context of its own.
 import { MusicOutput } from './output.js';
-import { MusicDirector, Shuffle, threatNear, LOOK_EVERY } from './director.js';
+import { MusicDirector, Shuffle, threatsNear, LOOK_EVERY } from './director.js';
 import { POOLS, TRACKS, BRIEFINGS } from './songs/index.js';
 
 export const DEFAULT_VOLUME = 0.5;
@@ -18,8 +19,8 @@ export const ENTRANCES = {
   battle: { fade: 1.2, fadeIn: 0, wait: 0 },     // the battle track's own opening fill takes over at once
   peace: { fade: 3, fadeIn: 2, wait: 1.5 },
   over: { fade: 2 },                             // the battle is decided: the music stops, as in the original
-  victory: { fade: 0.3, fadeIn: 0, wait: 0 },
-  defeat: { fade: 0.3, fadeIn: 0, wait: 0 },
+  victory: { fade: 0.3, fadeIn: 0, wait: 0, once: true },   // once through and rung out: it does not loop on behind
+  defeat: { fade: 0.3, fadeIn: 0, wait: 0, once: true },    // "Keep watching" (the original stops the music there)
 };
 const ENTRANCE = { fade: 0.8, fadeIn: 0.5, wait: 0 };
 
@@ -29,8 +30,12 @@ export function musicVolume(settings) {
   return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_VOLUME;
 }
 
+const USER_FILES = () => import('../../core/user-files.js');
+/** A playlist told apart from another without comparing its data. */
+const signature = (list) => (list ?? []).map((t) => `${t.name}:${t.data.byteLength}`).join('|');
+
 /** The player's own tracks for a playlist ([{ name, type, data }]), or none: the module may be missing or fail. */
-export async function loadPlaylist(name, importer = () => import('../../core/user-files.js')) {
+export async function loadPlaylist(name, importer = USER_FILES) {
   try {
     const list = await (await importer()).playlistTracks?.(name);
     return Array.isArray(list) ? list.filter((t) => t && t.data) : [];
@@ -43,6 +48,7 @@ export class Conductor {
   /** audio: { ctx, master } (null ctx until a gesture opens it); pools: mood → FM track ids. */
   constructor({ audio, settings, win = globalThis.window, rng = Math.random, importer, pools = POOLS, house = null }) {
     this.settings = settings;
+    this.importer = importer;
     this.pools = pools;
     this.house = house;
     this.win = win;
@@ -59,10 +65,31 @@ export class Conductor {
     this.paused = false;
     this.on = false;         // the synth is up and the level above zero
     this.level = -1;
-    const wait = new Promise((resolve) => win?.setTimeout?.(resolve, PLAYLIST_WAIT));
-    this.ready = Promise.race([Promise.all(PLAYLISTS.map((n) => loadPlaylist(n, importer))), wait.then(() => null)]).then((lists) => {
-      if (lists) PLAYLISTS.forEach((n, i) => { if (lists[i].length) this.lists[n] = lists[i]; });
+    this.reads = 0;
+    this.ready = this.reloadPlaylists();
+    // the store tells its followers when the player changes their files (user-files.js follow(), held weakly)
+    Promise.resolve().then(importer ?? USER_FILES).then((m) => m?.follow?.(this)).catch(() => {});
+  }
+
+  /** The store's word that the player changed their files: the playlists are read again. */
+  originalsChanged() { this.reloadPlaylists(); }
+
+  /**
+   * The player's playlists, read (again): the first read waits PLAYLIST_WAIT at most before the game's own music
+   * plays. A mood playing whose list changed starts again from it (or from the FM pool, the list emptied).
+   */
+  reloadPlaylists() {
+    const read = ++this.reads, wait = new Promise((resolve) => this.win?.setTimeout?.(resolve, PLAYLIST_WAIT));
+    return Promise.race([Promise.all(PLAYLISTS.map((n) => loadPlaylist(n, this.importer))), wait.then(() => null)]).then((lists) => {
+      if (read !== this.reads) return;   // a later read is on its way
+      let restart = false;
+      if (lists) PLAYLISTS.forEach((n, i) => {
+        if (signature(lists[i]) === signature(this.lists[n])) return;   // unchanged: the same objects stay (the shuffle knows them)
+        if (lists[i].length) this.lists[n] = lists[i]; else delete this.lists[n];
+        if (this.playing === n) restart = true;
+      });
       this.loaded = true;
+      if (restart) { this.playing = null; this.update(); }
     });
   }
 
@@ -121,7 +148,7 @@ export class Conductor {
     }
     out.stopFile(how.fade);
     const pool = this.poolFor(mood), id = this.shuffle.pick(mood, pool), loops = pool.length > 1;
-    out.send({ cmd: 'play', id, fade: how.fade, fadeIn: how.fadeIn, wait: how.wait, passes: loops ? TRACKS[id]?.passes ?? 1 : 0 });
+    out.send({ cmd: 'play', id, fade: how.fade, fadeIn: how.fadeIn, wait: how.wait, passes: loops ? TRACKS[id]?.passes ?? 1 : how.once ? 1 : 0 });
     this.current = id;
     if (loops) this.queueNext(mood, pool);
   }
@@ -137,7 +164,7 @@ export class Conductor {
     const list = this.lists[mood], file = this.shuffle.pick(mood, list);
     this.current = file;
     this.output.playFile(file, {
-      fade: how.fade, fadeIn: how.fadeIn || 0.6,
+      fade: how.fade, fadeIn: how.fadeIn || 0.6, paused: this.paused || this.held,   // a new file waits with the rest
       onEnded: (failed) => {
         if (this.playing !== mood || this.current !== file) return;
         if (failed && tries + 1 >= list.length) { delete this.lists[mood]; this.playing = null; return; }   // none of them plays: the game's own music
@@ -146,14 +173,14 @@ export class Conductor {
     });
   }
 
-  /** The synth's events: a queued track has started, so the next one is queued behind it. */
+  /** The synth's events: a queued track has started, so the next one is queued behind it; or the last one is over. */
   onSynth(e) {
     if (e.type === 'started' && e.id === this.queued) {
       this.current = e.id;
       const pool = this.poolFor(this.playing);
       if (pool.length > 1) this.queueNext(this.playing, pool);
       else this.queued = null;
-    }
+    } else if (e.type === 'ended' && e.id === this.current && !this.queued) this.current = null;
   }
 
   setPaused(paused) {
@@ -173,7 +200,7 @@ export class Conductor {
       /** Share of the audio thread the FM synth takes (from the worklet's own clock), when known. */
       get load() { return self.output.load; },
       get playlists() { return Object.fromEntries(PLAYLISTS.map((n) => [n, self.lists[n]?.length ?? 0])); },
-      /** The audio context's state, and the music's level after its gain in dB RMS (a test's proof that it sounds). */
+      /** The audio context's state, and (a promise) the music's level after its gain in dB RMS: a test's proof that it sounds. */
       get context() { return self.output.ctx?.state ?? null; },
       meter: () => self.output.meter(),
       /** The settings object the game reads (musicVolume can be changed here as Options would). */
@@ -191,24 +218,25 @@ export class BattleMusic {
     this.director = new MusicDirector({ house });
     this.conductor = new Conductor({ audio: engine, settings, win, rng, importer, house });
     this.nextLook = 0;
+    this.near = [];   // the enemies near the player's forces at the last look (reused)
   }
 
   onEvent(e) { this.director.onEvent(e, this.world.time); }
 
-  /** Once a frame: a look for enemies near the player's forces each second of battle, then the mood and the settings. */
+  /** Once a frame: a look for enemies coming near the player's forces each second of battle, then the mood and the settings. */
   frame() {
     const now = this.world.time, d = this.director;
     if (now >= this.nextLook && (d.mood === 'peace' || d.mood === 'battle')) {
       this.nextLook = now + LOOK_EVERY;
-      if (threatNear(this.world, this.house)) d.fight(now);
+      d.sight(threatsNear(this.world, this.house, this.near), now);
     }
     this.conductor.ducked = !!this.engine?.ducked;
     this.conductor.want(d.update(now));
     this.conductor.update();
   }
 
-  /** The result screen shows. */
-  end(won) { this.director.end(won); this.frame(); }
+  /** The result screen shows: won or lost, or a draw (silence). */
+  end(won, draw = false) { this.director.end(won, draw); this.frame(); }
 
   setPaused(paused) { this.conductor.setPaused(paused); }
 
@@ -273,7 +301,7 @@ export class MenuAudio {
     if (this.master.gain.value !== v) this.master.gain.value = v;
   }
 
-  /** Held: suspended (a battle in the frame, a hidden page); otherwise running. */
+  /** Held: suspended (a battle in the frame, a hidden page, nothing to hear); otherwise running. */
   hold(held) {
     this.held = !!held;
     try { (held ? this.ctx?.suspend?.() : this.ctx?.resume?.())?.catch?.(() => {}); } catch { /* it plays on */ }
@@ -282,7 +310,11 @@ export class MenuAudio {
 
 const POLL_MS = 250;
 
-/** The main menu's music: the title theme from the first gesture; silent behind a battle and on a hidden page. */
+/**
+ * The main menu's music: the title theme from the first gesture. Its context rests (suspended: no gain, no compressor
+ * on the audio thread) behind a battle, on a hidden page, at music volume 0 and with Sound off; a player's file,
+ * which a suspended context does not stop, is paused with it.
+ */
 export class MenuMusic {
   /** track: a track id to play instead of the title (the menu's ?music= flag, for listening to any track). */
   constructor({ settings, win = globalThis.window, track = null, importer, rng }) {
@@ -291,14 +323,25 @@ export class MenuMusic {
     const pools = track && TRACKS[track] ? { ...POOLS, menu: [track] } : POOLS;
     this.conductor = new Conductor({ audio: this.audio, settings, win, rng, pools, importer: track ? async () => ({}) : importer });
     this.conductor.want('menu');
-    this.away = false;
+    this.away = false;       // a battle is in the frame
+    this.behind = false;     // and the title has faded out behind it
+    this.hidden = false;
     this.timer = win?.setInterval?.(() => this.update(), POLL_MS);
-    win?.document?.addEventListener?.('visibilitychange', () => this.audio.hold(this.away || win.document.hidden));
+    win?.document?.addEventListener?.('visibilitychange', () => this.rest());
   }
 
   update() {
     this.audio.update();
     this.conductor.update();
+    this.rest();
+  }
+
+  /** The context suspended whenever nothing is to be heard, and a player's file paused on a hidden page. */
+  rest() {
+    const hidden = !!this.win?.document?.hidden, a = this.audio;
+    const held = this.behind || hidden || a.muted || musicVolume(a.settings) <= 0;
+    if (held !== a.held) a.hold(held);
+    if (hidden !== this.hidden) { this.hidden = hidden; this.conductor.setPaused(hidden); }
   }
 
   /** A battle opens in the frame over the menu: the title fades out and the menu's audio rests. */
@@ -306,17 +349,20 @@ export class MenuMusic {
     this.away = true;
     this.conductor.want(null);
     this.conductor.update();
-    this.win?.setTimeout?.(() => { if (this.away) this.audio.hold(true); }, 1000);
+    this.win?.setTimeout?.(() => { if (this.away) { this.behind = true; this.rest(); } }, 1000);
   }
 
-  /** Back from the battle: the title again from its start. */
+  /** Back from the battle: the title again from its start (from the player's menu files if they changed meanwhile). */
   enter() {
-    this.away = false;
-    this.audio.hold(!!this.win?.document?.hidden);
+    this.away = this.behind = false;
     this.conductor.playing = null;
     this.conductor.want('menu');
     this.update();
+    this.reloadPlaylists();
   }
+
+  /** The player's playlists read again (for whoever knows they changed: the Original Game Files page closing). */
+  reloadPlaylists() { return this.conductor.reloadPlaylists(); }
 
   /** A house's briefing theme (for a house chosen on a menu screen); `null` goes back to the title. */
   briefing(house) {

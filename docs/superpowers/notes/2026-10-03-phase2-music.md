@@ -60,7 +60,8 @@ wrong length, a loop body that is not whole bars, and any note outside the patte
 | defeat | Dust and Silence | defeat | D Phrygian lament | 66 | 3.6 + 29.1 s |
 
 Peace tracks play 2 passes (~2.5 min) and battle tracks 2–3 (~1.5 min) before the next shuffled pick;
-title, victory and defeat loop for as long as their screen stays.
+the title (and a briefing) loops for as long as its screen stays; victory and defeat play once through and
+ring out.
 
 ## When what plays (following the original)
 
@@ -69,13 +70,16 @@ into the player's sight (`Unit_HouseUnitCount_Add`, behind the "enemy approachin
 appears, and a random battle track plays; peace again when it ends; `Music_Play(0)` when the level ends.
 
 Here: peace tracks shuffle (never the same twice running); **battle** when an enemy or a sandworm the
-player can see is within 12 tiles of one of their buildings or 8 of their units (checked once a second
-of battle time), or when the player's forces fire, are damaged or lose something to another house.
+player can see comes within 12 tiles of one of their buildings or 8 of their units (checked once a second
+of battle time; each unit counts once, the first time it comes near, like the original's "seen by"
+flag — one that just stays there, a harvester at work or a parked squad, keeps nothing going), or when
+the player's forces fire, are damaged or lose something to another house.
 **Peace** returns after 25 s of battle time without any of that, once the battle track has had 30 s.
 Battle takes over at once (1.2 s fade, the battle track's own drum intro); peace comes back gently
 (3 s fade out, 1.5 s pause, 2 s fade in). **Game over**: the music fades out over 2 s (the original
-stops it), then the result screen plays victory or defeat (a draw counts as defeat). Everything is
-timed on `world.time`, so a paused game holds every timer.
+stops it), then the result screen plays victory or defeat once through, so neither loops on behind
+"Keep watching"; a draw stays silent. Everything is timed on `world.time`, so a paused game holds every
+timer.
 
 Not the original, kept as small extras: the music dips ~4.4 dB while the announcer speaks; the house
 briefing themes exist but nothing in the game plays them yet (see integration).
@@ -91,11 +95,16 @@ briefing themes exist but nothing in the game plays them yet (see integration).
   (`hold`: nothing rendered) and carries on from the same place when the sound comes back.
 - The menu has its own small context (`MenuAudio`, Options volume and Sound on/off, a limiter), opened
   by the first click or key, because the backdrop's own engine sleeps whenever the backdrop is paused.
-  It is suspended while a battle is in the frame and while the page is hidden.
+  It is suspended while a battle is in the frame, while the page is hidden, at music volume 0 and with
+  Sound off; a player's file is paused on a hidden page as well (a suspended context does not stop a
+  media element), and a new file that starts while the game is paused or muted waits paused.
 - Contract 4: `playlistTracks('menu' | 'peace' | 'battle')` from `src/core/user-files.js`, imported
   lazily (3 s at most is waited for). A non-empty list takes over that mood: files shuffled, one after
   another, through a media element (streamed, not decoded whole). A file that will not play is skipped;
-  if none plays, the FM music returns. A missing module or empty list keeps the FM music.
+  if none plays, the FM music returns. A missing module or empty list keeps the FM music. The lists are
+  read again when the menu comes back from a battle, when the store tells its followers
+  (`follow()` → `originalsChanged()`) and on `MenuMusic.reloadPlaylists()`; a mood playing whose list
+  changed starts again from it.
 
 ## Measurements
 
@@ -153,7 +162,8 @@ title. No console errors.
 - Listen: `node src/audio/music/render-wav.mjs all full /tmp/music` and play the WAVs, or open
   `?scene=menu&music=<id>` and click once (any track id from the table).
 - In a battle: `__dune.music` → `{ mood, playing, track, queued, synth, level, load, context, meter(),
-  settings }`; `__dune.music.settings.musicVolume = 0.2` acts as the Options row will.
+  settings }`; `await __dune.music.meter()` is the level in dB RMS (the first call waits ~60 ms for its
+  analyser to fill); `__dune.music.settings.musicVolume = 0.2` acts as the Options row will.
 
 ## Open questions
 
@@ -165,3 +175,37 @@ title. No console errors.
 - Peace/battle switching uses the original's trigger (an enemy in sight near the player) plus the
   player's forces fighting; if it switches too eagerly in practice, `CALM`/`MIN_BATTLE`/`NEAR_*` in
   `director.js` are the knobs.
+
+## Review fixes
+
+From the review of `phase2/music` (each turned into a failing test in `tests/music-play.test.mjs` first):
+
+- **Battle music that never ended** (important): `threatNear` was a level check, so an enemy harvester
+  working by the base, or a parked squad, kept the battle track going for ever in shroud mode. Now
+  `threatsNear()` lists the enemies near the player and `MusicDirector.sight()` lets each unit start a
+  fight once, the first time it comes near (the original's per-unit "seen by" flag); only shots, damage
+  and losses keep a battle going. The reviewer's 10-minute scenario (a harvester 8 tiles from the yard,
+  real `world.step()`) now returns to peace.
+- **Menu files assigned while the menu is open** (important): playlists were read once per `Conductor`.
+  `Conductor.reloadPlaylists()` reads them again and restarts the mood playing when its list changed
+  (unchanged lists keep their objects, so the shuffle and the file playing are untouched). It runs on
+  `MenuMusic.enter()`, on `MenuMusic.reloadPlaylists()`, and when user-files' store notifies its
+  followers — the conductor `follow()`s it when the module has that function.
+- **Player files on a hidden menu page / while muted**: `MenuMusic.rest()` pauses the file with the
+  context; `Conductor.playFile` starts a new file paused while the game is paused or muted.
+- **Draw and "Keep watching"**: a draw is `over` (silence), not the lament; victory and defeat play one
+  pass and ring out (`ENTRANCES.*.once`), and the conductor's `track` reads `null` once they have ended.
+  Real Chrome: draw → `{ mood: 'over', track: null }`; defeat → `track: null`, −120 dB 40 s after
+  "Keep watching".
+- **`meter()` first call**: it is a promise now and waits ~60 ms for a new analyser to fill
+  (real Chrome: first reading −27 dB, not −120).
+- **The menu's context at volume 0 / Sound off**: suspended (real Chrome: `context: 'suspended'` at
+  music volume 0 and Sound off, running again when either comes back).
+- Not changed: this notes file itself sits outside the stream's file list; the lead decides whether
+  stream notes stay or move into the PR description.
+
+Integration: `src/core/user-files.js` (original-files) notifies its followers only when the clips
+change; calling `notify()` at the end of `addTracks()` and `removeTrack()` makes a playlist edited on
+the Original Game Files page take over the menu (or a battle, from its Options page) at once. Without
+that it takes over the next time the menu comes back from a battle, or when something calls
+`MenuMusic.reloadPlaylists()` (the main menu could, when that page closes).

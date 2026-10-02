@@ -290,7 +290,7 @@ test('a battle: peace, battle on contact, silence when decided, then victory; du
   assert.equal(last().cmd, 'stop');
   m.end(true);
   assert.equal(last().id, 'victory');
-  assert.equal(last().passes, 0, 'it loops on the result screen');
+  assert.equal(last().passes, 1, 'once through on the result screen, then it rings out');
 });
 
 test('without an AudioWorklet the mixer renders ahead in a worker, a fraction of a second queued, gapless', async () => {
@@ -353,4 +353,134 @@ test('the menu plays the title after the first gesture, fades it out behind a ba
   assert.equal(menu.audio.ctx.state, 'suspended', 'a hidden page is silent');
   const preview = new MenuMusic({ settings, win: fakeWindow(), track: 'iron' });
   assert.deepEqual(preview.conductor.pools.menu, ['iron'], '?music= picks the track the menu plays');
+});
+
+// ——— review fixes ———
+
+test('an enemy that only stays in sight near the base starts one battle, not an endless one; a new one starts another', async () => {
+  const world = flatWorld(48, 48, G.ROCK);
+  world.fogOfWar = false;   // everything in view, as explored ground stays in shroud mode
+  world.spawnStructure('constructionYard', 'atreides', 4, 4);
+  const m = new BattleMusic({ world, house: 'atreides', engine: { ctx: null, master: null }, settings: {}, win: null, importer: async () => ({}) });
+  world.spawnUnit('harvester', 'harkonnen', 12, 5);   // parked at work by the base for good, never firing
+  const moods = [];
+  for (let i = 0; i < 20 * 300; i++) { world.time += 0.05; m.frame(); if (world.time > 2 * (CALM + MIN_BATTLE)) moods.push(m.director.mood); }
+  assert.equal(moods.length > 0 && moods.every((x) => x === 'peace'), true, 'peace again after the calm spell, though it is still there');
+  world.spawnUnit('trike', 'harkonnen', 9, 9);
+  world.time += 1;
+  m.frame();
+  assert.equal(m.director.mood, 'battle', 'another enemy coming near is a new battle');
+});
+
+test('playlists the player changes while the music plays are read again: on the way back to the menu, or when the store says so', async () => {
+  const assigned = { menu: [] };
+  let follower = null;
+  const importer = async () => ({ playlistTracks: async (name) => assigned[name] ?? [], follow: (t) => { follower = t; } });
+  const win = fakeWindow();
+  win.document = { hidden: false, addEventListener() {} };
+  const menu = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer });
+  await menu.conductor.ready;
+  win.listeners.pointerdown[0]();
+  menu.update();
+  await settle();
+  assert.equal(menu.debug().track, 'title');
+  assigned.menu = [{ name: 'my-menu.ogg', type: 'audio/ogg', data: new ArrayBuffer(8) }];
+  menu.enter();
+  await settle();
+  assert.equal(win.elements.length, 1, 'back on the menu, the player\'s menu file takes over the title');
+  assert.equal(win.elements[0].paused, false);
+  assert.ok(follower === menu.conductor, 'the music follows the store');
+  follower.originalsChanged();
+  await settle();
+  assert.equal(win.elements.length, 1, 'the same list again: the file plays on, not restarted');
+  assigned.menu = [];
+  follower.originalsChanged();
+  await settle();
+  assert.equal(menu.debug().track, 'title', 'the list emptied: the title again');
+  win.flush();
+  assert.equal(win.elements[0].paused, true);
+});
+
+test('a player\'s file rests with the music: on a hidden menu page, and a new one starting while muted', async () => {
+  const file = (name) => ({ name, type: 'audio/ogg', data: new ArrayBuffer(8) });
+  const win = fakeWindow();
+  win.document = { hidden: false, addEventListener: (t, fn) => { win.onVisibility = fn; } };
+  const menu = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: async () => ({ playlistTracks: async (n) => (n === 'menu' ? [file('m.ogg')] : []) }) });
+  await menu.conductor.ready;
+  win.listeners.pointerdown[0]();
+  menu.update();
+  await settle();
+  assert.equal(win.elements[0].paused, false);
+  win.document.hidden = true;
+  win.onVisibility();
+  assert.equal(menu.audio.ctx.state, 'suspended');
+  assert.equal(win.elements[0].paused, true, 'a suspended context does not stop a media element: it is paused too');
+  win.document.hidden = false;
+  win.onVisibility();
+  assert.equal(win.elements[0].paused, false);
+  const w2 = fakeWindow(), audio = Object.assign(fakeEngine(w2), { muted: false });
+  const c = new Conductor({ audio, settings: {}, win: w2, importer: async () => ({ playlistTracks: async (n) => [file(`${n}.ogg`)] }) });
+  await c.ready;
+  c.want('peace'); c.update(); await settle();
+  audio.muted = true; c.update();
+  assert.equal(w2.elements[0].paused, true);
+  c.want('battle'); c.update(); await settle();
+  assert.equal(w2.elements.at(-1).paused, true, 'muted: the battle file waits too');
+  audio.muted = false; c.update();
+  assert.equal(w2.elements.at(-1).paused, false);
+});
+
+test('the result screen: victory or defeat play once through and ring out; a draw stays silent', async () => {
+  const world = flatWorld(32, 32, G.ROCK);
+  const win = fakeWindow(), engine = fakeEngine(win);
+  const m = new BattleMusic({ world, house: 'atreides', engine, settings: {}, win, importer: async () => ({}) });
+  await m.conductor.ready;
+  m.frame();
+  await settle();
+  m.onEvent({ type: 'gameOver', winner: null });
+  m.end(false, true);
+  assert.equal(m.director.mood, 'over', 'a draw is not a defeat');
+  assert.equal(sent(win).at(-1).cmd, 'stop');
+  m.end(false);
+  const p = plays(win).at(-1);
+  assert.deepEqual([p.id, p.passes], ['defeat', 1], 'once through, so it does not loop on behind "Keep watching"');
+  win.nodes[0].port.onmessage({ data: { type: 'ended', id: 'defeat' } });
+  assert.equal(m.debug().track, null, 'rung out: nothing playing');
+});
+
+test('the debug meter reads the music on its first call (the analyser gets a moment to fill)', async () => {
+  const win = fakeWindow(), audio = fakeEngine(win);
+  let filled = false;
+  audio.ctx.createAnalyser = () => Object.assign(new Node(), { fftSize: 0, getFloatTimeDomainData(a) { a.fill(filled ? 0.1 : 0); } });
+  const out = new MusicOutput({ audio, win });
+  assert.equal(await out.meter(), null, 'nothing to read before the gain exists');
+  out.open();
+  const level = out.meter();
+  filled = true;   // the audio thread runs while the meter waits
+  win.flush();
+  assert.ok(Math.abs((await level) - -20) < 0.01, `first reading ${await level}`);
+});
+
+test('the menu\'s own context rests at music volume 0 and with Sound off, and wakes when the music comes back', async () => {
+  const win = fakeWindow();
+  win.document = { hidden: false, addEventListener() {} };
+  const settings = { sound: true, volume: 0.8, musicVolume: 0.5 };
+  const menu = new MenuMusic({ settings, win, importer: async () => ({}) });
+  await menu.conductor.ready;
+  win.listeners.pointerdown[0]();
+  menu.update();
+  await settle();
+  assert.equal(menu.audio.ctx.state, 'running');
+  settings.musicVolume = 0;
+  menu.update();
+  assert.equal(menu.audio.ctx.state, 'suspended', 'music volume 0: the compressor and gain stop too');
+  settings.musicVolume = 0.5;
+  menu.update();
+  assert.equal(menu.audio.ctx.state, 'running');
+  settings.sound = false;
+  menu.update();
+  assert.equal(menu.audio.ctx.state, 'suspended', 'Sound off');
+  settings.sound = true;
+  menu.update();
+  assert.equal(menu.audio.ctx.state, 'running');
 });

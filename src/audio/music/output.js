@@ -9,6 +9,7 @@ import { BLOCK } from './mixer.js';
 const AHEAD = 0.4;          // seconds the worker fallback keeps queued
 const PUMP_MS = 100;        // how often it tops the queue up
 const LEVEL_TIME = 0.05;    // seconds: the time constant of a level change
+const METER_FILL_MS = 60;   // a new analyser's first 2048 samples (43 ms at 48 kHz) before it is read
 
 export class MusicOutput {
   constructor({ audio, win = globalThis.window, onEvent = () => {} }) {
@@ -123,8 +124,8 @@ export class MusicOutput {
     else g.value = v;
   }
 
-  /** One of the player's files ({ name, type, data }), faded in; onEnded when it is over (or cannot be played). */
-  playFile(file, { fadeIn = 0.6, fade = 1, onEnded = () => {} } = {}) {
+  /** One of the player's files ({ name, type, data }), faded in (or waiting, paused); onEnded when it is over or cannot be played. */
+  playFile(file, { fadeIn = 0.6, fade = 1, paused = false, onEnded = () => {} } = {}) {
     this.stopFile(fade);
     const ctx = this.ctx, win = this.win;
     if (!ctx || !this.gain || typeof win.Audio !== 'function') { onEnded(true); return false; }
@@ -140,7 +141,7 @@ export class MusicOutput {
       const over = (failed) => { if (f.done) return; f.done = true; if (this.file === f) onEnded(failed); };
       el.onended = () => over(false);
       el.onerror = () => over(true);
-      el.play()?.catch?.(() => {});
+      if (!paused) el.play()?.catch?.(() => {});
       return true;
     } catch (err) {
       console.warn('music: cannot play', file?.name, err);
@@ -169,8 +170,11 @@ export class MusicOutput {
     else el.play()?.catch?.(() => {});
   }
 
-  /** Debug: the music's level as it leaves its gain, in dB RMS over the last 2048 samples (null without a context). */
-  meter() {
+  /**
+   * Debug (a promise): the music's level as it leaves its gain, in dB RMS over the last 2048 samples (null without
+   * a context). The analyser is made on the first call, which waits for it to fill rather than read silence.
+   */
+  async meter() {
     const ctx = this.ctx;
     if (!ctx || !this.gain || !ctx.createAnalyser) return null;
     if (!this.analyser) {
@@ -178,6 +182,7 @@ export class MusicOutput {
       this.analyser.fftSize = 2048;
       this.gain.connect(this.analyser);
       this.tap = new Float32Array(2048);
+      await new Promise((resolve) => (this.win.setTimeout ? this.win.setTimeout(resolve, METER_FILL_MS) : resolve()));
     }
     this.analyser.getFloatTimeDomainData(this.tap);
     let s = 0;

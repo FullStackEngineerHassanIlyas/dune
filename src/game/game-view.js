@@ -327,7 +327,7 @@ export class GameView {
       this.endAt = 0;
       const stats = endStats(world, this.house);
       this.endScreen.show(stats);
-      this.music.end(stats.won);
+      this.music.end(stats.won, stats.draw);   // victory or defeat once through; a draw stays silent
     }
     this.fps?.frame();
     this.wake.idle();
