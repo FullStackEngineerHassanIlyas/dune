@@ -102,7 +102,8 @@ class Hit {
       if (drive) x = softTanh(x * drive) * driveNorm;
       L[i] += x * gl; R[i] += x * gr;
     }
-    Object.assign(this, { ph, fd, ta, na, ma, seed: s, ic1, ic2, mc, mm, age });
+    this.ph = ph; this.fd = fd; this.ta = ta; this.na = na; this.ma = ma; this.seed = s;   // no object per block: this runs on the audio thread
+    this.ic1 = ic1; this.ic2 = ic2; this.mc = mc; this.mm = mm; this.age = age;
     if (ta <= FLOOR && na <= FLOOR && ma <= FLOOR) this.active = false;
   }
 }
@@ -118,14 +119,18 @@ export class DrumKit {
 
   hit(piece, vel = 0.8, pan = 0) {
     if (!KIT[piece]) return;
-    let h = this.hits.find((x) => !x.active);
-    if (!h) h = this.hits.reduce((a, b) => (b.age > a.age ? b : a));   // the oldest gives way
+    let h = null;
+    for (const x of this.hits) if (!x.active) { h = x; break; }
+    if (!h) { h = this.hits[0]; for (const x of this.hits) if (x.age > h.age) h = x; }   // the oldest gives way
     this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
     h.start(piece, vel, this.rate, pan, this.seed);
     this.count++;
   }
 
-  get busy() { return this.hits.some((h) => h.active); }
+  get busy() {
+    for (const h of this.hits) if (h.active) return true;
+    return false;
+  }
 
   render(L, R, at, n, gain) {
     for (const h of this.hits) if (h.active) h.render(L, R, at, n, gain);

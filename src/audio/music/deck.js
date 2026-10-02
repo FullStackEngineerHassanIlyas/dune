@@ -112,7 +112,8 @@ export class Deck {
 
   get silent() {
     for (const c of this.channels) {
-      if (c.drums ? c.drums.busy : c.voices.some((v) => !v.silent)) return false;
+      if (c.drums) { if (c.drums.busy) return false; continue; }
+      for (const v of c.voices) if (!v.silent) return false;
     }
     return true;
   }

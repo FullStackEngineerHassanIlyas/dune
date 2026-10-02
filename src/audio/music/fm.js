@@ -58,8 +58,9 @@ export function preparePatch(p) {
   const alg = ALGORITHMS[p.alg];
   if (!alg) throw new Error(`patch: no algorithm ${p.alg}`);
   if (!Array.isArray(p.ops) || p.ops.length !== 4) throw new Error('patch: four operators');
-  const ops = p.ops.map(([mul = 1, dt = 0, tl = 0, ar = 31, d1r = 0, sl = 0, d2r = 0, rr = 15, ks = 0, am = 0]) => ({
+  const ops = p.ops.map(([mul = 1, dt = 0, tl = 0, ar = 31, d1r = 0, sl = 0, d2r = 0, rr = 15, ks = 0, am = 0], k) => ({
     ratio: multiple(mul) * Math.pow(2, dt / 1200), tl: tl * TL_DB, ar, d1r, sl: sl === 15 ? DB_MAX : sl * SL_DB, d2r, rr, ks, am: !!am,
+    carrier: alg.carriers.includes(k),
   }));
   const w = (k, j) => (alg.mods[k].includes(j) ? 1 : 0);
   return {
@@ -158,15 +159,16 @@ export class FmVoice {
   noteOn(midi, vel = 0.8) {
     const p = this.patch;
     if (!p) return;
-    const fresh = this.ops.every((o) => o.stage === OFF || o.att > 72);
+    let fresh = true;
+    for (const o of this.ops) if (o.stage !== OFF && o.att <= 72) fresh = false;
     this.pitch = this.target = midi;
     this.vel = FmVoice.velDb(vel);
     this.lfoAge = 0;
-    const kc = keyCode(midi), carriers = [p.c0, p.c1, p.c2, p.c3];
+    const kc = keyCode(midi);
     for (let k = 0; k < 4; k++) {
       const o = this.ops[k], d = p.ops[k], ksr = kc >> (3 - d.ks);
       if (fresh) { o.phase = 0; o.att = DB_MAX; }
-      o.tl = d.tl + (carriers[k] ? this.vel : 0);
+      o.tl = d.tl + (d.carrier ? this.vel : 0);
       o.am = d.am;
       o.sl = d.sl;
       const ra = d.ar ? 2 * d.ar + ksr : 0;
@@ -184,8 +186,8 @@ export class FmVoice {
   slide(midi, vel = null) {
     this.target = midi;
     if (vel !== null) {
-      const db = FmVoice.velDb(vel), p = this.patch, carriers = [p.c0, p.c1, p.c2, p.c3];
-      for (let k = 0; k < 4; k++) if (carriers[k]) this.ops[k].tl = p.ops[k].tl + db;
+      const db = FmVoice.velDb(vel), p = this.patch;
+      for (let k = 0; k < 4; k++) if (p.ops[k].carrier) this.ops[k].tl = p.ops[k].tl + db;
       this.vel = db;
     }
   }
@@ -220,7 +222,7 @@ export class FmVoice {
   /** Adds n samples (one control block) of this voice into `out` from `at`, times `gain`. Returns false while silent. */
   render(out, at, n, gain = 1) {
     if (this.silent) return false;
-    const p = this.patch, [o0, o1, o2, o3] = this.ops, fb = p.fb * 0.5, g = gain * this.gain;
+    const p = this.patch, ops = this.ops, o0 = ops[0], o1 = ops[1], o2 = ops[2], o3 = ops[3], fb = p.fb * 0.5, g = gain * this.gain;
     this.control(n);
     const am = this.amDb;
     // each operator's level: from where the last block left it to where its envelope stands after this one

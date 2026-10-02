@@ -93,7 +93,7 @@ export class MusicMixer {
         }
       }
     }
-    if (this.decks.some((d) => d.done)) this.decks = this.decks.filter((d) => !d.done);
+    for (let k = this.decks.length - 1; k >= 0; k--) if (this.decks[k].done) this.decks.splice(k, 1);
     // a high-pass under the music: clears the DC that 1:1 FM leaves, and the sub-bass no laptop speaker plays,
     // which would only eat the headroom (the Mega Drive's own output capacitor did the first half of this)
     const { b0, b1, a1, a2 } = this.hp, z = this.hpState;
