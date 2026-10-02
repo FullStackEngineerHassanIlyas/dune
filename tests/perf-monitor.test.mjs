@@ -154,6 +154,24 @@ test('no prompt on Low, with the check turned off, or while the battle is paused
   assert.equal(paused.shown.length, 0);
 });
 
+test('the battle ending takes an open prompt away for good: the end screen is never covered, a late click does nothing', () => {
+  let over = false, hidden = 0, choose = null;
+  const settings = { ...DEFAULTS };
+  const m = new PerfMonitor({
+    settings, storage: memory(), running: () => 'high', apply: () => true, ended: () => over,
+    prompt: { show: (offer, fn) => { choose = fn; }, hide: () => { hidden++; } },
+  });
+  for (let i = 0; i < 40 * 30; i++) m.frame(1 / 30);
+  assert.equal(m.state, 'asking');
+  over = true;
+  m.frame(1 / 30);
+  assert.equal(hidden, 1, 'hidden as the battle ends');
+  assert.equal(m.state, 'done');
+  choose('switch');
+  assert.equal(settings.quality, DEFAULTS.quality, 'a click on a card already gone changes nothing');
+  assert.equal(hidden, 1);
+});
+
 test('it starts for a battle, but not in a headless browser unless the address asks, nor with the check off', async () => {
   const { startPerfMonitor } = await import('../src/ui/perf-monitor.js');
   const saved = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -169,6 +187,10 @@ test('it starts for a battle, but not in a headless browser unless the address a
     assert.equal(m.running(), 'high', 'judges the preset the renderer runs, not the saved one');
     assert.equal(typeof m.apply, 'function');
     assert.equal(frames.length, 1, 'on its own animation frames');
+    assert.equal(m.ended(), false);
+    const won = view();
+    won.world.outcome = 'win';
+    assert.equal(startPerfMonitor(won, { search: '', root }).ended(), true, 'a battle with an outcome has ended');
     assert.equal(startPerfMonitor(view({ ...DEFAULTS, perfCheck: false }), { search: '', root }), null, 'turned off in Options');
     assert.equal(startPerfMonitor(view(undefined, {}), { search: '', root }).apply, null, 'no live switch without setQuality');
     as('Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/140.0');

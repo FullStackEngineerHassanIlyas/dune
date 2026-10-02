@@ -1,7 +1,8 @@
 // Frame-time monitor (spec §8): when a battle stays under 40 fps for a sustained stretch of play, a small
 // prompt in the menus' bronze offers the next lower graphics preset — Switch, Not now, Don't ask again.
 // Switching saves the preset and applies it at once where the renderer can (shadows, anti-aliasing, bloom,
-// pixel ratio); particle budgets follow in the next battle. Paused, hidden and loading time is not judged.
+// pixel ratio); particle budgets follow in the next battle. Paused, hidden and loading time is not judged, and
+// once the battle is won or lost an open prompt goes away, so it never covers the end screen.
 // main.js starts it for the battle scenes. Headless browsers (the smoke and end-to-end runs) skip it unless
 // the address sets perfCheck; perfFps and perfSeconds change the threshold and the stretch, for testing.
 import { h } from './dom.js';
@@ -54,17 +55,22 @@ export class FrameWatch {
 
 /**
  * The monitor: watches, offers, and carries out the answer. running(): the preset in use. active(): the battle is
- * being played. apply(name): switches the renderer live, true when it did (null: next battle only). prompt:
+ * being played. ended(): the battle is won or lost, which ends the watch and takes an open prompt away. apply(name): switches the renderer live, true when it did (null: next battle only). prompt:
  * { show({ from, to }, choose), hide() }; choose('switch' | 'later' | 'never'). state: watching, asking or done.
  */
 export class PerfMonitor {
-  constructor({ settings, running, active = () => true, apply = null, prompt, notify = () => {}, storage, watch = {} }) {
-    Object.assign(this, { settings, running, active, apply, prompt, notify, storage });
+  constructor({ settings, running, active = () => true, ended = () => false, apply = null, prompt, notify = () => {}, storage, watch = {} }) {
+    Object.assign(this, { settings, running, active, ended, apply, prompt, notify, storage });
     this.watch = new FrameWatch(watch);
     this.state = 'watching';
   }
 
   frame(dt) {
+    if (this.state !== 'done' && this.ended()) {   // won or lost: the end screen takes over
+      if (this.state === 'asking') this.prompt.hide();
+      this.state = 'done';
+      return;
+    }
     if (this.state !== 'watching' || !this.settings.perfCheck) return;
     if (this.watch.frame(dt, this.active())) this.offer();
   }
@@ -120,7 +126,8 @@ export function startPerfMonitor(view, { search = location.search, root = docume
   const monitor = new PerfMonitor({
     settings: view.settings,
     running: () => r3d?.qualityName ?? view.settings.quality,
-    active: () => !view.paused && !document.hidden && !view.world?.outcome,
+    active: () => !view.paused && !document.hidden,
+    ended: () => !!view.world?.outcome,
     apply: typeof r3d?.setQuality === 'function' ? (name) => { r3d.setQuality(name); return true; } : null,
     prompt: domPrompt(root),
     notify: (text) => view.hud?.message(text, 6),
