@@ -49,7 +49,7 @@ export class MusicMixer {
 
   /** Starts `id` (after `wait` seconds, fading in over `fadeIn`) while whatever plays fades out over `fade`. */
   play(id, { fade = 0, fadeIn = 0, wait = 0, passes } = {}) {
-    for (const d of this.decks) d.fade(0, Math.max(MIN_FADE, fade));
+    this.fadeAll(fade);
     this.queued = null;
     this.current = null;
     const deck = this.deck(id, passes);
@@ -61,8 +61,14 @@ export class MusicMixer {
     this.onEvent({ type: 'started', id, time: this.time + wait });
   }
 
-  stop(fade = 0.5) {
+  /** Everything playing fades out; a track still waiting to come in is simply dropped (unheard, it has nothing to fade). */
+  fadeAll(fade) {
+    this.decks = this.decks.filter((d) => !(d.delay > 0));
     for (const d of this.decks) d.fade(0, Math.max(MIN_FADE, fade));
+  }
+
+  stop(fade = 0.5) {
+    this.fadeAll(fade);
     this.current = null;
     this.queued = null;
   }

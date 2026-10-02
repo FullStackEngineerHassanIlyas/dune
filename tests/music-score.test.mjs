@@ -191,3 +191,15 @@ test('the mixer crossfades, queues the next track onto the very sample the last 
   const quiet = renderMixer(m, 0.1, rate);
   assert.ok(quiet.L.every((s) => s === 0));
 });
+
+test('a track still waiting to come in is dropped, not heard, when another takes over', () => {
+  const rate = 16000, tracks = { a: mini({ id: 'a', passes: 0 }), b: mini({ id: 'b', passes: 0 }) };
+  const m = new MusicMixer({ rate, tracks, patches: PATCHES });
+  m.play('a', { wait: 1.5, fadeIn: 2 });   // peace coming back after a pause...
+  renderMixer(m, 0.5, rate);
+  m.play('b', { fade: 1.2 });              // ...but the fighting starts again first
+  assert.deepEqual(m.decks.map((d) => d.id), ['b'], 'the waiting track is gone at once');
+  m.play('a', { wait: 1 });
+  m.stop(0.5);
+  assert.equal(m.decks.some((d) => d.delay > 0), false, 'a stop drops a waiting track too');
+});
