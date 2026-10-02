@@ -3,6 +3,8 @@
 // a unit's acknowledgement, and two warnings the original spoke are raised here from what the player can
 // see: an enemy unit near the base ("Warning, Harkonnen unit approaching") and a sandworm ("Wormsign").
 // Those two also show in the message bar; every other line's text is already there from its 'eva' event.
+// Approach warnings come one per wave, WARN_EVERY apart; a worm is announced the first time the player sees
+// it (its ridge, sim/worm.js), whatever was said just before — the original's alert on first sight.
 import { lineForEvent, ackForCommand, namedLine, SELECT_ACKS } from '../audio/voice.js';
 import { unitVisibleTo } from '../sim/fog.js';
 import { HOUSES } from '../data/houses.js';
@@ -86,25 +88,26 @@ export class Announcer {
     if (fresh) this.say(SELECT_ACKS[Math.floor(this.rng() * SELECT_ACKS.length) % SELECT_ACKS.length], now);
   }
 
-  /** Enemies the player can see close to their base, and sandworms anywhere in sight: one warning per wave. */
+  /** Sandworms anywhere in sight, each the first time it is seen; enemies the player can see close to their base, one warning per wave. */
   sightings(now) {
     const w = this.world;
     for (const id of this.warned) if (!w.units.has(id)) this.warned.delete(id);
-    if (now - this.lastWarning < WARN_EVERY) return;
-    let line = null, text = null;
+    const quiet = now - this.lastWarning < WARN_EVERY;
+    let line = null, text = null, worm = false;
     const seen = [];
     for (const u of w.units.values()) {
       if (u.house === this.house || u.inside || this.warned.has(u.id) || HARMLESS.has(u.typeId)) continue;
-      const worm = u.typeId === 'sandworm';
-      if (!worm && this.nearestBuilding(u.x, u.y) > APPROACH_TILES) continue;
+      const isWorm = u.typeId === 'sandworm';
+      if (!isWorm && (quiet || this.nearestBuilding(u.x, u.y) > APPROACH_TILES)) continue;
       if (!unitVisibleTo(w, this.house, u)) continue;
-      seen.push(u.id);
-      if (worm) { line = 'wormsign'; text = 'Warning: wormsign.'; }
+      if (isWorm) { if (!worm) seen.length = 0; worm = true; line = 'wormsign'; text = 'Warning: wormsign.'; }
+      else if (worm) continue;   // a worm's warning first; the enemy waits for the next look
       else if (!line) { line = namedLine('approaching', u.house); text = sightingText(u.house); }
+      seen.push(u.id);
     }
     if (!line) return;
     for (const id of seen) this.warned.add(id);
-    this.lastWarning = now;
+    if (!worm) this.lastWarning = now;
     this.onMessage(text);
     this.say(line, now);
   }
