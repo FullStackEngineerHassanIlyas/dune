@@ -1,5 +1,8 @@
-// Fog of war (spec §4.9): explored terrain stays revealed; enemy units need current sight; enemy
-// structures stay visible once seen. One layer per house, rebuilt every five ticks.
+// Map visibility (spec §4.9), one layer per house, rebuilt every five ticks. 'shroud' (Dune II, the
+// default): black until explored, and ground once seen stays in view, enemies on it included. 'fog'
+// (C&C-style option): explored ground goes dim out of sight and hides enemy units there; then every
+// armed unit and building sees at least as far as it shoots, so nothing fires from where its target's
+// side cannot see. Enemy structures stay visible once seen. 'revealed' (world.fogOfWar false): all of it.
 import { unitSight } from '../data/tuning.js';
 
 export class FogLayer {
@@ -24,14 +27,27 @@ export class FogLayer {
   }
 }
 
+/** Tiles a unit type reveals; in a fog-of-war game never fewer than its weapon reaches. */
+export function unitReach(type, fogged) {
+  const sight = unitSight(type.sight);
+  return fogged && type.range ? Math.max(sight, type.range + 1) : sight;
+}
+
+/** Tiles a structure type reveals from its centre. */
+export function structureReach(type, fogged) {
+  const half = Math.max(type.w, type.h) / 2;
+  return fogged && type.range ? Math.max(type.sight, type.range + 1) + half : type.sight + half;
+}
+
 export function updateFog(world) {
   const { map } = world;
+  const fogged = world.visibility === 'fog';
   for (const house of world.houses.values()) {
     const fog = (house.fog ??= new FogLayer(map.w, map.h));
-    fog.visible.fill(0);
+    if (fogged) fog.visible.fill(0);   // in the Dune II shroud, what was once seen stays in view
     fog.revision++;
-    for (const u of world.units.values()) if (u.house === house.id) fog.reveal(u.tx, u.ty, unitSight(u.type.sight));
-    for (const s of world.structures.values()) if (s.house === house.id) fog.reveal(s.x + (s.w - 1) / 2, s.y + (s.h - 1) / 2, s.type.sight + Math.max(s.w, s.h) / 2);
+    for (const u of world.units.values()) if (u.house === house.id) fog.reveal(u.tx, u.ty, unitReach(u.type, fogged));
+    for (const s of world.structures.values()) if (s.house === house.id) fog.reveal(s.x + (s.w - 1) / 2, s.y + (s.h - 1) / 2, structureReach(s.type, fogged));
     const bit = 1 << house.slot;
     for (const s of world.structures.values()) {
       if (s.house === house.id || (s.seenBy ?? 0) & bit) continue;

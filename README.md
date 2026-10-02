@@ -112,7 +112,7 @@ building you send it into. The computer uses its Palace as soon as it is charged
 `?ai=easy|normal|hard` (default Normal). The computer deploys its MCV, builds in its house's order,
 keeps its power up, runs two harvesters per refinery, defends its base and sends growing attack waves
 — the first after about eight minutes on Easy, five on Normal and three and a half on Hard, where it
-also builds faster and earns half again as much from spice. Like the original, it ignores fog of war.
+also builds faster and earns half again as much from spice. Like the original, it ignores the shroud and fog of war.
 The game ends when one side has no buildings and no MCV left.
 
 ## Sound
@@ -159,7 +159,7 @@ triangle count: `?scene=model&id=combatTank`; `&houses=1` in each house's colour
 
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
-(skirmish starts with the MCV deployed) · `fog=0` (no fog of war) · `credits=5000` · `gameSpeed=slowest…fastest` ·
+(skirmish starts with the MCV deployed) · `visibility=shroud|fog|revealed` (Dune II shroud, the default · C&C fog of war · whole map; `fog=0` also reveals) · `credits=5000` · `gameSpeed=slowest…fastest` ·
 `debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5` · `voiceVolume=0.5` (0: no voices).
 
 ## Docs

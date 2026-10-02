@@ -275,10 +275,14 @@ The Palace adds a weapon icon with a charging clock at the top of the sidebar.
   around it) and turns a radius of about 5 tiles into spice. New mounds appear over time so long
   games do not run dry.
 
-### 4.9 Fog of war
+### 4.9 Shroud and fog of war
 
-- Unexplored tiles are black shroud with soft edges. Explored terrain stays revealed; enemy units
-  are visible only inside current sight (original behaviour). Enemy structures stay as last seen.
+- Unexplored tiles are black shroud with soft edges. By default (the original Dune II) ground once
+  explored stays in full view, enemy units on it included; there is no fog of war.
+- The skirmish set-up's Visibility choice: Dune II shroud (default), Fog of war (C&C style: explored
+  ground goes dim out of sight and hides enemy units there; every armed unit and building then sees
+  at least its weapon range + 1, so nothing can shoot from where its target's side cannot see), or
+  Revealed (the whole map). Enemy structures stay as last seen.
 - Radar (minimap) needs a powered Outpost; otherwise it shows "RADAR OFFLINE" static.
 
 ### 4.10 Enemy AI

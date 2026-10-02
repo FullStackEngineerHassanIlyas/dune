@@ -119,6 +119,7 @@ test('a building destroyed under the shroud shows no rubble until the viewer has
 
 test('a building the viewer could see, though only part of its ground was explored, leaves its rubble at once', () => {
   const world = flatWorld(24, 24, G.ROCK);
+  world.visibility = 'shroud';   // the original sight, so the trike sees only the refinery's west end
   world.spawnUnit('trike', 'atreides', 16, 18);   // sees the refinery's west end, not its east
   const refinery = world.spawnStructure('refinery', 'harkonnen', 18, 18);
   const s = new BattleStage({ world, scene: new THREE.Scene(), quality: { particles: 4000, flashLights: 0 }, viewer: 'atreides', rig: { target: new THREE.Vector3(12, 0, 12), distance: 16 } });
