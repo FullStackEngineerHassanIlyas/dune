@@ -1,7 +1,8 @@
 // Main menu (spec §5.8): Arrakis turning in space, then a live battle, behind the title and the menu
 // screens (menu backdrop spec); the old flight over the dunes stays as the fallback. Each battle runs
 // in a frame laid over the menu: full screen carries from the menu into the battle and back, and
-// quitting simply throws the frame away.
+// quitting simply throws the frame away. The title theme (spec §6 Music) plays from the first click or
+// key and rests while a battle is in the frame.
 import * as THREE from 'three';
 import { Renderer3D } from '../render/renderer.js';
 import { terrainSubFor } from '../render/quality.js';
@@ -16,6 +17,7 @@ import { MainMenu } from '../ui/main-menu.js';
 import { changeSetting } from '../ui/options.js';
 import { toggleFullscreen, isFullscreen, onFullscreenChange } from '../ui/fullscreen.js';
 import { MenuBackdrop } from './menu-backdrop.js';
+import { MenuMusic } from '../audio/music/music.js';
 
 const SIZE = 128;   // wide enough that the flight never shows the edge of the world
 
@@ -73,10 +75,13 @@ export async function start({ search }) {
     try { backdrop = flyover(settings, seed); } catch (err2) { console.warn('menu flyover:', err2); }
   }
   let frame = null;
+  // the title theme from the first click or key (spec §6 Music); ?music=<track id> plays any track instead
+  const music = new MenuMusic({ settings, track: params.str('music') });
 
   const launch = (query) => {
     menu.hide();
     backdrop.stop();
+    music.leave();   // the battle in the frame has music of its own
     frame = document.createElement('iframe');
     frame.className = 'game-frame';
     frame.title = 'Battle';
@@ -105,6 +110,7 @@ export async function start({ search }) {
     app.classList.add('in-menu');
     backdrop.setPaused?.(!settings.menuMotion);
     backdrop.start();
+    music.enter();
     menu.show();
     window.focus();
   };
@@ -123,5 +129,5 @@ export async function start({ search }) {
   window.__duneShell = { launch, quit };
   backdrop.setPaused?.(!settings.menuMotion);
   backdrop.start();
-  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, get frame() { return frame; } };
+  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, music: music.debug(), get frame() { return frame; } };
 }
