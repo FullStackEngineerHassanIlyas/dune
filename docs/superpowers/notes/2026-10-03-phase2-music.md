@@ -87,7 +87,8 @@ briefing themes exist but nothing in the game plays them yet (see integration).
   disposed (nothing runs on the audio thread) and comes back with the current mood when raised.
 - The gain feeds the battle's `SoundEngine.master` (M mute and the master volume act on it; the
   limiter guards it). Pausing (game menu, P, hidden tab) suspends that context, which holds the FM
-  music exactly; a player's file is paused explicitly.
+  music exactly; a player's file is paused explicitly. Muted (M, Sound off) the synth is held too
+  (`hold`: nothing rendered) and carries on from the same place when the sound comes back.
 - The menu has its own small context (`MenuAudio`, Options volume and Sound on/off, a limiter), opened
   by the first click or key, because the backdrop's own engine sleeps whenever the backdrop is paused.
   It is suspended while a battle is in the frame and while the page is hidden.
@@ -129,14 +130,16 @@ of one core** (title 2.4, atreides 1.8, harkonnen 1.9, ordos 1.8, erg 2.4, dawn 
 assault 2.3, iron 2.6, shieldwall 2.4, victory 2.7, defeat 2.6). In headless Chrome the worklet's own
 clock (it includes being pre-empted on the loaded machine) read 4–6 % of the audio thread during the
 title and a battle track. Nothing runs while the context is suspended (paused, hidden tab, the menu
-behind a battle) or at music volume 0. No objects are allocated per block on the audio thread.
+behind a battle), while the game is muted, or at music volume 0. No objects are allocated per block on
+the audio thread.
 
 Real Chrome (GPU, `scene=menu` and `scene=base&house=atreides`, driven over CDP with real clicks):
 title after the first click (worklet up, −28 to −34 dB RMS after the music gain), suspended behind a
 skirmish and back on quit; a battle starts in peace (`lanterns`/`dawn` with the next queued), four
 Harkonnen tanks by the construction yard switch it to a battle track within ~1 s together with the
 "Harkonnen unit approaching" warning (level 0.3: ducked under the line), P holds the context, music
-volume 0 takes the synth down and 0.8 brings a battle track back; a forced game over fades to silence
+volume 0 takes the synth down and 0.8 brings a battle track back; M holds the synth (silent, no load
+reports) and M again resumes the same track; a forced game over fades to silence
 and the result screen plays `victory`; with `AudioWorkletNode` removed the worker fallback plays the
 title. No console errors.
 
