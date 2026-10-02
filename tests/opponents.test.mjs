@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { SKIRMISH_HOUSES, PLAYABLE_HOUSES, HOUSES, LIGHT_VEHICLE, INFANTRY } from '../src/data/houses.js';
 import { STRUCTURE_ORDER, buildOptions, canBuildStructure, techOpens } from '../src/sim/tech.js';
+import { setupSkirmish, maxOpponents, parseOpponents, formatOpponents } from '../src/game/setup.js';
 import { flatWorld } from './helpers.mjs';
 
 function subHouseWorld(house, types) {
@@ -65,4 +66,59 @@ test('the set-up screen can say what each tech level opens', () => {
   assert.ok(techOpens(6, 'atreides').includes('Siege Tank') && techOpens(6, 'atreides').includes('Rocket Turret'));
   assert.deepEqual(techOpens(8, 'ordos'), ['Palace']);
   for (let level = 1; level <= 8; level++) for (const h of PLAYABLE_HOUSES) assert.ok(techOpens(level, h).length, `${h} ${level}`);
+});
+
+test('three opponents get the four corners, each its own house, difficulty and opening force', () => {
+  const { world, starts, house, rival, opponents } = setupSkirmish({ seed: 3, size: 64, house: 'atreides',
+    opponents: [{ house: 'harkonnen', difficulty: 'hard' }, { house: 'sardaukar', difficulty: 'easy' }, { house: 'mercenary' }] });
+  assert.deepEqual(opponents, ['harkonnen', 'sardaukar', 'mercenary']);
+  assert.equal(rival, 'harkonnen');
+  assert.deepEqual([...world.houses.keys()], ['atreides', 'harkonnen', 'sardaukar', 'mercenary']);
+  assert.equal(starts.length, 4);
+  const corner = (s) => `${s.x < 32 ? 'W' : 'E'}${s.y < 32 ? 'N' : 'S'}`;
+  assert.equal(new Set(starts.map(corner)).size, 4, 'one per corner');
+  assert.deepEqual(opponents.map((id) => world.houses.get(id).brain.difficulty), ['hard', 'easy', 'normal']);
+  assert.ok(!world.houses.get(house).brain && !world.houses.get(house).isAI);
+  [house, ...opponents].forEach((id, k) => {
+    const mcv = [...world.units.values()].find((u) => u.house === id && u.typeId === 'mcv');
+    assert.ok(mcv && Math.hypot(mcv.tx - starts[k].x, mcv.ty - starts[k].y) < 1, `${id} starts at its own corner`);
+    assert.equal([...world.units.values()].filter((u) => u.house === id).length, 6, id);
+  });
+});
+
+test('a house is never fielded twice: clashes and unknown houses take the first free one', () => {
+  const { opponents } = setupSkirmish({ seed: 2, house: 'ordos', opponents: [{ house: 'ordos' }, { house: 'harkonnen' }, { house: 'harkonnen' }] });
+  assert.deepEqual(opponents, ['atreides', 'harkonnen', 'sardaukar']);
+  assert.deepEqual(setupSkirmish({ seed: 2, house: 'ordos', opponents: [{ house: 'fremen' }] }).opponents, ['atreides'], 'the Fremen hold no base');
+  const old = setupSkirmish({ seed: 2, house: 'atreides', enemy: 'ordos', difficulty: 'hard' });
+  assert.deepEqual(old.opponents, ['ordos'], 'the old enemy argument still works');
+  assert.equal(old.world.houses.get('ordos').brain.difficulty, 'hard');
+});
+
+test('a small map holds three bases at most; the set-up caps the opponents', () => {
+  assert.deepEqual([48, 64, 96, 128].map(maxOpponents), [2, 3, 3, 3]);
+  const { opponents, starts } = setupSkirmish({ seed: 2, size: 48, opponents: [{ house: 'harkonnen' }, { house: 'ordos' }, { house: 'sardaukar' }] });
+  assert.deepEqual(opponents, ['harkonnen', 'ordos']);
+  assert.equal(starts.length, 3);
+});
+
+test('tech level and worms reach the world: every house gets the tech level', () => {
+  const { world } = setupSkirmish({ seed: 2, techLevel: 4, worms: 'many', opponents: [{ house: 'harkonnen' }, { house: 'ordos' }] });
+  assert.deepEqual([...world.houses.values()].map((h) => h.techLevel), [4, 4, 4]);
+  assert.equal(world.rules.worms, 'many');
+  assert.equal(setupSkirmish({ seed: 2, worms: 'off' }).world.rules.worms, 'off');
+  assert.equal(setupSkirmish({ seed: 2 }).world.rules.worms, 'few', 'few unless the set-up says otherwise');
+  assert.equal(setupSkirmish({ seed: 2, worms: 'plenty' }).world.rules.worms, 'few');
+  assert.equal(setupSkirmish({ seed: 2 }).world.houses.get('atreides').techLevel, 9);
+  assert.equal(setupSkirmish({ seed: 2, techLevel: 0 }).world.houses.get('atreides').techLevel, 9, 'out of range: everything');
+});
+
+test('opponents travel in the battle URL as house:difficulty pairs', () => {
+  const list = [{ house: 'harkonnen', difficulty: 'hard' }, { house: 'ordos', difficulty: 'normal' }];
+  assert.equal(formatOpponents(list), 'harkonnen:hard,ordos:normal');
+  assert.deepEqual(parseOpponents('harkonnen:hard,ordos:normal'), list);
+  assert.deepEqual(parseOpponents('mercenary,sardaukar:easy', 'hard'), [{ house: 'mercenary', difficulty: 'hard' }, { house: 'sardaukar', difficulty: 'easy' }]);
+  assert.deepEqual(parseOpponents('harkonnen:insane'), [{ house: 'harkonnen', difficulty: 'normal' }]);
+  assert.deepEqual(parseOpponents(''), []);
+  assert.deepEqual(parseOpponents(null), []);
 });

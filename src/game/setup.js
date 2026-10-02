@@ -1,10 +1,11 @@
-// Skirmish set-up: map, houses and the Dune II style opening force — an MCV on the plateau centre
-// with an escort parked at least two tiles away so the Construction Yard has room.
+// Skirmish set-up (spec §5.8): map, houses and the Dune II style opening force — an MCV on the plateau centre
+// with an escort parked at least two tiles away so the Construction Yard has room. The player and one to three
+// computer opponents, each its own house in its own corner, every house at the set-up's tech level.
 import { generateMap } from '../sim/mapgen.js';
 import { World } from '../sim/world.js';
-import { LIGHT_VEHICLE, INFANTRY, PLAYABLE_HOUSES } from '../data/houses.js';
+import { LIGHT_VEHICLE, INFANTRY, SKIRMISH_HOUSES } from '../data/houses.js';
 import { UNITS } from '../data/units.js';
-import { createBrain } from '../sim/ai.js';
+import { createBrain, DIFFICULTY } from '../sim/ai.js';
 import { updateFog } from '../sim/fog.js';
 import { findFreeTile } from '../sim/spawn.js';
 
@@ -21,21 +22,53 @@ export function spawnStartingForces(world, house, start) {
 }
 
 export const VISIBILITY = ['shroud', 'fog', 'revealed'];
+export const WORMS = ['off', 'few', 'many'];
+export const TECH_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed', difficulty = 'normal', aiPlayer = false } = {}) {
-  const { map, starts } = generateMap({ w: size, h: size, seed, players: 2 });
+/** Opponents a map has room for: four corner bases from Medium (64) up, three on a Small map. */
+export const maxOpponents = (size) => (size < 64 ? 2 : 3);
+
+/** 'harkonnen:hard,ordos' → [{ house, difficulty }]; a missing or unknown difficulty takes `difficulty`. */
+export function parseOpponents(text, difficulty = 'normal') {
+  const fallback = DIFFICULTY[difficulty] ? difficulty : 'normal';
+  return String(text ?? '').split(',').map((part) => part.trim()).filter(Boolean).map((part) => {
+    const [house, level] = part.split(':');
+    return { house, difficulty: DIFFICULTY[level] ? level : fallback };
+  });
+}
+
+export const formatOpponents = (list) => list.map((o) => `${o.house}:${o.difficulty}`).join(',');
+
+/** Each opponent its own house: a clash, an unknown house or 'random' takes the first house still free. */
+function resolveOpponents(house, list, size, difficulty) {
+  const taken = new Set([house]), out = [];
+  for (const o of list.slice(0, maxOpponents(size))) {
+    const id = SKIRMISH_HOUSES.includes(o?.house) && !taken.has(o.house) ? o.house : SKIRMISH_HOUSES.find((h) => !taken.has(h));
+    if (!id) break;
+    taken.add(id);
+    out.push({ house: id, difficulty: DIFFICULTY[o?.difficulty] ? o.difficulty : difficulty });
+  }
+  return out;
+}
+
+export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, opponents = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed',
+  difficulty = 'normal', techLevel = 9, worms = 'few', aiPlayer = false } = {}) {
+  const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
+  const rivals = resolveOpponents(house, opponents?.length ? opponents : [{ house: enemy, difficulty: level }], size, level);
+  const { map, starts } = generateMap({ w: size, h: size, seed, players: 1 + rivals.length });
   const world = new World({ map, seed });
   world.visibility = VISIBILITY.includes(visibility) ? visibility : 'shroud';   // Dune II's shroud unless the player picks otherwise
   world.fogOfWar = world.visibility !== 'revealed';
   world.rules.victory = true;
   world.rules.airDelivery = true;   // Refineries get their Harvester by Carryall
-  const rival = enemy && enemy !== house ? enemy : PLAYABLE_HOUSES.find((h) => h !== house);
-  world.addHouse(house, { credits });
-  world.addHouse(rival, { credits, ai: true });
+  world.rules.worms = WORMS.includes(worms) ? worms : 'few';
+  const tech = TECH_LEVELS.includes(techLevel) ? techLevel : 9;
+  world.addHouse(house, { credits, techLevel: tech });
+  for (const r of rivals) world.addHouse(r.house, { credits, ai: true, techLevel: tech });
   spawnStartingForces(world, house, starts[0]);
-  spawnStartingForces(world, rival, starts[1]);
-  createBrain(world, rival, difficulty);
-  if (aiPlayer) createBrain(world, house, difficulty);
+  rivals.forEach((r, k) => spawnStartingForces(world, r.house, starts[k + 1]));
+  for (const r of rivals) createBrain(world, r.house, r.difficulty);
+  if (aiPlayer) createBrain(world, house, level);
   if (world.fogOfWar) updateFog(world);   // shroud from the very first frame
-  return { world, starts, house, rival };
+  return { world, starts, house, rival: rivals[0]?.house ?? null, opponents: rivals.map((r) => r.house) };
 }

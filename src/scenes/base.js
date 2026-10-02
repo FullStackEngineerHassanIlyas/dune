@@ -2,7 +2,8 @@
 // by the placement rules next to the deployed yard, harvesters out on the nearest spice — for
 // screenshots and real-GPU frame-rate checks (?scene=base&fps=1). Flags: damaged=1 adds a worn tank by
 // the Repair Facility (repair=1 also sends it in), capture=1 a ruined enemy silo with a squad to take it;
-// frigate=1 orders from the Starport at the start; palace=1 charges the Palace weapon and looks at the Palace.
+// frigate=1 orders from the Starport at the start; palace=1 charges the Palace weapon and looks at the Palace;
+// worms=few|many lets sandworms in (off by default here).
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 import { STRUCTURES } from '../data/structures.js';
@@ -19,7 +20,8 @@ export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
   const house = params.str('house', 'atreides');
-  const { world, starts, rival } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house, credits: 5000, fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined });
+  const { world, starts, rival } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house, credits: 5000, fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined,
+    worms: params.str('worms', 'off') });   // a still showcase: no worm takes a harvester off the shot unless asked for
   const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');
   world.issue(house, { type: 'deploy', ids: [mcv.id] });
   world.step();
