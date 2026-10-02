@@ -6,7 +6,7 @@
 import { SINE, SINE_SIZE, SINE_MASK } from './fm.js';
 
 export const POLYPHONY = 10;
-const FLOOR = 3e-4;   // a hit's part ends 70 dB down
+const FLOOR = 1e-3;   // a hit's part ends 60 dB down
 
 /**
  * The kit, one letter per piece as the drum lanes write it. tone: [from Hz, to Hz, sweep s, decay s, level];
