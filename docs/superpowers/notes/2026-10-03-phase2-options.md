@@ -76,7 +76,7 @@ Gaps found and fixed:
 | Ctrl + 1–9 · 1–9 · double tap | yes | unchanged |
 | A · S · G · X · D | yes | unchanged |
 | H / Home | yes | unchanged |
-| Space: last alert | missing | `Controller.noteEvent(e)` keeps where the latest "base under attack", "harvester under attack" or "structure destroyed" happened (the enemy hit just before the line), or any `eva` line that carries `x`, `y`; Space looks there |
+| Space: last alert | missing | `Controller.noteEvent(e)` keeps where the latest "base under attack", "harvester under attack" or "structure destroyed" happened (the enemy hit just before the line), or any `eva` line that carries `x`, `y`; Space looks there. `Controller.listenTo(view)`, called by main.js for the battle scenes, has GameView hand every event over |
 | Sidebar left / right / Shift | yes (sidebar.js) | unchanged |
 | Radar | Classic left orders with a selection, Modern right orders (radar.js) | Modern right click with only a factory selected now moves its rally point (`Controller.orderTile`) |
 | Esc · P | yes (GameView) | unchanged |
@@ -113,10 +113,34 @@ for discrete GPUs.
 
 ## How to test
 
-- `npm test` (all), or `node --test tests/quality-presets.test.mjs tests/perf-monitor.test.mjs tests/options-settings.test.mjs tests/menu-entries.test.mjs tests/controls-scheme.test.mjs`.
+- `npm test` (all), or `node --test tests/quality-presets.test.mjs tests/renderer-quality.test.mjs tests/perf-monitor.test.mjs tests/options-settings.test.mjs tests/menu-entries.test.mjs tests/controls-scheme.test.mjs`.
 - Prompt: `?scene=battle&perfCheck=1&perfFps=1000&perfSeconds=3`, wait ~11 s, click Switch (twice for Low).
 - Menus: main menu → Original Game Files (Not available until original-files.js lands); Options → Music, Game files.
 - Controls: select a tank, Alt + click an enemy soldier (it drives over him); get the base shot at, Space.
+
+## Review fixes
+
+- **Space did nothing**: nothing called `Controller.noteEvent`, and GameView (game-view.js) belongs to the music
+  stream. `Controller.listenTo(view)` now wraps the view's `onEvent` so each event also reaches `noteEvent`, and
+  main.js calls it for the battle scenes, synchronously, before the first frame. A dynamic import, the first try,
+  missed events pushed in the first frames on the real browser. Test: `battles relay every event GameView handles
+  to the controller…` (controls-scheme). Real-GPU check: an `eva` alert pushed the moment `__dune.ready` turns true,
+  then Space, puts the camera on (32.5, 32.5); a second alert later moves it to (20.5, 20.5). No change to
+  game-view.js is needed at merge. If the lead moves the line into `GameView.onEvent`, drop the call in main.js.
+  Calling both is harmless, because `noteEvent` is idempotent.
+- **Frame-rate prompt over the end screen**: `PerfMonitor` takes `ended()` (`!!world.outcome` in
+  `startPerfMonitor`). Once the battle is won or lost, an open prompt is hidden, the watch stops, and a late click
+  on the card changes nothing. Test: `the battle ending takes an open prompt away…`. Real GPU: the reviewer's
+  repro (`perfCheck=1&perfFps=1000&perfSeconds=3`, remove the enemy) had the prompt up before (`promptBefore: true`).
+  The Mission accomplished screen now shows without it (`shots/options-fix-prompt-endscreen.png`).
+- **Modern Alt + left click**: the controller takes Alt with either button in Modern, the way it takes Ctrl, which
+  follows the spec's "same" for both rows. The controls screen now says "Alt + left or right click" for Modern.
+  A test pins both the left-click force move and the help text.
+- **setQuality untested**: new `tests/renderer-quality.test.mjs` runs `Renderer3D.setQuality` on a stand-in WebGL
+  renderer. It covers each preset's pass chain, shadows, MSAA and bloom size, and a live Medium → Low → High → Medium
+  switch that keeps an outside pass (the menu's dust) ahead of the grade and leaves no bloom or MSAA behind.
+- **Notes file outside the ownership list**: this file. It is new and named for the stream, so it cannot conflict.
+  It stays for the lead to accept.
 
 ## Open questions
 
