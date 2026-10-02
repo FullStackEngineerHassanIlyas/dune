@@ -50,12 +50,18 @@ test('loudness is measured as EBU R128 does', () => {
 });
 
 test('heavy sounds keep energy a laptop speaker can play; small arms and sparks are bright', () => {
-  for (const id of ['cannon', 'heavyCannon', 'explosionSmall', 'explosionMedium', 'explosionLarge', 'explosionHuge', 'collapse', 'sandHit', 'clunk']) {
+  for (const id of ['cannon', 'heavyCannon', 'explosionSmall', 'explosionMedium', 'explosionLarge', 'explosionHuge', 'collapse', 'sandHit', 'clunk', 'wormRumble', 'wormRoar', 'wormGulp', 'bloom']) {
     const share = above(bank[id][0], 200);
     assert.ok(share > 0.28, `${id}: ${(share * 100).toFixed(0)}% of its energy above 200 Hz`);
   }
   assert.ok(above(bank.rifle[0], 1000) > above(bank.cannon[0], 1000), 'a rifle is brighter than a cannon');
   assert.ok(above(bank.weld[0], 2000) > 0.5 && above(bank.static[0], 2000) > 0.5, 'a welding arc and radio static hiss');
+});
+
+test('a worm\'s roar is louder than its rumble under the sand, and a bloom bursts as loud as a shell', () => {
+  assert.ok(loudness(bank.wormRoar[0]) > loudness(bank.wormRumble[0]) + 6);
+  assert.ok(loudness(bank.bloom[0]) > loudness(bank.cannon[0]) - 3);
+  assert.ok(loudness(bank.wormRumble[0]) < loudness(bank.rifle[0]), 'the rumble sits under the battle');
 });
 
 test('bigger explosions last longer; debris lands after the blast', () => {
@@ -68,12 +74,12 @@ test('bigger explosions last longer; debris lands after the blast', () => {
 test('every sound the game and the other workstreams call for is there', () => {
   for (const id of ['rifle', 'mg', 'cannon', 'heavyCannon', 'rocket', 'rocketFly', 'launchHeavy', 'sonic', 'gas', 'hit', 'sandHit', 'bulletHit',
     'explosionSmall', 'explosionMedium', 'explosionLarge', 'explosionHuge', 'debris', 'collapse', 'crush', 'clunk', 'slab', 'ratchet', 'weld',
-    'harvesterUnload', 'rotor', 'jet', 'ready', 'sell', 'click', 'error', 'beep', 'alarm', 'static']) assert.ok(RECIPES[id], id);
+    'harvesterUnload', 'rotor', 'jet', 'ready', 'sell', 'click', 'error', 'beep', 'alarm', 'static', 'wormRumble', 'wormRoar', 'wormGulp', 'bloom']) assert.ok(RECIPES[id], id);
 });
 
-test('the whole bank stays small: under 95 s of audio, about 12 MB as float samples', () => {
+test('the whole bank stays small: under 100 s of audio, about 12.5 MB as float samples', () => {
   const seconds = Object.values(bank).flat().reduce((s, a) => s + a.length, 0) / RATE;
-  assert.ok(seconds < 95, `${seconds.toFixed(1)} s`);
+  assert.ok(seconds < 100, `${seconds.toFixed(1)} s`);   // 95 s before the worms' and blooms' 7 s; each of those has one variation
 });
 
 test('the wind loops without a seam, its two halves wide apart, softly under everything', () => {
