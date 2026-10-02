@@ -1,10 +1,13 @@
 // What the clips in the player's own Dune II files mean to this game (spec §6 Original files; research
-// audio-ui-controls.md §A.1, after OpenDUNE's g_table_voices and g_feedback). The original builds most
+// audio-ui-controls.md §A.1, after OpenDUNE's g_table_voices, g_feedback and the code that plays them:
+// unit.c, structure.c, gui/viewport.c, table/actioninfo.c, table/unitinfo.c). The original builds most
 // announcements from word clips played back to back ("Warning" + "Harkonnen" + "unit" + "approaching");
 // the announcer's words carry the speaking house's letter (AENEMY.VOC, HENEMY.VOC, OENEMY.VOC; Mercenary
 // M, and the Fremen and Sardaukar borrow the Ordos and Harkonnen voices), while the units' replies are
 // one set shared by every house (ZAFFIRM.VOC; the 1.07 US data names a few without the Z) and the effects
 // carry no letter at all (EXSMALL.VOC). Lines and effects found nowhere in the files stay this game's own.
+// French and German copies load F or G in place of the house letter but word their lines differently
+// (OpenDUNE g_translatedVoice), so their announcer is not used: summarize() says which copy it was.
 // Original clips are brought to this game's levels (measured with synth.js's meter, the loudest 400 ms
 // K-weighted): the voice to its Kokoro lines', each effect to the synthesized sound it stands in for.
 import { RATE, loudness } from '../audio/synth.js';
@@ -17,12 +20,15 @@ export const HOUSE_WORD = { atreides: 'ATRE', harkonnen: 'HARK', ordos: 'ORDOS',
 /** Prefixes the shared clips may carry: English Z, none (1.07 US), French F, German G. */
 export const SHARED_PREFIXES = ['Z', '', 'F', 'G'];
 
+const FOES = ['atreides', 'harkonnen', 'ordos', 'fremen'];
 /** A line naming a house (voice.js namedLine): `lead`, the house (or "enemy"), then `tail` — `sard` for the Sardaukar, who are no "unit". */
 const named = (group, lead, tail, sard) => Object.fromEntries([
   [`${group}.enemy`, [...lead, 'ENEMY', ...tail]],
-  ...['atreides', 'harkonnen', 'ordos', 'fremen'].map((id) => [`${group}.${id}`, [...lead, HOUSE_WORD[id], ...tail]]),
+  ...FOES.map((id) => [`${group}.${id}`, [...lead, HOUSE_WORD[id], ...tail]]),
   [`${group}.sardaukar`, [...lead, 'SARD', ...sard]],
 ]);
+/** Every house's version of a line said the same way whoever it names. */
+const same = (group, words) => Object.fromEntries(['enemy', ...FOES, 'sardaukar'].map((id) => [`${group}.${id}`, words]));
 
 /**
  * Announcer lines (src/audio/voice.js ids) → the house-voiced word clips the original strings together.
@@ -35,35 +41,43 @@ export const LINE_WORDS = {
   harvesterDeployed: ['*', 'HARVEST', 'DEPLOY'],
   unitLost: ['*', 'UNIT', 'DESTROY'],
   structureLost: ['*', 'STRUCT', 'DESTROY'],
+  unitRepaired: ['*', 'VEHICLE', 'REPAIR'],    // the repair facility done: "Atreides vehicle repaired" (structure.c, feedback 55 + house)
   radarOn: ['RADAR', 'ON'],
   radarOff: ['RADAR', 'OFF'],
   wormsign: ['WARNING', 'WORMY'],
   frigateArrived: ['FRIGATE', 'ARRIVE'],
   missileLaunched: ['MISSILE', 'LAUNCH'],
-  missileApproaching: ['MISSILE', 'LAUNCH'],   // the original has no "approaching" for it: every launch is "Missile launched"
+  missileApproaching: ['WARNING', 'MISSILE', 'APPRCH'],   // an enemy Death Hand (unit.c Unit_LaunchHouseMissile, feedback 39)
   baseAttack: ['ATTACK'],                      // the spoken word; "Our base is under attack" was the banner (research §A.1)
   missionAccomplished: ['WIN'],
   missionFailed: ['LOSE'],
   ...named('approaching', ['WARNING'], ['UNIT', 'APPRCH'], ['APPRCH']),        // "Warning, Harkonnen unit approaching"; "Warning, Sardaukar approaching"
   ...named('unitDestroyed', [], ['UNIT', 'DESTROY'], ['DESTROY']),             // "Ordos unit destroyed"; "Sardaukar destroyed"
-  ...named('structureDestroyed', [], ['STRUCT', 'DESTROY'], ['STRUCT', 'DESTROY']),
+  ...same('structureDestroyed', ['ENEMY', 'STRUCT', 'DESTROY']),             // "Enemy structure destroyed", whoever owned it (structure.c, feedback 21)
 };
 
-/** The units' replies (voice.js ACK_LINES) → the shared clip the original answers with: REPORT1–3 on selection, AFFIRM, MOVEOUT, OVEROUT on orders. */
+/**
+ * The units' replies (voice.js ACK_LINES) → the shared clip the original answers with. The original picks
+ * by unit and order — selecting a foot unit REPORT1, a vehicle REPORT2; an order to a foot unit its
+ * action's clip (Attack, Guard, Retreat OVEROUT; Move MOVEOUT; Harvest, Area Guard REPORT3), to a
+ * vehicle REPORT3 or AFFIRM at random — while voice.js picks a line of ours per order, so the closest
+ * clip stands in: attack orders get OVEROUT.
+ */
 export const ACK_CLIPS = {
   reporting: 'REPORT1', standingBy: 'REPORT2', awaitingOrders: 'REPORT3',
-  affirmative: 'AFFIRM', acknowledged: 'OVEROUT', movingOut: 'MOVEOUT', onOurWay: 'MOVEOUT', engaging: 'AFFIRM', attacking: 'AFFIRM',
+  affirmative: 'AFFIRM', acknowledged: 'OVEROUT', movingOut: 'MOVEOUT', onOurWay: 'MOVEOUT', engaging: 'OVEROUT', attacking: 'OVEROUT',
 };
 
 /**
  * Synthesized effects (src/audio/synth.js ids) → [the original clips that stand in for them, loudness in
- * LUFS of the synthesized sound]. Clip meanings from the research's file list; ROCKET, BUTTON, STATICP and
- * MISLTINP are read from their names alone (?). The screams (VSCREAM1–5), the worm (WORMET3P) and
- * EXDUD have no sound of ours to replace yet.
+ * LUFS of the synthesized sound]. Clip meanings from the research's file list; ROCKET is every rocket's
+ * and the Death Hand's launch (unitinfo.c bulletSound 42), BUTTON and STATICP are read from their names
+ * alone (?). The screams (VSCREAM1–5), the worm (WORMET3P), EXDUD and MISLTINP (the troopers'
+ * mini-rocket, bulletSound 64) have no sound of ours to replace yet.
  */
 export const EFFECT_CLIPS = {
   rifle: [['GUN'], -20.2], mg: [['GUNMULTI'], -18.1], cannon: [['EXCANNON'], -15.2], heavyCannon: [['EXCANNON'], -14.2],
-  rocket: [['ROCKET'], -15], launchHeavy: [['MISLTINP'], -13], sandHit: [['EXSAND'], -19],
+  rocket: [['ROCKET'], -15], launchHeavy: [['ROCKET'], -13], sandHit: [['EXSAND'], -19],
   explosionSmall: [['EXSMALL'], -14.1], explosionMedium: [['EXMED'], -13.1], explosionLarge: [['EXLARGE'], -12.1], explosionHuge: [['EXLARGE'], -11.1],
   gas: [['EXGAS'], -19], collapse: [['CRUMBLE'], -15], crush: [['SQUISH2'], -19], click: [['BUTTON'], -27.1], static: [['STATICP'], -23],
 };
@@ -104,7 +118,13 @@ export function resolveEffects(has) {
   return out;
 }
 
-/** What a set of clip names holds, for the Original Files page: lines per playable house, replies, effects. */
+/** A French or German copy's announcer words ('FCONST'), which this game does not use: the copy's language, or null. */
+const TRANSLATED = [['F', 'French'], ['G', 'German']], ANNOUNCER_WORDS = ['CONST', 'WARNING', 'DESTROY', 'DEPLOY'];
+function translatedCopy(has) {
+  return TRANSLATED.find(([p]) => ANNOUNCER_WORDS.some((w) => has(p + w)))?.[1] ?? null;
+}
+
+/** What a set of clip names holds, for the Original Files page: lines per playable house, replies, effects, a translated announcer. */
 export function summarize(names) {
   const has = (n) => names.has(n);
   const houses = {};
@@ -117,6 +137,7 @@ export function summarize(names) {
     clips: names.size, houses,
     acknowledgements: { lines: acks.filter((id) => resolveLine(id, 'atreides', has)).length, of: acks.length },
     effects: { sounds: Object.keys(resolveEffects(has)).length, of: effects.length },
+    translated: translatedCopy(has),
   };
 }
 

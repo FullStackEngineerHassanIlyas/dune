@@ -46,18 +46,19 @@ clips strung into sentences) and §A.3 (PAK and VOC layouts).
   the research decodes them:
   - Lines: Construction complete (CONST); "<own house> unit deployed" (`unitReady`) and "<own house>
     harvester deployed"; "<own house> unit/structure destroyed" for our losses; "<house|Enemy> unit/structure
-    destroyed" for kills; "Warning, <house|Enemy> unit approaching" ("Warning, Sardaukar approaching");
-    Radar on/off; "Warning, wormsign"; "Frigate has arrived"; "Missile launched"; base attacked = "Attack";
-    WIN/LOSE. 32 lines.
-  - The original has no "missile approaching": an enemy Death Hand is announced "Missile launched", as
-    the original did. The base-attack line is the single spoken word "Attack" (the fuller wording was the
-    banner), per research §A.1.
-  - Replies: selection REPORT1/2/3 → reporting/standingBy/awaitingOrders; orders AFFIRM (affirmative,
-    engaging, attacking), MOVEOUT (movingOut, onOurWay), OVEROUT (acknowledged).
+    destroyed" for unit kills, "Enemy structure destroyed" for every structure kill; "Warning, <house|Enemy>
+    unit approaching" ("Warning, Sardaukar approaching"); Radar on/off; "Warning, wormsign"; "Frigate has
+    arrived"; "Missile launched" for ours, "Warning, missile approaching" for an enemy's; "<own house>
+    vehicle repaired"; base attacked = "Attack"; WIN/LOSE. 33 lines (see Review fixes).
+  - The base-attack line is the single spoken word "Attack" (the fuller wording was the banner), per
+    research §A.1.
+  - Replies: selection REPORT1/2/3 → reporting/standingBy/awaitingOrders; orders AFFIRM (affirmative),
+    MOVEOUT (movingOut, onOurWay), OVEROUT (acknowledged, engaging, attacking).
   - Effects: GUN → rifle, GUNMULTI → mg, EXCANNON → cannon and heavyCannon, EXSAND → sandHit,
     EXSMALL/EXMED/EXLARGE → explosionSmall/Medium/Large (EXLARGE also Huge), EXGAS → gas, CRUMBLE →
-    collapse, SQUISH2 → crush; read from their names only (?): ROCKET → rocket, MISLTINP → launchHeavy,
-    BUTTON → click, STATICP → static. Not mapped (no sound of ours to replace): VSCREAM1–5, WORMET3P, EXDUD.
+    collapse, SQUISH2 → crush, ROCKET → rocket and launchHeavy (the Death Hand); read from their names
+    only (?): BUTTON → click, STATICP → static. Not mapped (no sound of ours to replace): VSCREAM1–5,
+    WORMET3P, EXDUD, MISLTINP (the troopers' mini-rocket).
 
 ## Levels (measured)
 
@@ -95,11 +96,42 @@ Everything is measured with `synth.js`'s own meter (`loudness()`: loudest 400 ms
 
 ## Open questions
 
-- The meaning of ROCKET, MISLTINP, BUTTON and STATICP is read from their names; a player with the files
-  can confirm by ear (a wrong guess only swaps one effect, and only for that player).
+- The meaning of BUTTON and STATICP is read from their names; a player with the files can confirm by
+  ear (a wrong guess only swaps one effect, and only for that player).
 - The original's spoken base-attack line is per the research a single "Attack"; if it was in fact
   "Warning … attack", add WARNING in front in `LINE_WORDS.baseAttack`.
-- Non-English data: the house sets of the French and German versions are not documented here; their
-  shared clips (F/G) are read, their announcers fall back to Kokoro unless they use the A/H/O letters.
+- Non-English data: answered in Review fixes — French and German announcers are not used.
 - Music from the original files (ADL/XMI in SOUND.PAK) is not played: it needs an OPL or MIDI synth;
   the playlists take the player's own MP3/OGG/WAV instead, as the spec says.
+
+## Review fixes
+
+Checked against OpenDUNE's sources (the research's own source for the tables: `table/sound.c`,
+`unit.c`, `structure.c`, `gui/viewport.c`, `table/actioninfo.c`, `table/unitinfo.c`, `audio/sound.c`).
+Each fix has a test in `tests/original-files.test.mjs` written failing first.
+
+- **Announcer lines** (`LINE_WORDS`): an enemy Death Hand is "Warning, missile approaching"
+  (`Unit_LaunchHouseMissile`: `if (isAI) Sound_Output_Feedback(39)`), not "Missile launched"; every
+  enemy structure destroyed is "Enemy structure destroyed" (feedback 21, whoever owned it; only our own
+  losses name the house); the repair facility finishing is "<own house> vehicle repaired" (feedback
+  55 + house), new as `unitRepaired`. 33 announcer lines now.
+- **Death Hand launch**: `launchHeavy` plays ROCKET (Death Hand bulletSound 42 → ROCKET.VOC, as the
+  Rocket's); MISLTINP is the mini-rocket's (bulletSound 64) and is left unmapped until a sound of ours
+  stands for it.
+- **Unit replies**: attack orders (`engaging`, `attacking`) now say OVEROUT, the foot soldiers' clip for
+  Attack. The original picks by unit and order (selection: foot REPORT1, vehicle REPORT2; orders: a foot
+  unit its action's clip — Attack/Guard/Retreat OVEROUT, Move MOVEOUT, Harvest/Area Guard REPORT3 — a
+  vehicle REPORT3 or AFFIRM at random); doing that needs `src/game/announcer.js` (worms) to pass the
+  unit's movement type, so it is left as an integration note.
+- **VOC size**: a clip may not decode past a minute; 7 bytes of silence block say 65 536 samples, so a
+  14 KB damaged file used to become 131 MB of PCM. Now a `VocError` "more than a minute of sound".
+- **Reports**: a file that cannot be read is named once ("DUNE.PAK: too short to be a PAK archive (3
+  bytes)"); `importFiles` drops the readers' own label from `row.error`.
+- **French/German copies**: OpenDUNE loads their announcer words with F/G in place of the house letter
+  and speaks them in other sequences (`g_translatedVoice`), so letter-swapping would say the wrong
+  sentences. Their replies and effects are used; `summarize()` reports `translated: 'French'|'German'`
+  and the page says the copy's announcer is not used and the announcements keep this game's voice.
+- Real GPU (390×844, made-up ATRE.PAK/VOC.PAK with two F clips, a 3-byte DUNE.PAK through the real file
+  input): report "DUNE.PAK: too short to be a PAK archive (3 bytes)", chips "Atreides 17/33", the
+  Announcer row with the French note, no console errors (`scratchpad/shots/original-files-fix-panel.png`).
+

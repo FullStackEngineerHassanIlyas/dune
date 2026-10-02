@@ -3,7 +3,8 @@
 // 0x1A, header size, version, checksum = ~version + 0x1234), then blocks of [type][24-bit length][data]
 // until a type 0. Dune II uses type 1 (8-bit unsigned PCM at 1 000 000 / (256 − time constant) Hz),
 // type 2 (more of the same) and type 3 (silence); types 8 and 9 (the later extended and new formats) are
-// read too, markers, text and repeats are skipped. Damaged input throws a VocError saying what is wrong.
+// read too, markers, text and repeats are skipped. Damaged input throws a VocError saying what is wrong,
+// and a clip may not run past a minute (7 bytes of silence block say 65 536 samples).
 // Below the reader: the small PCM helpers the voice and the effects use to turn clips into lines.
 
 export class VocError extends Error {
@@ -12,6 +13,7 @@ export class VocError extends Error {
 
 const MAGIC = 'Creative Voice File\x1a';
 const MIN_RATE = 3000, MAX_RATE = 96000;   // what an AudioBuffer accepts everywhere, and then some
+const MAX_SECONDS = 60;                     // Dune II's clips last seconds: more is damage, not sound
 
 /** The time-constant byte's rate; the two standard rates come out exact, as Dune Legacy and ScummVM read them. */
 export function rateOf(timeConstant) {
@@ -40,7 +42,10 @@ export function readVoc(data, label = 'clip') {
     if (!rate) rate = r;
     else if (Math.abs(r - rate) > rate * 0.01 && !warnings.includes('mixed sample rates')) warnings.push('mixed sample rates');
   };
-  const add = (part) => { parts.push(part); length += part.length; };
+  const add = (part) => {
+    if (length + part.length > MAX_SECONDS * rate) throw new VocError(`${label}: more than a minute of sound by byte ${pos} — damaged, or not a Dune II clip`);
+    parts.push(part); length += part.length;
+  };
   while (pos < n) {
     const type = b[pos];
     if (type === 0) break;

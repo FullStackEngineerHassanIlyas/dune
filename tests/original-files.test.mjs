@@ -156,7 +156,7 @@ test('clips play back to back at one rate, resampled', () => {
 // ——— what the clips mean ———
 
 const RESEARCH_WORDS = new Set(['CONST', 'DEPLOY', 'ENEMY', 'APPRCH', 'WARNING', 'WORMY', 'ATTACK', 'RADAR', 'ON', 'OFF', 'FRIGATE', 'ARRIVE', 'MISSILE', 'LAUNCH',
-  'WIN', 'LOSE', 'HARK', 'ATRE', 'ORDOS', 'FREMEN', 'SARD', 'UNIT', 'STRUCT', 'DESTROY', 'HARVEST', '*']);
+  'WIN', 'LOSE', 'HARK', 'ATRE', 'ORDOS', 'FREMEN', 'SARD', 'UNIT', 'STRUCT', 'DESTROY', 'HARVEST', 'VEHICLE', 'REPAIR', '*']);
 
 test('every original line maps to an announcer line of ours, in words of the original\'s file list', () => {
   for (const [id, words] of Object.entries(LINE_WORDS)) {
@@ -164,7 +164,8 @@ test('every original line maps to an announcer line of ours, in words of the ori
     for (const w of words) assert.ok(RESEARCH_WORDS.has(w), `${id}: ${w}`);
   }
   for (const id of ['constructionComplete', 'unitReady', 'harvesterDeployed', 'radarOn', 'radarOff', 'wormsign', 'frigateArrived', 'missileLaunched', 'baseAttack',
-    'missionAccomplished', 'missionFailed', 'approaching.enemy', 'approaching.harkonnen', 'approaching.sardaukar', 'unitDestroyed.ordos', 'structureDestroyed.enemy']) {
+    'missionAccomplished', 'missionFailed', 'approaching.enemy', 'approaching.harkonnen', 'approaching.sardaukar', 'unitDestroyed.ordos', 'structureDestroyed.enemy',
+    'missileApproaching', 'unitRepaired']) {
     assert.ok(LINE_WORDS[id], `the original spoke ${id} (research §A.1)`);
   }
   assert.deepEqual(LINE_WORDS['approaching.harkonnen'], ['WARNING', 'HARK', 'UNIT', 'APPRCH']);
@@ -251,7 +252,8 @@ test('reading the player\'s files keeps every clip, reports each file, and switc
   assert.equal(byName['VOC.PAK'].skipped, 1);
   assert.match(byName['VOC.PAK'].note, /BROKEN\.VOC/);
   assert.equal(byName['SCENARIO.PAK'].note, 'no sound clips in it');
-  assert.match(byName['HARK.PAK'].error, /HARK\.PAK/);
+  assert.match(byName['HARK.PAK'].error, /^entry 1 points past the end/, 'the page names the file once, ahead of the error');
+  assert.ok(reportText(result).every((r) => !/^(\S+): \1:/.test(r.text)), 'no file is named twice');
   assert.match(byName['notes.txt'].error, /not a \.PAK or \.VOC/);
   assert.equal(result.added, byName['ATRE.PAK'].clips + 8);
   assert.equal(await files.storageKind(), 'indexeddb');
@@ -369,4 +371,46 @@ test('the page puts what was found and what was read into words', () => {
 test('every line the originals can voice is listed once', () => {
   assert.equal(new Set(ORIGINAL_LINES).size, ORIGINAL_LINES.length);
   assert.deepEqual(summarize(new Set()).houses.ordos, { lines: 0, of: Object.keys(LINE_WORDS).length });
+});
+
+// ——— review fixes: what OpenDUNE's tables (the research's source) say the original played ———
+
+test('the original\'s words for an enemy missile, an enemy structure and a repaired vehicle (g_feedback 39, 21, 55 + house)', () => {
+  assert.deepEqual(LINE_WORDS.missileApproaching, ['WARNING', 'MISSILE', 'APPRCH'], 'an enemy Death Hand: "Warning, missile approaching" (Unit_LaunchHouseMissile, isAI)');
+  assert.deepEqual(LINE_WORDS.missileLaunched, ['MISSILE', 'LAUNCH']);
+  for (const id of ['enemy', 'atreides', 'harkonnen', 'ordos', 'fremen', 'sardaukar']) {
+    assert.deepEqual(LINE_WORDS[`structureDestroyed.${id}`], ['ENEMY', 'STRUCT', 'DESTROY'], `an enemy structure is "Enemy structure destroyed" whoever owned it (${id})`);
+  }
+  assert.deepEqual(resolveLine('unitRepaired', 'ordos', () => true), ['OORDOS', 'OVEHICLE', 'OREPAIR'], '"Ordos vehicle repaired" from the repair facility');
+});
+
+test('the Death Hand launches with ROCKET.VOC, as every rocket in the original; MISLTINP, the troopers\' mini-rocket, stands in for nothing of ours', () => {
+  assert.deepEqual(EFFECT_CLIPS.launchHeavy[0], ['ROCKET']);
+  assert.deepEqual(EFFECT_CLIPS.rocket[0], ['ROCKET']);
+  assert.ok(Object.values(EFFECT_CLIPS).every(([names]) => !names.includes('MISLTINP')));
+});
+
+test('an attack order is answered "Over and out", as the original\'s foot soldiers did (table/actioninfo.c: Attack → OVEROUT)', () => {
+  assert.equal(ACK_CLIPS.attacking, 'OVEROUT');
+  assert.equal(ACK_CLIPS.engaging, 'OVEROUT');
+});
+
+test('a small damaged clip cannot swell into minutes of silence', () => {
+  const silence = [3, [...u16(0xffff), 0xa6]];   // 65 536 samples from 7 bytes
+  assert.throws(() => readVoc(voc(Array.from({ length: 2000 }, () => silence)), 'S.VOC'), (e) => e instanceof VocError && /^S\.VOC: .*minute/.test(e.message));
+  const long = readVoc(voc([sound(word()), ...Array.from({ length: 5 }, () => silence)]));   // half a minute at 11 kHz still reads
+  assert.equal(long.pcm.length, 40 + 5 * 65536);
+});
+
+test('a French or German copy: its replies and effects are used, its announcer (which words its lines its own way) is not, and the page says so', () => {
+  const fr = new Set(['FCONST', 'FWARNING', 'FENEMY', 'FUNIT', 'FDESTROY', 'FATRE', 'FDEPLOY', 'FAFFIRM', 'FREPORT1', 'EXSMALL']), has = (n) => fr.has(n);
+  assert.equal(resolveLine('constructionComplete', 'atreides', has), null, 'the announcement keeps our voice');
+  assert.deepEqual(resolveLine('affirmative', 'atreides', has), ['FAFFIRM']);
+  const s = summarize(fr);
+  assert.equal(s.translated, 'French');
+  assert.equal(summarize(new Set(['GCONST', 'GUN'])).translated, 'German');
+  assert.equal(summarize(new Set(['ACONST', 'AFREMEN', 'GUN', 'ZAFFIRM'])).translated, null);
+  const t = summaryText({ ...s, sources: ['ATRE.PAK'] });
+  assert.match(t.announcer, /French copy.*not used/);
+  assert.equal(summaryText({ ...summarize(new Set(['ACONST'])), sources: [] }).announcer, null);
 });

@@ -154,7 +154,7 @@ export async function importFiles(files) {
       }
       if (ext === 'PAK' && !row.clips && !row.skipped) row.note = 'no sound clips in it';
     } catch (err) {
-      row.error = err.message;
+      row.error = err.message.startsWith(`${name}: `) ? err.message.slice(name.length + 2) : err.message;   // the page names the file itself
     }
   }
   if (clips.size) {

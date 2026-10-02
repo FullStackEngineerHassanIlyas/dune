@@ -32,6 +32,7 @@ export function summaryText(s) {
     replies: `${s.acknowledgements.lines} of ${s.acknowledgements.of}`,
     effects: `${s.effects.sounds} of ${s.effects.of}`,
     from: s.clips ? `${n(s.clips, 'clip')} from ${s.sources.join(', ') || 'your files'}` : 'Nothing yet.',
+    announcer: s.translated ? `From a ${s.translated} copy: not used, as it words its lines its own way; the announcements keep this game’s voice.` : null,
   };
 }
 
@@ -130,6 +131,7 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
         words && h('dl', { class: 'of-facts' },
           h('dt', {}, 'Unit replies'), h('dd', {}, words.replies),
           h('dt', {}, 'Effects'), h('dd', {}, words.effects),
+          words.announcer && [h('dt', {}, 'Announcer'), h('dd', {}, words.announcer)],
           h('dt', {}, 'Clips'), h('dd', {}, words.from))),
       row('Original sounds',
         h('div', { class: 'dm-seg', role: 'group', 'aria-label': 'Use the original sounds' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
