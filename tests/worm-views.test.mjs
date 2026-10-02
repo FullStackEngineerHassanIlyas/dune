@@ -71,7 +71,7 @@ test('a worm out of the viewer\'s sight draws nothing; in sight it does', () => 
   const { world, s, frame } = stage({ viewer: 'atreides', visibility: 'fog' });
   world.spawnUnit('combatTank', 'atreides', 3, 3);   // sees only its corner
   const worm = spawnWorm(world, 24, 18);
-  worm.worm.rest = 1e9;
+  worm.worm.rest = worm.worm.scanAt = 1e9;
   updateFog(world);
   frame(5);
   assert.equal(s.worms.ridge.count, 0);

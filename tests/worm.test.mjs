@@ -193,7 +193,7 @@ test('a worm under the sand is seen where the viewer sees: always revealed, in s
     world.fogOfWar = visibility !== 'revealed';
     const tank = world.spawnUnit('combatTank', 'atreides', 4, 10);
     const worm = spawnWorm(world, 6, 10);
-    worm.worm.rest = 1e9;   // keep it lying still
+    worm.worm.rest = worm.worm.scanAt = 1e9;   // keep it lying still, deaf to the tank
     world.step();
     return { world, tank, worm };
   };

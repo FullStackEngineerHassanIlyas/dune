@@ -160,15 +160,16 @@ export function updateWorm(world, u) {
   }
 }
 
-/** Under the sand: rest, wander, or close in on the best prey. */
+/** Under the sand: close in on the best prey, or wander and lie still a while (prey wakes it; digesting, it does not look). */
 function stalk(world, u) {
   const w = u.worm, map = world.map;
   if (w.rest > 0) w.rest--;
-  if (w.rest <= 0 && world.tick >= w.scanAt) {
+  if (world.tick >= w.scanAt) {
     w.scanAt = world.tick + WORM.scan;
     const p = findPrey(world, u);
     w.prey = p ? p.id : 0;
     if ((w.state === 'hunt') !== !!p) setState(u, p ? 'hunt' : 'roam');
+    if (p) w.rest = 0;
   }
   const prey = w.prey ? world.units.get(w.prey) : null;
   if (w.state === 'hunt' && (!prey || !preyPriority(world, u, prey))) { w.prey = 0; setState(u, 'roam'); }
@@ -258,7 +259,7 @@ function sink(world, u) {
   if (w.fled) { leave(world, u); return; }
   setState(u, 'roam');
   w.rest = WORM.digest;
-  w.scanAt = 0;
+  w.scanAt = world.tick + WORM.digest;
 }
 
 /** Dives for good: heads off under the sand along the longest open run, fading, then is gone. */

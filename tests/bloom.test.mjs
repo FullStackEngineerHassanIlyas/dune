@@ -41,7 +41,7 @@ test('a shot landing on a bloom sets it off; aircraft and worms pass over it', (
   const map = world.map;
   map.bloom[map.idx(14, 12)] = 1;
   const worm = spawnWorm(world, 10, 12);
-  worm.worm.rest = 1e9;
+  worm.worm.rest = worm.worm.scanAt = 1e9;   // lying still, hunting nothing
   world.spawnUnit('ornithopter', 'atreides', 14, 12);
   worm.x = worm.px = 14.5; worm.tx = 14;   // lying right under it
   run(world, 1);
