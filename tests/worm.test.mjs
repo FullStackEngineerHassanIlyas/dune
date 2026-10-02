@@ -299,3 +299,20 @@ test('a worm under the sand is seen where the viewer sees: always revealed, in s
   shroud.world.step();
   assert.equal(unitVisibleTo(shroud.world, 'atreides', shroud.worm), true, 'shroud: ground once seen stays in view');
 });
+
+test('long AI games with worms keep every invariant: a worm under the sand holds no tile and frees the ones it takes', async () => {
+  const { setupSkirmish } = await import('../src/game/setup.js');
+  const { checkInvariants } = await import('../src/sim/invariants.js');
+  for (const seed of [1, 6]) {
+    const { world } = setupSkirmish({ seed, size: 64, house: 'atreides', aiPlayer: true, worms: 'many', fog: false });
+    let worms = 0;
+    for (let s = 0; s < 8 * 60 * 20; s++) {
+      world.step();
+      if (s % 20) continue;
+      worms = Math.max(worms, [...world.units.values()].filter((u) => u.typeId === 'sandworm').length);
+      const problems = checkInvariants(world);
+      assert.deepEqual(problems, [], `seed ${seed} at ${world.time.toFixed(1)} s`);
+    }
+    assert.ok(worms > 0, 'worms were out');
+  }
+});

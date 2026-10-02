@@ -190,6 +190,7 @@ export class GameView {
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
+    else if (e.type === 'houseDefeated' && e.house !== this.house && e.text) this.hud.message(e.text);   // 'House Ordos has been defeated.' (sim/victory.js)
     if (e.type === 'gameOver') this.endAt = performance.now() + 2500;
   }
 

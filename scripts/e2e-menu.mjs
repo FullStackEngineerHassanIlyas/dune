@@ -72,7 +72,7 @@ try {
   const g = (expr) => ev(`window.__dune.frame.contentWindow.__dune.${expr}`);
   check('Start battle opens the battle in its frame, as the chosen house', (await g('house')) === 'ordos');
   const src = await ev('window.__dune.frame.src');
-  check('the set-up reaches the battle', /size=64/.test(src) && /ai=normal/.test(src) && /credits=3000/.test(src), src);
+  check('the set-up reaches the battle', /size=64/.test(src) && /opponents=[a-z]+(%3A|:)normal/.test(src) && /credits=3000/.test(src), src);
   await page.screenshot(path.join(shots, '05-battle.png'));
   check('the battlefield has a game cursor', (await g('cursor()')).canvas.includes('data:image/svg'));
 

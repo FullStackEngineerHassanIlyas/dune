@@ -16,12 +16,14 @@ sound, melody and line of text is made from scratch in code; no original game fi
 
 Phase 1 is complete: a full skirmish against a computer opponent on Easy, Normal or Hard — build a
 base, harvest spice, raise an army, fight with the original weapons and win or lose — with sound
-effects synthesized in code, placed in stereo around the camera. Phase 2 is under way: factory
+effects synthesized in code, placed in stereo around the camera. Phase 2 is complete: factory
 upgrades, the Repair Facility, infantry capture, aircraft (Carryall, Ornithopter), the Starport and
-the House of IX with its specials, the Palace with its weapons and each house's announcer voice are
-in; sandworms and music follow; phase 3 brings the campaign. The main menu is in already: skirmish set-up
-(house, opponent, difficulty, map size and seed, credits, fog, speed), options, controls, credits and
-full screen, over a slow flight across the dunes; Esc in battle opens the game menu.
+the House of IX with its specials, the Palace with its weapons, each house's announcer voice,
+sandworms and spice blooms, up to three computer opponents (free-for-all), an FM soundtrack, the
+player's own original Dune II sounds (optional) and the graphics presets with a frame-rate check.
+Phase 3 brings the campaign. The main menu: skirmish set-up (house, up to three opponents with house
+and difficulty, tech level, worms, visibility, map size and seed, credits, speed), options, controls,
+original game files, credits and full screen; Esc in battle opens the game menu.
 
 ## Controls (Classic scheme, like C&C 1995)
 
@@ -51,6 +53,8 @@ full screen, over a slow flight across the dunes; Esc in battle opens the game m
 | Carryall selected: left click an own vehicle · the ground · the Repair Facility or a Refinery | Lift it · fly there, or set the load down there · deliver the load (Modern: right click); S holds it off duty, G returns it to duty, D drops the load |
 | A, then click | Attack-move: go there and fight whatever is met on the way |
 | Ctrl + click | Force fire at a unit, building or the ground |
+| Alt + click | Force move: drive there, over enemy soldiers (Modern: Alt + left or right click) |
+| Space | Jump to the last alert (a base or harvester under attack, a structure lost, wormsign) |
 | G | Area guard: engage what comes near, then return |
 | Esc · F10 · sidebar Menu | Game menu: resume, options, controls, full screen, restart, quit (Esc first leaves a mode) |
 | Alt + Enter · sidebar ⛶ | Full screen (hold Esc to leave it) |
@@ -107,9 +111,12 @@ call five Fremen squads out of the sand near where you click (every 4 minutes) �
 own; the Ordos get a Saboteur by the Palace (every 4 minutes) that walks over walls and blows up the
 building you send it into. The computer uses its Palace as soon as it is charged.
 
-## The computer opponent
+## The computer opponents
 
-`?ai=easy|normal|hard` (default Normal). The computer deploys its MCV, builds in its house's order,
+Up to three, each with its own house and difficulty (skirmish set-up, or
+`?opponents=harkonnen:hard,ordos:normal,sardaukar:easy`; houses atreides, harkonnen, ordos, sardaukar,
+mercenary; the old `enemy=` and `ai=easy|normal|hard` still work). Every house fights every other one,
+and the last house standing wins. The computer deploys its MCV, builds in its house's order,
 keeps its power up, runs two harvesters per refinery, defends its base and sends growing attack waves
 — the first after about eight minutes on Easy, five on Normal and three and a half on Hard, where it
 also builds faster and earns half again as much from spice. Like the original, it ignores the shroud and fog of war.
@@ -125,6 +132,20 @@ different pitches, so a battle never sounds like one sample repeating. Browsers 
 a click or key press, so the game is silent until then. Sounds are panned towards where they happen;
 further from the camera they grow quieter, duller and more echoing in a soft desert reverb; what fog
 hides is not heard. A hidden tab is silent, and the menu's own sound sleeps while a battle is open.
+
+Music comes from an FM synthesizer in the Mega Drive manner (four-operator voices, noise drums) playing
+newly written tracks in the game's style: a title theme, a theme per house, three peace and three battle
+tracks, victory and defeat. Peace tracks shuffle; a battle track takes over when fighting starts near
+your forces and gives way after a calm spell. Options → Music sets its volume (0 turns it off).
+`?scene=menu&music=<track>` plays one track (title, atreides, harkonnen, ordos, erg, dawn, lanterns,
+assault, iron, shieldwall, victory, defeat); `node src/audio/music/render-wav.mjs <ids|all> <seconds|full> <dir>`
+renders tracks to WAV files.
+
+Original game files (optional): Main menu or Options → Original Game Files lets you pick the `.PAK`
+files from your own Dune II PC copy. They are read in your browser only and kept in its storage —
+nothing is uploaded or committed — and then the original announcer, unit replies and sound effects
+replace the generated ones (switch them off on the same page). MP3, OGG or WAV files can be added to
+the menu, peace and battle playlists there too.
 
 ## Announcer voices
 
@@ -160,6 +181,8 @@ triangle count: `?scene=model&id=combatTank`; `&houses=1` in each house's colour
 Flags: `seed=11` · `size=64` · `house=atreides|harkonnen|ordos` · `enemy=…` ·
 `quality=low|medium|high` · `scheme=classic|modern` · `dist=30` (camera distance) · `deploy=1`
 (skirmish starts with the MCV deployed) · `visibility=shroud|fog|revealed` (Dune II shroud, the default · C&C fog of war · whole map; `fog=0` also reveals) · `credits=5000` · `gameSpeed=slowest…fastest` ·
+`opponents=house:difficulty,…` (up to three) · `tech=1…9` · `worms=off|few|many` (skirmish default few; `scene=battle&worms=many&idle=1` shows a worm hunting; `base` default off) · `focus=rival|1…3` ·
+`perfCheck=0` (no frame-rate check) · `perfFps=40` · `perfSeconds=…` · `musicVolume=0.5` ·
 `debug=1` (invariant checks) · `fps=1` (frame meter) · `ai=easy|normal|hard` · `focus=rival` (camera on the computer's base) · `sound=0` (start muted) · `volume=0.5` · `voiceVolume=0.5` (0: no voices).
 
 ## Docs
