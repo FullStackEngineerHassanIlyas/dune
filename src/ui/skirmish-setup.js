@@ -84,15 +84,12 @@ export function techNote(level, houseId) {
 }
 
 const hex = (id) => `#${HOUSES[id].color.toString(16).padStart(6, '0')}`;
+const SELECT = 'width: 190px; max-width: 100%; padding: 6px 8px; font: bold 13px "Trebuchet MS", sans-serif; color: #f2d7a0; background: #120c06; border: 2px solid #8e6843; border-radius: 3px;';
 const seg = (label, choices, value, set, note = null) => h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, label),
   h('div', { class: 'dm-control' }, segButtons(label, choices, value, set), note && h('small', {}, note)));
-function segButtons(label, choices, value, set, taken = new Set()) {
-  return h('div', { class: 'dm-seg', role: 'group', 'aria-label': label }, choices.map(([v, text, dot]) => {
-    const off = taken.has(v);
-    return h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), disabled: off, title: off ? 'Already in this battle' : null,
-      style: off ? 'opacity: .35; cursor: not-allowed;' : null, dataset: { value: String(v) }, onclick: () => set(v) },
-    dot && h('span', { 'aria-hidden': 'true', style: `display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: ${dot}; box-shadow: 0 0 0 1px rgba(0,0,0,.6);` }), text);
-  }));
+function segButtons(label, choices, value, set) {
+  return h('div', { class: 'dm-seg', role: 'group', 'aria-label': label }, choices.map(([v, text]) =>
+    h('button', { type: 'button', class: v === value ? 'on' : '', 'aria-pressed': String(v === value), dataset: { value: String(v) }, onclick: () => set(v) }, text)));
 }
 
 /** The set-up screen; `onStart(query)` launches the battle. */
@@ -102,23 +99,30 @@ export function skirmishPanel(settings, { onBack, onStart }) {
   const save = () => { setup = cleanSetup(setup); saveSetup(setup); render(); };
   const set = (key, value) => { setup[key] = value; save(); };
   const setOpponent = (k, key, value) => { setup.opponents = setup.opponents.map((o, i) => (i === k ? { ...o, [key]: value } : o)); save(); };
-  const houseChoices = [['random', 'Random'], ...SKIRMISH_HOUSES.map((id) => [id, HOUSES[id].plural ?? HOUSES[id].name, hex(id)])];
   const difficulties = DIFFICULTIES().map((d) => [d, d[0].toUpperCase() + d.slice(1)]);
+  /** One line per opponent: its colour, its house (houses already in the battle are greyed out), its difficulty. */
+  const opponentLine = (o, k) => {
+    const others = new Set([setup.house, ...setup.opponents.filter((_, i) => i !== k).map((x) => x.house)]);
+    const pickHouse = h('select', { 'aria-label': `Opponent ${k + 1} house`, dataset: { field: 'house' }, onchange: () => setOpponent(k, 'house', pickHouse.value), style: SELECT },
+      [['random', 'Random house'], ...SKIRMISH_HOUSES.map((id) => [id, HOUSES[id].plural ?? HOUSES[id].name])].map(([v, text]) => {
+        const taken = v !== 'random' && others.has(v);
+        return h('option', { value: v, selected: v === o.house, disabled: taken }, taken ? `${text} (in this battle)` : text);
+      }));
+    const colour = o.house === 'random' ? 'conic-gradient(#2f6fe0 0 25%, #c8261e 0 50%, #2e9e3e 0 75%, #7a3fb0 0)' : hex(o.house);
+    return h('div', { dataset: { opponent: String(k) }, style: 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;' },
+      h('span', { 'aria-hidden': 'true', style: `width: 14px; height: 14px; border-radius: 50%; background: ${colour}; box-shadow: 0 0 0 2px #120c06, 0 0 0 3px #8e6843;` }),
+      pickHouse,
+      segButtons(`Opponent ${k + 1} difficulty`, difficulties, o.difficulty, (v) => setOpponent(k, 'difficulty', v)),
+      setup.opponents.length > 1 && h('button', { type: 'button', class: 'dm-btn small', 'aria-label': `Remove opponent ${k + 1}`, dataset: { act: 'remove' },
+        onclick: () => { setup.opponents = setup.opponents.filter((_, i) => i !== k); save(); } }, 'Remove'));
+  };
   const opponentRows = () => {
     const cap = maxOpponents(setup.size);
     return h('div', { class: 'dm-row' }, h('span', { class: 'dm-label' }, 'Opponents'), h('div', { class: 'dm-control' },
-      setup.opponents.map((o, k) => {
-        const others = new Set([setup.house, ...setup.opponents.filter((_, i) => i !== k).map((x) => x.house)]);
-        others.delete('random');
-        return h('div', { dataset: { opponent: String(k) }, style: 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;' },
-          segButtons(`Opponent ${k + 1} house`, houseChoices, o.house, (v) => setOpponent(k, 'house', v), others),
-          segButtons(`Opponent ${k + 1} difficulty`, difficulties, o.difficulty, (v) => setOpponent(k, 'difficulty', v)),
-          setup.opponents.length > 1 && h('button', { type: 'button', class: 'dm-btn small', 'aria-label': `Remove opponent ${k + 1}`, dataset: { act: 'remove' },
-            onclick: () => { setup.opponents = setup.opponents.filter((_, i) => i !== k); save(); } }, 'Remove'));
-      }),
-      h('button', { type: 'button', class: 'dm-btn small', dataset: { act: 'add' }, disabled: setup.opponents.length >= cap,
+      setup.opponents.map(opponentLine),
+      setup.opponents.length < cap && h('button', { type: 'button', class: 'dm-btn small', dataset: { act: 'add' },
         onclick: () => { setup.opponents = [...setup.opponents, { house: 'random', difficulty: setup.opponents.at(-1)?.difficulty ?? 'normal' }]; save(); } }, 'Add opponent'),
-      h('small', {}, `Every house for itself. The Sardaukar and the Mercenaries fight only as computer houses. ${cap < 3 ? 'A Small map holds two opponents.' : 'Up to three opponents, one in each corner.'}`)));
+      h('small', {}, `Every house for itself; each house plays once. The Sardaukar and the Mercenaries fight only as computer houses. ${cap < 3 ? 'A Small map holds two opponents.' : 'Up to three, one in each corner.'}`)));
   };
   const render = () => {
     const seed = h('input', { type: 'number', min: 1, max: 999999, placeholder: 'random', value: setup.seed ?? '', 'aria-label': 'Map seed',
@@ -140,7 +144,7 @@ export function skirmishPanel(settings, { onBack, onStart }) {
       seg('Starting credits', CREDITS.map((c) => [c, c.toLocaleString('en-US')]), setup.credits, (v) => set('credits', v)),
       seg('Visibility', VISIBILITY_CHOICES, setup.visibility, (v) => set('visibility', v), VISIBILITY_NOTES[setup.visibility]),
       seg('Game speed', [['slowest', 'Slowest'], ['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['fastest', 'Fastest']], settings.gameSpeed, (v) => { changeSetting(settings, 'gameSpeed', v); render(); }),
-      h('div', { class: 'dm-actions' },
+      h('div', { class: 'dm-actions', style: 'position: sticky; bottom: -20px; margin-bottom: -20px; padding: 10px 0 20px; background: linear-gradient(rgba(29,20,9,0), #1d1409 30%);' },   // Start stays in reach on a short window
         h('button', { type: 'button', class: 'dm-btn', onclick: onBack }, 'Back'),
         h('button', { type: 'button', class: 'dm-btn primary', dataset: { act: 'start' }, onclick: () => { saveSetup(setup); onStart(skirmishQuery(setup)); } }, 'Start battle')),
     );

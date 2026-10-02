@@ -35,13 +35,15 @@ export function updateVictory(world) {
   }
 }
 
+const shown = (id) => HOUSES[id]?.plural ?? HOUSES[id]?.name ?? id;   // "the Mercenaries" on the end screen
+
 /** The end screen's numbers: every house in a column, the player's first, frozen at the end. */
 export function endStats(world, houseId) {
   const statsOf = (h) => world.outcome?.stats?.[h.id] ?? h.stats;
   const all = [...world.houses.values()];
   const order = [...all.filter((h) => h.id === houseId), ...all.filter((h) => h.id !== houseId)];
   const winner = world.outcome?.winner ?? null;
-  const houses = order.map((h) => ({ id: h.id, name: HOUSES[h.id]?.name ?? h.id, color: HOUSES[h.id]?.color ?? 0xffffff, you: h.id === houseId, winner: h.id === winner,
+  const houses = order.map((h) => ({ id: h.id, name: shown(h.id), color: HOUSES[h.id]?.color ?? 0xffffff, you: h.id === houseId, winner: h.id === winner,
     out: h.defeated ? Math.round(h.defeatedAt ?? world.time) : null }));
   const row = (label, k) => {
     const values = order.map((h) => Math.round(statsOf(h)[k]));
@@ -52,7 +54,7 @@ export function endStats(world, houseId) {
     draw: !!world.outcome?.draw,
     seconds: Math.round(world.outcome?.seconds ?? world.time),
     houses,
-    standing: (world.outcome?.standing ?? []).filter((id) => id !== houseId).map((id) => HOUSES[id]?.name ?? id),
+    standing: (world.outcome?.standing ?? []).filter((id) => id !== houseId).map(shown),
     rows: [
       row('Spice harvested', 'spiceHarvested'),
       row('Units destroyed', 'unitsKilled'),
