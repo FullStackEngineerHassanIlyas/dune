@@ -305,6 +305,17 @@ test('who follows the store hears of every change to the clips or the switch', a
   assert.equal(seen.length, 3, 'nothing new kept: nobody is told');
 });
 
+test('a playlist edit tells the music at once, and leaves the voices and effects alone', async () => {
+  freshStore();
+  const seen = [];
+  files.follow({ originalsChanged: () => seen.push('originals'), playlistsChanged: () => seen.push('playlists') });
+  const ogg = new Uint8Array([0x4f, 0x67, 0x67, 0x53, 0, 2, 0, 0, 0, 0, 0, 0]);
+  await files.addTracks('menu', [{ name: 'mine.ogg', data: ogg.buffer }]);
+  const [track] = await files.listTracks('menu');
+  await files.removeTrack(track.id);
+  assert.deepEqual(seen, ['playlists', 'playlists']);
+});
+
 test('without IndexedDB, or where it will not open, the files are kept in memory for the session', async () => {
   freshStore(null);
   assert.equal(await files.storageKind(), 'memory');

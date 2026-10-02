@@ -72,7 +72,7 @@ export class Conductor {
   }
 
   /** The store's word that the player changed their files: the playlists are read again. */
-  originalsChanged() { this.reloadPlaylists(); }
+  playlistsChanged() { this.reloadPlaylists(); }   // user-files.js notify('playlists')
 
   /**
    * The player's playlists, read (again): the first read waits PLAYLIST_WAIT at most before the game's own music

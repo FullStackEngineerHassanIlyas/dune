@@ -101,7 +101,8 @@ async function setMeta(key, value) { await (await db()).put('meta', { key, value
 
 const followers = new Set();
 
-/** `target.originalsChanged()` will be called when the clips or the switch change, while the target lives. */
+/** `target.originalsChanged()` will be called when the clips or the switch change, and `target.playlistsChanged()`
+ *  when a playlist does (the music), while the target lives. */
 export function follow(target) {
   if (typeof WeakRef === 'function') followers.add(new WeakRef(target));
 }
@@ -113,8 +114,9 @@ export function followed() {
   return live;
 }
 
-export function notify() {
-  for (const t of followed()) try { t.originalsChanged?.(); } catch (err) { console.warn('original files:', err); }
+export function notify(what = 'originals') {
+  const call = what === 'playlists' ? 'playlistsChanged' : 'originalsChanged';
+  for (const t of followed()) try { t[call]?.(); } catch (err) { console.warn('original files:', err); }
 }
 
 // ——— the original game's clips ———
@@ -242,6 +244,7 @@ export async function addTracks(list, files) {
     }
   }
   if (added) try { await globalThis.navigator?.storage?.persist?.(); } catch { /* best effort: ask the browser not to evict them */ }
+  if (added) notify('playlists');   // the menu's music takes the new tracks at once
   return { added, files: report };
 }
 
@@ -251,7 +254,7 @@ export async function listTracks(list) {
   return all.filter((t) => !list || t.list === list).sort((a, b) => a.id - b.id).map(({ id, list: l, name, type, size }) => ({ id, list: l, name, type, size }));
 }
 
-export async function removeTrack(id) { await (await db()).delete('tracks', id); }
+export async function removeTrack(id) { await (await db()).delete('tracks', id); notify('playlists'); }
 
 /** Contract with the music (src/audio/music): a playlist's tracks as [{ name, type, data: ArrayBuffer }]; empty when there are none. */
 export async function playlistTracks(name) {

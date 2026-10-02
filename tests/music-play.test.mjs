@@ -390,11 +390,11 @@ test('playlists the player changes while the music plays are read again: on the 
   assert.equal(win.elements.length, 1, 'back on the menu, the player\'s menu file takes over the title');
   assert.equal(win.elements[0].paused, false);
   assert.ok(follower === menu.conductor, 'the music follows the store');
-  follower.originalsChanged();
+  follower.playlistsChanged();
   await settle();
   assert.equal(win.elements.length, 1, 'the same list again: the file plays on, not restarted');
   assigned.menu = [];
-  follower.originalsChanged();
+  follower.playlistsChanged();
   await settle();
   assert.equal(menu.debug().track, 'title', 'the list emptied: the title again');
   win.flush();
