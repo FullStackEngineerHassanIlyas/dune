@@ -9,7 +9,9 @@
 // takes anything else that wanders into its maw while it is up. After three meals it dives and leaves for
 // good. Up, it can be shot: 1000 HP, and after 400 damage it flees. The director keeps world.rules.worms
 // worms on the map ('off' none, 'few' one, 'many' three; a missing setting reads 'few'), each born on a
-// large stretch of sand away from every base, the next one some time after one goes. Every die is cast by
+// large stretch of sand away from every base, the next one some time after one goes. It never sets a
+// tile's worth of body on rock: every step is checked and slides along the edge instead, and a worm that
+// finds itself off its ground anyway goes straight back to the nearest sand. Every die is cast by
 // world.wildRng, a stream seeded from the world's seed: the same seed gives the same worms, and worms
 // never reshuffle the dice of the rest of the simulation.
 import { MOVE } from '../data/units.js';
@@ -37,6 +39,7 @@ export const WORM = {
   again: { few: [90, 180], many: [30, 70] },     // seconds after one goes before the next
   minSand: 150,                // tiles in one stretch of sand for a worm to be born in it
   clear: { base: 14, unit: 7, worm: 12 },        // tiles a newborn worm keeps from buildings (and MCVs), units and other worms
+  ashore: 6,                   // tiles: how far a worm off its ground looks for sand before it gives up and dives away
 };
 
 /** The skirmish setting in force: 'off', 'few' or 'many' (anything else, or nothing, reads 'few'). */
@@ -90,26 +93,50 @@ export function findPrey(world, worm) {
 
 const passable = (map, x, y) => map.inBounds(Math.floor(x), Math.floor(y)) && map.moveFactor(map.idx(Math.floor(x), Math.floor(y)), MOVE.WORM) > 0;
 
-/** Whether the straight line between two points runs over worm ground all the way. */
+const ground = (map, x, y) => map.inBounds(x, y) && map.moveFactor(map.idx(x, y), MOVE.WORM) > 0;
+
+/** Whether the straight line between two points runs over worm ground all the way: every tile it
+ *  crosses is checked (a grid walk), so not even a sliver of a rock corner slips through; a line through
+ *  a corner point needs both tiles beside it open (the pathfinder's own no-corner-cutting rule). */
 export function sandLine(map, x0, y0, x1, y1) {
-  const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.35);
-  for (let k = 0; k <= n; k++) if (!passable(map, x0 + ((x1 - x0) * k) / Math.max(1, n), y0 + ((y1 - y0) * k) / Math.max(1, n))) return false;
-  return true;
+  let x = Math.floor(x0), y = Math.floor(y0);
+  const dx = x1 - x0, dy = y1 - y0, sx = Math.sign(dx), sy = Math.sign(dy);
+  const ddx = sx ? Math.abs(1 / dx) : Infinity, ddy = sy ? Math.abs(1 / dy) : Infinity;
+  let nx = sx > 0 ? (x + 1 - x0) * ddx : sx < 0 ? (x0 - x) * ddx : Infinity;   // line fraction at the next column / row edge
+  let ny = sy > 0 ? (y + 1 - y0) * ddy : sy < 0 ? (y0 - y) * ddy : Infinity;
+  for (let n = Math.abs(Math.floor(x1) - x) + Math.abs(Math.floor(y1) - y); ;) {
+    if (!ground(map, x, y)) return false;
+    if (n <= 0) return true;
+    if (Math.abs(nx - ny) < 1e-9) {
+      if (!ground(map, x + sx, y) || !ground(map, x, y + sy)) return false;
+      x += sx; y += sy; nx += ddx; ny += ddy; n -= 2;
+    } else if (nx < ny) { x += sx; nx += ddx; n--; } else { y += sy; ny += ddy; n--; }
+  }
 }
 
 const speedOf = (world, u) => groundSpeed(u.type.speed, world.map.moveFactor(world.map.idx(u.tx, u.ty), MOVE.WORM) || TERRAIN_REF, MOVE.WORM);
 
-/** Moves the worm up to `step` tiles toward (x, y); true once it is there. */
+/** Moves the worm up to `step` tiles toward (x, y); true once it is there. A step that would leave its
+ *  ground slides along the edge (one axis only) or waits; off its ground already, it goes freely. */
 function moveToward(world, u, x, y, step) {
-  const dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
+  const map = world.map, dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
   if (d > 1e-6) u.heading = turnToward(u.heading, Math.atan2(dy, dx), TURN_RATE[u.type.turn] * DT);
-  const go = Math.min(step, d);
-  if (d > 1e-6) { u.x += (dx / d) * go; u.y += (dy / d) * go; }
-  u.distance += go;
-  const map = world.map;
+  let blocked = false;
+  if (d > 1e-6) {
+    const go = Math.min(step, d);
+    let nx = u.x + (dx / d) * go, ny = u.y + (dy / d) * go;
+    if (!passable(map, nx, ny) && passable(map, u.x, u.y)) {
+      blocked = true;
+      if (passable(map, nx, u.y)) ny = u.y;
+      else if (passable(map, u.x, ny)) nx = u.x;
+      else { nx = u.x; ny = u.y; }
+    }
+    u.distance += Math.hypot(nx - u.x, ny - u.y);
+    u.x = nx; u.y = ny;
+  }
   u.tx = Math.max(0, Math.min(map.w - 1, Math.floor(u.x)));
   u.ty = Math.max(0, Math.min(map.h - 1, Math.floor(u.y)));
-  return d <= step;
+  return !blocked && d <= step;
 }
 
 /** Follows the path the world found, cutting corners where the sand runs straight. False without one. */
@@ -121,6 +148,12 @@ function follow(world, u, step) {
     if (sandLine(map, u.x, u.y, x, y)) { u.pathIndex = j; break; }
   }
   const [x, y] = at(u.path[u.pathIndex]);
+  if (!sandLine(map, u.x, u.y, x, y)) {   // off the path's line (after a dash at prey): back to the middle of its own tile first
+    const cx = u.tx + 0.5, cy = u.ty + 0.5;
+    if (Math.hypot(cx - u.x, cy - u.y) > 1e-3) moveToward(world, u, cx, cy, step);
+    else world.requestPath(u, u.goal);   // the way is shut even from there: the path is stale, ask again from here
+    return true;
+  }
   if (moveToward(world, u, x, y, step)) u.pathIndex++;
   return true;
 }
@@ -152,7 +185,7 @@ export function updateWorm(world, u) {
     else if (w.state !== 'sink' && w.state !== 'leave') leave(world, u);
   }
   switch (w.state) {
-    case 'roam': case 'hunt': stalk(world, u); break;
+    case 'roam': case 'hunt': if (passable(world.map, u.x, u.y)) stalk(world, u); else ashore(world, u); break;
     case 'rise': rise(world, u); break;
     case 'up': up(world, u); break;
     case 'sink': sink(world, u); break;
@@ -190,6 +223,20 @@ function stalk(world, u) {
   const spot = wanderSpot(world, u);
   if (spot >= 0) { w.pathAt = -1e9; headFor(world, u, map.xOf(spot), map.yOf(spot)); }
   else w.rest = WORM.rest[0];
+}
+
+/** Off its ground (the sand changed under it, or it was set down on rock): straight to the nearest worm
+ *  tile within WORM.ashore tiles — or, with none, it dives and leaves, so the world can send another. */
+function ashore(world, u) {
+  const map = world.map, cx = Math.floor(u.x), cy = Math.floor(u.y), r = WORM.ashore;
+  let bx = 0, by = 0, best = Infinity;
+  for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+    const d = Math.hypot(x + 0.5 - u.x, y + 0.5 - u.y);
+    if (d < best && ground(map, x, y)) { best = d; bx = x; by = y; }
+  }
+  if (best === Infinity) { u.worm.why = 'stranded'; leave(world, u); return; }
+  u.path = []; u.pathIndex = 0; u.pathState = 'none'; u.goal = -1;
+  moveToward(world, u, bx + 0.5, by + 0.5, speedOf(world, u) * DT);
 }
 
 /** A random tile of the worm's own sand within WORM.wander tiles, or -1. */

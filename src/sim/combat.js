@@ -182,7 +182,7 @@ function wormAt(world, x, y) {
 
 /** Flat damage (no armour). attacker: {house, id, kind} or null. */
 export function damage(world, victim, amount, attacker = null) {
-  if (!(amount > 0) || victim.hp <= 0) return;
+  if (!(amount > 0) || victim.hp <= 0 || victim.submerged) return;   // a worm under the sand: out of reach of every blast (spec §4.8)
   if (victim.kind === 'unit' ? !world.units.has(victim.id) : !world.structures.has(victim.id)) return;
   victim.hp -= amount;
   world.events.push('damaged', { kind: victim.kind, id: victim.id, house: victim.house, by: attacker?.house ?? null, amount });

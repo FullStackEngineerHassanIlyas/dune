@@ -26,7 +26,7 @@ All done; `npm test` 738/738.
   (`World.spawnUnit` skips `map.unit` for it), moves over the original's SLITHER ground only (sand,
   dune, spice — the terrain table already had the column) and is moved by its own update, not by
   `movement.js`: paths from the world's A* queue with corners cut where the sand runs straight, and
-  a straight dash at prey within three tiles.
+  a straight dash at prey within three tiles. No step ever lands on rock (see Review fixes).
 - **Prey** (OpenDUNE `Unit_Sandworm_GetTargetPriority`): Foot/Saboteur 100, Tracked and Harvester
   1000, Wheeled 5000, everything else 0 (aircraft, worms); ×4 if the unit is moving or has a fire
   cooldown running; divided by the distance in tiles (the original's `max + min / 2`, rounded up); ×2
@@ -47,8 +47,9 @@ All done; `npm test` 738/738.
   the sand along its longest open run for 5 s as a fading ridge, and is removed (`wormGone`, reason
   `dived`). **Flees** after 400 damage the same way (`wormFled`). It can be shot **only while up**
   (`u.submerged` makes `findTarget`/`validTarget` pass it over; stray shots and the sonic wave find a
-  risen worm within 0.9 tiles of their landing point). Splash from aftermath/Death Hand can still
-  reach one under the sand — not a shot, and those files are not this stream's.
+  risen worm within 0.9 tiles of their landing point). Under the sand nothing hurts it at all:
+  `combat.js damage()` ignores a submerged unit, so splash, a Death Hand or a bloom cannot wear it
+  down towards fleeing.
 - **The director** (`updateWorms`, once a second): `world.rules.worms` — 'off' 0, 'few' 1, 'many' 3
   at a time; anything else or missing reads 'few' (contract 1). The first comes 90–150 s in ('few')
   or 25–50 s ('many'); after one goes the next comes 90–180 s / 30–70 s later. Birthplace: a sand
@@ -153,3 +154,36 @@ no debris sound.
 - The title screen's "flyover of dunes with a worm" (spec §5.8): the showcase world could set
   `rules.worms` or spawn one with `spawnWorm`.
 - engine.js: `wormRoar` would sit well among the PRIORITY sounds.
+
+## Review fixes
+
+Two proven findings from the branch review, each reproduced first as a failing test in
+`tests/worm.test.mjs`, then fixed; `npm test` 743/743.
+
+1. **Critical — worms cut across rock corners and could lie stranded on rock for the rest of the
+   game.** Cause: `sandLine` sampled the line every 0.35 tiles and missed thin corner clips, and
+   `moveToward` never looked at the ground it stepped onto. A worm that crossed onto a rock tile
+   re-pathed from it, got no path (`world.reach` label 0 on rock), fell back to roaming, found no
+   wander spot and lay still forever — still counted as live, so with 'few' no other worm came.
+   Fix in `sim/worm.js`:
+   - `sandLine` walks the grid exactly (every tile the segment crosses); a line through a corner
+     point needs both tiles beside it open, the pathfinder's own no-corner-cutting rule (without that,
+     floating-point noise on a corner-grazing line made the worm dither in place).
+   - `moveToward` refuses any step onto non-worm ground: it slides along the edge on one axis, or
+     waits. Off its ground already, it moves freely.
+   - `follow` heads for the current path node only while the straight line there is open sand;
+     otherwise it goes to the middle of its own tile first, and if the way is shut even from there the
+     path is stale (after a dash at prey) and it asks for a new one.
+   - Recovery (`ashore`): a roaming or hunting worm off its ground walks straight to the nearest worm
+     tile within 6 tiles; with none it dives and leaves (`wormGone`, why `'stranded'`), so the
+     director sends another.
+   Proof: the reviewer's 12-minute 'few' skirmish (seed 3) is now a test and holds zero ticks on rock
+   (it was 261.7 s); the reviewer's survey — seeds 1–8 at 'few' for 20 minutes — has no stranded
+   worm (was 2 of 8; seeds 3 and 7 now 14 and 18 meals instead of 3 and 16), and seeds 1, 2, 3, 5, 6
+   at 'many' for 12 minutes have no worm off the sand at all (was 5 worms for 300–400 s). New tests:
+   the exact sand line, a worm hunting round a lone rock from fifteen starts (never on it, the prey
+   eaten each time), a worm set down on rock (back to the sand, hunting on; no sand near: gone).
+2. **Minor — a worm under the sand took splash damage** (a Missile Tank blowing up on it and a
+   Death Hand: 380 of the 400 that make it flee). Fix: `combat.js damage()` returns early for a
+   `submerged` victim, so aftermath.js and palace.js stay untouched. Test: both blasts leave it at
+   1000 HP and unfled.

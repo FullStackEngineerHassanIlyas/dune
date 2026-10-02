@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
-import { WORM, WORM_HOUSE, spawnWorm, preyPriority, findPrey, wormSetting, wormSpawnSpot } from '../src/sim/worm.js';
-import { findTarget, validTarget, damage } from '../src/sim/combat.js';
+import { WORM, WORM_HOUSE, spawnWorm, preyPriority, findPrey, wormSetting, wormSpawnSpot, sandLine } from '../src/sim/worm.js';
+import { findTarget, validTarget, damage, killUnit } from '../src/sim/combat.js';
+import { deathHandBlast } from '../src/sim/palace.js';
+import { DEATH_HAND } from '../src/data/tuning.js';
+import { MOVE } from '../src/data/units.js';
+import { setupSkirmish } from '../src/game/setup.js';
 import { unitVisibleTo } from '../src/sim/fog.js';
 import { World } from '../src/sim/world.js';
 import { GameMap } from '../src/sim/map.js';
@@ -146,6 +150,84 @@ test('under the sand a worm cannot be targeted; up, it can be shot, and after 40
   assert.equal(seen.find((e) => e.type === 'wormGone')?.why, 'fled');
   assert.ok(!fresh.units.has(w2.id));
   assert.equal(w2.hp, 1000 - WORM.flee, '1000 HP: far from dead');
+});
+
+test('under the sand a worm is out of reach of every blast: no splash, no Death Hand', () => {
+  const world = desert(40, 30);
+  const worm = spawnWorm(world, 20, 15);
+  worm.worm.rest = worm.worm.scanAt = 1e9;   // lying still
+  world.step();
+  const tank = world.spawnUnit('missileTank', 'harkonnen', 20, 15);
+  killUnit(world, tank, { house: 'atreides', id: 0, kind: 'unit' });   // it blows up right on top of the worm
+  deathHandBlast(world, { house: 'atreides', sourceId: 0, sourceKind: 'structure', x: worm.x, y: worm.y, damage: DEATH_HAND.damage ?? 600 });
+  assert.equal(worm.submerged, true);
+  assert.equal(worm.hp, 1000, 'not a scratch');
+  watch(world, 2);
+  assert.equal(worm.worm.fled, false, 'and no reason to flee');
+});
+
+/** Whether the worm's tile is worm ground (sand, dunes, spice). */
+const onSand = (world, u) => world.map.moveFactor(world.map.idx(Math.floor(u.x), Math.floor(u.y)), MOVE.WORM) > 0;
+
+test('the sand line follows the tiles exactly: a line clipping a rock corner is not open sand', () => {
+  const world = desert(12, 12), map = world.map;
+  map.ground[map.idx(5, 5)] = G.ROCK;
+  map.revision++;
+  assert.equal(sandLine(map, 4.5, 5.6, 5.6, 4.5), false, 'it cuts across the corner of the rock at 5,5');
+  assert.equal(sandLine(map, 4.5, 4.5, 6.5, 4.5), true, 'along the rock: open');
+  assert.equal(sandLine(map, 4.5, 4.9, 6.5, 4.9), true);
+  assert.equal(sandLine(map, 3.5, 6.5, 7.5, 6.5), true);
+  assert.equal(sandLine(map, 3.5, 3.5, 7.5, 7.5), false, 'straight through it');
+  assert.equal(sandLine(map, 4.5, 3.5, 7.5, 8.5), false, 'through its corner point: shut, as the pathfinder would have it');
+  assert.equal(sandLine(map, 3.5, 3.5, 4.5, 4.5), true, 'past an open corner');
+});
+
+test('a worm keeps to its sand: round a lone rock to its prey, never across a corner', () => {
+  for (const [px, py] of [[8, 6], [9, 7], [7, 8]]) for (const [wx, wy] of [[2, 3], [2, 4], [3, 2], [4, 3], [3, 4]]) {
+    const world = desert(16, 16), map = world.map;
+    map.ground[map.idx(6, 5)] = G.ROCK;
+    map.revision++;
+    const worm = spawnWorm(world, wx, wy, { heading: 0 });
+    const prey = world.spawnUnit('trike', 'atreides', px, py);
+    for (let i = 0; i < 20 * 8 && world.units.has(prey.id); i++) {
+      world.step();
+      assert.ok(onSand(world, worm), `from ${wx},${wy} to ${px},${py}: on the rock at ${worm.x.toFixed(2)},${worm.y.toFixed(2)}`);
+    }
+    assert.ok(!world.units.has(prey.id), `from ${wx},${wy}: the trike at ${px},${py} is eaten all the same`);
+  }
+});
+
+test('a worm left on rock goes straight back to the nearest sand and hunts on; with no sand near it dives away', () => {
+  const world = desert(30, 20), map = world.map;
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 12; x++) map.ground[map.idx(x, y)] = G.ROCK;
+  map.revision++;
+  const worm = spawnWorm(world, 10, 10);   // set down on the rock, two tiles from the sand
+  const prey = world.spawnUnit('trike', 'atreides', 20, 10);
+  assert.ok(runUntil(world, () => onSand(world, worm), 3) >= 0, 'back on the sand');
+  assert.ok(runUntil(world, () => !world.units.has(prey.id), 20) >= 0, 'and the hunt goes on');
+  const rock = flatWorld(30, 30, G.ROCK);
+  rock.map.ground[rock.map.idx(0, 0)] = G.SAND;
+  const lost = spawnWorm(rock, 15, 15);
+  const seen = watch(rock, 10, (s) => s.some((e) => e.type === 'wormGone'));
+  assert.ok(!rock.units.has(lost.id), 'no sand anywhere near: gone, so the world can send another');
+  assert.equal(seen.find((e) => e.type === 'wormGone')?.why, 'stranded');
+});
+
+test('in a long skirmish no worm ends up lying on rock', () => {
+  const { world } = setupSkirmish({ seed: 3, size: 64, aiPlayer: true });
+  world.rules.worms = 'few';
+  const since = new Map();
+  let worst = 0, where = '';
+  for (let i = 0; i < 20 * 60 * 12; i++) {
+    world.step();
+    world.events.drain();
+    for (const u of worms(world)) {
+      const t = onSand(world, u) ? null : (since.get(u.id) ?? world.time);
+      since.set(u.id, t);
+      if (t !== null && world.time - t > worst) { worst = world.time - t; where = `worm ${u.id} at ${u.x.toFixed(2)},${u.y.toFixed(2)} (${u.worm.state}) since ${t.toFixed(1)} s`; }
+    }
+  }
+  assert.ok(worst === 0, `on rock for ${worst.toFixed(2)} s: ${where}`);
 });
 
 test('the world gets another worm some time after one goes', () => {
