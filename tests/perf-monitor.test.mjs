@@ -153,3 +153,32 @@ test('no prompt on Low, with the check turned off, or while the battle is paused
   paused.slowFor(120);
   assert.equal(paused.shown.length, 0);
 });
+
+test('it starts for a battle, but not in a headless browser unless the address asks, nor with the check off', async () => {
+  const { startPerfMonitor } = await import('../src/ui/perf-monitor.js');
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const frames = [];
+  globalThis.requestAnimationFrame = (fn) => frames.push(fn);
+  const as = (userAgent) => Object.defineProperty(globalThis, 'navigator', { value: { userAgent, webdriver: false }, configurable: true });
+  const view = (settings = { ...DEFAULTS }, r3d = { qualityName: 'high', setQuality() {} }) => ({ settings, r3d, paused: false, world: {} });
+  const root = { appendChild() {} };
+  try {
+    as('Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0');
+    const m = startPerfMonitor(view(), { search: '?scene=skirmish', root });
+    assert.ok(m, 'a player\'s browser');
+    assert.equal(m.running(), 'high', 'judges the preset the renderer runs, not the saved one');
+    assert.equal(typeof m.apply, 'function');
+    assert.equal(frames.length, 1, 'on its own animation frames');
+    assert.equal(startPerfMonitor(view({ ...DEFAULTS, perfCheck: false }), { search: '', root }), null, 'turned off in Options');
+    assert.equal(startPerfMonitor(view(undefined, {}), { search: '', root }).apply, null, 'no live switch without setQuality');
+    as('Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/140.0');
+    assert.equal(startPerfMonitor(view(), { search: '?scene=skirmish', root }), null, 'smoke and e2e runs stay clean');
+    const forced = startPerfMonitor(view(), { search: '?scene=skirmish&perfCheck=1&perfFps=1000&perfSeconds=3', root });
+    assert.ok(forced, 'perfCheck in the address turns it on');
+    assert.equal(forced.watch.fps, 1000);
+    assert.equal(forced.watch.samples.length, 3);
+  } finally {
+    if (saved) Object.defineProperty(globalThis, 'navigator', saved); else delete globalThis.navigator;
+    delete globalThis.requestAnimationFrame;
+  }
+});
