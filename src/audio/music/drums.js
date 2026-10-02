@@ -21,12 +21,12 @@ export const KIT = {
   t: { name: 'high tom', tone: [240, 155, 0.06, 0.3, 0.85], noise: ['bp', 1200, 1, 0.03, 0.3], drive: 1.3, pan: 0.35 },
   S: { name: 'snare', tone: [210, 175, 0.03, 0.09, 0.55], noise: ['hp', 1400, 0.7, 0.16, 0.9], drive: 1.2, pan: 0.05 },
   C: { name: 'clap', noise: ['bp', 1300, 1.1, 0.11, 1], bursts: 3, drive: 1, pan: 0.1 },
-  h: { name: 'closed hat', noise: ['hp', 7200, 0.7, 0.04, 0.6], metal: [520, 1.47, 2.2, 0.03, 0.35], pan: 0.3 },
-  o: { name: 'open hat', noise: ['hp', 6500, 0.7, 0.28, 0.55], metal: [520, 1.47, 2.2, 0.22, 0.3], pan: 0.3 },
+  h: { name: 'closed hat', noise: ['hp', 7200, 0.7, 0.04, 0.6], metal: [3520, 1.47, 2.2, 0.03, 0.3], pan: 0.3 },
+  o: { name: 'open hat', noise: ['hp', 6500, 0.7, 0.28, 0.55], metal: [3520, 1.47, 2.2, 0.22, 0.25], pan: 0.3 },
   s: { name: 'tambourine', noise: ['hp', 5200, 0.7, 0.085, 0.55], metal: [2900, 1.3, 1.4, 0.07, 0.4], pan: -0.3 },
   F: { name: 'frame drum', tone: [118, 88, 0.05, 0.42, 0.9], noise: ['bp', 260, 1, 0.06, 0.45], drive: 1.5, pan: -0.15 },
   k: { name: 'tek', tone: [540, 500, 0.01, 0.045, 0.45], noise: ['bp', 3000, 1.8, 0.04, 0.8], pan: 0.2 },
-  X: { name: 'crash', noise: ['hp', 4200, 0.7, 1.4, 0.5], metal: [430, 2.41, 3, 1.1, 0.35], pan: 0.2 },
+  X: { name: 'crash', noise: ['hp', 4200, 0.7, 1.4, 0.5], metal: [2430, 2.41, 3, 1.1, 0.3], pan: 0.2 },
   R: { name: 'anvil', tone: [880, 860, 0.02, 0.5, 0.35], metal: [610, 2.76, 1.6, 0.55, 0.6], pan: -0.2 },
 };
 
