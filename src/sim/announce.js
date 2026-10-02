@@ -1,6 +1,7 @@
 // Announcer (spec §6 event list): the 'eva' events the message bar shows and the house announcer speaks
 // (src/audio/voice.js maps each key to a voiced line). Keys are throttled per house so a battle does not
 // drown the player in repeats; `extra` carries what a voice needs beyond the key, such as the foe's house.
+// A house knocked out of a free-for-all is named by defeatText(), carried on the 'houseDefeated' event.
 import { HOUSES } from '../data/houses.js';
 
 export function announce(world, houseId, key, text, every = 0, extra = null) {
@@ -13,6 +14,13 @@ export function announce(world, houseId, key, text, every = 0, extra = null) {
 }
 
 const foe = (houseId) => HOUSES[houseId]?.name ?? 'Enemy';
+
+/** The message-bar words when a house is out of the game (the original had no voiced line for it). */
+export function defeatText(houseId) {
+  const h = HOUSES[houseId];
+  if (!h) return 'An enemy has been defeated.';
+  return h.playable ? `House ${h.name} has been defeated.` : `The ${h.plural ?? h.name} have been defeated.`;
+}
 
 export function alertDamage(world, victim, attacker) {
   if (!attacker || attacker.house === victim.house) return;

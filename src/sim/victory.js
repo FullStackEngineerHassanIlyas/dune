@@ -1,40 +1,60 @@
-// Victory (spec §4.11): a house is out when it has no structures and no MCV; the skirmish ends when at
-// most one house stands (nobody left is a draw). The outcome is decided once and announced once.
-import { announce } from './announce.js';
+// Victory (spec §4.11): a house is out when it has no structures and no MCV, and its fall is named to everyone
+// ('houseDefeated'). A skirmish is a free-for-all: it ends when at most one house stands (nobody left is a draw),
+// or when every human player is out while computers fight on — a loss for the player, not a draw. The outcome
+// is decided once and announced once; the statistics of every house are frozen with it.
+import { announce, defeatText } from './announce.js';
+import { HOUSES } from '../data/houses.js';
+
+function standing(world, houseId) {
+  for (const s of world.structures.values()) if (s.house === houseId && !s.type.isWall) return true;   // walls are terrain, not a base
+  for (const u of world.units.values()) if (u.house === houseId && u.type.deploysTo) return true;
+  return false;
+}
 
 export function updateVictory(world) {
   if (!world.rules.victory || world.outcome) return;
-  const standing = [];
+  const left = [];
+  let humans = 0, humansLeft = 0;
   for (const house of world.houses.values()) {
+    if (!house.isAI) humans++;
     if (house.defeated) continue;
-    let alive = false;
-    for (const s of world.structures.values()) if (s.house === house.id && !s.type.isWall) { alive = true; break; }   // walls are terrain, not a base
-    if (!alive) for (const u of world.units.values()) if (u.house === house.id && u.type.deploysTo) { alive = true; break; }
-    if (alive) standing.push(house.id);
-    else { house.defeated = true; world.events.push('houseDefeated', { house: house.id }); }
+    if (standing(world, house.id)) { left.push(house.id); if (!house.isAI) humansLeft++; continue; }
+    house.defeated = true;
+    house.defeatedAt = world.time;
+    world.events.push('houseDefeated', { house: house.id, name: HOUSES[house.id]?.name ?? house.id, text: defeatText(house.id) });
   }
-  if (standing.length > 1) return;
-  const winner = standing[0] ?? null;
+  if (left.length > 1 && (humansLeft > 0 || humans === 0)) return;
+  const winner = left.length === 1 ? left[0] : null, draw = left.length === 0;
   const stats = Object.fromEntries([...world.houses.values()].map((h) => [h.id, { ...h.stats }]));
-  world.outcome = { winner, tick: world.tick, seconds: world.time, stats };
+  world.outcome = { winner, draw, standing: left, tick: world.tick, seconds: world.time, stats };
   world.events.push('gameOver', { winner });
   for (const house of world.houses.values()) {
-    if (winner === null) announce(world, house.id, 'draw', 'The battle is a draw.');
+    if (draw) announce(world, house.id, 'draw', 'The battle is a draw.');
     else if (house.id === winner) announce(world, house.id, 'missionAccomplished', 'Mission accomplished.');
-    else announce(world, house.id, 'missionFailed', 'Mission failed.');
+    else if (house.defeated) announce(world, house.id, 'missionFailed', 'Mission failed.');
   }
 }
 
+const shown = (id) => HOUSES[id]?.plural ?? HOUSES[id]?.name ?? id;   // "the Mercenaries" on the end screen
+
+/** The end screen's numbers: every house in a column, the player's first, frozen at the end. */
 export function endStats(world, houseId) {
-  const statsOf = (h) => world.outcome?.stats?.[h.id] ?? h.stats;   // frozen at the end
-  const me = statsOf(world.houses.get(houseId));
-  const others = [...world.houses.values()].filter((h) => h.id !== houseId).map(statsOf);
-  const sum = (k) => others.reduce((n, s) => n + s[k], 0);
-  const row = (label, k) => ({ label, you: Math.round(me[k]), enemy: Math.round(sum(k)) });
+  const statsOf = (h) => world.outcome?.stats?.[h.id] ?? h.stats;
+  const all = [...world.houses.values()];
+  const order = [...all.filter((h) => h.id === houseId), ...all.filter((h) => h.id !== houseId)];
+  const winner = world.outcome?.winner ?? null;
+  const houses = order.map((h) => ({ id: h.id, name: shown(h.id), color: HOUSES[h.id]?.color ?? 0xffffff, you: h.id === houseId, winner: h.id === winner,
+    out: h.defeated ? Math.round(h.defeatedAt ?? world.time) : null }));
+  const row = (label, k) => {
+    const values = order.map((h) => Math.round(statsOf(h)[k]));
+    return { label, you: values[0], enemy: values.slice(1).reduce((n, v) => n + v, 0), values };
+  };
   return {
-    won: world.outcome?.winner === houseId,
-    draw: !!world.outcome && world.outcome.winner === null,
+    won: !!world.outcome && winner === houseId,
+    draw: !!world.outcome?.draw,
     seconds: Math.round(world.outcome?.seconds ?? world.time),
+    houses,
+    standing: winner ? [] : (world.outcome?.standing ?? []).filter((id) => id !== houseId).map(shown),   // who fights on: only when nobody has won
     rows: [
       row('Spice harvested', 'spiceHarvested'),
       row('Units destroyed', 'unitsKilled'),
