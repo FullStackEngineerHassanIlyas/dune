@@ -189,6 +189,29 @@ test('music volume 0 is silent and not running: the synth goes, and comes back w
   assert.ok(win.nodes[1].sent.some((m) => m.cmd === 'play' && POOLS.peace.includes(m.id)), 'the peace music is back');
 });
 
+test('a muted game (M, Sound off) holds the synth where it is, rendering nothing, and lets it go on unmuted', async () => {
+  const win = fakeWindow(), audio = Object.assign(fakeEngine(win), { muted: true });
+  const c = new Conductor({ audio, settings: {}, win, importer: async () => ({}) });
+  c.want('peace');
+  await c.ready;
+  c.update();
+  await settle();
+  const holds = () => win.nodes[0].sent.filter((m) => m.cmd === 'hold').map((m) => m.on);
+  assert.deepEqual(holds(), [true]);
+  c.update();
+  assert.deepEqual(holds(), [true], 'said once');
+  audio.muted = false;
+  c.update();
+  assert.deepEqual(holds(), [true, false]);
+  assert.equal(sent(win).filter((m) => m.cmd === 'play').length, 1, 'the same track carries on: no new start');
+  const m = new MusicMixer({ rate: 16000 });
+  m.play('title');
+  m.command({ cmd: 'hold', on: true });
+  assert.equal(m.active, false, 'the worklet skips a held mixer');
+  m.command({ cmd: 'hold', on: false });
+  assert.equal(m.active, true);
+});
+
 test('the player\'s own playlists take over their moods; empty or missing ones leave the FM music', async () => {
   const peaceFile = { name: 'my-peace.ogg', type: 'audio/ogg', data: new ArrayBuffer(8) };
   const asked = [];
@@ -313,9 +336,11 @@ test('the menu plays the title after the first gesture, fades it out behind a ba
   settings.sound = false;
   menu.update();
   assert.equal(menu.audio.master.gain.value, 0, 'Sound off silences it');
+  assert.equal(sent(win).at(-1).cmd, 'hold', 'and the synth rests');
   settings.sound = true;
+  const before = sent(win).length;
   menu.leave();
-  assert.equal(sent(win).at(-1).cmd, 'stop');
+  assert.ok(sent(win).slice(before).some((m) => m.cmd === 'stop'), 'the title fades out');
   win.flush();
   assert.equal(menu.audio.ctx.state, 'suspended', 'resting behind the battle once the title has faded');
   menu.enter();

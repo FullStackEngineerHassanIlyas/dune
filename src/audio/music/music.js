@@ -55,6 +55,8 @@ export class Conductor {
     this.current = null;     // the FM track id or the file now playing
     this.queued = null;      // the FM track queued to follow it
     this.ducked = false;
+    this.held = false;       // the game's sound is muted (M, Sound off): the synth rests where it is
+    this.paused = false;
     this.on = false;         // the synth is up and the level above zero
     this.level = -1;
     const wait = new Promise((resolve) => win?.setTimeout?.(resolve, PLAYLIST_WAIT));
@@ -77,6 +79,12 @@ export class Conductor {
     this.on = true;
     if (level !== this.level) { this.level = level; this.output.setLevel(level); }
     if (this.playing !== this.wanted) this.start(this.wanted);
+    const held = !!this.output.audio?.muted;
+    if (held !== this.held) {
+      this.held = held;
+      this.output.send({ cmd: 'hold', on: held });
+      this.output.setPaused(this.paused || held);
+    }
   }
 
   /** Music volume 0: silent and not running — the synth is taken down; it comes back with the mood when raised. */
@@ -87,6 +95,7 @@ export class Conductor {
     this.playing = null;
     this.current = this.queued = null;
     this.level = -1;
+    this.held = false;   // a new synth starts unheld; the next update holds it again if need be
   }
 
   poolFor(mood) {
@@ -147,7 +156,10 @@ export class Conductor {
     }
   }
 
-  setPaused(paused) { this.output.setPaused(paused); }
+  setPaused(paused) {
+    this.paused = !!paused;
+    this.output.setPaused(this.paused || this.held);
+  }
 
   debug() {
     const self = this;
@@ -250,6 +262,9 @@ export class MenuAudio {
       this.onGesture = null;
     }
   }
+
+  /** Silent anyway (Sound off, volume 0): the music rests rather than play into a closed master. */
+  get muted() { return this.settings.sound === false || !(Number(this.settings.volume ?? 0.8) > 0); }
 
   /** The Options volume and Sound on/off, read live. */
   update() {

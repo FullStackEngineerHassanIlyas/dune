@@ -24,12 +24,14 @@ export class MusicMixer {
     this.decks = [];
     this.current = null;
     this.queued = null;
+    this.held = false;   // the game is muted: nothing is rendered, and the music carries on from here when it is not
     this.frames = 0;
     this.hp = highpass(HP_HZ, rate);
     this.hpState = new Float64Array(8);
   }
 
-  get active() { return this.decks.length > 0; }
+  /** Anything to render: false when nothing plays, and while held. */
+  get active() { return this.decks.length > 0 && !this.held; }
 
   get time() { return this.frames / this.rate; }
 
@@ -45,6 +47,7 @@ export class MusicMixer {
     if (m.cmd === 'play') this.play(m.id, m);
     else if (m.cmd === 'next') this.queued = { id: m.id, passes: m.passes };
     else if (m.cmd === 'stop') this.stop(m.fade ?? 0.5);
+    else if (m.cmd === 'hold') this.held = !!m.on;
   }
 
   /** Starts `id` (after `wait` seconds, fading in over `fadeIn`) while whatever plays fades out over `fade`. */

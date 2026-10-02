@@ -1,7 +1,7 @@
 // The soundtrack's AudioWorklet (spec §6 Music): the FM mixer (mixer.js) runs on the audio thread itself, 128 samples
 // at a time, so the music never waits on a busy main thread and holds exactly where it is when the context is
 // suspended (the game paused, a hidden tab). Commands arrive on the port; the mixer's events, and now and then how
-// much of the audio thread it takes, go back on it. Idle — nothing queued — it costs one check per block.
+// much of the audio thread it takes, go back on it. Idle — nothing queued, or the game muted — it costs one check per block.
 import { MusicMixer } from './mixer.js';
 
 const REPORT = 1500;   // blocks between load reports (4 s at 48 kHz)
