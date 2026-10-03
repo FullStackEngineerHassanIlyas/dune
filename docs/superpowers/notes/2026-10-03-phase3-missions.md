@@ -103,7 +103,7 @@ rule, set), C11 (score inputs).
 
 - Set-up of the sample (56×56, three houses): 27-29 ms in Node. 200 sim seconds of it: 343 ms (0.09 ms a tick);
   400 s: 705 ms.
-- Full suite under the lock: 948/948 pass in 85 s (the soaks, including the 4-house free-for-all, unchanged).
+- Full suite under the lock: 949/949 pass in 59-85 s (the soaks, including the 4-house free-for-all, unchanged).
 - Real GPU (Intel ADL, headless Chrome, ANGLE/GL, 1920×1080, Medium): the mission 29.6 fps · 243 draws, during the
   fly-over 30.2 fps · 231 draws; a skirmish for comparison 28.1 fps — headless Chrome holds about 30 here, so the
   fly-over costs nothing measurable. It allocates nothing per frame.
