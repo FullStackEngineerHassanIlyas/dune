@@ -27,9 +27,14 @@ frame drums, which "did not match the game's theme") is replaced.
 | `defeat-ordos` | The Ledger Closed | Ordos Dirge | E Hungarian minor | 68 | 17.6 s | loops |
 | `finale` | Arrakis Reborn | Finale | D Phrygian dominant → D Mixolydian | 100 | 4.8 + 57.6 s | one pass |
 | `credits` | Songs of the Spice | Credit Roll | D, a medley through the houses' modes | 120 | 4.0 + 80.0 s | loops |
+| `harvest` | Spice Harvest | an in-game tune (peace pool) | G Dorian | 104 | 4.6 + 73.8 s | loops in the shuffle |
+| `stormfront` | Storm Front | an in-game tune (battle pool) | A Phrygian | 140 | 3.4 + 34.3 s | loops in the shuffle |
 
-Kept unchanged: the three briefing themes (`atreides`, `harkonnen`, `ordos`), the peace and battle pools, `victory`
-and `defeat`. 23 tracks in all.
+Kept unchanged: the three briefing themes (`atreides`, `harkonnen`, `ordos`), the six phase 2 peace and battle
+tracks, `victory` and `defeat`. The Sega's in-game tunes are bass-led rock in FM (a picked bass in eighths, bright
+synth brass, sampled drums), so each pool gained one original piece of that kind: `harvest` (a slap-bass groove
+under a power-brass tune, a reed bridge over a kanun) and `stormfront` (the bass hammering the Phrygian half step,
+brass riffs in fifths, a tom-and-choir breakdown). 25 tracks in all.
 
 ### The house characters
 
@@ -84,7 +89,7 @@ under its menu) and rebuilds; its pulse (sixteenths at 80) is the opening's (eig
 
 ## songs/index.js (contract C7)
 
-`TRACKS` (23), `POOLS` = { intro: ['opening'], menu: ['title'], houseSelect, region, peace (3), battle (3),
+`TRACKS` (25), `POOLS` = { intro: ['opening'], menu: ['title'], houseSelect, region, peace (4), battle (4),
 victory: ['victory'], defeat: ['defeat'], finale, credits }, `BRIEFINGS`, `VICTORY` and `DEFEAT`
 (`{ atreides: 'victory-atreides', harkonnen: …, ordos: … }`, plus the Fremen/Sardaukar/mercenary aliases as
 `BRIEFINGS` has them).
@@ -135,6 +140,8 @@ a gentler split than the FFT bands above). Every track: **−18.0 LUFS integrate
 | defeat-ordos | −18.0 | −18.0 | 1.2 | −3.6 | −3.6 | 19 % |
 | finale | −18.0 | −18.4 | 1.4 | −1.9 | −1.9 | 25 % |
 | credits | −18.0 | −18.3 | 2.7 | −1.8 | −1.9 | 36 % |
+| harvest | −18.0 | −18.9 | 2.4 | −3.4 | −3.4 | 38 % |
+| stormfront | −18.0 | −18.1 | 2.7 | −2.8 | −2.8 | 47 % |
 
 The twelve phase 2 tracks re-measured unchanged at −18.0. The opening's shape (short-term loudness, 3 s): −31 after
 the hit, −27 at 6 s, −22 at 12 s, −18 at 14 s, −16 with the planet, −16/−17 through the ships and the build, −16 on
@@ -144,23 +151,25 @@ CPU (Node, V8 as in Chrome, 48 kHz in 128-sample blocks, best of three 30 s rend
 streams, load average 8–18 on 12 threads, so absolute numbers run high — compare with the two phase 2 tracks
 measured in the same runs): opening 4.5 %, title 4.3 %, houseSelect 4.2 %, region ~4–6 % while it plays,
 victory-atreides 4.4 %, victory-harkonnen 4.7 %, victory-ordos 2.4 %, the dirges 2.6–3.0 %, finale 4.8 %, credits
-3.4 %; phase 2's iron 3.6 % and erg 2.8 % in the same runs (they measured 2.6 % and 2.4 % on a quieter machine).
+3.4 %; harvest 3.5 % and stormfront 3.4 % (6 and 7 voices at most) against iron 4.3 % and erg 3.5 % in a later run;
+phase 2's iron 3.6 % and erg 2.8 % in the same runs (they measured 2.6 % and 2.4 % on a quieter machine).
 The fullest cues (opening, title, finale) hold up to 10–14 FM voices against phase 2's 3–8; the sustained chord
 parts (drone, pad, choir) are most of the cost, so the title keeps its pad for the intro only. The crush costs
 nothing measurable. In real headless Chrome on the GPU (scene=menu, `?music=<id>`, after a click): the worklet
 reported 5.6 % (opening), 7–12 % (title, two runs), 8.5 % (finale), 8.6 % (houseSelect) and 4.7–6.1 % (iron) of
-the audio thread under the same load; the menu ran with no console errors and `meter()` read −21 to −30 dB.
+the audio thread under the same load, and later harvest and stormfront 4.1 % each (median of 12); the menu ran with no console errors and `meter()` read −21 to −30 dB.
 Nothing runs while the context is suspended, muted or at music volume 0 (unchanged).
 
 ## How to test
 
 - `node --test tests/music-score.test.mjs tests/music-synth.test.mjs` — the format (pattern tempo, velocity digits),
-  sequencing, every track valid and in its mode, 23 tracks, pools and VICTORY/DEFEAT, the once-through cues (single
+  sequencing, every track valid and in its mode, 25 tracks, pools and VICTORY/DEFEAT, the once-through cues (single
   pass, the opening longer than the menu mark and at most 36 s, the region 7 ± 0.5 s, the dirges 18 ± 1 s), the
   opening's marks (a hit at 0, no drums before the planet, an accent at 16.0, each ship ± 30 ms and 26.5, the choir at
   4.0, the brass at 10.0, the theme on the title; it also checks `src/game/intro-timeline.js`'s INTRO_MARKS against
   the same numbers once that file exists), the hand-over (title starts on the opening's last sample), −18 ± 2 LUFS
   (once-tracks over the whole cue), peaks, loop seams, the crush, the new kit pieces.
+- The full suite (`flock /tmp/dune-npmtest.lock npm test`) passed on this branch: 904 of 904.
 - Listen in the game: `?scene=menu&intro=0&music=<id>` and click once.
 - Render: `node src/audio/music/render-wav.mjs <ids|all> full <dir>` (for `opening`/`region` use a length in seconds,
   e.g. `node src/audio/music/render-wav.mjs opening 40 /tmp/music`: `full` renders two passes).
@@ -177,6 +186,7 @@ Nothing runs while the context is suspended, muted or at music volume 0 (unchang
 4. `victory-atreides.wav`, `victory-harkonnen.wav`, `victory-ordos.wav` — is each house's character clear?
 5. `defeat-atreides.wav`, `defeat-harkonnen.wav`, `defeat-ordos.wav`.
 6. `finale.wav`, `credits.wav`.
+7. `harvest.wav` (peace), `stormfront.wav` (battle) — do they sit with the phase 2 tracks of their pools?
 
 I cannot hear: everything above was measured and checked structurally. The most likely things a listener will want
 changed are balance details (a part too loud or too soft), the crushed drums' grit (`crush` per track: 11000 is
@@ -188,8 +198,9 @@ grittier, 16000 cleaner, 0 off) and the tempo of the title (80).
   `patterns` in `songs/opening.js` (the first three patterns are at 120 bpm, the rest at 160) — the marks test says
   where it no longer lines up.
 - Should the title's quiet bed after the opening be shorter? It is 6 s (two bars at 80).
-- The peace and battle pools are unchanged (phase 2); the Sega in-game tunes are bass-heavy rock-FM pieces, so a
-  later pass could add one or two tracks of that kind to each pool.
+- The pools now hold one bass-led rock-FM piece each (`harvest`, `stormfront`) beside phase 2's three; the
+  stormfront has 47 % of its energy under 150 Hz (a bass-led piece, as the Sega's are) — on a laptop speaker it
+  will sound lighter than in headphones. More of that kind could replace the gentler phase 2 pieces later.
 
 ## Integration notes (for the music stream / lead)
 
@@ -208,10 +219,10 @@ Replace the music paragraph with:
 
 > Music comes from an FM synthesizer in the Mega Drive manner (four-operator voices, sample-and-held "PCM" drums)
 > playing newly written tracks in the style of the Sega soundtrack: an opening cue timed to the intro, a title
-> theme, house selection and region music, a briefing theme, a victory fanfare and a dirge for each house, three
-> peace and three battle tracks, a finale and the credits. Peace tracks shuffle; a battle track takes over when
+> theme, house selection and region music, a briefing theme, a victory fanfare and a dirge for each house, four
+> peace and four battle tracks, a finale and the credits. Peace tracks shuffle; a battle track takes over when
 > fighting starts near your forces and gives way after a calm spell. Options → Music sets its volume (0 turns it
 > off). `?scene=menu&music=<track>` plays one track (opening, title, houseSelect, region, atreides, harkonnen,
-> ordos, erg, dawn, lanterns, assault, iron, shieldwall, victory, defeat, victory-atreides, victory-harkonnen,
+> ordos, erg, dawn, lanterns, harvest, assault, iron, shieldwall, stormfront, victory, defeat, victory-atreides, victory-harkonnen,
 > victory-ordos, defeat-atreides, defeat-harkonnen, defeat-ordos, finale, credits);
 > `node src/audio/music/render-wav.mjs <ids|all> <seconds|full> <dir>` renders tracks to WAV files.
