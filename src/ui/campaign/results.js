@@ -73,12 +73,13 @@ export function scoreScreen(result, { later, instant = false, onContinue, steps 
   return el;
 }
 
-/** The password for the next mission, letter by letter in tiles. */
-export function passwordReveal(house, mission, word, { onContinue }) {
+/** The password for the next mission, letter by letter in tiles; `kept` false when this browser could not save. */
+export function passwordReveal(house, mission, word, { onContinue, kept = true }) {
   return h('section', { class: 'cp-stage cp-password-reveal', dataset: { house } },
     h('div', { class: 'cp-reveal-card' },
       h('p', {}, `Your password for completing House ${name(house)} mission ${mission} is`),
       h('div', { class: 'cp-tiles', role: 'text', 'aria-label': word, dataset: { field: 'password' } }, [...word].map((c) => h('span', { 'aria-hidden': 'true' }, c))),
-      h('p', { class: 'cp-reveal-note' }, 'Progress is also saved in this browser; the password brings you back here on any computer.')),
+      kept ? h('p', { class: 'cp-reveal-note' }, 'Progress is also saved in this browser; the password brings you back here on any computer.')
+        : h('p', { class: 'cp-reveal-note', role: 'status', dataset: { unsaved: '1' } }, 'This browser is not keeping your progress: note this password. It brings you back here on any computer.')),
     h('div', { class: 'cp-bar' }, h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')));
 }

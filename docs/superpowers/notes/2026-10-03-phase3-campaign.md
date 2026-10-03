@@ -20,7 +20,9 @@ The battle posts `missionEnd`; the campaign saves and calls `shell.quit('campaig
 Units destroyed / Structures destroyed by You (red) and Enemy (blue), bars filling row by row; no structures row in
 mission 1) → the **password** for the next mission (music turns to the Mentat's theme here, as on the Sega) → the
 next briefing. A loss: the Mentat's lose lines (music `defeat:<house>`) → *Try again* → the same briefing. Mission
-9 won: victory, win lines, score, then the Mentat's final words (`ENDINGS`) → `playEnding` (C12) → the title.
+9 won: victory, the Mentat's win lines and final words (`ENDINGS`), score → `playEnding` (C12) → the title; the
+hub's *Ending · House X* shows the final words again, then the ending. A password for a mission before the saved
+one is a replay: the briefing says so and the save stays where it was (a won Arrakis stays won).
 Quitting a mission (`{ dune: 'quit', screen: 'campaign' }`) comes back to its briefing.
 
 The title wears the Sega lockup: DUNE in widely spaced dark-red serif capitals with a metallic sheen and a dark
@@ -79,7 +81,7 @@ game as released on the Sega Mega Drive.
 
 ## How to test
 
-- Unit: `node --test tests/campaign-*.test.mjs tests/menu-entries.test.mjs` (66 tests).
+- Unit: `node --test tests/campaign-*.test.mjs tests/menu-entries.test.mjs` (76 tests).
 - End to end: `flock /tmp/dune-chrome.lock env E2E_CAMPAIGN_PORT=8620 node scripts/e2e-campaign.mjs` (25 checks).
 - Smoke: `flock /tmp/dune-chrome.lock env SMOKE_PORT=8623 node scripts/smoke.mjs campaign-hub campaign-house
   campaign-join campaign-briefing campaign-region campaign-victory campaign-win campaign-score
@@ -107,6 +109,39 @@ game as released on the Sega Mega Drive.
   won before the zoom (0-8), `ENDINGS[house]` as the Mentat's final words before the ending.
 - Whether `music.mood('menu')` restarts the title theme when it is already playing (the campaign asks for it once
   when the player goes back to the title or the hub after another mood).
+
+## Review fixes
+
+From the review of this branch (each reproduced by a test that failed first, then fixed):
+
+- **A password no longer lowers a save** (important). `jumpTo` and `recordResult` never move a house's saved
+  mission back: a password for mission 2 with a save at 7 (or a won Arrakis) plays mission 2 onwards as a replay,
+  and the save moves only once the replay passes it. The briefing's note says "A replay: your saved game stays at
+  mission 7." Tests: `campaign-progress` (replay, won house), `campaign-flow` (password → win → next), and
+  `campaign-screens` (the note, the save left at 7).
+- **Yes on a won house** keeps the win: a house record gains `won: true` once Arrakis is won (an older save at
+  mission 10 reads as won), kept when the house starts again, so the hub still offers its ending; the join screen
+  now says "Yes starts House X again at mission 1; Arrakis stays won in your record."
+- **A failed save is told where it matters**: the Mentat's stage shows the hub's warning once a save has failed, and
+  the password screen says "This browser is not keeping your progress: note this password." instead of claiming
+  the progress is saved.
+- **After mission 9** the Mentat's win lines and final words come before the score, and the score leads straight
+  to the ending (flow step `next` returns `ending: true`); `campaign-ending` remains the hub's replay of it.
+- **Atlas load race**: a map closed while the atlas module was still loading no longer leaves the next map screen
+  on the flat stand-in; a load begun before a dispose creates nothing and the next screen starts its own
+  (`tests/campaign-map.test.mjs`).
+- **e2e after a reload**: every click now waits until the element is what a click at its centre hits, and the
+  title must be visible (the merged intro's `#app.intro-checked` gate) before the first click after a load; the
+  screen waits allow 20 s for the first load of the words and the mission list.
+- **Victory card**: the words sit higher (top 5vh, title 10vw) and the subtitle has a soft parchment band, so the
+  flag's knob and the frigate's glow no longer touch it at 16:9; on narrow windows the words start below the Full
+  screen button. Looked at on the real GPU at 1280x720, 1600x900 and 390x844.
+- **Three enemies** read "House Ordos, House Harkonnen and the Emperor's Sardaukar."
+- Not changed: this notes file lies outside the stream's listed files (the lead decides whether per-stream notes
+  under `docs/superpowers/notes/` are blessed).
+
+Measured after the fixes: full unit suite 966/966 (under the npm-test lock), campaign tests 76/76, campaign e2e
+25/25 on the branch, the 12 smoke scenes pass.
 
 ## For the README
 

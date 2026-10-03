@@ -2,8 +2,10 @@
 // names are contract C3): the hub (continue, new campaign, password) -> house selection -> the house's pages and
 // "join?" -> the Mentat's briefing -> the region zoom -> the mission in the battle frame (C2) -> the results
 // (victory card, Mentat, score, password) and the next briefing, or the defeat lines and the same briefing again;
-// after mission 9 the ending, then the title. Pure: step(progress, state, action) returns the next state, the
-// progress, whether to save it and, for a launch, the battle's query.
+// after mission 9 the victory card, the Mentat's last words and the score, then the ending at once and the title.
+// A password for a mission before the saved one is a replay: the save stays (progress.js jumpTo). Pure:
+// step(progress, state, action) returns the next state, the progress, whether to save it, for a launch the
+// battle's query and, after the last score, ending: true (play the ending now).
 import { CAMPAIGN_HOUSES, MISSIONS, missionNumber } from './result.js';
 import { DONE, joinHouse, jumpTo, recordResult, continues } from './progress.js';
 import { readPassword } from './passwords.js';
@@ -67,7 +69,7 @@ export function step(progress, state, action) {
     }
     case 'next':
       if (state.screen !== 'campaign-results') return same;
-      return { progress, state: mission >= MISSIONS ? { screen: 'campaign-ending', house, mission } : briefing(house, mission + 1) };
+      return mission >= MISSIONS ? { progress, state: { screen: 'campaign-ending', house, mission }, ending: true } : { progress, state: briefing(house, mission + 1) };
     case 'retry': return state.screen === 'campaign-defeat' ? { progress, state: briefing(house, mission) } : same;
     case 'quit': return house && mission ? { progress, state: briefing(house, mission) } : same;
     case 'password': {

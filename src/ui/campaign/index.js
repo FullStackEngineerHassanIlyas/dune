@@ -27,6 +27,8 @@ const SPECIALS = { atreides: 'Sonic Tank · Fremen warriors', ordos: 'Deviator �
 const VICTORY_CARD_MS = 6000;
 
 const name = (house) => HOUSES[house]?.name ?? house;
+/** "A", "A and B", "A, B and C". */
+const andList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0] ?? '');
 const hex = (house) => `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padStart(6, '0')}`;
 
 export class CampaignScreens {
@@ -102,6 +104,7 @@ export class CampaignScreens {
     const out = this.apply(action);
     if (out.state.screen !== 'campaign-password') this.typed = '';
     if (out.launch) this.launch(out.launch);
+    else if (out.ending) this.playEnding();
     else this.menu.go(out.state.screen === 'title' ? 'title' : out.state.screen);
     return out;
   }
@@ -293,7 +296,8 @@ export class CampaignScreens {
   /** The Mentat's stage for the current house, the map mounted beside him and showing `step`. */
   mentat(className, step) {
     const { house } = this.state;
-    const stage = mentatStage(house, { mentatName: this.words.mentat(house), label: name(house), later: (fn, ms) => this.later(fn, ms), className });
+    const stage = mentatStage(house, { mentatName: this.words.mentat(house), label: name(house), later: (fn, ms) => this.later(fn, ms), className,
+      warn: this.saved === false ? 'This browser is not keeping your progress: note the passwords you are given.' : null });
     this.map.mount(stage.mapBox);
     if (step !== null) this.map.show({ house, step });
     const say = stage.say;
@@ -316,7 +320,8 @@ export class CampaignScreens {
       }
       stage.say([this.words.question(house)], { kicker: `House ${name(house)}` });
       const saved = this.progress.houses[house]?.mission ?? 1;
-      stage.note(saved > 1 && saved < DONE ? `Yes starts House ${name(house)} again at mission 1 (your saved game is at mission ${saved}; Continue keeps it).` : null);
+      stage.note(saved >= DONE ? `Yes starts House ${name(house)} again at mission 1; Arrakis stays won in your record.`
+        : saved > 1 ? `Yes starts House ${name(house)} again at mission 1 (your saved game is at mission ${saved}; Continue keeps it).` : null);
       stage.actions([['No', 'decline', () => this.go({ type: 'decline' })], ['Yes', 'join', () => this.go({ type: 'join' }), { primary: true }]]);
     };
     show();
@@ -328,11 +333,13 @@ export class CampaignScreens {
     this.mood(`briefing:${house}`);
     const stage = this.mentat('cp-briefing', mission - 1);
     const w = this.words, objective = w.objective(house, mission), enemies = w.enemies(house, mission);
+    const saved = this.progress.houses[house]?.mission ?? 0;
+    const replay = saved > mission && (saved >= DONE ? `A replay: House ${name(house)} has won Arrakis, and that stays in your record.` : `A replay: your saved game stays at mission ${saved}.`);
     let advice = false;
     const show = (focus) => {
       stage.say(advice ? w.advice(house, mission) : w.briefing(house, mission),
         { kicker: advice ? `Mission ${mission} · the Mentat's advice` : `Mission ${mission} of ${MISSIONS}`, title: w.title(house, mission) ?? `House ${name(house)}` });
-      stage.note([objective && `Objective: ${objective}.`, enemies.length && `Against ${enemies.join(' and ')}.`].filter(Boolean).join(' ') || null);
+      stage.note([objective && `Objective: ${objective}.`, enemies.length && `Against ${andList(enemies)}.`, replay].filter(Boolean).join(' ') || null);
       stage.actions([['Back', 'back', () => this.go({ type: 'back' })], [advice ? 'Briefing' : 'Advice', 'advice', () => { advice = !advice; show('advice'); }],
         ['Proceed', 'proceed', () => this.go({ type: 'proceed' }), { primary: true }]], { focus });
     };
@@ -365,7 +372,8 @@ export class CampaignScreens {
   results() {
     const r = (this.result ??= this.progress.last ?? sampleResult(this.state.house, this.state.mission));
     const { house, mission } = r;
-    const stages = mission >= MISSIONS ? RESULT_STAGES.slice(0, 3) : RESULT_STAGES;
+    const last = mission >= MISSIONS;   // after the last mission: no password; the score leads to the ending
+    const stages = last ? RESULT_STAGES.slice(0, 3) : RESULT_STAGES;
     this.stage = Math.min(this.stage, stages.length - 1);
     const next = () => {
       if (this.state.screen !== 'campaign-results') return;
@@ -377,7 +385,7 @@ export class CampaignScreens {
     if (part !== 'mentat') this.map.dispose();   // only the Mentat's part has the map
     if (part === 'password') {
       this.mood(`briefing:${house}`);   // the Sega starts the Mentat's theme here
-      return passwordReveal(house, mission, completionPassword(house, mission), { onContinue: next });
+      return passwordReveal(house, mission, completionPassword(house, mission), { onContinue: next, kept: this.saved !== false });
     }
     this.mood(`victory:${house}`);
     if (part === 'victory') {
@@ -387,7 +395,8 @@ export class CampaignScreens {
     if (part === 'score') return scoreScreen(r, { later: (fn, ms) => this.later(fn, ms), instant: reducedMotion(), onContinue: next });
     const stage = this.mentat('cp-win', null);
     this.map.show({ house, step: mission - 1 }).then(() => this.later(() => this.map.conquer({ house, step: mission }), 800));
-    stage.say(this.words.win(house, mission), { kicker: `Mission ${mission} accomplished`, title: this.words.title(house, mission) ?? `House ${name(house)}` });
+    if (last) stage.say([...this.words.win(house, mission), ...this.words.ending(house)], { kicker: 'The Battle for Arrakis is over', title: `Dune belongs to House ${name(house)}` });
+    else stage.say(this.words.win(house, mission), { kicker: `Mission ${mission} accomplished`, title: this.words.title(house, mission) ?? `House ${name(house)}` });
     stage.actions([['Continue', 'continue', next, { primary: true }]]);
     return stage.el;
   }
@@ -401,6 +410,7 @@ export class CampaignScreens {
     return stage.el;
   }
 
+  /** The hub's "watch the ending again": the Mentat's final words, then the ending. */
   ending() {
     const { house } = this.state;
     this.mood(`victory:${house}`);

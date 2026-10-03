@@ -101,7 +101,22 @@ test('the end: winning mission 9 leads from the results to the ending, and the e
   const p = jumpTo(emptyProgress(), 'harkonnen', 9);
   const { seen, progress } = run([{ type: 'result', result: result('harkonnen', 9, true) }, { type: 'next' }, { type: 'done' }], p, { screen: 'mission', house: 'harkonnen', mission: 9 });
   assert.deepEqual(seen.map((s) => s.state.screen), ['campaign-results', 'campaign-ending', 'title']);
+  assert.equal(seen[1].ending, true, 'after the score the ending plays at once (the Mentat spoke before the score)');
   assert.equal(progress.houses.harkonnen.mission, 10);
+});
+
+test('a password for an earlier mission plays it again as a replay: the saved game stays where it was', () => {
+  const p = jumpTo(emptyProgress(), 'ordos', 7);
+  const { seen, progress, state } = run([{ type: 'password', text: 'domination' }, { type: 'launch' }, { type: 'result', result: result('ordos', 2, true) }, { type: 'next' }],
+    p, { screen: 'campaign-password' });
+  assert.deepEqual(seen[0].state, { screen: 'campaign-briefing', house: 'ordos', mission: 2 });
+  assert.equal(seen[0].progress.houses.ordos.mission, 7);
+  assert.deepEqual(state, { screen: 'campaign-briefing', house: 'ordos', mission: 3 }, 'the replay goes on to mission 3');
+  assert.equal(progress.houses.ordos.mission, 7, 'and the save waits at mission 7');
+  const won = { ...emptyProgress(), houses: { atreides: { mission: 10, best: {} } } };
+  const out = step(won, { screen: 'campaign-password' }, { type: 'password', text: 'DIPLOMATIC' });
+  assert.deepEqual(out.state, { screen: 'campaign-briefing', house: 'atreides', mission: 2 });
+  assert.equal(out.progress.houses.atreides.mission, 10, 'Arrakis stays won');
 });
 
 test('continue picks up a house where it was left; a finished house opens its ending', () => {

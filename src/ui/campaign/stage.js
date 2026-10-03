@@ -72,9 +72,9 @@ export function typeLines(box, lines, { later, instant = reducedMotion(), onDone
 
 /**
  * Builds the stage for `house`: { el, say(lines, { kicker, title }), actions(buttons), mapBox }. Buttons are
- * [label, act, onclick, { primary }]; every one carries data-act.
+ * [label, act, onclick, { primary }]; every one carries data-act. `warn` (a save failed) stands above the note.
  */
-export function mentatStage(house, { mentatName, later, className = '', label = '' } = {}) {
+export function mentatStage(house, { mentatName, later, className = '', label = '', warn = null } = {}) {
   const kicker = h('div', { class: 'cp-kicker' });
   const title = h('h2', { class: 'cp-title' });
   const box = h('div', { class: 'cp-lines', 'aria-hidden': 'true', title: 'Click to read on', dataset: { act: 'read-on' } });
@@ -85,7 +85,8 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
   const mapBox = h('div', { class: 'cp-mapbox' });
   const bar = h('div', { class: 'cp-bar' });
   const el = h('section', { class: `cp-stage cp-mentat-stage ${className}`.trim(), dataset: { house } },
-    h('div', { class: 'cp-text' }, kicker, title, box, spoken), portrait, mapBox, h('div', { class: 'cp-foot' }, note, bar));
+    h('div', { class: 'cp-text' }, kicker, title, box, spoken), portrait, mapBox,
+    h('div', { class: 'cp-foot' }, warn && h('p', { class: 'cp-warn', role: 'status' }, warn), note, bar));
   let typer = null;
   box.addEventListener('click', () => typer?.skip());
   const stage = {

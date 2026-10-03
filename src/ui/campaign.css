@@ -44,6 +44,7 @@
 .cp-mentat-stage .cp-bar { position: static; }
 .cp-note { flex: 1 1 260px; margin: 0; font: 13px/1.4 "Trebuchet MS", sans-serif; color: #e2cc9c; text-shadow: 0 1px 3px #000; }
 .cp-note[hidden] { display: none; }
+.cp-foot .cp-warn { flex: 1 1 100%; margin: 0 !important; }
 
 /* house selection: three crests in gold frames, left to right Atreides, Ordos, Harkonnen, as on the Sega */
 .cp-houses-screen { display: grid; grid-template-rows: auto 1fr; justify-items: center; align-items: center; padding: 84px 4vw 90px;
@@ -75,12 +76,14 @@
 .cp-victory-pic, .cp-victory-pic svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .cp-victory-pic svg { animation: cp-in .8s ease both, cp-drift 9s ease-out both; }
 @keyframes cp-drift { from { transform: scale(1.06); } }
-.cp-victory-words { position: absolute; left: 0; right: 0; top: 9vh; text-align: center; }
-.cp-victory-title { position: relative; margin: 0; font: 400 clamp(64px, 11vw, 168px)/1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .22em; margin-right: -.22em;
+/* the words sit above the flag's knob at any width (the art is fitted by slicing, so it grows with the width) */
+.cp-victory-words { position: absolute; left: 0; right: 0; top: 5vh; text-align: center; }
+.cp-victory-title { position: relative; margin: 0; font: 400 clamp(64px, 10vw, 160px)/1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .22em; margin-right: -.22em;
   text-transform: uppercase; color: #fff0b0; -webkit-text-stroke: 5px #fff0b0; text-shadow: 0 5px 0 #2a0400, 0 12px 22px rgba(0,0,0,.45); animation: cp-rise .9s cubic-bezier(.2,.8,.2,1) both; }
 .cp-victory-title::after { content: attr(data-text); position: absolute; left: 0; right: 0; top: 0; -webkit-text-stroke: 0; text-shadow: none; pointer-events: none;
   background: linear-gradient(#ff8a70, #d42a1a 35%, #8a0400 55%, #c41c10 75%, #6a0000); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.cp-victory-words p { margin: 6px 0 0; font: bold clamp(14px, 1.4vw, 20px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #2a1606; text-shadow: 0 1px 0 rgba(255,250,220,.6); }
+.cp-victory-words p { display: inline-block; margin: 8px 0 0; padding: 5px 48px 4px; font: bold clamp(14px, 1.4vw, 20px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase;
+  color: #2a1606; text-shadow: 0 1px 0 rgba(255,250,220,.6); background: linear-gradient(90deg, transparent, rgba(250,236,190,.8) 48px, rgba(250,236,190,.8) calc(100% - 48px), transparent); }
 @keyframes cp-rise { from { opacity: 0; transform: translateY(24px) scale(.96); } }
 
 /* the score screen: gold, a tank drawn faintly behind, the numbers in dark brown */
@@ -108,6 +111,7 @@
 .cp-reveal-card { max-width: 900px; text-align: center; }
 .cp-reveal-card > p { margin: 0 0 18px; font: bold clamp(15px, 1.5vw, 21px)/1.5 "Trebuchet MS", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .cp-reveal-card > p.cp-reveal-note { margin-top: 22px; font: 13px/1.45 "Trebuchet MS", sans-serif; letter-spacing: 0; text-transform: none; color: #c9b18a; }
+.cp-reveal-card > p.cp-reveal-note[data-unsaved] { display: inline-block; padding: 8px 12px; color: #ffd6a0; background: rgba(154,74,52,.25); border: 1px solid #9a4a34; border-radius: 3px; }
 .cp-tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .cp-tiles span { display: grid; place-items: center; width: clamp(30px, 4.6vw, 62px); aspect-ratio: .82; font: bold clamp(20px, 3vw, 40px) Consolas, "Courier New", monospace; color: #1c1004;
   background: linear-gradient(#fff0a8, #e2b043 45%, #9a6a18); border: 2px solid #3c2604; border-radius: 3px; box-shadow: 0 3px 0 #2a1706; }
@@ -152,6 +156,9 @@
   .cp-keys { grid-template-columns: repeat(7, 1fr); }
   .cp-key[data-act="end"], .cp-key[data-act="delete"] { grid-column: span 1; }
   .cp-region-words { max-width: calc(100vw - 32px); bottom: 76px; left: 16px; }
+  .cp-victory-words { top: 76px; }   /* below the Full screen button */
+  .cp-victory-title { font-size: min(64px, 13vw); }
+  .cp-victory-words p { padding-left: 24px; padding-right: 24px; }
 }
 @media (max-height: 560px) {
   .cp-mentat { height: 46vh; }

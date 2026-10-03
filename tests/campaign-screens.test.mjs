@@ -145,6 +145,7 @@ test('a won mission: saved, then the victory card, the Mentat, the score, the pa
   byAct(menu.el, 'continue').click();
   assert.equal(field(menu, 'password').getAttribute('aria-label'), 'DOMINATION');
   assert.match(menu.el.textContent, /completing House Ordos mission 1 is/);
+  assert.match(menu.el.find((el) => el.className.includes('cp-reveal-note')).textContent, /saved in this browser/);
   assert.equal(calls.moods.at(-1), 'briefing:ordos', 'the Mentat\'s theme from the password on');
   byAct(menu.el, 'continue').click();
   assert.equal(menu.screen, 'campaign-briefing');
@@ -191,26 +192,31 @@ test('quitting a mission comes back to its briefing', async () => {
   assert.equal(spoken(menu), 'atreides briefing 1');
 });
 
-test('the last mission won: the results without a password, the Mentat\'s final words, the ending, then the title', async () => {
+test('the last mission won: the victory card, the Mentat\'s win lines and final words, the score, then the ending and the title', async () => {
   const { menu, calls, post, store } = rig();
   await open(menu);
   post(RESULT('ordos', 9, true));
   byAct(menu.el, 'continue').click();
+  assert.equal(spoken(menu), 'ordos win 9 The Ordos own Dune now.', 'the Mentat speaks before the score, as on the Sega');
   byAct(menu.el, 'continue').click();
   assert.ok(field(menu, 'score'));
   byAct(menu.el, 'continue').click();
-  assert.equal(menu.screen, 'campaign-ending');
-  assert.equal(spoken(menu), 'The Ordos own Dune now.');
-  byAct(menu.el, 'ending').click();
   await settle();
-  assert.deepEqual(calls.ending, ['ordos']);
+  assert.equal(field(menu, 'password'), null, 'no password after the last mission');
+  assert.deepEqual(calls.ending, ['ordos'], 'the score leads straight to the ending');
   assert.equal(menu.screen, 'title');
   assert.equal(menu.el.hidden, false);
   assert.equal(JSON.parse(store.data[KEY]).houses.ordos.mission, 10);
   assert.equal(calls.moods.at(-1), 'menu', 'the title theme returns');
   await open(menu);
-  assert.ok(byAct(menu.el, 'ending', { house: 'ordos' }), 'a won house can watch its ending again');
   assert.equal(byAct(menu.el, 'continue'), null);
+  byAct(menu.el, 'ending', { house: 'ordos' }).click();
+  assert.equal(menu.screen, 'campaign-ending', 'a won house can watch its ending again');
+  assert.equal(spoken(menu), 'The Ordos own Dune now.');
+  byAct(menu.el, 'ending').click();
+  await settle();
+  assert.deepEqual(calls.ending, ['ordos', 'ordos']);
+  assert.equal(menu.screen, 'title');
 });
 
 test('a password: letters only, a wrong word says so, a right one opens its mission and is saved', async () => {
@@ -238,6 +244,62 @@ test('a password: letters only, a wrong word says so, a right one opens its miss
   const saved = JSON.parse(store.data[KEY]);
   assert.equal(saved.house, 'atreides');
   assert.equal(saved.houses.atreides.mission, 3);
+});
+
+test('a password for a mission before the saved one is a replay: the briefing says the save stays', async () => {
+  const store = memoryStore({ [KEY]: JSON.stringify({ version: VERSION, house: 'ordos', houses: { ordos: { mission: 7, best: {} } }, last: null }) });
+  const { menu } = rig({ store });
+  await open(menu);
+  byAct(menu.el, 'password').click();
+  const input = byAct(menu.el, 'password-input');
+  input.value = 'domination';
+  input.dispatch('input');
+  byAct(menu.el, 'submit').click();
+  assert.equal(spoken(menu), 'ordos briefing 2');
+  assert.match(menu.el.find((el) => el.className === 'cp-note').textContent, /A replay: your saved game stays at mission 7\./);
+  assert.equal(JSON.parse(store.data[KEY]).houses.ordos.mission, 7);
+});
+
+test('Yes on a house that has won Arrakis says what it does, and the win stays in the record', async () => {
+  const store = memoryStore({ [KEY]: JSON.stringify({ version: VERSION, house: 'atreides', houses: { atreides: { mission: 10, best: {} } }, last: null }) });
+  const { menu } = rig({ store });
+  await open(menu);
+  byAct(menu.el, 'new').click();
+  byAct(menu.el, 'house', { house: 'atreides' }).click();
+  for (let i = 0; i < 3; i++) byAct(menu.el, 'next').click();
+  const note = menu.el.find((el) => el.className === 'cp-note');
+  assert.equal(note.hidden, false);
+  assert.match(note.textContent, /again at mission 1; Arrakis stays won in your record/);
+  byAct(menu.el, 'join').click();
+  await open(menu);
+  assert.ok(byAct(menu.el, 'ending', { house: 'atreides' }), 'the ending is still on offer');
+  assert.ok(byAct(menu.el, 'continue', { house: 'atreides' }), 'and the new campaign can be continued');
+});
+
+test('when saving fails: the Mentat\'s stage warns, and the password screen says to note the word', async () => {
+  const full = { getItem: () => null, setItem() { throw new Error('QuotaExceededError'); } };
+  const { menu, post } = rig({ store: full });
+  await open(menu, 'campaign-house');
+  byAct(menu.el, 'house', { house: 'ordos' }).click();
+  assert.equal(menu.el.find((el) => el.className === 'cp-warn'), null, 'no warning before a save has failed');
+  for (let i = 0; i < 3; i++) byAct(menu.el, 'next').click();
+  byAct(menu.el, 'join').click();
+  assert.match(menu.el.find((el) => el.className === 'cp-warn')?.textContent ?? '', /not keeping your progress/);
+  post(RESULT('ordos', 1, true));
+  for (let i = 0; i < 3; i++) byAct(menu.el, 'continue').click();
+  const note = menu.el.find((el) => el.className.includes('cp-reveal-note'));
+  assert.match(note.textContent, /not keeping your progress: note this password/);
+  assert.doesNotMatch(note.textContent, /saved in this browser/);
+});
+
+test('three enemies read as a list: "A, B and C"', async () => {
+  const missions = { missionDef: (house, n) => ({ ...MISSIONS.missionDef(house, n), enemies: n === 8 ? ['ordos', 'harkonnen', 'sardaukar'] : ['harkonnen'] }) };
+  globalThis.location = { search: '?screen=campaign-briefing&house=atreides&mission=8' };
+  try {
+    const { menu } = rig({ missions });
+    await open(menu, 'campaign-briefing');
+    assert.match(menu.el.find((el) => el.className === 'cp-note').textContent, /Against House Ordos, House Harkonnen and the Emperor's Sardaukar\./);
+  } finally { delete globalThis.location; }
 });
 
 test('progress survives a reload: the hub offers to continue where the player left off', async () => {

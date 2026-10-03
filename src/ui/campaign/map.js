@@ -17,23 +17,27 @@ export class CampaignMap {
     this.view = null;
   }
 
-  /** The atlas, created on first use; null when it cannot be had (the flat map then). */
+  /** The atlas, created on first use; null when it cannot be had (the flat map then). A load begun before a
+   *  dispose belongs to the closed screen: it creates nothing, and the next screen starts its own. */
   ensure() {
     if (this.atlas || this.failed) return Promise.resolve(this.atlas);
-    const generation = this.generation;
-    this.pending ??= (async () => {
+    if (this.pending?.generation === this.generation) return this.pending.promise;
+    const token = (this.pending = { generation: this.generation, promise: null });
+    const current = () => token.generation === this.generation;
+    token.promise = (async () => {
       try {
         const mod = await this.load();
         if (typeof mod?.createAtlas !== 'function') throw new Error('createAtlas missing');
-        if (generation !== this.generation) return null;   // disposed while it loaded
+        if (!current()) return null;   // disposed while it loaded
         this.atlas = mod.createAtlas(this.el, { quality: this.quality });
       } catch (err) {
+        if (!current()) return null;
         console.warn('campaign map: the flat map instead of the atlas:', err?.message ?? err);
         this.failed = true;
-      } finally { this.pending = null; }
+      } finally { if (this.pending === token) this.pending = null; }
       return this.atlas;
     })();
-    return this.pending;
+    return token.promise;
   }
 
   /** Into a screen's map box. */

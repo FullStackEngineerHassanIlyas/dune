@@ -1,8 +1,10 @@
 // Saved campaign progress (spec §7: "Progress is saved in localStorage"), under its own key since the settings
-// drop keys they do not know. Per house: the next mission to play (10 once the house has won Arrakis) and the
-// best score of each mission won; plus the house played last and the last result, which the results screens
-// show after the battle's frame closes. Storage is injected (tests) and may be missing, blocked, full or hold
-// junk: a load then starts an empty campaign and a save says it could not, and the game carries on either way.
+// drop keys they do not know. Per house: the next mission to play (10 once the house has won Arrakis), the
+// best score of each mission won and, once Arrakis is won, won: true (kept when the house starts again); plus the
+// house played last and the last result, which the results screens show after the battle's frame closes. The
+// saved mission never goes back by itself: a password for an earlier mission plays it again as a replay. Storage
+// is injected (tests) and may be missing, blocked, full or hold junk: a load then starts an empty campaign and a
+// save says it could not, and the game carries on either way.
 import { CAMPAIGN_HOUSES, MISSIONS, missionNumber } from './result.js';
 import { rankFor } from './score.js';
 
@@ -20,8 +22,12 @@ function cleanHouse(raw) {
   const n = Math.floor(Number(raw.mission));
   const best = {};
   if (isObject(raw.best)) for (const [k, v] of Object.entries(raw.best)) if (missionNumber(k) && count(v) !== null) best[Number(k)] = count(v);
-  return { mission: Number.isFinite(n) ? Math.min(DONE, Math.max(1, n)) : 1, best };
+  const mission = Number.isFinite(n) ? Math.min(DONE, Math.max(1, n)) : 1;
+  return record(mission, best, raw.won === true);
 }
+
+/** A house's record; won only when true (Arrakis won, now or before a new start). */
+function record(mission, best, won = false) { return { mission, best, ...(won || mission === DONE ? { won: true } : {}) }; }
 
 function cleanResult(raw) {
   if (!isObject(raw) || !CAMPAIGN_HOUSES.includes(raw.house) || !missionNumber(raw.mission)) return null;
@@ -54,23 +60,28 @@ export function saveProgress(progress, store = storage()) {
 
 const withHouse = (p, house, record) => ({ ...p, house, houses: { ...p.houses, [house]: record } });
 
-/** A new campaign for `house` (the house selection's "yes"): mission 1, its best scores kept. */
+/** A new campaign for `house` (the house selection's "yes"): mission 1, its best scores and a won Arrakis kept. */
 export function joinHouse(progress, house) {
-  return withHouse(progress, house, { mission: 1, best: { ...(progress.houses[house]?.best ?? {}) } });
+  const was = progress.houses[house];
+  return withHouse(progress, house, record(1, { ...(was?.best ?? {}) }, !!was?.won));
 }
 
-/** A password: `house` goes straight to `mission`. */
+/** A password: `house` goes straight to `mission`; a save further on (or a won Arrakis) stays, and the mission
+ *  is played again as a replay. */
 export function jumpTo(progress, house, mission) {
-  return withHouse(progress, house, { mission, best: { ...(progress.houses[house]?.best ?? {}) } });
+  const was = progress.houses[house];
+  return withHouse(progress, house, record(Math.max(was?.mission ?? 1, mission), { ...(was?.best ?? {}) }, !!was?.won));
 }
 
-/** A mission's result (src/campaign/result.js readResult): a win opens the next mission and keeps the best score. */
+/** A mission's result (src/campaign/result.js readResult): a win opens the next mission and keeps the best score;
+ *  a replay of an earlier mission, won or lost, leaves the saved mission where it was. */
 export function recordResult(progress, result) {
   const { house, mission, won, score } = result;
   const was = progress.houses[house] ?? { mission, best: {} };
   const best = { ...was.best };
   if (won) best[mission] = Math.max(best[mission] ?? 0, score);
-  return { ...withHouse(progress, house, { mission: won ? Math.min(DONE, mission + 1) : mission, best }), last: result };
+  const next = Math.max(was.mission, won ? Math.min(DONE, mission + 1) : mission);
+  return { ...withHouse(progress, house, record(next, best, !!was.won)), last: result };
 }
 
 const ORDER = (p) => [...(p.house ? [p.house] : []), ...CAMPAIGN_HOUSES.filter((id) => id !== p.house)];
@@ -80,5 +91,5 @@ export function continues(progress) {
   return ORDER(progress).filter((id) => progress.houses[id] && progress.houses[id].mission < DONE).map((house) => ({ house, mission: progress.houses[house].mission }));
 }
 
-/** Houses that have won the whole campaign. */
-export function finished(progress) { return ORDER(progress).filter((id) => progress.houses[id]?.mission === DONE); }
+/** Houses that have won the whole campaign (also those that have started again since). */
+export function finished(progress) { return ORDER(progress).filter((id) => progress.houses[id]?.won || progress.houses[id]?.mission === DONE); }

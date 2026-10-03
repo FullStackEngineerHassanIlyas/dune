@@ -91,6 +91,37 @@ test('winning mission 9 finishes the house; a finished house is not offered to c
   assert.deepEqual(continues(p), []);
 });
 
+test('a password or a replay never lowers the saved game; a won Arrakis stays won', () => {
+  let p = jumpTo(emptyProgress(), 'ordos', 7);
+  p = jumpTo(p, 'ordos', 2);
+  assert.equal(p.houses.ordos.mission, 7, 'an earlier password keeps the save at mission 7');
+  assert.equal(p.house, 'ordos');
+  p = recordResult(p, readResult(endMessage({ house: 'ordos', mission: 2 })));
+  assert.equal(p.houses.ordos.mission, 7, 'winning the replay does not move it back');
+  p = recordResult(p, readResult(endMessage({ house: 'ordos', mission: 3, won: false })));
+  assert.equal(p.houses.ordos.mission, 7, 'nor does losing one');
+  p = recordResult(p, readResult(endMessage({ house: 'ordos', mission: 7 })));
+  assert.equal(p.houses.ordos.mission, 8, 'winning the saved mission moves on as ever');
+  assert.equal(jumpTo(p, 'ordos', 9).houses.ordos.mission, 9, 'a later password moves it on');
+  let a = recordResult(jumpTo(emptyProgress(), 'atreides', 9), readResult(endMessage({ house: 'atreides', mission: 9 })));
+  a = jumpTo(a, 'atreides', 2);
+  assert.equal(a.houses.atreides.mission, 10);
+  assert.deepEqual(finished(a), ['atreides']);
+});
+
+test('joining a won house again starts it at mission 1 and keeps Arrakis won in the record', () => {
+  let p = recordResult(jumpTo(emptyProgress(), 'atreides', 9), readResult(endMessage({ house: 'atreides', mission: 9 })));
+  p = joinHouse(p, 'atreides');
+  assert.equal(p.houses.atreides.mission, 1);
+  assert.deepEqual(finished(p), ['atreides'], 'the ending stays on offer');
+  assert.deepEqual(continues(p), [{ house: 'atreides', mission: 1 }]);
+  const store = memory();
+  saveProgress(p, store);
+  assert.deepEqual(loadProgress(store), p, 'and it survives a reload');
+  assert.equal(cleanProgress({ version: VERSION, houses: { ordos: { mission: 10 } } }).houses.ordos.won, true, 'an older save at 10 is a won house');
+  assert.equal(cleanProgress({ version: VERSION, houses: { ordos: { mission: 3, won: 'yes' } } }).houses.ordos.won, undefined, 'only true is a win');
+});
+
 test('continue offers the current house first, then the others in the Sega order', () => {
   let p = jumpTo(emptyProgress(), 'harkonnen', 4);
   p = jumpTo(p, 'atreides', 2);

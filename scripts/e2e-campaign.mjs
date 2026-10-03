@@ -30,12 +30,27 @@ try {
   page = await openPage(chrome, URL);
   const ev = (expr) => page.eval(expr);
   const ready = () => page.waitFor('window.__dune && window.__dune.ready === true && window.__dune.scene === "menu" && !!document.querySelector(".mm-nav")', 60000);
-  await ready();
-  await sleep(300);
+  // the title is up and can take a click: after ready the intro's gate (#app.intro-checked) may still hide the menu
+  const menuUp = async () => {
+    await ready();
+    await page.waitFor('(() => { const m = document.querySelector(".main-menu"); return !!m && !m.hidden && getComputedStyle(m).visibility === "visible"; })()', 20000);
+    await sleep(300);
+  };
+  await menuUp();
   const screen = () => ev('window.__dune.menu.screen');
-  const waitScreen = (name, ms = 10000) => page.waitFor(`window.__dune.menu.screen === ${JSON.stringify(name)} && !document.querySelector(".cp-loading")`, ms);
+  const waitScreen = (name, ms = 20000) => page.waitFor(`window.__dune.menu.screen === ${JSON.stringify(name)} && !document.querySelector(".cp-loading")`, ms);
   const center = (sel) => ev(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null; el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
-  const clickOn = async (sel) => { const p = await center(sel); if (!p) throw new Error(`no ${sel} on ${await screen()}`); await page.click(p.x, p.y); await sleep(200); };
+  // the element itself is what a click at its centre hits (not hidden, not covered while a screen fades in)
+  const hittable = (sel) => `(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return false; const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.width > 0 && !!hit && el.contains(hit); })()`;
+  const clickOn = async (sel) => {
+    if (!(await ev(`!!document.querySelector(${JSON.stringify(sel)})`))) throw new Error(`no ${sel} on ${await screen()}`);
+    await center(sel);
+    if (!(await page.waitFor(hittable(sel), 10000).then(() => true, () => false))) throw new Error(`${sel} cannot be clicked on ${await screen()}`);
+    const p = await center(sel);
+    await page.click(p.x, p.y);
+    await sleep(200);
+  };
   // a key as the keyboard sends it (Enter and Space carry their character, so a focused button activates)
   const key = async (k) => {
     const text = { Enter: '\r', ' ': ' ' }[k];
@@ -113,7 +128,7 @@ try {
 
   await ev('location.reload()');
   await sleep(500);
-  await ready();
+  await menuUp();
   await clickOn('[data-act="campaign"]');
   await waitScreen('campaign');
   const cont = await ev('(() => { const b = document.querySelector(\'[data-act="continue"]\'); return b && { house: b.dataset.house, text: b.textContent }; })()');
