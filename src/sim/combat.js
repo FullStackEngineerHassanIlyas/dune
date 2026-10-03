@@ -3,7 +3,8 @@
 // so only above half health. The Sonic Tank's wave runs its full range and hurts everything on its path
 // once — friend or foe, but never Sonic Tanks or walls. Turreted units aim independently and fire on the
 // move; the others turn the hull and fire only while standing. Stances: idle units engage what comes
-// into range, guards chase no further than their leash, attack-move engages on the way, an attack
+// into range, guards chase no further than their leash (a guard order may carry its own radius and leash: a
+// mission's area guards and ambushes, game/mission.js), attack-move engages on the way, an attack
 // order chases its target and gives up when it gets no closer. The player's side engages only what its
 // fog shows; the AI sees everything, as in the original. A sandworm can be shot only while it is up out of
 // the sand (sim/worm.js), and a shot landing on a spice bloom sets it off (sim/bloom.js).
@@ -252,7 +253,8 @@ function scanRadius(u) {
   switch (u.order.type) {
     case 'idle': return u.type.range;
     case 'move': return u.type.turret ? u.type.range : 0;
-    case 'guard': case 'attackMove': return u.type.range + GUARD_RADIUS;
+    case 'guard': return u.type.range + (u.order.radius ?? GUARD_RADIUS);   // a mission's area guard looks further, an ambush no further than it shoots
+    case 'attackMove': return u.type.range + GUARD_RADIUS;
     default: return 0;
   }
 }
@@ -262,7 +264,7 @@ function stillWorthIt(world, u, t) {
   const p = targetPoint(world, t);
   if (!canSee(world, u.house, t.kind, p.entity)) return false;
   const o = u.order, d = distanceTo(u.x, u.y, t, p);
-  if (o.type === 'guard') return Math.hypot(p.x - o.x - 0.5, p.y - o.y - 0.5) <= GUARD_LEASH + u.type.range;
+  if (o.type === 'guard') return Math.hypot(p.x - o.x - 0.5, p.y - o.y - 0.5) <= (o.leash ?? GUARD_LEASH) + u.type.range;
   if (o.type === 'attackMove') return d <= u.type.range + GUARD_RADIUS + 2;
   return d <= u.type.range + 0.5;
 }

@@ -73,10 +73,11 @@ export function callCarryall(world, u, to) {
   return true;
 }
 
-/** A visiting Carryall brings a new unit in from the nearest map edge, sets it down on tile `to` and flies off. */
-export function deliverByAir(world, houseId, typeId, to, announce = null) {
+/** A visiting Carryall brings a new unit in from the nearest map edge (or from tile `from`, a mission's chosen
+ *  side), sets it down on tile `to` and flies back out the way it came. */
+export function deliverByAir(world, houseId, typeId, to, announce = null, from = null) {
   const map = world.map;
-  const { x: ex, y: ey } = nearestEdge(map, to.x, to.y);
+  const { x: ex, y: ey } = from ?? nearestEdge(map, to.x, to.y);
   const c = world.spawnUnit('carryall', houseId, ex, ey, { heading: Math.atan2(to.y - ey, to.x - ex) });
   c.visitor = true;
   const u = world.spawnUnit(typeId, houseId, ex, ey, { inside: c.id });
