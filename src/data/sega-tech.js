@@ -7,6 +7,7 @@
 
 /** The first mission each structure is offered in (a number, or per house with `default`). Absent = never. */
 export const SEGA_STRUCTURES = {
+  constructionYard: 1,   // never built from the menu (an MCV deploys into it), but a base may hold one from the start
   concrete4: 1, windtrap: 1, refinery: 1,
   outpost: 2, silo: 2, barracks: 2, wor: { default: 2, ordos: 4 },
   heavyFactory: { default: 3, atreides: 2, ordos: 2 },

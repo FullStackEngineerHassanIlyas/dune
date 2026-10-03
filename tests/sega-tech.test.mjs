@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { UNITS } from '../src/data/units.js';
-import { SEGA_STRUCTURES, ORDOS_TROOPERS_AT } from '../src/data/sega-tech.js';
+import { SEGA_STRUCTURES, SEGA_UNITS, SEGA_LADDERS, ORDOS_TROOPERS_AT } from '../src/data/sega-tech.js';
 import { buildOptions, canBuild, upgradeId, upgradeCost, upgradeResult, upgradeUnlocks, segaUpgrades, segaOpens, factoryOf, unitUpgrade, applyTechRules, STRUCTURE_ORDER, UNIT_ORDER, UPGRADE_ORDER } from '../src/sim/tech.js';
 import { createBrain } from '../src/sim/ai.js';
 import { checkInvariants } from '../src/sim/invariants.js';
@@ -211,6 +211,7 @@ test('an Ordos Trooper ordered on the Sega ladder leaves its factory', () => {
 });
 
 test('every structure and unit of the Sega ladder exists in the data', () => {
-  for (const t of Object.keys(SEGA_STRUCTURES)) assert.ok(STRUCTURE_ORDER.includes(t), t);
-  for (const t of UNIT_ORDER) if (UNITS[t].builtAt) assert.ok(t in UNITS);
+  for (const t of Object.keys(SEGA_STRUCTURES)) assert.ok(STRUCTURE_ORDER.includes(t) || t === 'constructionYard', t);
+  for (const t of Object.keys(SEGA_UNITS)) assert.ok(UNIT_ORDER.includes(t), t);
+  for (const [t, ladder] of Object.entries(SEGA_LADDERS)) assert.ok(UPGRADE_ORDER.includes(t) && ladder.every((l) => l.cost > 0 && l.tech >= 1 && l.tech <= 9), t);
 });
