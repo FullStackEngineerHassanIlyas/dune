@@ -13,6 +13,7 @@
 //    the player's base and hunt.
 //  - the computer units' standing orders: hunters go after the nearest enemy, an ambush springs when the enemy
 //    comes in sight or shoots at it, guards drawn away by a fight go back to their posts.
+//  - the mission's Starport wares (C1 starport.stock): the player's market offers those, so many of each.
 //  - the score inputs (C2) and a read-only debug state (C2's message, __dune.mission).
 import { UNITS } from '../data/units.js';
 import { unitSight, GUARD_RADIUS } from '../data/tuning.js';
@@ -20,6 +21,7 @@ import { finishGame, endStats } from '../sim/victory.js';
 import { deliverByAir } from '../sim/carryall.js';
 import { edgePoint } from '../sim/air.js';
 import { nearestEnemyTarget } from '../sim/ai.js';
+import { market } from '../sim/starport.js';
 import { hostile } from '../sim/alliance.js';
 export const MIN_SECONDS = 120;
 export const AREA_GUARD = { radius: 6, leash: 12 };   // tiles beyond weapon range: twice a plain guard's (sim/combat.js)
@@ -52,7 +54,7 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
   const arrivals = [];   // groups on their way: { house, ids, then, announce, edge, at }
   const landed = [];     // the player's groups that came in (debug)
   const tally = { killedValue: 0, lostValue: 0 };
-  let next = 0, calls = 0;
+  let next = 0, calls = 0, stocked = !def.starport?.stock;
 
   const prev = world.onStructureKilled;   // the score counts every building that falls (research §5)
   world.onStructureKilled = (s, attacker) => {
@@ -167,6 +169,18 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     }
   }
 
+  /** Once the player's Starport market opens (sim/starport.js), it sells what the mission stocks and nothing else. */
+  function stockStarport() {
+    const h = world.houses.get(player), m = h && (h.starport ?? market(world, h));
+    if (!m) return;
+    stocked = true;
+    const want = def.starport.stock;
+    for (const t of Object.keys(m.stock)) {
+      if (Object.hasOwn(want, t)) m.stock[t] = Math.max(0, Math.floor(want[t]));
+      else { delete m.stock[t]; delete m.price[t]; }
+    }
+  }
+
   /** Hunters, ambushes and posts, once a second. */
   function standingOrders() {
     for (const id of ambushers) {
@@ -222,6 +236,7 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
       if (baseOf(player) > 0) hadBase = true;
       while (next < schedule.length && world.time >= schedule[next].at) launch(schedule[next++]);
       if (arrivals.length) land();
+      if (!stocked) stockStarport();
       if (calls++ % ORDERS_EVERY === 0) standingOrders();
       if (world.outcome || world.time < minSeconds) return;
       if (hadBase && baseOf(player) === 0) { end(false); return; }
