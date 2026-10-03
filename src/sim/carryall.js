@@ -24,6 +24,7 @@ import { dockTile, orderHarvest, orderReturn, HARVEST_CAPACITY } from './harvest
 import { orderRepairAt } from './repair-bay.js';
 import { stopUnit } from './orders.js';
 import { isArmed } from './combat.js';
+import { friendly } from './alliance.js';
 
 const VEHICLES = new Set(['tracked', 'wheeled', 'harvester']);
 const POST_TICKS = 40;   // how long a waiting spot is kept before it is worked out again
@@ -161,10 +162,10 @@ function ferried(world, u) {
 function closeCombat(world, u) {
   const r = AIR.recoverClear;
   for (const o of world.units.values()) {
-    if (o.house !== u.house && o.isGround && !o.inside && isArmed(o.type) && Math.abs(o.x - u.x) <= r && Math.abs(o.y - u.y) <= r) return true;
+    if (!friendly(world, o.house, u.house) && o.isGround && !o.inside && isArmed(o.type) && Math.abs(o.x - u.x) <= r && Math.abs(o.y - u.y) <= r) return true;
   }
   for (const s of world.structures.values()) {
-    if (s.house === u.house || !isArmed(s.type)) continue;
+    if (friendly(world, s.house, u.house) || !isArmed(s.type)) continue;
     const gap = Math.max(s.x - u.tx, u.tx - (s.x + s.w - 1), s.y - u.ty, u.ty - (s.y + s.h - 1), 0);
     if (gap <= r) return true;
   }

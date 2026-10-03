@@ -44,6 +44,7 @@ export class World {
     this.rules = { victory: false, airDelivery: false, worms: 'off' };
     this.outcome = null;
     this.mission = null;   // a campaign mission's objectives and reinforcements (game/mission.js): update(world) every 5 ticks
+    this.teams = null;     // who is allied with whom (sim/alliance.js); null: a free-for-all
     this.time = 0;
     this.houses = new Map();
     this.units = new Map();

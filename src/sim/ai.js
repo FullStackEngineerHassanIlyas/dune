@@ -7,7 +7,8 @@
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
 // building its blast brings down. A skirmish is a free-for-all: every other house is a rival, computer or
 // not, and each wave picks its foe — near and weakly guarded first, a house that raided the base before others.
-// (The original's campaign allied every computer house against the player; see the phase 2 opponents notes.)
+// A campaign mission allies every computer house against the player, as the original did (sim/alliance.js):
+// allies are no rivals, targets or intruders.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
@@ -21,6 +22,7 @@ import { needsRepair } from './repair-bay.js';
 import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
 import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
+import { friendly } from './alliance.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -107,7 +109,7 @@ function deployMcv(world, house, view) {
  *  with `only`, that house's alone. A sandworm belongs to no house in the game and is nobody's target. */
 export function nearestEnemyTarget(world, houseId, x, y, only = null) {
   let best = null, bestD = Infinity;
-  const skip = (h) => h === houseId || (only !== null && h !== only) || !world.houses.has(h);
+  const skip = (h) => friendly(world, h, houseId) || (only !== null && h !== only) || !world.houses.has(h);
   for (const s of world.structures.values()) {
     if (skip(s.house) || s.type.isWall) continue;
     const d = Math.hypot(s.x + s.w / 2 - x, s.y + s.h / 2 - y);
@@ -129,7 +131,7 @@ export function nearestEnemyTarget(world, houseId, x, y, only = null) {
  */
 export function sizeUpRivals(world, houseId, from) {
   const rivals = new Map();
-  for (const h of world.houses.values()) if (h.id !== houseId && !h.defeated) rivals.set(h.id, { house: h.id, d: Infinity, at: null, army: 0, ud: Infinity, uat: null });
+  for (const h of world.houses.values()) if (!friendly(world, h.id, houseId) && !h.defeated) rivals.set(h.id, { house: h.id, d: Infinity, at: null, army: 0, ud: Infinity, uat: null });
   for (const s of world.structures.values()) {
     const r = rivals.get(s.house);
     if (!r || s.type.isWall) continue;
@@ -369,7 +371,7 @@ function defend(world, house, view, repairing = []) {
   const b = house.brain;
   let intruder = null, best = 10;
   for (const u of world.units.values()) {
-    if (u.house === house.id || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm
+    if (friendly(world, u.house, house.id) || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm or an ally
     for (const s of view.mine) {
       const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
       if (d < best) { best = d; intruder = u; }
@@ -448,7 +450,7 @@ function hunt(world, house, members, foe) {
 function nearestEnemyWall(world, houseId, x, y, radius) {
   let best = null, bestD = radius;
   for (const s of world.structures.values()) {
-    if (s.house === houseId || !s.type.isWall) continue;
+    if (friendly(world, s.house, houseId) || !s.type.isWall) continue;
     const d = Math.hypot(s.x + 0.5 - x, s.y + 0.5 - y);
     if (d < bestD) { bestD = d; best = s; }
   }
@@ -470,12 +472,12 @@ export function richestTarget(world, houseId, spare = 0) {
   const things = [], own = [];
   for (const s of world.structures.values()) {
     if (s.type.isWall) continue;
-    if (s.house !== houseId) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
+    if (!friendly(world, s.house, houseId)) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
     else if (spare) own.push({ kind: 'structure', entity: s });
   }
   for (const u of world.units.values()) {
     if (!u.isGround || u.inside) continue;
-    if (u.house !== houseId) things.push({ x: u.x, y: u.y, value: u.type.cost });
+    if (!friendly(world, u.house, houseId)) things.push({ x: u.x, y: u.y, value: u.type.cost });
     else if (spare) own.push({ kind: 'unit', x: u.x, y: u.y });
   }
   let best = null, bestValue = 0;
@@ -507,7 +509,7 @@ function sabotage(world, house, view) {
     if (!u.type.sabotage || u.order.type === 'sabotage') continue;
     let best = null, bestD = Infinity, bestFalls = false;
     for (const s of world.structures.values()) {
-      if (s.house === house.id || s.type.isWall) continue;
+      if (friendly(world, s.house, house.id) || s.type.isWall) continue;
       const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y), falls = s.hp <= SABOTEUR.blast;
       const better = !best || (falls !== bestFalls ? falls : s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD));
       if (better) { best = s; bestD = d; bestFalls = falls; }

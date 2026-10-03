@@ -8,11 +8,12 @@ import { deviatable, killUnit, damage, onTheMove } from './combat.js';
 import { splash } from './aftermath.js';
 import { transferUnit, beside } from './capture.js';
 import { stopUnit } from './orders.js';
+import { friendly } from './alliance.js';
 
 /** A gas cloud bursts at p: enemy ground units close by change sides, except the immune. */
 export function deviate(world, p) {
   for (const u of [...world.units.values()]) {
-    if (u.house === p.house || !deviatable(u) || Math.hypot(u.x - p.x, u.y - p.y) > DEVIATOR.radius) continue;
+    if (friendly(world, u.house, p.house) || !deviatable(u) || Math.hypot(u.x - p.x, u.y - p.y) > DEVIATOR.radius) continue;
     if (u.deviated?.from === p.house) { restore(world, u); continue; }   // gassed by the side it was taken from
     const from = u.house;
     u.deviated = { from: u.deviated?.from ?? from, until: world.time + DEVIATOR.seconds };
@@ -62,7 +63,7 @@ const GIVE_UP_TRIES = 8;
 /** Saboteurs sent into an enemy building (never a wall: they walk over those). */
 export function orderSabotage(world, houseId, units, structureId) {
   const s = world.structures.get(structureId);
-  if (!s || s.house === houseId || s.type.isWall) return;
+  if (!s || friendly(world, s.house, houseId) || s.type.isWall) return;
   const ids = [];
   for (const u of units) {
     if (!u.type.sabotage) continue;
@@ -78,7 +79,7 @@ export function orderSabotage(world, houseId, units, structureId) {
 /** A Saboteur on its way (runs before movement): beside the building it goes off, else it walks on. */
 export function updateSabotage(world, u) {
   const o = u.order, s = world.structures.get(o.structureId);
-  if (!s || s.house === u.house) { stopUnit(u); return; }   // gone, or taken by a friend
+  if (!s || friendly(world, s.house, u.house)) { stopUnit(u); return; }   // gone, or taken by a friend
   if (onTheMove(u)) return;
   if (beside(u, s)) { detonate(world, u, s); return; }
   const goal = ++o.tries > GIVE_UP_TRIES ? -1 : approachTile(world, u, s);

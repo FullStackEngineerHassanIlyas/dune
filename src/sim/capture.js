@@ -9,6 +9,7 @@ import { loseStorageShare, revokeStartBuffer } from './economy.js';
 import { onTheMove } from './combat.js';
 import { orderAttack, stopUnit } from './orders.js';
 import { announce } from './announce.js';
+import { friendly } from './alliance.js';
 
 const GIVE_UP_TRIES = 8;
 const INFANTRY = new Set(['soldier', 'infantry', 'trooper', 'troopers']);   // the Saboteur has its own mission (specials.js)
@@ -18,7 +19,7 @@ export const capturable = (s, houseId) => !!s && s.house !== houseId && !!s.type
 
 export function orderCapture(world, houseId, units, structureId) {
   const s = world.structures.get(structureId);
-  if (!s || s.house === houseId || !s.type.conquerable) return;
+  if (!s || friendly(world, s.house, houseId) || !s.type.conquerable) return;
   const ids = [];
   for (const u of units) {
     if (!canCapture(u)) continue;
@@ -50,7 +51,7 @@ function besideTile(world, u, s) {
 /** Infantry on a capture order (runs before movement). */
 export function updateCapture(world, u) {
   const o = u.order, s = world.structures.get(o.structureId);
-  if (!s || s.house === u.house) { stopUnit(u); return; }   // gone, or taken by a comrade
+  if (!s || friendly(world, s.house, u.house)) { stopUnit(u); return; }   // gone, or taken by a comrade or an ally
   if (onTheMove(u)) return;
   if (beside(u, s)) {
     if (capturable(s, u.house)) captureStructure(world, s, u);
