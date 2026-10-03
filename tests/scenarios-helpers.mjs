@@ -5,7 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateMap, plateauHalf } from '../src/sim/mapgen.js';
 import { World } from '../src/sim/world.js';
-import { createBrain } from '../src/sim/ai.js';
+import { createBrain, DIFFICULTY } from '../src/sim/ai.js';
+import { isArmed } from '../src/sim/combat.js';
 import { applyTechRules, offered, segaUpgrades } from '../src/sim/tech.js';
 import { deliverByAir } from '../src/sim/carryall.js';
 import { checkInvariants } from '../src/sim/invariants.js';
@@ -17,6 +18,9 @@ import { segaStructureTech, segaUnit } from '../src/data/sega-tech.js';
 import { G } from '../src/data/terrain.js';
 import { missionDef } from '../src/data/campaign.js';
 import { run } from './helpers.mjs';
+
+// The missions stream's alliances (C1: every computer house of a mission on one side); absent before that branch lands.
+export const alliance = await import('../src/sim/alliance.js').catch(() => null);
 
 const ORDERS = ['guard', 'areaGuard', 'ambush', 'hunt'];
 const SIDES = ['north', 'east', 'south', 'west'];
@@ -50,6 +54,8 @@ export function buildMissionWorld(def, { brains = true } = {}) {
   }
   world.rules.airDelivery = true;
   applyTechRules(world);
+  const computers = [...new Set([...def.houses.map((h) => h.id), ...def.reinforcements.map((r) => r.house)])].filter((id) => id !== def.house && world.houses.has(id));
+  alliance?.setAlliances(world, [computers]);   // as mission-setup does: the computer houses fight as one side
   if (brains) {
     for (const h of def.houses) {
       if (h.ai.passive) continue;
@@ -106,6 +112,12 @@ export function checkMission(def) {
     const a = h.ai;
     if (!['easy', 'normal', 'hard'].includes(a?.difficulty)) say(`${h.id} ai`);
     if (!int(h.credits) || h.credits < 0 || h.techLevel !== def.mission) say(`${h.id} credits or techLevel`);
+    // a prebuilt base runs on full power, and its army starts below the AI's cap so the computer builds from the start
+    let produced = 0, used = 0;
+    for (const s of h.structures) { const p = STRUCTURES[s.type]?.power ?? 0; if (p < 0) produced -= p; else used += p; }
+    if (produced < used) say(`${h.id} base short of power: ${produced}/${used}`);
+    const army = h.units.filter((u) => { const t = UNITS[u.type]; return isArmed(t) && !t.autonomous && !t.sabotage; }).length;
+    if (!a?.passive && army >= (DIFFICULTY[a?.difficulty]?.armyCap ?? Infinity)) say(`${h.id} army of ${army} at the ${a.difficulty} cap`);
   }
   // types, rosters, the Sega ladder
   for (const h of allHouses(def)) {

@@ -6,12 +6,13 @@
 // A campaign mission sets world.rules.tech = 'sega' (phase 3, C10): the Sega Mega Drive ladder of
 // src/data/sega-tech.js then decides by house.techLevel (the mission number): structures by mission, the units
 // each factory level opens, its prices, one 2x2 slab, no House of IX. canBuild and buildOptions mark the world's
-// houses (house.techRules) so the helpers that get a house alone (upgradeCost, upgradeResult) agree with them.
+// houses (house.techRules) so the helpers that get a house alone (upgradeCost, upgradeResult, maxUpgradeLevel,
+// starportSells, itemCost) agree with them.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 import { HOUSES, SUB_HOUSE_UNITS } from '../data/houses.js';
-import { SEGA_LADDERS, SEGA_REQUIRES_UPGRADE, segaStructureTech, segaUnit, segaLevelTech } from '../data/sega-tech.js';
+import { SEGA_LADDERS, SEGA_REQUIRES_UPGRADE, SEGA_STARPORT, SEGA_SLAB_COST, segaStructureTech, segaUnit, segaLevelTech } from '../data/sega-tech.js';
 
 export const STRUCTURE_ORDER = ['concrete', 'windtrap', 'refinery', 'silo', 'outpost', 'barracks', 'wor', 'heavyFactory', 'hiTech', 'repair', 'wall', 'turret', 'rocketTurret', 'concrete4', 'starport', 'ix', 'palace'];
 export const UNIT_ORDER = ['soldier', 'infantry', 'trooper', 'troopers', 'trike', 'raider', 'quad', 'harvester', 'combatTank', 'missileTank', 'siegeTank', 'mcv', 'sonicTank', 'devastator', 'deviator', 'carryall', 'ornithopter'];
@@ -71,6 +72,29 @@ export function upgradeResult(house, structureType) {
 export function upgradeCost(house, structureType) {
   if (isSega(house)) return SEGA_LADDERS[structureType]?.[upgradeResult(house, structureType) - 1]?.cost ?? 0;
   return STRUCTURES[structureType]?.upgrades?.[upgradeLevel(house, structureType)] ?? 0;
+}
+
+/** The top level of a factory type on the ladder in use (the selection panel's "level n of max"): on the Sega ladder
+ *  the last level that opens something for the house (0 when none does, e.g. the Harkonnen Hi-Tech), else the PC count. */
+export function maxUpgradeLevel(house, structureType) {
+  if (!isSega(house)) return STRUCTURES[structureType]?.upgrades?.length ?? 0;
+  let top = 0;
+  for (let k = segaNext(house.id, structureType, 0); k !== null; k = segaNext(house.id, structureType, k)) top = k;
+  return top;
+}
+
+/** Does the house's Starport offer `typeId`? Sega: from the mission SEGA_STARPORT names (never a Carryall); skirmish:
+ *  whatever starport.js wares() lists for the house. */
+export function starportSells(house, typeId) {
+  return isSega(house) ? (SEGA_STARPORT[typeId] ?? Infinity) <= (house.techLevel ?? 0) : true;
+}
+
+/** What an item costs the house: an upgrade's price on the ladder in use, the Sega 2x2 slab, else the data price. */
+export function itemCost(house, typeId) {
+  const up = upgradeTarget(typeId);
+  if (up) return upgradeCost(house, up);
+  if (typeId === 'concrete4' && isSega(house)) return SEGA_SLAB_COST;
+  return (STRUCTURES[typeId] ?? UNITS[typeId])?.cost ?? 0;
 }
 
 // ---- the Sega ladder ----

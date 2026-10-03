@@ -91,7 +91,8 @@ nothing for a house is skipped by its purchase (the Ordos go from the MCV level 
 `tech.js` reads it when `world.rules.tech === 'sega'`: `canBuild` and `buildOptions` mark the world's houses
 (`house.techRules = 'sega'`) so the helpers that get a house alone (`upgradeCost`, `upgradeResult`) agree with
 them; `applyTechRules(world)` does the same at once. New exports: `segaUpgrades(house, n)`, `segaOpens(n, house)`
-(what a mission opens, for a briefing), `factoryOf(house, unit)`, `unitUpgrade(house, unit)`. Skirmish worlds
+(what a mission opens, for a briefing), `factoryOf(house, unit)`, `unitUpgrade(house, unit)`,
+`maxUpgradeLevel(house, type)`, `starportSells(house, unit)`, `itemCost(house, item)`. Skirmish worlds
 never get the mark and keep the PC tree.
 
 **Deviations, on purpose:**
@@ -100,8 +101,8 @@ never get the mark and keep the PC tree.
   mission 4 and train Troopers there (Troopers squad at 6, 200 credits, as on the Mega Drive); Ordos bases from
   mission 4 hold a WOR. One switch, `ORDOS_TROOPERS_AT` in `sega-tech.js`, plus a one-line `production.js`
   change (below) gives the Mega Drive way; data and tests follow the switch.
-- The 2x2 slab costs 15 on the Mega Drive; production reads 20 from `structures.js` (`SEGA_SLAB_COST` is there
-  for when production asks tech for prices).
+- The 2x2 slab costs 15 on the Mega Drive; production and the sidebar read 20 from `structures.js` until they
+  ask `itemCost(house, item)` (below).
 - The Mega Drive Starport sells the Trike to the Ordos and Harkonnen; their `units.js` roster has no Trike, so
   their stock leaves it out.
 - No walls in the prebuilt bases (the PC had some from mission 4): they would close lanes the packer keeps open.
@@ -123,7 +124,7 @@ never get the mark and keep the PC tree.
 - `generateMap` of all 27 mission maps 275 ms (about 10 ms for a 64 map); building the 27 worlds 259 ms;
   60 game seconds of all 27 with AI 6.3 s (worst Ordos 8, 0.48 s).
 - Biggest worlds: mission 9, 45 structures and 28 units at the start; mission 6, 27-31 structures, 29-31 units.
-- Full suite under the lock: 948/948 pass, 61 s.
+- Full suite under the lock: 948/948 pass, 61 s; after the review fixes 951/951, 78 s.
 
 ## Pictures (real GPU, scratch preview scene)
 
@@ -138,7 +139,18 @@ the front edge, Refineries by the spice), `scenarios-o2.png` (Ordos 2 on the 32 
   `factoryOf(house, typeId)` from `tech.js` instead, then set `ORDOS_TROOPERS_AT = 'barracks'` in
   `src/data/sega-tech.js` for the Mega Drive's Barracks Troopers. Not needed for anything to work today.
 - **ui/sidebar-model.js:52** (nobody's file): pass `house` instead of `houseId` to `upgradeUnlocks` so a Sega
-  upgrade's tooltip names what the Sega level opens (today it names the skirmish level's units).
+  upgrade's tooltip names what the Sega level opens (today it names the skirmish level's units); and at :46
+  `cost: itemCost(house, typeId)` (the Sega slab shows 15).
+- **ui/selection-panel.js:23** (nobody's file): ``const top = maxUpgradeLevel(world.houses.get(houseId), s.typeId);
+  if (top) details.push(`Upgrade level ${...} of ${top}`)`` — today a Sega mission-6 factory reads "level 5 of 4" and
+  the yard "level 1 of 2".
+- **sim/production.js:36** (nobody's file): `cost: itemCost(house, typeId)` in `makeItem`, so the Sega slab costs 15.
+- **sim/starport.js:35** (nobody's file): `for (const t of wares(house.id).filter((t) => starportSells(house, t)))`
+  in `market()`, so a Sega Starport never offers a Siege Tank before 7, an Ornithopter before 8 or a Carryall
+  (skirmish unchanged: `starportSells` is always true there, the rolls stay the same). The missions stream's
+  `stockStarport` already trims the player's market to `def.starport.stock`; this also covers the computer's.
+  All four lines were tried together on a scratch copy: the reviewer's probes pass and the sidebar, selection
+  panel, Starport, production, upgrade and one-factory tests stay green (73/73).
 - **sim/ai.js:464** (missions): `UNITS.mcv.upgrade` → `unitUpgrade(house, 'mcv')`, so a computer that lost its
   yard on the Sega ladder buys the right level for an MCV (prebuilt bases from mission 4 already hold it).
 - **sim/ai.js:288** (missions): `ixOpensSomething` should be false on the Sega ladder (`house.techRules === 'sega'`):
@@ -147,8 +159,29 @@ the front edge, Refineries by the spice), `scenarios-o2.png` (Ordos 2 on the 32 
   after adding the houses); `Object.assign(house.upgrades, h.upgrades)`; paint `concrete` (slot + 1), then
   `spawnStructure` every structure (with `rules.airDelivery` off while building, each Refinery's free Harvester
   appears at its dock instead of flying in), then `spawnUnit`s; seed the player's Starport market from
-  `def.starport.stock`. `tests/scenarios-helpers.mjs buildMissionWorld` is a working reference.
+  `def.starport.stock`; ally every computer house (`setAlliances(world, [computers])`, `sim/alliance.js`, C1).
+  `tests/scenarios-helpers.mjs buildMissionWorld` is a working reference: it allies them too once `alliance.js`
+  is there (a dynamic import; on this branch alone the computers still fight each other in the 60 s runs).
 - Is a Trike for the Ordos and Harkonnen at the Starport wanted (a `STARPORT.extra` entry, lead's file)?
+
+## Review fixes
+
+- Sega worlds: `tech.js` exports `maxUpgradeLevel` (the selection panel's "of n"), `starportSells` (the Mega Drive
+  wares by mission) and `itemCost` (the Sega upgrade prices and the 15-credit slab); the files that should call
+  them are nobody's, so the one-line changes are listed above. Tests in `tests/sega-tech.test.mjs`.
+- The prebuilt bases of missions 8 and 9 start on full power: two more Wind Traps each (M8 500/455 and 500/385,
+  M9 900/720 at the start; before 300/455, 300/385 and 500/720, turrets at half rate).
+- Mission 3's base holds 10 armed units, below the easy AI's cap of 12 (was 14, so it built nothing for six
+  minutes and banked 3000-4700 credits; now it trains Quads, Troopers and infantry within those six minutes).
+- `checkMission` now also fails a computer base short of power or starting at its difficulty's army cap; it
+  caught exactly the nine M3, M8 and M9 cases on the old data.
+- `tests/sega-tech.test.mjs` prices follow `ORDOS_TROOPERS_AT` (Barracks 150, 150, 200 once it is
+  `'barracks'`): with that switch and the `production.js` change the suite stays green.
+- `buildMissionWorld` allies the computer houses through `sim/alliance.js` when present. With the missions
+  branch's `alliance.js`, `combat.js` and `ai.js`, Harkonnen 8 has no computer-on-computer kills in six game
+  minutes (before: 33 Ordos units, 27 Atreides units and 4 buildings).
+- This notes file sits in `docs/superpowers/notes/` like the Phase 2 streams' notes; the lead keeps it or moves
+  it into the PR text.
 
 ## For the README
 

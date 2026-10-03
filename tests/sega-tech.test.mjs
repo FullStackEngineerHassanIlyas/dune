@@ -4,8 +4,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { UNITS } from '../src/data/units.js';
-import { SEGA_STRUCTURES, SEGA_UNITS, SEGA_LADDERS, ORDOS_TROOPERS_AT } from '../src/data/sega-tech.js';
-import { buildOptions, canBuild, upgradeId, upgradeCost, upgradeResult, upgradeUnlocks, segaUpgrades, segaOpens, factoryOf, unitUpgrade, applyTechRules, STRUCTURE_ORDER, UNIT_ORDER, UPGRADE_ORDER } from '../src/sim/tech.js';
+import { SEGA_STRUCTURES, SEGA_UNITS, SEGA_LADDERS, SEGA_STARPORT, SEGA_SLAB_COST, ORDOS_TROOPERS_AT } from '../src/data/sega-tech.js';
+import { STRUCTURES } from '../src/data/structures.js';
+import { STARPORT } from '../src/data/tuning.js';
+import { buildOptions, canBuild, upgradeId, upgradeCost, upgradeResult, upgradeUnlocks, upgradeLevel, maxUpgradeLevel, starportSells, itemCost, segaUpgrades, segaOpens, factoryOf, unitUpgrade, applyTechRules, STRUCTURE_ORDER, UNIT_ORDER, UPGRADE_ORDER } from '../src/sim/tech.js';
 import { createBrain } from '../src/sim/ai.js';
 import { checkInvariants } from '../src/sim/invariants.js';
 import { flatWorld, run } from './helpers.mjs';
@@ -82,7 +84,7 @@ test('units on sale by mission follow the Mega Drive ladder', () => {
 // Upgrade prices in purchase order (research.md §6 "Upgrade ladder"); the Ordos skip the Missile Tank level.
 const PRICES = {
   atreides:  { constructionYard: [200], barracks: [150], heavyFactory: [200, 200, 300, 300, 300], hiTech: [250] },
-  ordos:     { constructionYard: [200], barracks: [150], heavyFactory: [200, 200, 300, 300], hiTech: [250], ...(ORDOS_TROOPERS_AT === 'wor' ? { wor: [200] } : {}) },
+  ordos:     { constructionYard: [200], barracks: ORDOS_TROOPERS_AT === 'barracks' ? [150, 150, 200] : [150], heavyFactory: [200, 200, 300, 300], hiTech: [250], ...(ORDOS_TROOPERS_AT === 'wor' ? { wor: [200] } : {}) },
   harkonnen: { constructionYard: [200], wor: [200], heavyFactory: [200, 300, 300, 300] },
 };
 
@@ -214,4 +216,50 @@ test('every structure and unit of the Sega ladder exists in the data', () => {
   for (const t of Object.keys(SEGA_STRUCTURES)) assert.ok(STRUCTURE_ORDER.includes(t) || t === 'constructionYard', t);
   for (const t of Object.keys(SEGA_UNITS)) assert.ok(UNIT_ORDER.includes(t), t);
   for (const [t, ladder] of Object.entries(SEGA_LADDERS)) assert.ok(UPGRADE_ORDER.includes(t) && ladder.every((l) => l.cost > 0 && l.tech >= 1 && l.tech <= 9), t);
+});
+
+test('the highest factory level is the Sega ladder\'s on a Sega world, the PC one in skirmish', () => {
+  const TOP = {
+    atreides:  { constructionYard: 1, barracks: 1, heavyFactory: 5, hiTech: 1 },
+    ordos:     { constructionYard: 1, barracks: ORDOS_TROOPERS_AT === 'barracks' ? 3 : 1, heavyFactory: 5, hiTech: 1, ...(ORDOS_TROOPERS_AT === 'wor' ? { wor: 1 } : {}) },
+    harkonnen: { constructionYard: 1, wor: 1, heavyFactory: 5, hiTech: 0 },
+  };
+  for (const house of HOUSES) {
+    const all = ['constructionYard', 'windtrap', 'refinery', 'outpost', ...FACTORY_TYPES.filter((t) => FIRST[house][t])];
+    const { world, h } = segaWorld(house, 9, all);
+    applyTechRules(world);
+    for (const [type, top] of Object.entries(TOP[house])) assert.equal(maxUpgradeLevel(h, type), top, `${house} ${type}`);
+    buyAll(world, h);
+    for (const type of UPGRADE_ORDER) if (upgradeLevel(h, type)) assert.equal(upgradeLevel(h, type), maxUpgradeLevel(h, type), `${house} ${type}: mission 9 reaches the top`);
+    for (let n = 1; n <= 9; n++) for (const [type, level] of Object.entries(segaUpgrades(house, n))) assert.ok(level <= maxUpgradeLevel(h, type), `${house} ${n} ${type}`);
+  }
+  const skirmish = flatWorld(48, 48, G.ROCK).houses.get('atreides');
+  for (const type of UPGRADE_ORDER) assert.equal(maxUpgradeLevel(skirmish, type), STRUCTURES[type].upgrades?.length ?? 0, type);
+  assert.equal(maxUpgradeLevel(skirmish, 'windtrap'), 0);
+});
+
+test('the Starport sells the Mega Drive wares of the mission; skirmish keeps the PC wares', () => {
+  for (const house of HOUSES) for (let n = 1; n <= 9; n++) {
+    const { world, h } = segaWorld(house, n, []);
+    applyTechRules(world);
+    for (const t of [...STARPORT.wares, 'carryall', 'ornithopter']) assert.equal(starportSells(h, t), (SEGA_STARPORT[t] ?? Infinity) <= n, `${house} ${n} ${t}`);
+  }
+  const { world, h } = segaWorld('atreides', 6, []);
+  applyTechRules(world);
+  assert.deepEqual(['siegeTank', 'carryall', 'ornithopter', 'combatTank'].map((t) => starportSells(h, t)), [false, false, false, true]);
+  const skirmish = flatWorld(48, 48, G.ROCK).houses.get('atreides');
+  for (const t of [...STARPORT.wares, 'carryall', 'ornithopter']) assert.equal(starportSells(skirmish, t), true, t);
+});
+
+test('item prices: the Sega 2x2 slab, the Sega upgrade price, the data price otherwise', () => {
+  const { world, h } = segaWorld('atreides', 4, ['constructionYard', 'windtrap', 'refinery', 'outpost', 'heavyFactory'], { heavyFactory: 1 });
+  applyTechRules(world);
+  assert.equal(itemCost(h, 'concrete4'), SEGA_SLAB_COST);
+  assert.equal(itemCost(h, 'windtrap'), STRUCTURES.windtrap.cost);
+  assert.equal(itemCost(h, 'combatTank'), UNITS.combatTank.cost);
+  assert.equal(itemCost(h, upgradeId('heavyFactory')), upgradeCost(h, 'heavyFactory'));
+  const skirmish = flatWorld(48, 48, G.ROCK).houses.get('atreides');
+  assert.equal(itemCost(skirmish, 'concrete4'), STRUCTURES.concrete4.cost);
+  assert.equal(itemCost(skirmish, upgradeId('heavyFactory')), STRUCTURES.heavyFactory.upgrades[0]);
+  assert.equal(itemCost(skirmish, 'nothing'), 0);
 });

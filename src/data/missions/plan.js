@@ -46,7 +46,9 @@ const DESTROY = { kind: 'destroy' };
  * Per mission: map, worms, objective, the computer's settings and credits, and the base(s) it holds — `single`
  * for one base, `double` for two bases of one house, `pair` for one base each of two houses (the first gets the
  * Palace). A base: plateau radius, buildings in the order they are laid out, turrets, units by role, how many of
- * its light vehicles hunt from the start. Mission 1 has no base, only patrols on three rock outposts.
+ * its light vehicles hunt from the start. Every base starts on full power (Wind Traps >= power use) and with fewer
+ * armed units than its difficulty's army cap (sim/ai.js DIFFICULTY), so the computer builds from the first minute.
+ * Mission 1 has no base, only patrols on three rock outposts.
  */
 export const PLAN = {
   1: {
@@ -62,7 +64,7 @@ export const PLAN = {
   3: {
     size: 64, worms: 'few', objective: DESTROY, spiceFields: 9, blooms: 3, arrangement: 'one',
     credits: 300, ai: { difficulty: 'easy', firstAttack: 390, attackEvery: 220, buildSpeed: 0.7, incomeRate: 0.9 },
-    single: { r: 9, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, SILO, SILO], turrets: [], units: { quad: 4, light: 3, inf3: 4, inf1: 3 }, hunt: 2 },   // no tanks before the factory's mission-4 level
+    single: { r: 9, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, SILO, SILO], turrets: [], units: { quad: 3, light: 3, inf3: 3, inf1: 1 }, hunt: 2 },   // no tanks before the factory's mission-4 level; the PC's 15 units would sit above the easy AI's cap of 12 and stop it building
   },
   4: {
     size: 64, worms: 'few', objective: DESTROY, spiceFields: 9, blooms: 3, arrangement: 'one',
@@ -99,16 +101,16 @@ export const PLAN = {
     size: 64, worms: 'few', objective: DESTROY, spiceFields: 9, blooms: 3,
     credits: 1000, ai: { difficulty: 'hard', firstAttack: 240, attackEvery: 140, buildSpeed: 1.2, incomeRate: 1.3 },
     pair: [
-      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'hiTech', 'repair', SILO, WT, 'starport', 'palace', REF], turrets: mixed(7), units: { special: 1, siege: 1, missile: 1, tank: 3, quad: 2, inf3: 2 }, hunt: 1 },
-      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'hiTech', 'repair', SILO, WT, 'starport', REF], turrets: mixed(7), units: { special: 1, siege: 1, missile: 1, tank: 3, quad: 2, inf3: 2 }, hunt: 1 },
+      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'hiTech', 'repair', SILO, WT, 'starport', 'palace', REF, WT, WT], turrets: mixed(7), units: { special: 1, siege: 1, missile: 1, tank: 3, quad: 2, inf3: 2 }, hunt: 1 },
+      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'hiTech', 'repair', SILO, WT, 'starport', REF, WT, WT], turrets: mixed(7), units: { special: 1, siege: 1, missile: 1, tank: 3, quad: 2, inf3: 2 }, hunt: 1 },
     ],
   },
   9: {
     size: 64, worms: 'few', objective: DESTROY, spiceFields: 9, blooms: 3,
     credits: 3000, ai: { difficulty: 'hard', firstAttack: 210, attackEvery: 125, buildSpeed: 1.3, incomeRate: 1.5 },
     double: [
-      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'starport', 'palace', SILO, WT, SILO], turrets: mixed(8), units: { siege: 1, missile: 1, tank: 2, inf3: 2 }, hunt: 0 },
-      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', 'inf2', HF, 'hiTech', 'repair', WT, SILO], turrets: mixed(8), units: { siege: 1, missile: 1, tank: 2, inf3: 2 }, hunt: 0 },
+      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', HF, WT, 'starport', 'palace', SILO, WT, SILO, WT, WT], turrets: mixed(8), units: { siege: 1, missile: 1, tank: 2, inf3: 2 }, hunt: 0 },
+      { r: 11, buildings: [CY, WT, REF, OUT, 'inf', 'inf2', HF, 'hiTech', 'repair', WT, SILO, WT, WT], turrets: mixed(8), units: { siege: 1, missile: 1, tank: 2, inf3: 2 }, hunt: 0 },
     ],
   },
 };
