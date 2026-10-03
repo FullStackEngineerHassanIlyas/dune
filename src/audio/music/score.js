@@ -2,10 +2,12 @@
 // each, or the drum kit) and named patterns, played as an intro once and then a loop body over and over. A melodic
 // line is a string of tokens, one per `res` steps: a note (`d4`, `f#3`, `bb2`), a chord for a channel of several
 // voices (`d3+a3`), `-` to hold, `.` to let go; `~` before a note slides to it without a new attack, `!` after it
-// accents and `?` softens it, `*n` stretches any token over n slots, `|` is only for the eye, and a leading `@n`
-// sets the slot to n steps. Drum lanes are one character per step: `x` a hit, `X` an accent, `g` a ghost. An order
-// entry `A+5` plays pattern A five semitones up. compile() turns a track into time-ordered events; checkTrack()
-// lists everything wrong with one, including notes outside the track's mode — the style the soundtrack keeps to.
+// accents, `?` softens it and `:n` sets its velocity to n tenths (`d4:3`, for crescendos), `*n` stretches any token
+// over n slots, `|` is only for the eye, and a leading `@n` sets the slot to n steps. Drum lanes are one character
+// per step: `x` a hit, `X` an accent, `g` a ghost. An order entry `A+5` plays pattern A five semitones up, and a
+// pattern may set its own `bpm` (a tempo change for its length: the opening is written to the intro's picture).
+// compile() turns a track into time-ordered events; checkTrack() lists everything wrong with one, including notes
+// outside the track's mode — the style the soundtrack keeps to.
 import { KIT } from './drums.js';
 
 export const ON = 1, OFF = 2, SLIDE = 3, HIT = 4;
@@ -56,7 +58,9 @@ export function parseLine(text, { res = 1, vel = 0.8 } = {}) {
     const notes = [], names = [];
     let v = vel;
     for (let part of tok.split('+')) {
-      if (part.endsWith('!')) { v = 1; part = part.slice(0, -1); }
+      const level = /:(10|[1-9])$/.exec(part);
+      if (level) { v = Number(level[1]) / 10; part = part.slice(0, level.index); }
+      else if (part.endsWith('!')) { v = 1; part = part.slice(0, -1); }
       else if (part.endsWith('?')) { v = 0.5; part = part.slice(0, -1); }
       const midi = noteNumber(part);
       if (midi === null) throw new Error(`not a note: "${raw}"`);
@@ -97,10 +101,15 @@ export function channelDef(name, c) {
   return {
     name, drums: !!c.drums, patch: c.patch ?? null, voices: c.voices ?? 1, res: c.res ?? 1,
     vol: c.vol ?? 0, pan: c.pan ?? 0, echo: c.echo ?? 0, glide: c.glide ?? 0.06, gate: c.gate ?? 1, vel: c.vel ?? 0.8, oct: c.oct ?? 0,
+    crush: c.crush ?? 0,
   };
 }
 
-/** Events of one section (the intro, or the loop body): patterns in order, each channel's slots laid end to end. */
+/**
+ * Events of one section (the intro, or the loop body): patterns in order, each channel's slots laid end to end. A
+ * pattern with a tempo of its own is stretched onto the track's grid (`k` track steps a step of its own), so its
+ * events and the patterns after it fall between whole steps.
+ */
 function section(track, names, defs) {
   const events = [];
   let at = 0;
@@ -108,7 +117,7 @@ function section(track, names, defs) {
     const { name, shift } = orderEntry(entry);
     const p = track.patterns[name];
     if (!p) throw new Error(`no pattern "${name}"`);
-    const len = patternSteps(track, p);
+    const len = patternSteps(track, p), k = p.bpm ? track.bpm / p.bpm : 1;
     defs.forEach((d, ch) => {
       const line = p[d.name];
       if (d.drums) {
@@ -116,31 +125,32 @@ function section(track, names, defs) {
         for (const [piece, lane] of Object.entries(line)) {
           const { hits, steps } = parseLane(lane);
           if (steps !== len) throw new Error(`${name}.${d.name}.${piece}: ${steps} steps, the pattern has ${len}`);
-          for (const h of hits) events.push({ t: at + h.at, ch, type: HIT, piece, vel: h.vel });
+          for (const h of hits) events.push({ t: at + h.at * k, ch, type: HIT, piece, vel: h.vel });
         }
         return;
       }
       const slots = line ? parseLine(line, { res: d.res, vel: d.vel }) : [{ kind: 'rest', steps: len }];
       const steps = slots.reduce((s, x) => s + x.steps, 0);
       if (steps !== len) throw new Error(`${name}.${d.name}: ${steps} steps, the pattern has ${len}`);
-      let t = at;
+      let t = 0;   // in the pattern's own steps
       slots.forEach((s, i) => {
-        if (s.kind === 'rest') for (let v = 0; v < d.voices; v++) events.push({ t, ch, type: OFF, sub: v });
+        const tt = at + t * k;
+        if (s.kind === 'rest') for (let v = 0; v < d.voices; v++) events.push({ t: tt, ch, type: OFF, sub: v });
         else if (s.kind === 'note') {
           // how long it sounds: to the next note or rest in this pattern, for a channel whose notes let go early
           let held = s.steps;
           for (let j = i + 1; j < slots.length && slots[j].kind === 'hold'; j++) held += slots[j].steps;
           for (let v = 0; v < d.voices; v++) {
             const midi = s.notes[v];
-            if (midi === undefined) { events.push({ t, ch, type: OFF, sub: v }); continue; }
-            events.push({ t, ch, type: s.slide ? SLIDE : ON, sub: v, note: midi + shift + 12 * d.oct, vel: s.vel });
-            if (d.gate < 1) events.push({ t: t + held * d.gate, ch, type: OFF, sub: v });
+            if (midi === undefined) { events.push({ t: tt, ch, type: OFF, sub: v }); continue; }
+            events.push({ t: tt, ch, type: s.slide ? SLIDE : ON, sub: v, note: midi + shift + 12 * d.oct, vel: s.vel });
+            if (d.gate < 1) events.push({ t: tt + held * d.gate * k, ch, type: OFF, sub: v });
           }
         }
         t += s.steps;
       });
     });
-    at += len;
+    at += len * k;
   }
   // in time order; at the same moment a note lets go before the next one starts
   events.sort((a, b) => a.t - b.t || (a.type === OFF ? 0 : 1) - (b.type === OFF ? 0 : 1));
@@ -181,7 +191,11 @@ export function checkTrack(track, patches = {}) {
     if (!patches[c.patch]) say(`channel ${name}: no patch "${c.patch}"`);
   }
   for (const [pname, p] of Object.entries(track.patterns ?? {})) {
-    for (const key of Object.keys(p)) if (!['bars', 'mode', 'root'].includes(key) && !track.channels[key]) say(`${pname}: no channel "${key}"`);
+    for (const key of Object.keys(p)) if (!['bars', 'mode', 'root', 'bpm'].includes(key) && !track.channels[key]) say(`${pname}: no channel "${key}"`);
+    if (p.bpm !== undefined) {
+      if (!(p.bpm >= 40 && p.bpm <= 220)) say(`${pname}: tempo ${p.bpm}`);
+      if (track.swing) say(`${pname}: a tempo of its own and swing (swing is on the track's grid)`);
+    }
   }
   let compiled = null;
   try { compiled = compile(track); } catch (err) { say(err.message); return problems; }

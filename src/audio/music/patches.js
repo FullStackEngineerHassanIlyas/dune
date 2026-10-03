@@ -75,4 +75,25 @@ export const PATCHES = {
     alg: 5, fb: 5, gain: -6,
     ops: [[1, 0, 28, 31, 16, 7, 8, 9], [1, 3, 4, 31, 10, 5, 7, 10], [2, 0, 14, 31, 12, 6, 7, 10], [1, -3, 6, 31, 10, 5, 7, 10]],
   },
+  // phase 3 (the menus, the opening, the endings): the Mega Drive's own colours
+  // an orchestra hit: two hard-driven pairs, one an octave up, a bright blare that dies within half a second
+  hit: {
+    alg: 4, fb: 7, gain: -4,
+    ops: [[1, 0, 12, 31, 13, 5, 9, 8], [1, 5, 0, 31, 8, 3, 6, 8], [2, -5, 16, 31, 15, 6, 10, 8], [1, -5, 3, 31, 9, 4, 6, 8]],
+  },
+  // a picked and slapped bass: a 7:1 pop on top of a round 1:1 body, for driving ostinati
+  slap: {
+    alg: 4, fb: 5, gain: -2,
+    ops: [[1, 0, 20, 31, 17, 7, 6, 9], [1, 0, 4, 31, 6, 2, 3, 9], [7, 0, 26, 31, 24, 15, 0, 9], [1, 0, 8, 31, 9, 3, 4, 9]],
+  },
+  // power brass: the bright, saw-edged synth brass of the cartridge era, an octave pair for its bite
+  power: {
+    alg: 4, fb: 6, lfo: { rate: 5.5, pm: 9, delay: 0.35 }, gain: -4,
+    ops: [[1, 0, 20, 27, 6, 2, 2, 8], [1, 3, 2, 26, 3, 1, 1, 8], [2, -3, 30, 28, 8, 3, 2, 8], [1, -3, 6, 26, 3, 1, 1, 8]],
+  },
+  // a warm pad that swells: the modulators open more slowly than the carriers, so it brightens as it grows
+  pad: {
+    alg: 4, fb: 4, lfo: { rate: 0.4, pm: 6, am: 2 }, gain: -4,
+    ops: [[1, 0, 26, 6, 0, 0, 0, 5, 0, 1], [1, 5, 6, 8, 0, 0, 0, 5], [2, -5, 32, 6, 0, 0, 0, 5, 0, 1], [1, -5, 8, 8, 0, 0, 0, 5]],
+  },
 };

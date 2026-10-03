@@ -4,7 +4,8 @@ import { noteNumber, parseLine, parseLane, compile, checkTrack, durations, MODES
 import { Deck } from '../src/audio/music/deck.js';
 import { MusicMixer } from '../src/audio/music/mixer.js';
 import { PATCHES } from '../src/audio/music/patches.js';
-import { TRACKS, POOLS, BRIEFINGS } from '../src/audio/music/songs/index.js';
+import { TRACKS, POOLS, BRIEFINGS, VICTORY, DEFEAT } from '../src/audio/music/songs/index.js';
+import { at, shift } from '../src/audio/music/songs/kit.js';
 
 const mini = (over = {}) => ({
   id: 'mini', bpm: 120, root: 'd', mode: 'phrygian-dominant', passes: 2,
@@ -50,6 +51,33 @@ test('compiling lays patterns end to end: steps, slides, gates, transposition, a
   assert.throws(() => compile(mini({ patterns: { I: { bars: 1, lead: 'd4 .' }, A: { bars: 1 } } })), /4 steps|8 steps|the pattern has 16/);
 });
 
+test('a velocity digit after a note sets its level in tenths, for crescendos', () => {
+  const s = parseLine('d4:3 a3+d4:9 f#4 g4:10', { vel: 0.8 });
+  assert.deepEqual(s.filter((x) => x.kind === 'note').map((x) => x.vel), [0.3, 0.9, 0.8, 1]);
+  assert.deepEqual(s[1].notes, [57, 62]);
+  assert.throws(() => parseLine('d4:0'), /not a note/);
+});
+
+test('a pattern may set its own tempo: its steps are stretched onto the track’s grid and the rest follows on', () => {
+  // the track runs at 120; pattern S at 60 lasts twice as long, so A after it starts at step 32
+  const t = mini({ patterns: { S: { bars: 1, bpm: 60, lead: 'd4 . a3 .', drums: { K: 'x.......x.......' } }, A: { bars: 1, lead: 'd4 f#4 ~a4 .' } }, intro: ['S'], loop: ['A'] });
+  const c = compile(t);
+  assert.equal(c.intro.len, 32);
+  assert.deepEqual(c.intro.events.filter((e) => e.type === HIT).map((e) => e.t), [0, 16]);
+  assert.deepEqual(c.intro.events.filter((e) => e.type === ON).map((e) => e.t), [0, 16]);
+  assert.equal(durations(t).intro, 4, 'one bar of 60 bpm is four seconds');
+  assert.deepEqual(checkTrack(t, PATCHES), []);
+  assert.ok(checkTrack({ ...t, swing: 0.1 }, PATCHES).some((p) => /swing/.test(p)), 'swing is on the track’s grid: not with tempo changes');
+  assert.ok(checkTrack(mini({ patterns: { ...t.patterns, S: { ...t.patterns.S, bpm: 300 } }, intro: ['S'], loop: ['A'] }), PATCHES).some((p) => /tempo 300/.test(p)));
+  // the deck plays it on time: pattern A's first note one bar of 60 bpm (4 s) after the start
+  const rate = 16000, d = new Deck(c, PATCHES, rate, { passes: 1 }), at = [];
+  const fire = d.fire.bind(d);
+  d.fire = (e) => { if (e.type === ON) at.push(d.pos); fire(e); };
+  const L = new Float32Array(128), R = new Float32Array(128);
+  for (let i = 0; i < 5 * rate; i += 128) d.render(L, R, 0, 128);
+  assert.deepEqual(at, [0, 2 * rate, 4 * rate, 4.5 * rate]);
+});
+
 test('checkTrack finds what is wrong with a track', () => {
   assert.deepEqual(checkTrack(mini(), PATCHES), []);
   const bad = mini({ channels: { lead: { patch: 'kazoo', res: 4 }, drums: { drums: true } } });
@@ -78,21 +106,92 @@ test('the sequencer fires every event on its sample, with swing, and loops for e
   assert.ok(fired.filter((f) => f.type === HIT).length >= passes * 2);
 });
 
+const HOUSES = ['atreides', 'harkonnen', 'ordos'];
+const ONCE = Object.values(TRACKS).filter((t) => t.once);
+/** Seconds of a track's one pass: its intro and its loop body played once. */
+const once = (t) => { const d = durations(t); return d.intro + d.loop; };
+
 test('every track is valid, in its mode, loops on whole bars, and the pools name real tracks', () => {
-  assert.equal(Object.keys(TRACKS).length, 12);
+  assert.equal(Object.keys(TRACKS).length, 25);
   for (const t of Object.values(TRACKS)) {
     assert.deepEqual(checkTrack(t, PATCHES), [], t.id);
     assert.ok(MODES[t.mode], `${t.id} declares a mode`);
+    if (t.once) continue;   // the opening and the region cue play once: their lengths are below
     const d = durations(t);
     assert.ok(d.loop >= 15 && d.loop <= 90, `${t.id}: loop body ${d.loop.toFixed(1)} s`);
     assert.ok(d.intro <= 15, `${t.id}: intro ${d.intro.toFixed(1)} s`);
   }
   for (const [pool, ids] of Object.entries(POOLS)) for (const id of ids) assert.ok(TRACKS[id], `${pool}: ${id}`);
-  assert.equal(POOLS.peace.length, 3);
-  assert.equal(POOLS.battle.length, 3);
-  for (const house of ['atreides', 'harkonnen', 'ordos']) assert.equal(TRACKS[BRIEFINGS[house]].house, house);
+  assert.equal(POOLS.peace.length, 4);
+  assert.equal(POOLS.battle.length, 4);
+  for (const pool of ['intro', 'menu', 'houseSelect', 'region', 'victory', 'defeat', 'finale', 'credits']) assert.ok(POOLS[pool]?.length, pool);
+  for (const house of HOUSES) {
+    assert.equal(TRACKS[BRIEFINGS[house]].house, house);
+    assert.equal(TRACKS[VICTORY[house]].house, house);
+    assert.equal(TRACKS[DEFEAT[house]].house, house);
+    assert.equal(VICTORY[house], `victory-${house}`);
+    assert.equal(DEFEAT[house], `defeat-${house}`);
+    assert.ok(Math.abs(once(TRACKS[DEFEAT[house]]) - 18) <= 1, `${DEFEAT[house]} is a short dirge: ${once(TRACKS[DEFEAT[house]]).toFixed(1)} s`);
+  }
+  assert.deepEqual([VICTORY.fremen, VICTORY.sardaukar, DEFEAT.mercenary], ['victory-atreides', 'victory-harkonnen', 'defeat-ordos']);
   assert.ok(Object.values(TRACKS).filter((t) => t.pool === 'battle').every((t) => t.bpm >= 125), 'battle tracks drive');
   assert.ok(Object.values(TRACKS).filter((t) => t.pool === 'peace').every((t) => t.bpm * (t.beat ?? 4) / 4 <= 110), 'peace tracks breathe');
+  // the cues that play once: the opening runs from the gesture past the menu's arrival, the region about 7 s
+  assert.deepEqual(ONCE.map((t) => t.id).sort(), ['opening', 'region']);
+  for (const t of ONCE) assert.equal(t.passes, 1, t.id);
+  assert.ok(once(TRACKS.opening) > MARKS.menu && once(TRACKS.opening) <= 36, `opening ${once(TRACKS.opening)} s`);
+  assert.ok(Math.abs(once(TRACKS.region) - 7) <= 0.5, `region ${once(TRACKS.region)} s`);
+});
+
+// contract C6: the intro's picture, in seconds after the gesture (src/game/intro-timeline.js exports the same)
+const MARKS = { credits: 4.0, present: 10.0, planet: 16.0, stop: 17.8, ships: [18.8, 20.3, 21.8], title: 26.5, menu: 30.0 };
+
+test('the opening is written to the intro: a hit at the gesture, the drums with the planet, a push per ship, the climax on the title', async () => {
+  const timeline = await import('../src/game/intro-timeline.js').catch(() => null);
+  if (timeline?.INTRO_MARKS) for (const [k, v] of Object.entries(MARKS)) assert.deepEqual(timeline.INTRO_MARKS[k], v, `INTRO_MARKS.${k}`);
+  const rate = 16000, t = TRACKS.opening, c = compile(t), d = new Deck(c, PATCHES, rate, { passes: t.passes }), fired = [];
+  const fire = d.fire.bind(d), channel = (e) => c.channels[e.ch].name;
+  d.fire = (e) => { fired.push({ s: d.pos / rate, e }); fire(e); };
+  const L = new Float32Array(128), R = new Float32Array(128);
+  while (!d.done && d.pos < 40 * rate) d.render(L, R, 0, 128);
+  const hits = fired.filter((f) => f.e.type === HIT), accents = hits.filter((f) => f.e.vel === 1);
+  const accentAt = (s, tol) => accents.some((f) => Math.abs(f.s - s) <= tol);
+  const first = (name) => fired.find((f) => f.e.type === ON && channel(f.e) === name)?.s;
+  assert.ok(accentAt(0, 0.001) && fired.some((f) => f.s === 0 && f.e.type === ON && channel(f.e) === 'hit'), 'a strong hit at the gesture');
+  assert.deepEqual(hits.filter((f) => f.s > 0.05 && f.s < MARKS.planet - 0.01), [], 'no drums between the hit and the planet');
+  assert.ok(accentAt(MARKS.planet, 0.01), 'the drums arrive with the planet');
+  for (const s of MARKS.ships) assert.ok(accentAt(s, 0.03), `a push for the ship at ${s} s`);
+  assert.ok(accentAt(MARKS.title, 0.01), 'the climax on the title');
+  assert.ok(Math.abs(first('choir') - MARKS.credits) < 0.01, `the choir enters with the credits: ${first('choir')}`);
+  assert.ok(Math.abs(first('lead') - MARKS.present) < 0.01, `the brass swells from "present": ${first('lead')}`);
+  assert.ok(fired.some((f) => Math.abs(f.s - MARKS.title) < 0.01 && f.e.type === ON && channel(f.e) === 'lead'), 'the theme starts on the title');
+  assert.ok(d.ending && Math.abs(d.endedAt / rate - once(t)) < 0.01 && d.endedAt / rate > MARKS.menu, `one pass, then it rings out: ${d.endedAt / rate}`);
+  assert.ok(d.done, 'and it falls silent');
+});
+
+test('the finale turns to major while the planet takes the victor\'s colour, well before the credits take over', async () => {
+  // contract C12: the ending moves to the credits' music at ENDING.credits (src/game/ending-timeline.js, 13 s)
+  const ending = await import('../src/game/ending-timeline.js').catch(() => null), creditsAt = ending?.ENDING?.credits ?? 13;
+  const t = TRACKS.finale, starts = [];
+  let s = durations(t).intro;
+  for (const name of t.loop) { starts.push({ name, s }); s += durations({ ...t, loop: [name] }).loop; }
+  const turn = starts.find(({ name }) => t.patterns[name].mode === 'mixolydian');
+  assert.ok(turn && turn.s + 6 <= creditsAt, `the major theme starts at ${turn?.s.toFixed(1)} s: at least 6 s of it before the credits at ${creditsAt} s`);
+});
+
+test('a once-through cue hands over on the sample it ends: the title follows the opening, the region simply ends', () => {
+  const rate = 16000, events = [], m = new MusicMixer({ rate, onEvent: (e) => events.push(e) });
+  m.play('opening', { passes: TRACKS.opening.passes });
+  m.command({ cmd: 'next', id: 'title', passes: 0 });
+  renderMixer(m, once(TRACKS.opening) + 2, rate);
+  const ended = events.find((e) => e.type === 'ended' && e.id === 'opening'), started = events.find((e) => e.type === 'started' && e.id === 'title');
+  assert.ok(ended && started && started.time === ended.time && Math.abs(ended.time - once(TRACKS.opening)) < 1e-3, JSON.stringify(events));
+  const r = new MusicMixer({ rate });
+  r.play('region', { passes: TRACKS.region.passes });
+  const { L } = renderMixer(r, once(TRACKS.region) + 5, rate);
+  let tail = 0;
+  for (let i = L.length - rate; i < L.length; i++) tail = Math.max(tail, Math.abs(L[i]));
+  assert.ok(tail < 0.002 && !r.active, `the region cue has rung out: ${tail}`);
 });
 
 /** A biquad at `rate` (RBJ cookbook): 'hs' a high shelf of `db`, 'hp' a high-pass. */
@@ -134,9 +233,10 @@ function lufs(L, R, rate) {
 test('every track plays at the same loudness and under full scale', () => {
   const rate = 16000;   // the rendered tracks measure -18.0 LUFS at 48 kHz with ffmpeg's ebur128; 16 kHz is close enough here
   for (const t of Object.values(TRACKS)) {
+    // a looping track over its first 24 s; a cue that plays once over the whole of it (the opening rises from a hush)
     const m = new MusicMixer({ rate });
-    m.play(t.id, { passes: 0 });
-    const { L, R } = renderMixer(m, 24, rate);
+    m.play(t.id, { passes: t.once ? 1 : 0 });
+    const { L, R } = renderMixer(m, t.once ? once(t) + 1 : 24, rate);
     const level = lufs(L, R, rate);
     let peak = 0;
     for (let i = 0; i < L.length; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
@@ -148,6 +248,7 @@ test('every track plays at the same loudness and under full scale', () => {
 test('every track loops without a click: at the seam the waveform runs on as smoothly as anywhere else', () => {
   const rate = 12000;   // enough to see a jump, at a quarter of the cost
   for (const t of Object.values(TRACKS)) {
+    if (t.once) continue;   // never loops (its hand-over is tested above)
     const d = durations(t), m = new MusicMixer({ rate });
     m.play(t.id, { passes: 0 });
     const { L } = renderMixer(m, d.intro + d.loop + 0.5, rate);
@@ -157,6 +258,12 @@ test('every track loops without a click: at the seam the waveform runs on as smo
     for (let i = seam - 32; i < seam + 32; i++) seamJump = Math.max(seamJump, Math.abs(L[i] - L[i - 1]));
     assert.ok(seamJump <= worst * 0.999 || seamJump < 0.05, `${t.id}: seam ${seamJump.toFixed(3)} vs ${worst.toFixed(3)}`);
   }
+});
+
+test('the song helpers: a line at one velocity, a line moved by semitones', () => {
+  assert.equal(at('d2 . a1*2 ~eb3+g3! - bb4?', 5), 'd2:5 . a1:5*2 ~eb3+g3:5 - bb4:5');
+  assert.equal(shift('d4 f#4*2 | bb3 . c#5!', 12), 'd5 f#5*2 | bb4 . c#6!');
+  assert.equal(shift('c4 eb4', -1), 'b3 d4');
 });
 
 test('a loop body repeats at the same level pass after pass', () => {

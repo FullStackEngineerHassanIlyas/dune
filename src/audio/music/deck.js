@@ -2,7 +2,8 @@
 // FM voices (fm.js) and drum kit (drums.js), and a ping-pong echo of its own whose time follows the track's tempo.
 // The intro plays once, then the loop body over and over; after `passes` passes (0: for ever) it stops sequencing
 // and rings out — release tails and echoes — before it reports itself done. Work is split at every event and at
-// least every CONTROL samples, where pitch glides, vibrato and fades move on.
+// least every CONTROL samples, where pitch glides, vibrato and fades move on. A drum channel with `crush` (Hz) is
+// held at that sample rate on 8-bit steps, the gritty sound of the Mega Drive's PCM drums.
 import { FmVoice, preparePatch } from './fm.js';
 import { DrumKit } from './drums.js';
 import { ON, OFF, SLIDE, HIT } from './score.js';
@@ -26,7 +27,7 @@ export class Deck {
     this.swing = compiled.swing;
     this.channels = compiled.channels.map((d) => {
       const [gl, gr] = panGains(d.pan), vol = dbGain(d.vol);
-      if (d.drums) return { d, drums: new DrumKit(rate, 0x5eed + d.name.length), vol, echo: d.echo };
+      if (d.drums) return { d, drums: new DrumKit(rate, 0x5eed + d.name.length), vol, echo: d.echo, crush: d.crush > 0 ? Math.min(1, d.crush / rate) : 0, acc: 1, hl: 0, hr: 0 };
       let patch = prepared.get(d.patch);
       if (!patch) { patch = preparePatch(patches[d.patch]); prepared.set(d.patch, patch); }
       const voices = Array.from({ length: d.voices }, () => { const v = new FmVoice(rate); v.setPatch(patch); v.glide = d.glide; return v; });
@@ -143,10 +144,20 @@ export class Deck {
     for (const c of this.channels) {
       if (c.drums) {
         // the kit is stereo: straight in, and a little of it into the echo
-        if (!c.drums.busy) continue;
+        if (!c.drums.busy) { c.acc = 1; c.hl = c.hr = 0; continue; }
         const dL = this.drumL, dR = this.drumR, gd = c.vol * g, ed = gd * c.echo;
         dL.fill(0, 0, n); dR.fill(0, 0, n);
         c.drums.render(dL, dR, 0, n, 1);
+        if (c.crush) {
+          // sample and hold at the PCM rate, rounded to 8-bit steps
+          let acc = c.acc, hl = c.hl, hr = c.hr;
+          for (let k = 0; k < n; k++) {
+            if (acc >= 1) { acc -= 1; hl = Math.round(dL[k] * 128) / 128; hr = Math.round(dR[k] * 128) / 128; }
+            acc += c.crush;
+            dL[k] = hl; dR[k] = hr;
+          }
+          c.acc = acc; c.hl = hl; c.hr = hr;
+        }
         for (let k = 0; k < n; k++) {
           L[at + k] += dL[k] * gd; R[at + k] += dR[k] * gd;
           sL[k] += dL[k] * ed; sR[k] += dR[k] * ed;
