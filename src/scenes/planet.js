@@ -2,9 +2,11 @@
 // down the dive, ?moon= sets the moon time in seconds (0: the start of its pass), ?spin= the planet's turn in radians,
 // ?freeze=1 stops all motion, ?loop=1 plays planet → dive → emerge on repeat, ?aspect= letterboxes the picture to
 // that aspect ratio, ?guides=1 marks the menu column's edge and the caption's band. window.__dune.set({ dive, moon,
-// spin, freeze, loop }) changes them live.
+// spin, freeze, loop }) changes them live. The opening's near stars and dust are there too, as on the menu.
 import { Renderer3D } from '../render/renderer.js';
-import { PlanetShot, menuShare } from '../render/planet.js';
+import { PlanetShot, menuShare, planetFraming } from '../render/planet.js';
+import { SpaceTravel } from '../render/space-travel.js';
+import { travelCorridor } from '../game/intro-timeline.js';
 import { readParams } from '../core/params.js';
 import { loadSettings } from '../core/settings.js';
 
@@ -50,7 +52,9 @@ export async function start({ search }) {
   const aspect = params.num('aspect');
   if (aspect > 0) letterbox(document.getElementById('app'), aspect);
   const r3d = new Renderer3D(document.getElementById('gl'), settings.quality);
-  const planet = new PlanetShot({ seed: params.num('seed', 1) });
+  const seed = params.num('seed', 1);
+  const planet = new PlanetShot({ seed });
+  planet.attach(new SpaceTravel({ seed, corridor: travelCorridor(planetFraming(r3d.width / r3d.height, undefined, menuShare(r3d.width)).distance) }));
   const spin = params.num('spin');
   if (spin !== null) planet.spin.rotation.y = spin;
   const state = { dive: Math.min(1, Math.max(0, params.num('dive', 0))), freeze: params.bool('freeze'), loop: params.bool('loop') };
