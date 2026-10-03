@@ -2,6 +2,10 @@
 // crossfaded on a change, a next track queued to start on the very sample the current one finishes its passes, and
 // a soft ceiling on the sum so nothing clips. Commands and events are plain objects, so the same mixer runs in the
 // AudioWorklet (worklet.js), in the render-ahead worker (worker.js) and under Node for tests and measurements.
+// The player's own Mega Drive files (VGM, contract C8) are registered by id ({ cmd: 'vgm', id, data }) and then
+// played like any track, each by a VgmDeck (vgm-deck.js) with the Deck's shape; that player is handed in, or found
+// on the global scope where the page loaded it (output.js), so the FM music never waits for its code. A VGM that
+// cannot be played says so ({ type: 'error', id }) and goes quiet; the conductor moves on.
 import { Deck } from './deck.js';
 import { compile } from './score.js';
 import { TRACKS } from './songs/index.js';
@@ -13,12 +17,17 @@ const MIN_FADE = 0.03;     // seconds: even a cut is a short fade, never a click
 const HP_HZ = 40;          // the high-pass under the music
 
 export class MusicMixer {
-  /** onEvent({ type: 'started'|'pass'|'ended', id, ... }): what the director hears back. */
-  constructor({ rate, tracks = TRACKS, patches = PATCHES, onEvent = () => {} } = {}) {
+  /**
+   * onEvent({ type: 'started'|'pass'|'ended'|'error', id, ... }): what the director hears back. VgmDeck: the class
+   * that plays a VGM (else globalThis.duneVgmDeck, put there when the page loads it).
+   */
+  constructor({ rate, tracks = TRACKS, patches = PATCHES, onEvent = () => {}, VgmDeck = null } = {}) {
     this.rate = rate;
     this.tracks = tracks;
     this.patches = patches;
     this.onEvent = onEvent;
+    this.VgmDeck = VgmDeck;
+    this.vgms = new Map();       // id → the player's VGM file (plain bytes), as registered
     this.compiled = new Map();
     this.prepared = new Map();   // patches prepared once, shared by every deck
     this.decks = [];
@@ -36,6 +45,7 @@ export class MusicMixer {
   get time() { return this.frames / this.rate; }
 
   deck(id, passes) {
+    if (this.vgms.has(id)) return this.vgmDeck(id, passes);
     const track = this.tracks[id];
     if (!track) return null;
     if (!this.compiled.has(id)) this.compiled.set(id, compile(track));
@@ -43,11 +53,30 @@ export class MusicMixer {
     return new Deck(c, this.patches, this.rate, { passes: passes ?? c.passes, prepared: this.prepared });
   }
 
+  /** A registered VGM as a deck, or null (and an error event) when there is no player for it or it will not read. */
+  vgmDeck(id, passes = 0) {
+    const Player = this.VgmDeck ?? globalThis.duneVgmDeck;
+    try {
+      if (typeof Player !== 'function') throw new Error('no VGM player');
+      const d = new Player(id, this.vgms.get(id), { sampleRate: this.rate, passes: passes ?? 0 });
+      d.vgm = true;
+      return d;
+    } catch (err) {
+      this.onEvent({ type: 'error', id, message: String(err?.message ?? err) });
+      return null;
+    }
+  }
+
   command(m) {
     if (m.cmd === 'play') this.play(m.id, m);
-    else if (m.cmd === 'next') this.queued = { id: m.id, passes: m.passes };
+    else if (m.cmd === 'next') this.queued = m.id ? { id: m.id, passes: m.passes } : null;   // no id: nothing to follow
     else if (m.cmd === 'stop') this.stop(m.fade ?? 0.5);
     else if (m.cmd === 'hold') this.held = !!m.on;
+    else if (m.cmd === 'vgm') {
+      // a VGM's plain bytes under an id (sent again after a synth restart); no data forgets it
+      if (m.data) this.vgms.set(m.id, m.data instanceof Uint8Array ? m.data : new Uint8Array(m.data));
+      else this.vgms.delete(m.id);
+    }
   }
 
   /** Starts `id` (after `wait` seconds, fading in over `fadeIn`) while whatever plays fades out over `fade`. */
@@ -76,6 +105,13 @@ export class MusicMixer {
     this.queued = null;
   }
 
+  /** A VGM deck that broke while playing: dropped, and the conductor told (it moves on to the next track). */
+  fail(d, err) {
+    d.done = true;
+    if (d === this.current) this.current = null;
+    this.onEvent({ type: 'error', id: d.id, message: String(err?.message ?? err) });
+  }
+
   /** Fills n samples of left and right. */
   render(L, R, n) {
     L.fill(0, 0, n);
@@ -84,7 +120,10 @@ export class MusicMixer {
       const d = this.decks[k];
       let from = 0;
       if (d.delay > 0) { from = Math.min(n, d.delay); d.delay -= from; }
-      if (from < n) d.render(L, R, from, n - from);
+      if (from < n) {
+        if (!d.vgm) d.render(L, R, from, n - from);
+        else try { d.render(L, R, from, n - from); } catch (err) { this.fail(d, err); continue; }   // never throw on the audio thread
+      }
       if (d.pass !== d.reported) { d.reported = d.pass; if (d.pass) this.onEvent({ type: 'pass', id: d.id, n: d.pass }); }
       if (d === this.current && d.ending) {
         // its passes are over: it rings out, and the queued track starts on the sample it stopped

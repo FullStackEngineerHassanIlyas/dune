@@ -2,6 +2,8 @@
 // at a time, so the music never waits on a busy main thread and holds exactly where it is when the context is
 // suspended (the game paused, a hidden tab). Commands arrive on the port; the mixer's events, and now and then how
 // much of the audio thread it takes, go back on it. Idle — nothing queued, or the game muted — it costs one check per block.
+// The VGM player is not imported here: the page adds it to this scope only once a VGM is to play (output.js), and
+// the mixer finds it there, so the FM music's module stays small and quick to load before the intro.
 import { MusicMixer } from './mixer.js';
 
 const REPORT = 1500;   // blocks between load reports (4 s at 48 kHz)
