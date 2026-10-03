@@ -43,16 +43,36 @@ export const BUILD_ORDER = {
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
 
-export function createBrain(world, houseId, difficulty = 'normal') {
+/**
+ * A computer house's brain at a difficulty. A campaign mission (game/mission-setup.js) tunes it further with
+ * `mission` = { firstAttack, attackEvery (seconds), buildSpeed, incomeRate, passive (no attack waves) }: those
+ * go into brain.params over the difficulty's own, so the skirmish's DIFFICULTY table keeps its three presets.
+ */
+export function createBrain(world, houseId, difficulty = 'normal', mission = null) {
   const house = world.houses.get(houseId);
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
-  const d = DIFFICULTY[level];
+  const d = mission ? missionParams(DIFFICULTY[level], mission) : DIFFICULTY[level];
   house.isAI = true;
   house.buildSpeed = d.buildSpeed;
   house.incomeRate = d.income;
-  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waveFoe: {}, waves: 0, nextAttack: d.firstAttack, commands: 0 };
+  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waveFoe: {}, waves: 0, nextAttack: d.passive ? Infinity : d.firstAttack, commands: 0 };
+  if (mission) house.brain.params = d;
   return house.brain;
 }
+
+const num = (v) => typeof v === 'number' && Number.isFinite(v);
+
+function missionParams(d, m) {
+  const p = { ...d, passive: !!m.passive };
+  if (num(m.firstAttack)) p.firstAttack = Math.max(0, m.firstAttack);
+  if (num(m.attackEvery)) p.waveEvery = Math.max(10, m.attackEvery);
+  if (num(m.buildSpeed)) p.buildSpeed = Math.max(0.1, m.buildSpeed);
+  if (num(m.incomeRate)) p.income = Math.max(0, m.incomeRate);
+  return p;
+}
+
+/** What a brain plays by: its mission's parameters, else its difficulty's. */
+const tuning = (house) => house.brain.params ?? DIFFICULTY[house.brain.difficulty];
 
 export function updateAI(world) {
   for (const house of world.houses.values()) if (house.brain && !house.defeated) think(world, house);
@@ -200,7 +220,7 @@ function buildBase(world, house, view) {
     return;
   }
   const yardUp = upgradeId('constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
-  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
+  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + tuning(house).reserve) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
 const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
@@ -265,7 +285,7 @@ function nextStructure(world, house, view) {
 }
 
 function wantedStructure(world, house, view, can) {
-  const id = house.id, d = DIFFICULTY[house.brain.difficulty];
+  const id = house.id, d = tuning(house);
   const has = (t) => view.count[t] ?? 0;
   const need = {};
   for (const t of BUILD_ORDER[id] ?? BUILD_ORDER.atreides) {
@@ -304,7 +324,7 @@ function keepCarryall(world, house, view) {
   const air = house.lines.air;
   const queued = (air.current?.typeId === 'carryall' ? 1 : 0) + air.queue.filter((t) => t === 'carryall').length;
   const have = view.units.filter((u) => u.typeId === 'carryall' && !u.visitor).length;
-  if (have + queued >= 1 || house.credits < 800 + DIFFICULTY[house.brain.difficulty].reserve || !canBuild(world, house.id, 'carryall')) return;
+  if (have + queued >= 1 || house.credits < 800 + tuning(house).reserve || !canBuild(world, house.id, 'carryall')) return;
   issue(world, house, { type: 'build', typeId: 'carryall' });
 }
 
@@ -329,7 +349,7 @@ function vehicleChoice(view, pool) {
 }
 
 function buildArmy(world, house, view) {
-  const d = DIFFICULTY[house.brain.difficulty];
+  const d = tuning(house);
   if (view.units.filter(fighter).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
   for (const line of ['heavy', 'infantry', 'air']) {
@@ -344,7 +364,7 @@ const FACTORY_UPGRADES = ['heavyFactory', 'barracks', 'wor', 'hiTech'];   // wha
 
 /** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
 function buyUpgrades(world, house, view) {
-  const d = DIFFICULTY[house.brain.difficulty];
+  const d = tuning(house);
   for (const type of FACTORY_UPGRADES) {
     const id = upgradeId(type);
     if (!view.count[type] || !canBuild(world, house.id, id)) continue;
@@ -407,7 +427,7 @@ function sendForRepairs(world, house, view) {
 }
 
 function attack(world, house, view, defending = []) {
-  const b = house.brain, d = DIFFICULTY[b.difficulty];
+  const b = house.brain, d = tuning(house);
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
@@ -422,7 +442,7 @@ function attack(world, house, view, defending = []) {
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
-  const ready = view.units.filter((u) => fighter(u) && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder
+  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
   if (ready.length < size) { b.nextAttack = world.time + 15; return; }
   const units = ready.slice(0, size);
   const foe = chooseFoe(world, house, view, units.reduce((n, u) => n + u.type.cost, 0));
