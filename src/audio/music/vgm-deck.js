@@ -447,3 +447,33 @@ export class VgmDeck {
     return { id: this.id, pass: this.pass, passes: this.passes, seconds: this.seconds, frame: this.frame, ending: this.ending, done: this.done, error: this.error, scanned: this.scanDone };
   }
 }
+
+/**
+ * Runs the player once on a made-up moment of sound (an FM note, a DAC ramp from a data block, a PSG tone)
+ * so its code is compiled and its filter built before the first real track: the first deck in a fresh
+ * audio thread otherwise costs tens of milliseconds. Call it when the synth starts (worklet or worker)
+ * and the player has VGM tracks.
+ */
+export function warmUp(sampleRate, blocks = 48) {
+  const cmd = [];
+  const ym = (part, reg, v) => cmd.push(part ? 0x53 : 0x52, reg, v);
+  cmd.push(0x67, 0x66, 0x00, 0x00, 0x01, 0, 0);            // a 256-byte PCM block: a ramp
+  for (let i = 0; i < 256; i++) cmd.push(i);
+  ym(0, 0x22, 0x08); ym(0, 0xb0, 0x32); ym(0, 0xb4, 0xc0);
+  for (const o of [0, 4, 8, 12]) { ym(0, 0x30 + o, 0x01); ym(0, 0x40 + o, o ? 0x20 : 0x10); ym(0, 0x50 + o, 0x1f); ym(0, 0x60 + o, 0x05); ym(0, 0x80 + o, 0x37); }
+  ym(0, 0xa4, 0x22); ym(0, 0xa0, 0x69); ym(0, 0x28, 0xf0);
+  cmd.push(0x50, 0x8e, 0x50, 0x0f, 0x50, 0x92);          // a PSG tone
+  ym(0, 0x2b, 0x80);
+  cmd.push(0xe0, 0, 0, 0, 0);
+  for (let i = 0; i < 255; i++) cmd.push(0x83);            // the ramp through the DAC
+  cmd.push(0x61, 0x44, 0xac, 0x66);
+  const bytes = new Uint8Array(0x40 + cmd.length);
+  const put = (o, v) => { for (let i = 0; i < 4; i++) bytes[o + i] = (v >>> (8 * i)) & 0xff; };
+  bytes.set([0x56, 0x67, 0x6d, 0x20]);
+  put(0x04, bytes.length - 4); put(0x08, 0x150); put(0x0c, 3579545); put(0x2c, 7670453); put(0x34, 0x0c);
+  bytes[0x28] = 0x09; bytes[0x2a] = 16;
+  bytes.set(cmd, 0x40);
+  const deck = new VgmDeck('warm-up', bytes, { sampleRate, passes: 1 });
+  const L = new Float32Array(128), R = new Float32Array(128);
+  for (let k = 0; k < blocks && !deck.done; k++) deck.render(L, R, 0, 128);
+}

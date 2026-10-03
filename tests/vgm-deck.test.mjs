@@ -4,7 +4,7 @@
 // so one chip frame is one VGM sample is one output sample at 44.1 kHz, and times can be checked exactly.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { VgmDeck, PSG_LEVEL } from '../src/audio/music/vgm-deck.js';
+import { VgmDeck, PSG_LEVEL, warmUp } from '../src/audio/music/vgm-deck.js';
 import { VgmError } from '../src/formats/vgm.js';
 import { MusicMixer } from '../src/audio/music/mixer.js';
 import { TRACKS } from '../src/audio/music/songs/index.js';
@@ -242,6 +242,16 @@ test('a silent chip is silence: the ladder offset is taken off, from the first s
     for (let i = 0; i < 6000; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
     assert.ok(peak < 1e-6, `${rate}: ${peak}`);
   }
+});
+
+test('warmUp runs the player on a made-up moment of sound without a file, and leaves nothing behind', () => {
+  assert.equal(warmUp(48000), undefined);
+  assert.equal(warmUp(44100, 4), undefined);
+  // a deck made afterwards plays as it would have
+  const a = render(make([...NOTE(0x0f), wait(3000)]), 2000).L;
+  warmUp(44100);
+  const b = render(make([...NOTE(0x0f), wait(3000)]), 2000).L;
+  assert.deepEqual(Array.from(a), Array.from(b));
 });
 
 test('the mixer starts the queued track on the very sample a VgmDeck ends', () => {
