@@ -56,6 +56,24 @@ test('the end message has the C2 shape, frozen at the end', () => {
   assert.equal(JSON.parse(JSON.stringify(m)).score.killedValue, 7);
 });
 
+test('the score inputs freeze at the outcome: what happens during the fly-over does not count', () => {
+  const { world } = setup({ minSeconds: 10 });
+  razeBase(world, 'harkonnen', 'atreides');   // the enemy's turret still stands (turrets do not count)
+  assert.ok(runUntil(world, () => world.outcome, 12) >= 0);
+  const atEnd = world.mission.result();
+  // the 1.5 s + 4.2 s before GameView posts: the leftover turret knocks down a building, the player's tanks
+  // finish the turret, a harvester unloads
+  const turret = find(world, 'harkonnen', 'turret');
+  destroyStructure(world, find(world, 'atreides', 'windtrap'), { house: 'harkonnen', id: turret.id, kind: 'structure' });
+  destroyStructure(world, turret, by('atreides'));
+  world.houses.get('atreides').credits += 300;
+  run(world, 5.7);
+  const posted = world.mission.result();
+  assert.deepEqual(posted.score, atEnd.score);
+  assert.deepEqual(posted.stats, atEnd.stats, 'the stats froze with it');
+  assert.deepEqual(world.mission.debug().score, atEnd.score);
+});
+
 test('a lost mission says so', () => {
   const { world } = setup({ minSeconds: 3 });
   razeBase(world, 'atreides', 'harkonnen');

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { setupMission } from '../src/game/mission-setup.js';
 import { edgePoint } from '../src/sim/air.js';
 import { checkInvariants } from '../src/sim/invariants.js';
+import { friendly, hostile } from '../src/sim/alliance.js';
 import { tinyDef, setup, evas } from './missions-helpers.mjs';
 import { run, runUntil } from './helpers.mjs';
 
@@ -113,9 +114,31 @@ test('hunters go for the player; an ambush waits for the enemy to come into sigh
   assert.deepEqual([guard.order.type, guard.order.x, guard.order.y], ['guard', 20, 12], 'back on guard at its post');
 });
 
-test('a reinforcement for a house the mission does not have, or of no known unit, is skipped', () => {
-  const { world } = setup({ reinforcements: [{ house: 'ordos', units: ['quad'], at: 1 }, { house: 'atreides', units: ['bogus'], at: 1 }] });
+test('a house named only in the reinforcements joins the computer side and its drop comes (the Sega\'s Sardaukar)', () => {
+  const { world, problems } = setupMission(tinyDef({ reinforcements: [
+    { house: 'sardaukar', units: ['troopers', 'troopers'], at: 5, via: 'carryall', to: 'enemy' },
+    { house: 'sardaukar', units: ['troopers'], at: 5, via: 'carryall', to: 'home' },
+  ] }));
+  assert.deepEqual(problems, []);
+  const sardaukar = world.houses.get('sardaukar');
+  assert.ok(sardaukar?.isAI, 'a computer house');
+  assert.equal(sardaukar.credits, 0);
+  assert.ok(friendly(world, 'sardaukar', 'harkonnen') && hostile(world, 'sardaukar', 'atreides'), 'allied with the computer, against the player');
+  run(world, 5.3);
+  const drop = carryalls(world, 'sardaukar').map((c) => world.units.get(c.cargo));
+  assert.equal(drop.length, 3);
+  runUntil(world, () => drop.every((u) => !world.units.get(u.id)?.inside), 40);
+  const [a, b, home] = drop, base = yard(world, 'atreides'), allies = yard(world, 'harkonnen');
+  for (const u of [a, b]) assert.ok(Math.hypot(u.tx - base.x, u.ty - base.y) < 12, 'came down by the player\'s base');
+  assert.ok(Math.hypot(home.tx - allies.x, home.ty - allies.y) < 10, '"home" for a house with no base is its allies\' base');
+  assert.equal(world.mission.debug().pending, 0);
+});
+
+test('a reinforcement of an unknown house or of no known unit is skipped and reported', () => {
+  const { world, problems } = setupMission(tinyDef({ reinforcements: [{ house: 'bogus', units: ['quad'], at: 1 }, { house: 'atreides', units: ['bogus'], at: 1 }] }));
+  assert.equal(problems.length, 2, problems.join('; '));
+  assert.ok(problems.some((p) => /bogus/.test(p) && /house/.test(p)) && problems.some((p) => /unknown unit bogus/.test(p)), problems.join('; '));
   run(world, 3);
-  assert.equal(carryalls(world, 'ordos').length + carryalls(world, 'atreides').length, 0);
+  assert.equal(carryalls(world, 'atreides').length, 0);
   assert.equal(world.mission.debug().pending, 0);
 });

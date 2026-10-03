@@ -3,6 +3,8 @@
 // A campaign mission (world.mission, game/mission.js) adds its objective line to the HUD, says Restart mission and
 // Quit mission in the game menu, and ends its own way (C2): a win brings seven Carryalls over the battlefield
 // (render/flyover.js), then the result goes to the menu shell as 'missionEnd' — or, with no shell, to the end screen.
+// Once a mission is over its result is never thrown away: Esc or the menu button skip to the hand-off, and Quit
+// mission or Restart mission before it hand the result over instead.
 import { Renderer3D } from '../render/renderer.js';
 import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
@@ -123,7 +125,7 @@ export class GameView {
     this.menu = new GameMenu(document.getElementById('ui'), {
       settings,
       onClose: () => this.setMenuOpen(false),
-      onRestart: () => location.reload(),
+      onRestart: () => this.restart(),
       onQuit: () => this.quit(),
       onFullscreen: () => toggleFullscreen(),
       isFullscreen: () => isFullscreen(),
@@ -202,15 +204,40 @@ export class GameView {
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
     else if (e.type === 'houseDefeated' && e.house !== this.house && e.text) this.hud.message(e.text);   // 'House Ordos has been defeated.' (sim/victory.js)
     if (e.type === 'gameOver') {
-      if (this.world.mission) this.missionEndAt = performance.now() + (e.winner === this.house ? 1500 : 2500);   // "Mission accomplished" first
+      if (this.world.mission) { if (!this.handoff) this.missionEndAt = performance.now() + (e.winner === this.house ? 1500 : 2500); }   // "Mission accomplished" first
       else this.endAt = performance.now() + 2500;
     }
   }
 
-  /** Quit mission goes back to the campaign in the menu shell (C2); anything else, or a battle on its own, to the main menu. */
+  /** Quit mission goes back to the campaign in the menu shell (C2) — with the result, once the mission is over;
+   *  anything else, or a battle on its own, to the main menu. */
   quit() {
-    if (this.world.mission && postToShell({ dune: 'quit', screen: 'campaign' })) return;
+    if (this.world.mission && inShell()) {
+      if (this.resultPending) { this.menu.close(); this.finishNow(); return; }
+      if (postToShell({ dune: 'quit', screen: 'campaign' })) return;
+    }
     quitToMenu();
+  }
+
+  /** Restart mission plays it again (the same seed) — but a mission that is over hands its result to the campaign first. */
+  restart() {
+    if (this.resultPending && inShell()) { this.menu.close(); this.finishNow(); return; }
+    location.reload();
+  }
+
+  /** A mission that is over and whose result has gone nowhere yet: the wait after the outcome, or the fly-over. */
+  get resultPending() {
+    return !!this.world.mission && !!this.world.outcome && (!this.handoff || this.handoff === 'flyover');
+  }
+
+  /** Skips what is left of a mission's end and hands the result over now; false when there is nothing to skip. */
+  finishNow() {
+    if (!this.resultPending) return false;
+    this.missionEndAt = 0;
+    this.flyover?.dispose();
+    this.flyover = null;
+    this.handOff(performance.now());
+    return true;
   }
 
   /** A mission's objective line, and its end: the fly-over after a win, then the hand-off. */
@@ -308,7 +335,7 @@ export class GameView {
   }
 
   openMenu() {
-    if (this.menu.isOpen) return;
+    if (this.menu.isOpen || this.finishNow()) return;   // at a mission's end Esc skips the fly-over: the result goes on
     this.menu.open();
     this.setMenuOpen(true);
   }

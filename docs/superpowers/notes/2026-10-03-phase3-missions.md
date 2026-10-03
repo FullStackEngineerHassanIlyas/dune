@@ -119,6 +119,26 @@ rule, set), C11 (score inputs).
   look at the fly-over: `?scene=mission&house=atreides&mission=3&ticks=2400`, then in the console
   `const c = await import('/src/sim/combat.js'); for (const s of [...__dune.world.structures.values()]) if (s.house !== 'atreides' && !s.type.weapon && !s.type.isWall) c.destroyStructure(__dune.world, s, { house: 'atreides', id: 0, kind: 'unit' });`
 
+## Review fixes
+
+- A won mission is never thrown away at its end. Once the outcome is set and the result has gone nowhere yet (the
+  1.5-2.5 s wait, the fly-over), Esc, F10 or the sidebar's Menu button skip straight to the hand-off instead of
+  opening the menu; Quit mission and Restart mission reached at that point hand the result to the shell rather
+  than posting 'quit' or reloading (GameView resultPending / finishNow / restart). Alone, Esc goes straight to
+  the end screen. After the hand-off they behave as before. Tests: tests/mission-handoff.test.mjs. Real GPU in
+  the shell: Esc 1 s into the fly-over -> one 'missionEnd' (won, score as at the end), no menu
+  (shots/missions-fix-shell-esc.png).
+- The C2 score inputs freeze with the stats at the outcome: end() snapshots score(), result() and debug() return
+  that snapshot, and the building tally stops once world.outcome is set (a turret dying in the fly-over, a
+  harvester unloading, a building lost after the end no longer change the posted score). Test in
+  tests/mission-score.test.mjs; the reviewer's score-turret.mjs now prints the same score at both moments.
+- A house named only in def.reinforcements (the Sega's Sardaukar drops, with no Emperor base) joins the computer
+  side at set-up: credits 0, no brain or base, allied with every other computer house; its 'home' is its allies'
+  base. An unknown house or unit in the reinforcements is now listed in setupMission's problems (the scene warns).
+  For the scenarios stream: a reinforcing house no longer has to be listed in houses.
+- This notes file sits outside the stream's file list; it stays for the lead to accept or drop on merge (the
+  README text below is the lead's to use).
+
 ## Open questions
 
 - The Sega ambush trigger is not documented; ours springs at max(sight, range + 3) tiles or when hit.

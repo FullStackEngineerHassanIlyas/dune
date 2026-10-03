@@ -14,7 +14,8 @@
 //  - the computer units' standing orders: hunters go after the nearest enemy, an ambush springs when the enemy
 //    comes in sight or shoots at it, guards drawn away by a fight go back to their posts.
 //  - the mission's Starport wares (C1 starport.stock): the player's market offers those, so many of each.
-//  - the score inputs (C2) and a read-only debug state (C2's message, __dune.mission).
+//  - the score inputs (C2), frozen with the stats at the outcome (the fly-over and the wait before the hand-off
+//    do not count), and a read-only debug state (C2's message, __dune.mission).
 import { UNITS } from '../data/units.js';
 import { unitSight, GUARD_RADIUS } from '../data/tuning.js';
 import { finishGame, endStats } from '../sim/victory.js';
@@ -54,12 +55,12 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
   const arrivals = [];   // groups on their way: { house, ids, then, announce, edge, at }
   const landed = [];     // the player's groups that came in (debug)
   const tally = { killedValue: 0, lostValue: 0 };
-  let next = 0, calls = 0, stocked = !def.starport?.stock;
+  let next = 0, calls = 0, stocked = !def.starport?.stock, final = null;   // final: the score as the mission ended
 
-  const prev = world.onStructureKilled;   // the score counts every building that falls (research §5)
+  const prev = world.onStructureKilled;   // the score counts every building that falls until the end (research §5)
   world.onStructureKilled = (s, attacker) => {
     prev?.(s, attacker);
-    if (s.type.isWall || s.type.isConcrete) return;
+    if (world.outcome || s.type.isWall || s.type.isConcrete) return;
     if (s.house === player) tally.lostValue += Math.max(1, worth(s.type));
     else if (hostile(world, s.house, player)) tally.killedValue += Math.max(1, worth(s.type));
   };
@@ -84,6 +85,7 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     if (any) return any;
     const site = sites.find((s) => s.id === houseId);
     if (site) return { x: site.x, y: site.y };
+    if (houseId !== player && !enemies.includes(houseId) && enemies.length) return homeOf(enemies[0]);   // a house with no base of its own (a drop only): its allies'
     const k = houseId === player ? 0 : 1 + enemies.indexOf(houseId);
     return starts[k] ?? { x: world.map.w >> 1, y: world.map.h >> 1 };
   }
@@ -225,6 +227,15 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     const standing = enemies.filter((id) => baseOf(id) > 0);
     if (won) finishGame(world, { winner: player, standing: [player], lost: enemies });
     else finishGame(world, { winner: standing[0] ?? enemies[0] ?? null, standing, lost: [player] });
+    final = scoreNow();
+  }
+
+  /** C2 score inputs as they stand now. */
+  function scoreNow() {
+    const seconds = Math.round(world.outcome?.seconds ?? world.time);
+    let survivingValue = 0;
+    for (const s of world.structures.values()) if (s.house === player && !s.type.isWall && !s.type.isConcrete) survivingValue += worth(s.type);
+    return { minutes: Math.floor(seconds / 60) + 1, credits: credits(), survivingValue, killedValue: tally.killedValue, lostValue: tally.lostValue };
   }
 
   const title = def.title || (kind === 'quota' ? `Harvest ${quota} credits` : kind === 'quotaOrDestroy' ? `Harvest ${quota} credits or destroy the enemy base` : 'Destroy the enemy base');
@@ -233,6 +244,7 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     def, kind, quota, minSeconds, title,
     update(w = world) {
       if (w !== world) return;
+      if (world.outcome && !final) final = scoreNow();   // ended some other way (a debug win): frozen from here
       if (baseOf(player) > 0) hadBase = true;
       while (next < schedule.length && world.time >= schedule[next].at) launch(schedule[next++]);
       if (arrivals.length) land();
@@ -251,13 +263,9 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
       if (kind !== 'quota') parts.push(`${p.left} enemy ${p.left === 1 ? 'building' : 'buildings'} left`);
       return parts.join(' · ');
     },
-    /** C2 score inputs: the original's per-mission score is worked out from these (campaign stream, C11). */
-    score() {
-      const seconds = Math.round(world.outcome?.seconds ?? world.time);
-      let survivingValue = 0;
-      for (const s of world.structures.values()) if (s.house === player && !s.type.isWall && !s.type.isConcrete) survivingValue += worth(s.type);
-      return { minutes: Math.floor(seconds / 60) + 1, credits: credits(), survivingValue, killedValue: tally.killedValue, lostValue: tally.lostValue };
-    },
+    /** C2 score inputs: the original's per-mission score is worked out from these (campaign stream, C11); once the
+     *  mission is over, as they stood at its end. */
+    score() { return { ...(final ?? scoreNow()) }; },
     /** The message the battle hands the menu shell when it is over (C2). */
     result() {
       const o = world.outcome;

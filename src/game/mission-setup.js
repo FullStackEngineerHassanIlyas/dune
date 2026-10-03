@@ -3,7 +3,8 @@
 // site, the houses with their credits, tech level and upgrades, concrete, prebuilt bases (structures before
 // units; a Refinery gets its Harvester at the dock rather than by Carryall at t = 0, a prebuilt Palace starts
 // charging as the original's did), units with their orders, computer brains with the mission's parameters,
-// every computer house allied with every other against the player (as in the original), and the mission's
+// every computer house allied with every other against the player (as in the original; a house that only drops
+// reinforcements joins them, with no base or brain of its own), and the mission's
 // objectives and reinforcements on world.mission (game/mission.js). Node-runnable: tests and soaks need no DOM.
 import { generateMap } from '../sim/mapgen.js';
 import { World } from '../sim/world.js';
@@ -39,6 +40,12 @@ export function setupMission(def, { seed = null } = {}) {
   const p = def.player ?? {};
   addHouse(world, player, { credits: p.credits ?? 0, techLevel: def.techLevel ?? 9, upgrades: p.upgrades }, problems);
   for (const h of sides) addHouse(world, h.id, { credits: h.credits ?? 0, ai: true, techLevel: h.techLevel ?? def.techLevel ?? 9, upgrades: h.upgrades }, problems);
+  // a house named only in the reinforcements (the Sega's Sardaukar drops: no base of their own) joins the computer side
+  const dropOnly = [...new Set((def.reinforcements ?? []).map((r) => r.house))].filter((id) => id !== player && !sides.some((h) => h.id === id));
+  for (const id of dropOnly) addHouse(world, id, { credits: 0, ai: true, techLevel: def.techLevel ?? 9 }, problems);
+  for (const r of def.reinforcements ?? []) for (const t of r.units ?? []) {
+    if (!UNITS[t] || UNITS[t].move === 'air') problems.push(`${r.house} reinforcements: ${UNITS[t] ? 'cannot carry' : 'unknown unit'} ${t}`);
+  }
   const forces = [{ id: player, ...p }, ...sides];
   for (const f of forces) if (world.houses.has(f.id)) layConcrete(world, f.id, f.concrete ?? []);
   for (const f of forces) if (world.houses.has(f.id)) for (const s of f.structures ?? []) {
@@ -52,7 +59,7 @@ export function setupMission(def, { seed = null } = {}) {
     const unit = spawnAt(world, f.id, u, problems);
     if (unit && f.id !== player) orders.set(unit.id, giveOrder(unit, u.order ?? 'guard'));
   }
-  setAlliances(world, [sides.map((h) => h.id).filter((id) => world.houses.has(id))]);
+  setAlliances(world, [[...sides.map((h) => h.id), ...dropOnly].filter((id) => world.houses.has(id))]);
   for (const h of sides) if (world.houses.has(h.id)) createBrain(world, h.id, h.ai?.difficulty ?? 'normal', h.ai ?? {});
   world.mission = createMission(world, def, { orders, starts });
   if (world.fogOfWar) updateFog(world);   // shroud from the very first frame
