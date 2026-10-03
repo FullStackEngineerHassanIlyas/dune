@@ -170,6 +170,11 @@
      "text": "Radar activated.",
      "seconds": 1.391
     },
+    "reinforcements": {
+     "file": "atreides/reinforcements.ogg",
+     "text": "Reinforcements have arrived.",
+     "seconds": 1.648
+    },
     "repairing": {
      "file": "atreides/repairing.ogg",
      "text": "Repairing.",
@@ -485,6 +490,11 @@
      "file": "harkonnen/radarOn.ogg",
      "text": "Radar activated.",
      "seconds": 1.422
+    },
+    "reinforcements": {
+     "file": "harkonnen/reinforcements.ogg",
+     "text": "Reinforcements have arrived.",
+     "seconds": 1.699
     },
     "repairing": {
      "file": "harkonnen/repairing.ogg",
@@ -802,6 +812,11 @@
      "text": "Radar activated.",
      "seconds": 1.259
     },
+    "reinforcements": {
+     "file": "ordos/reinforcements.ogg",
+     "text": "Reinforcements have arrived.",
+     "seconds": 1.515
+    },
     "repairing": {
      "file": "ordos/repairing.ogg",
      "text": "Repairing.",
@@ -1002,6 +1017,671 @@
      "file": "units/standingBy.ogg",
      "text": "Standing by.",
      "seconds": 1.121
+    }
+   }
+  },
+  "grunt": {
+   "voice": "am_michael",
+   "role": "unit",
+   "group": "grunt",
+   "lines": {
+    "attack.1": {
+     "file": "grunt/attack.1.ogg",
+     "text": "Engaging.",
+     "seconds": 0.92
+    },
+    "attack.2": {
+     "file": "grunt/attack.2.ogg",
+     "text": "Open fire!",
+     "seconds": 1.014
+    },
+    "attack.3": {
+     "file": "grunt/attack.3.ogg",
+     "text": "Taking them down.",
+     "seconds": 1.189
+    },
+    "attackMove.1": {
+     "file": "grunt/attackMove.1.ogg",
+     "text": "Sweeping the area.",
+     "seconds": 1.255
+    },
+    "capture.1": {
+     "file": "grunt/capture.1.ogg",
+     "text": "Going in.",
+     "seconds": 0.777
+    },
+    "capture.2": {
+     "file": "grunt/capture.2.ogg",
+     "text": "Taking the building.",
+     "seconds": 1.19
+    },
+    "guard.1": {
+     "file": "grunt/guard.1.ogg",
+     "text": "Holding here.",
+     "seconds": 0.985
+    },
+    "guard.2": {
+     "file": "grunt/guard.2.ogg",
+     "text": "Standing guard.",
+     "seconds": 1.129
+    },
+    "move.1": {
+     "file": "grunt/move.1.ogg",
+     "text": "Moving out.",
+     "seconds": 0.938
+    },
+    "move.2": {
+     "file": "grunt/move.2.ogg",
+     "text": "On our way.",
+     "seconds": 0.89
+    },
+    "move.3": {
+     "file": "grunt/move.3.ogg",
+     "text": "Right away.",
+     "seconds": 0.885
+    },
+    "scatter.1": {
+     "file": "grunt/scatter.1.ogg",
+     "text": "Spread out!",
+     "seconds": 0.963
+    },
+    "select.1": {
+     "file": "grunt/select.1.ogg",
+     "text": "Reporting.",
+     "seconds": 0.845
+    },
+    "select.2": {
+     "file": "grunt/select.2.ogg",
+     "text": "Ready, sir.",
+     "seconds": 0.884
+    },
+    "select.3": {
+     "file": "grunt/select.3.ogg",
+     "text": "Infantry here.",
+     "seconds": 1.108
+    }
+   }
+  },
+  "trooper": {
+   "voice": "bm_george",
+   "role": "unit",
+   "group": "trooper",
+   "lines": {
+    "attack.1": {
+     "file": "trooper/attack.1.ogg",
+     "text": "Locked on.",
+     "seconds": 1.16
+    },
+    "attack.2": {
+     "file": "trooper/attack.2.ogg",
+     "text": "Rockets away!",
+     "seconds": 1.448
+    },
+    "attack.3": {
+     "file": "trooper/attack.3.ogg",
+     "text": "Firing rockets.",
+     "seconds": 1.552
+    },
+    "attackMove.1": {
+     "file": "trooper/attackMove.1.ogg",
+     "text": "Advancing to contact.",
+     "seconds": 2.117
+    },
+    "capture.1": {
+     "file": "trooper/capture.1.ogg",
+     "text": "Breaching.",
+     "seconds": 1.032
+    },
+    "capture.2": {
+     "file": "trooper/capture.2.ogg",
+     "text": "Storming it.",
+     "seconds": 1.135
+    },
+    "guard.1": {
+     "file": "trooper/guard.1.ogg",
+     "text": "Covering.",
+     "seconds": 0.975
+    },
+    "guard.2": {
+     "file": "trooper/guard.2.ogg",
+     "text": "Holding position.",
+     "seconds": 1.466
+    },
+    "move.1": {
+     "file": "trooper/move.1.ogg",
+     "text": "Advancing.",
+     "seconds": 1.266
+    },
+    "move.2": {
+     "file": "trooper/move.2.ogg",
+     "text": "Understood.",
+     "seconds": 1.131
+    },
+    "move.3": {
+     "file": "trooper/move.3.ogg",
+     "text": "On the move.",
+     "seconds": 1.268
+    },
+    "scatter.1": {
+     "file": "trooper/scatter.1.ogg",
+     "text": "Dispersing.",
+     "seconds": 1.29
+    },
+    "select.1": {
+     "file": "trooper/select.1.ogg",
+     "text": "Trooper ready.",
+     "seconds": 1.301
+    },
+    "select.2": {
+     "file": "trooper/select.2.ogg",
+     "text": "Armed and ready.",
+     "seconds": 1.573
+    },
+    "select.3": {
+     "file": "trooper/select.3.ogg",
+     "text": "Rockets loaded.",
+     "seconds": 1.526
+    }
+   }
+  },
+  "scout": {
+   "voice": "am_puck",
+   "role": "unit",
+   "group": "scout",
+   "lines": {
+    "attack.1": {
+     "file": "scout/attack.1.ogg",
+     "text": "Guns hot.",
+     "seconds": 0.753
+    },
+    "attack.2": {
+     "file": "scout/attack.2.ogg",
+     "text": "Taking the shot.",
+     "seconds": 1.074
+    },
+    "attack.3": {
+     "file": "scout/attack.3.ogg",
+     "text": "Strafing!",
+     "seconds": 0.777
+    },
+    "attackMove.1": {
+     "file": "scout/attackMove.1.ogg",
+     "text": "Scouting ahead.",
+     "seconds": 0.82
+    },
+    "guard.1": {
+     "file": "scout/guard.1.ogg",
+     "text": "Eyes open.",
+     "seconds": 0.812
+    },
+    "guard.2": {
+     "file": "scout/guard.2.ogg",
+     "text": "Keeping watch.",
+     "seconds": 0.989
+    },
+    "move.1": {
+     "file": "scout/move.1.ogg",
+     "text": "On my way.",
+     "seconds": 0.785
+    },
+    "move.2": {
+     "file": "scout/move.2.ogg",
+     "text": "Here we go.",
+     "seconds": 0.753
+    },
+    "move.3": {
+     "file": "scout/move.3.ogg",
+     "text": "Full throttle.",
+     "seconds": 0.89
+    },
+    "repair.1": {
+     "file": "scout/repair.1.ogg",
+     "text": "Heading for repairs.",
+     "seconds": 1.087
+    },
+    "scatter.1": {
+     "file": "scout/scatter.1.ogg",
+     "text": "Scattering.",
+     "seconds": 0.726
+    },
+    "select.1": {
+     "file": "scout/select.1.ogg",
+     "text": "Ready to roll.",
+     "seconds": 0.876
+    },
+    "select.2": {
+     "file": "scout/select.2.ogg",
+     "text": "Wheels ready.",
+     "seconds": 0.842
+    },
+    "select.3": {
+     "file": "scout/select.3.ogg",
+     "text": "Scout here.",
+     "seconds": 0.757
+    }
+   }
+  },
+  "tanker": {
+   "voice": "bm_fable",
+   "role": "unit",
+   "group": "tanker",
+   "lines": {
+    "attack.1": {
+     "file": "tanker/attack.1.ogg",
+     "text": "Firing.",
+     "seconds": 1.084
+    },
+    "attack.2": {
+     "file": "tanker/attack.2.ogg",
+     "text": "Target acquired.",
+     "seconds": 1.204
+    },
+    "attack.3": {
+     "file": "tanker/attack.3.ogg",
+     "text": "Guns on target.",
+     "seconds": 1.264
+    },
+    "attackMove.1": {
+     "file": "tanker/attackMove.1.ogg",
+     "text": "Advancing.",
+     "seconds": 0.843
+    },
+    "destruct.1": {
+     "file": "tanker/destruct.1.ogg",
+     "text": "Self-destruct armed.",
+     "seconds": 1.449
+    },
+    "destruct.2": {
+     "file": "tanker/destruct.2.ogg",
+     "text": "Detonation set.",
+     "seconds": 1.248
+    },
+    "guard.1": {
+     "file": "tanker/guard.1.ogg",
+     "text": "Holding position.",
+     "seconds": 1.182
+    },
+    "guard.2": {
+     "file": "tanker/guard.2.ogg",
+     "text": "Covering the area.",
+     "seconds": 1.149
+    },
+    "move.1": {
+     "file": "tanker/move.1.ogg",
+     "text": "Rolling.",
+     "seconds": 0.672
+    },
+    "move.2": {
+     "file": "tanker/move.2.ogg",
+     "text": "Moving out.",
+     "seconds": 0.874
+    },
+    "move.3": {
+     "file": "tanker/move.3.ogg",
+     "text": "Tracks turning.",
+     "seconds": 1.042
+    },
+    "repair.1": {
+     "file": "tanker/repair.1.ogg",
+     "text": "Going for repairs.",
+     "seconds": 1.298
+    },
+    "scatter.1": {
+     "file": "tanker/scatter.1.ogg",
+     "text": "Breaking formation.",
+     "seconds": 1.151
+    },
+    "select.1": {
+     "file": "tanker/select.1.ogg",
+     "text": "Tank ready.",
+     "seconds": 0.809
+    },
+    "select.2": {
+     "file": "tanker/select.2.ogg",
+     "text": "Crew standing by.",
+     "seconds": 1.308
+    },
+    "select.3": {
+     "file": "tanker/select.3.ogg",
+     "text": "Armour ready.",
+     "seconds": 0.905
+    }
+   }
+  },
+  "harvester": {
+   "voice": "af_sarah",
+   "role": "unit",
+   "group": "harvester",
+   "lines": {
+    "harvest.1": {
+     "file": "harvester/harvest.1.ogg",
+     "text": "Heading to the spice.",
+     "seconds": 1.34
+    },
+    "harvest.2": {
+     "file": "harvester/harvest.2.ogg",
+     "text": "Off to the spice.",
+     "seconds": 1.213
+    },
+    "harvest.3": {
+     "file": "harvester/harvest.3.ogg",
+     "text": "Harvesting.",
+     "seconds": 1.002
+    },
+    "move.1": {
+     "file": "harvester/move.1.ogg",
+     "text": "Moving.",
+     "seconds": 0.895
+    },
+    "move.2": {
+     "file": "harvester/move.2.ogg",
+     "text": "On our way.",
+     "seconds": 0.945
+    },
+    "move.3": {
+     "file": "harvester/move.3.ogg",
+     "text": "Understood.",
+     "seconds": 1.007
+    },
+    "repair.1": {
+     "file": "harvester/repair.1.ogg",
+     "text": "Going for repairs.",
+     "seconds": 1.34
+    },
+    "return.1": {
+     "file": "harvester/return.1.ogg",
+     "text": "Returning to refinery.",
+     "seconds": 1.473
+    },
+    "return.2": {
+     "file": "harvester/return.2.ogg",
+     "text": "Heading back.",
+     "seconds": 1.086
+    },
+    "return.3": {
+     "file": "harvester/return.3.ogg",
+     "text": "Bringing it home.",
+     "seconds": 1.112
+    },
+    "select.1": {
+     "file": "harvester/select.1.ogg",
+     "text": "Harvester here.",
+     "seconds": 1.127
+    },
+    "select.2": {
+     "file": "harvester/select.2.ogg",
+     "text": "Ready to work.",
+     "seconds": 1.073
+    },
+    "select.3": {
+     "file": "harvester/select.3.ogg",
+     "text": "Spice crew ready.",
+     "seconds": 1.27
+    }
+   }
+  },
+  "carryall": {
+   "voice": "af_kore",
+   "role": "unit",
+   "group": "carryall",
+   "lines": {
+    "deliver.1": {
+     "file": "carryall/deliver.1.ogg",
+     "text": "Delivering.",
+     "seconds": 0.861
+    },
+    "drop.1": {
+     "file": "carryall/drop.1.ogg",
+     "text": "Releasing.",
+     "seconds": 0.881
+    },
+    "drop.2": {
+     "file": "carryall/drop.2.ogg",
+     "text": "Setting it down.",
+     "seconds": 0.995
+    },
+    "duty.1": {
+     "file": "carryall/duty.1.ogg",
+     "text": "On duty.",
+     "seconds": 0.871
+    },
+    "duty.2": {
+     "file": "carryall/duty.2.ogg",
+     "text": "Back to work.",
+     "seconds": 1.035
+    },
+    "lift.1": {
+     "file": "carryall/lift.1.ogg",
+     "text": "Picking it up.",
+     "seconds": 0.906
+    },
+    "lift.2": {
+     "file": "carryall/lift.2.ogg",
+     "text": "Lifting.",
+     "seconds": 0.82
+    },
+    "lift.3": {
+     "file": "carryall/lift.3.ogg",
+     "text": "Coming to collect.",
+     "seconds": 1.157
+    },
+    "move.1": {
+     "file": "carryall/move.1.ogg",
+     "text": "Heading out.",
+     "seconds": 0.9
+    },
+    "move.2": {
+     "file": "carryall/move.2.ogg",
+     "text": "On my way.",
+     "seconds": 0.918
+    },
+    "move.3": {
+     "file": "carryall/move.3.ogg",
+     "text": "Flying there.",
+     "seconds": 0.908
+    },
+    "select.1": {
+     "file": "carryall/select.1.ogg",
+     "text": "Carryall ready.",
+     "seconds": 1.104
+    },
+    "select.2": {
+     "file": "carryall/select.2.ogg",
+     "text": "Pilot standing by.",
+     "seconds": 1.296
+    },
+    "select.3": {
+     "file": "carryall/select.3.ogg",
+     "text": "Ready to lift.",
+     "seconds": 1.029
+    }
+   }
+  },
+  "mcv": {
+   "voice": "bm_lewis",
+   "role": "unit",
+   "group": "mcv",
+   "lines": {
+    "deploy.1": {
+     "file": "mcv/deploy.1.ogg",
+     "text": "Deploying.",
+     "seconds": 0.792
+    },
+    "deploy.2": {
+     "file": "mcv/deploy.2.ogg",
+     "text": "Setting up base.",
+     "seconds": 1.144
+    },
+    "move.1": {
+     "file": "mcv/move.1.ogg",
+     "text": "Moving out.",
+     "seconds": 0.884
+    },
+    "move.2": {
+     "file": "mcv/move.2.ogg",
+     "text": "Rolling slowly.",
+     "seconds": 1.163
+    },
+    "move.3": {
+     "file": "mcv/move.3.ogg",
+     "text": "Understood.",
+     "seconds": 0.895
+    },
+    "select.1": {
+     "file": "mcv/select.1.ogg",
+     "text": "M C V ready.",
+     "seconds": 1.512
+    },
+    "select.2": {
+     "file": "mcv/select.2.ogg",
+     "text": "Standing by.",
+     "seconds": 1.084
+    }
+   }
+  },
+  "ornithopter": {
+   "voice": "af_nova",
+   "role": "unit",
+   "group": "ornithopter",
+   "lines": {
+    "attack.1": {
+     "file": "ornithopter/attack.1.ogg",
+     "text": "Attack run.",
+     "seconds": 1.207
+    },
+    "attack.2": {
+     "file": "ornithopter/attack.2.ogg",
+     "text": "Diving!",
+     "seconds": 0.829
+    },
+    "attack.3": {
+     "file": "ornithopter/attack.3.ogg",
+     "text": "Rockets away!",
+     "seconds": 1.261
+    },
+    "attackMove.1": {
+     "file": "ornithopter/attackMove.1.ogg",
+     "text": "Hunting.",
+     "seconds": 0.829
+    },
+    "guard.1": {
+     "file": "ornithopter/guard.1.ogg",
+     "text": "Circling.",
+     "seconds": 0.776
+    },
+    "guard.2": {
+     "file": "ornithopter/guard.2.ogg",
+     "text": "Holding the sky.",
+     "seconds": 1.414
+    },
+    "move.1": {
+     "file": "ornithopter/move.1.ogg",
+     "text": "Banking.",
+     "seconds": 0.778
+    },
+    "move.2": {
+     "file": "ornithopter/move.2.ogg",
+     "text": "On approach.",
+     "seconds": 1.183
+    },
+    "move.3": {
+     "file": "ornithopter/move.3.ogg",
+     "text": "Flying.",
+     "seconds": 0.873
+    },
+    "select.1": {
+     "file": "ornithopter/select.1.ogg",
+     "text": "Thopter ready.",
+     "seconds": 1.107
+    },
+    "select.2": {
+     "file": "ornithopter/select.2.ogg",
+     "text": "Pilot ready.",
+     "seconds": 1.132
+    },
+    "select.3": {
+     "file": "ornithopter/select.3.ogg",
+     "text": "Wings ready.",
+     "seconds": 1.183
+    }
+   }
+  },
+  "saboteur": {
+   "voice": "af_nicole",
+   "role": "unit",
+   "group": "saboteur",
+   "lines": {
+    "attack.1": {
+     "file": "saboteur/attack.1.ogg",
+     "text": "As you wish.",
+     "seconds": 0.964
+    },
+    "move.1": {
+     "file": "saboteur/move.1.ogg",
+     "text": "Quietly.",
+     "seconds": 0.886
+    },
+    "move.2": {
+     "file": "saboteur/move.2.ogg",
+     "text": "Understood.",
+     "seconds": 1.052
+    },
+    "move.3": {
+     "file": "saboteur/move.3.ogg",
+     "text": "Slipping through.",
+     "seconds": 1.205
+    },
+    "sabotage.1": {
+     "file": "saboteur/sabotage.1.ogg",
+     "text": "Going in.",
+     "seconds": 0.907
+    },
+    "sabotage.2": {
+     "file": "saboteur/sabotage.2.ogg",
+     "text": "Consider it done.",
+     "seconds": 1.296
+    },
+    "sabotage.3": {
+     "file": "saboteur/sabotage.3.ogg",
+     "text": "It ends here.",
+     "seconds": 1.161
+    },
+    "select.1": {
+     "file": "saboteur/select.1.ogg",
+     "text": "Ready.",
+     "seconds": 0.767
+    },
+    "select.2": {
+     "file": "saboteur/select.2.ogg",
+     "text": "Listening.",
+     "seconds": 0.888
+    },
+    "select.3": {
+     "file": "saboteur/select.3.ogg",
+     "text": "In the shadows.",
+     "seconds": 1.131
+    }
+   }
+  },
+  "fremen": {
+   "voice": "bm_george*0.6+am_fenrir*0.4",
+   "role": "unit",
+   "group": "fremen",
+   "lines": {
+    "select.1": {
+     "file": "fremen/select.1.ogg",
+     "text": "We are here.",
+     "seconds": 1.322
+    },
+    "select.2": {
+     "file": "fremen/select.2.ogg",
+     "text": "The desert listens.",
+     "seconds": 1.699
+    },
+    "select.3": {
+     "file": "fremen/select.3.ogg",
+     "text": "Our blades are ready.",
+     "seconds": 1.728
     }
    }
   }
