@@ -141,6 +141,8 @@ the front edge, Refineries by the spice), `scenarios-o2.png` (Ordos 2 on the 32 
   upgrade's tooltip names what the Sega level opens (today it names the skirmish level's units).
 - **sim/ai.js:464** (missions): `UNITS.mcv.upgrade` → `unitUpgrade(house, 'mcv')`, so a computer that lost its
   yard on the Sega ladder buys the right level for an MCV (prebuilt bases from mission 4 already hold it).
+- **sim/ai.js:288** (missions): `ixOpensSomething` should be false on the Sega ladder (`house.techRules === 'sega'`):
+  there is no House of IX, so a computer would otherwise put up a Starport it never uses (it never shops).
 - **game/mission-setup.js** (missions): set `world.rules.tech = def.rules.tech` (or call `applyTechRules(world)`
   after adding the houses); `Object.assign(house.upgrades, h.upgrades)`; paint `concrete` (slot + 1), then
   `spawnStructure` every structure (with `rules.airDelivery` off while building, each Refinery's free Harvester
