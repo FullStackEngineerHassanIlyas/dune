@@ -417,13 +417,13 @@ export class CampaignScreens {
     this.clearTimers();
     this.map.dispose();
     this.menu.hide();
+    this.moodNow = 'finale';   // the ending plays music of its own; the title theme comes back with the title
     try {
       const mod = await (this.load.ending ?? (() => import('../../scenes/menu-intro.js')))();
       await mod?.playEnding?.({ house, app: globalThis.document?.getElementById?.('app') ?? null, backdrop: this.backdrop, menu: this.menu, music: this.music });
     } catch (err) { console.warn('campaign: the ending failed:', err); }
     this.endingBusy = false;
     this.apply({ type: 'done' });
-    this.moodNow = 'finale';   // whatever the ending left playing: the title theme comes back with the title
     this.hush(false);
     try { this.backdrop?.start?.(); } catch (err) { console.warn('campaign: backdrop:', err); }
     this.menu.show();
