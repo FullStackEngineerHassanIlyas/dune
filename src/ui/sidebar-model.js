@@ -4,7 +4,7 @@
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
 import { STARPORT, PALACE } from '../data/tuning.js';
-import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks } from '../sim/tech.js';
+import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks, itemCost } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon } from '../sim/palace.js';
@@ -43,13 +43,13 @@ export function sidebarModel(world, houseId) {
   const options = buildOptions(world, houseId);
   const entry = (line) => (typeId) => {
     const t = STRUCTURES[typeId] ?? UNITS[typeId];
-    return { typeId, line, icon: typeId, name: t.name, cost: t.cost, seconds: Math.round(itemSeconds(typeId)), ...itemState(house.lines[line], typeId, line) };
+    return { typeId, line, icon: typeId, name: t.name, cost: itemCost(house, typeId), seconds: Math.round(itemSeconds(typeId)), ...itemState(house.lines[line], typeId, line) };
   };
   const upgrade = (typeId) => {
     const target = upgradeTarget(typeId), line = lineOfItem(typeId);
     const cur = house.lines[line].current?.typeId === typeId ? house.lines[line].current : null;
     const level = cur?.level ?? upgradeResult(house, target);
-    const opens = upgradeUnlocks(houseId, target, upgradeLevel(house, target), level);
+    const opens = upgradeUnlocks(house, target, upgradeLevel(house, target), level);
     return {
       typeId, line, icon: `${typeId}:${level}`, name: `${STRUCTURES[target].name} upgrade`, cost: cur?.cost ?? upgradeCost(house, target),
       seconds: Math.round(itemSeconds(typeId)), note: `Level ${level}${opens.length ? ` — unlocks ${opens.join(', ')}` : ''}`,

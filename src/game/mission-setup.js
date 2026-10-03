@@ -15,6 +15,7 @@ import { createBrain } from '../sim/ai.js';
 import { updateFog } from '../sim/fog.js';
 import { findFreeTile } from '../sim/spawn.js';
 import { setAlliances } from '../sim/alliance.js';
+import { applyTechRules } from '../sim/tech.js';
 import { isArmed } from '../sim/combat.js';
 import { createMission, guardOf } from './mission.js';
 
@@ -43,6 +44,7 @@ export function setupMission(def, { seed = null } = {}) {
   // a house named only in the reinforcements (the Sega's Sardaukar drops: no base of their own) joins the computer side
   const dropOnly = [...new Set((def.reinforcements ?? []).map((r) => r.house))].filter((id) => id !== player && !sides.some((h) => h.id === id));
   for (const id of dropOnly) addHouse(world, id, { credits: 0, ai: true, techLevel: def.techLevel ?? 9 }, problems);
+  applyTechRules(world);   // every house on the Sega ladder from the start (prices, upgrade levels, the Starport's wares)
   for (const r of def.reinforcements ?? []) for (const t of r.units ?? []) {
     if (!UNITS[t] || UNITS[t].move === 'air') problems.push(`${r.house} reinforcements: ${UNITS[t] ? 'cannot carry' : 'unknown unit'} ${t}`);
   }

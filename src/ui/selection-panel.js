@@ -5,7 +5,7 @@
 // for own structures. The model part is pure.
 import { UNITS } from '../data/units.js';
 import { HOUSES } from '../data/houses.js';
-import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
+import { LINE_FACTORIES, upgradeLevel, maxUpgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
 import { isLifter } from '../sim/carryall.js';
 
@@ -20,7 +20,8 @@ function structureModel(world, s, houseId) {
   if (t.power < 0) details.push(`Power output ${Math.round(-t.power * Math.max(0.5, Math.min(1, s.hp / s.maxHp)))}`);
   else if (t.power > 0) details.push(`Power use ${t.power}`);
   if (t.storage) details.push(`Storage ${t.storage}`);
-  if (t.upgrades) details.push(`Upgrade level ${upgradeLevel(world.houses.get(houseId), s.typeId)} of ${t.upgrades.length}`);
+  const top = t.upgrades && maxUpgradeLevel(world.houses.get(houseId), s.typeId);   // the Sega ladder tops out lower in a campaign
+  if (top) details.push(`Upgrade level ${upgradeLevel(world.houses.get(houseId), s.typeId)} of ${top}`);
   if (UNIT_FACTORIES.has(s.typeId)) {
     if (s.primary) details.push('Primary factory');
     if (s.rally) details.push('Rally point set');

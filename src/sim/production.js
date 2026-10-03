@@ -9,7 +9,7 @@
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
 import { DT, buildSeconds, structureSeconds, UPGRADE_SECONDS, AIR } from '../data/tuning.js';
-import { LINE_FACTORIES, lineOfItem, canBuild, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost } from './tech.js';
+import { LINE_FACTORIES, lineOfItem, canBuild, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, itemCost, factoryOf } from './tech.js';
 import { placeStructure } from './placement.js';
 import { spend, addCredits } from './economy.js';
 import { exitTile } from './spawn.js';
@@ -33,7 +33,7 @@ function makeItem(house, typeId) {
   const up = upgradeTarget(typeId);
   if (up) return { typeId, upgrade: up, level: upgradeResult(house, up), cost: upgradeCost(house, up), total: itemSeconds(typeId), progress: 0, paid: 0, state: 'building', starved: false };
   const t = STRUCTURES[typeId] ?? UNITS[typeId];
-  return { typeId, cost: t.cost, total: itemSeconds(typeId), progress: 0, paid: 0, state: 'building', starved: false };
+  return { typeId, cost: itemCost(house, typeId), total: itemSeconds(typeId), progress: 0, paid: 0, state: 'building', starved: false };
 }
 
 /** The next item off the queue: the one an upgrade set aside comes back as it was. */
@@ -151,7 +151,8 @@ export function orderPrimary(world, houseId, structureId) {
 
 export function spawnFromFactory(world, house, typeId) {
   const t = UNITS[typeId];
-  const factories = [...world.structures.values()].filter((s) => s.house === house.id && s.typeId === t.builtAt);
+  const at = factoryOf(house, typeId) ?? t.builtAt;   // the Sega ladder trains the Ordos Troopers at the Barracks
+  const factories = [...world.structures.values()].filter((s) => s.house === house.id && s.typeId === at);
   const f = factories.find((s) => s.primary) ?? factories[0];
   if (!f) return null;
   const air = t.move === 'air';

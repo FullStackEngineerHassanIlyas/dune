@@ -27,7 +27,7 @@ export const SEGA_SLAB_COST = 15;
  *  at 6); production.js spawns a unit at units.js `builtAt` (the WOR), so until it spawns at tech.js factoryOf() they
  *  train at a WOR the Ordos may build from mission 4 (same missions, same prices for the squad). Flip to 'barracks'
  *  together with that production.js change (notes: 2026-10-03-phase3-scenarios.md). */
-export const ORDOS_TROOPERS_AT = 'wor';
+export const ORDOS_TROOPERS_AT = 'barracks';
 
 /** Structures a house never builds on the Sega ladder (beyond its units.js/structures.js roster). */
 export const SEGA_NOT_OFFERED = {

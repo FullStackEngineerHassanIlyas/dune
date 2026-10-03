@@ -343,6 +343,7 @@ export class GameView {
   /** The menu stops the battle, the scrolling and any half-drawn selection box. */
   setMenuOpen(open) {
     this.cameraControl.suspended = open;
+    if (!open) this.music.reroll?.();   // Sega mode: a new tune when the game menu closes, as on the Mega Drive
     if (open) { this.controller.setMode(null); this.overlay.setDragBox(null); }
     this.updatePaused();
     this.last = performance.now();

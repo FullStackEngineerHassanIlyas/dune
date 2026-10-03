@@ -12,7 +12,7 @@
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, offered, UNIT_ORDER } from './tech.js';
+import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, offered, unitUpgrade, UNIT_ORDER } from './tech.js';
 import { UNITS, MOVE } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 import { isArmed, distanceTo } from './combat.js';
@@ -299,8 +299,9 @@ function wantedStructure(world, house, view, can) {
   }
   if (has('refinery') < 3 && view.units.filter((u) => u.typeId === 'harvester').length >= 2 * has('refinery') && can('refinery')) return 'refinery';
   if (has('heavyFactory') && has('turret') + has('rocketTurret') >= d.turrets) {   // defences first; the Starport only as the way to IX and the Palace
-    if (ixOpensSomething(id) && !has('starport') && can('starport')) return 'starport';
-    if (ixOpensSomething(id) && has('starport') && !has('ix') && can('ix')) return 'ix';
+    const ixWorth = house.techRules !== 'sega' && ixOpensSomething(id);   // the Sega ladder has no House of IX
+    if (ixWorth && !has('starport') && can('starport')) return 'starport';
+    if (ixWorth && has('starport') && !has('ix') && can('ix')) return 'ix';
     if (has('ix') && !has('palace') && can('palace')) return 'palace';
   }
   return null;
@@ -483,7 +484,7 @@ function rebuildMcv(world, house, view) {
   if (!view.count.heavyFactory || heavy.current?.typeId === 'mcv' || heavy.queue.includes('mcv')) return;
   if (canBuild(world, house.id, 'mcv')) { issue(world, house, { type: 'build', typeId: 'mcv' }); return; }   // queued behind the current item and paid as it builds
   const up = upgradeId('heavyFactory');
-  if (upgradeLevel(house, 'heavyFactory') < UNITS.mcv.upgrade && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
+  if (upgradeLevel(house, 'heavyFactory') < unitUpgrade(house, 'mcv') && canBuild(world, house.id, up) && heavy.current?.typeId !== up && !heavy.queue.includes(up)) issue(world, house, { type: 'build', typeId: up });
 }
 
 /** The richest spot to hit: enemy buildings and ground units valued at their cost, summed within 2.5 tiles.

@@ -10,6 +10,7 @@ import { DT, STARPORT, AIR, airSpeed } from '../data/tuning.js';
 import { DEFERRED } from '../data/phase.js';
 import { spend, addCredits } from './economy.js';
 import { nearestEdge, hoverTo, climb } from './air.js';
+import { starportSells } from './tech.js';
 import { findFreeTile } from './spawn.js';
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
@@ -32,7 +33,7 @@ export function market(world, house) {
   if (house.starport) return house.starport;
   if (!starportOf(world, house.id)) return null;
   const m = { stock: {}, price: {}, restockAt: world.time + STARPORT.restock, repriceAt: world.time + STARPORT.reprice, batch: null };
-  for (const t of wares(house.id)) {
+  for (const t of wares(house.id).filter((w) => starportSells(house, w))) {   // a Sega campaign sells by mission
     m.stock[t] = STARPORT.stock[0] + world.rng.int(STARPORT.stock[1] - STARPORT.stock[0] + 1);
     m.price[t] = priceOf(world, t);
   }

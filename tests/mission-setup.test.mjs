@@ -66,7 +66,7 @@ test('a prebuilt Palace starts charging from the start', () => {
 });
 
 test('the mission\'s Starport sells what the def stocks and nothing else', () => {
-  const def = tinyDef({ starport: { stock: { quad: 3, combatTank: 1, sonicTank: 2 } } });
+  const def = tinyDef({ techLevel: 6, starport: { stock: { quad: 3, combatTank: 1, sonicTank: 2 } } });   // the Sega Starport opens at mission 6
   def.player = { ...def.player, structures: [...def.player.structures, { type: 'starport', x: 11, y: 18 }] };
   const { world, problems } = setupMission(def);
   assert.deepEqual(problems, []);
@@ -74,7 +74,7 @@ test('the mission\'s Starport sells what the def stocks and nothing else', () =>
   const m = world.houses.get('atreides').starport;
   assert.deepEqual(m.stock, { quad: 3, combatTank: 1 }, 'only wares the house can buy');
   assert.deepEqual(Object.keys(m.price).sort(), ['combatTank', 'quad']);
-  const plain = setup();
+  const plain = setup({ techLevel: 6 });
   plain.world.spawnStructure('starport', 'atreides', 11, 18);
   run(plain.world, 0.1);
   assert.ok(Object.keys(plain.world.houses.get('atreides').starport.stock).length > 2, 'without a stock list the market is the usual one');
