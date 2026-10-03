@@ -97,26 +97,27 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     return best ?? here;
   }
 
-  /** Free tiles around (x, y) for `n` units, nearest first, none of them twice. */
+  /** Free tiles around (x, y), one for each move class, nearest first and none twice: in the open beside the base
+   *  (no building next to them) where there is room, else anywhere free. */
   function freeTiles(x, y, moves) {
-    const map = world.map, out = [], taken = new Set();
-    for (const move of moves) {
-      let found = null;
-      for (let r = 1; r <= 10 && !found; r++) {
-        for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-          const tx = x + dx, ty = y + dy;
-          if (!map.inBounds(tx, ty)) continue;
-          const i = map.idx(tx, ty);
-          if (taken.has(i) || map.unit[i] || map.structure[i] || map.moveFactor(i, move) <= 0) continue;
-          found = { x: tx, y: ty };
-          taken.add(i);
-          break;
-        }
+    const map = world.map, taken = new Set();
+    const open = (tx, ty) => {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (map.inBounds(tx + dx, ty + dy) && map.structure[map.idx(tx + dx, ty + dy)]) return false;
+      return true;
+    };
+    const find = (move, clear) => {
+      for (let r = 1; r <= 10; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const tx = x + dx, ty = y + dy;
+        if (!map.inBounds(tx, ty)) continue;
+        const i = map.idx(tx, ty);
+        if (taken.has(i) || map.unit[i] || map.structure[i] || map.moveFactor(i, move) <= 0 || (clear && !open(tx, ty))) continue;
+        taken.add(i);
+        return { x: tx, y: ty };
       }
-      out.push(found);
-    }
-    return out;
+      return null;
+    };
+    return moves.map((move) => find(move, true) ?? find(move, false));
   }
 
   /** One scheduled group comes in. */
@@ -228,6 +229,7 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
     },
     /** The HUD's objective line: what to do and how far along it is. */
     hudLine() {
+      if (world.outcome) return `${title} · ${world.outcome.winner === player ? 'Mission accomplished' : 'Mission failed'}`;
       const p = progress();
       const parts = [title];
       if (kind !== 'destroy') parts.push(`${Math.min(p.credits, 999999)} / ${quota} credits`);

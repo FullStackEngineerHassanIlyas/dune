@@ -117,4 +117,7 @@ test('the HUD line names the objective and how far along it is', () => {
   assert.equal(d.world.mission.hudLine(), 'Destroy the Harkonnen base · 2 enemy buildings left');
   const e = setup({ objective: { kind: 'quotaOrDestroy', quota: 2700 }, title: '' });
   assert.match(e.world.mission.hudLine(), /^Harvest 2700 credits or destroy the enemy base · 500 \/ 2700 credits · 2 enemy buildings left$/);
+  razeBase(d.world, 'harkonnen', 'atreides');
+  run(d.world, 120.3);
+  assert.equal(d.world.mission.hudLine(), 'Destroy the Harkonnen base · Mission accomplished');
 });

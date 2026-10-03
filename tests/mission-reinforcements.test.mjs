@@ -44,6 +44,7 @@ test('the player\'s reinforcements come by Carryall from the chosen side at thei
   assert.notEqual(`${units[0].tx},${units[0].ty}`, `${units[1].tx},${units[1].ty}`, 'each on its own tile');
   for (const u of units) {
     assert.equal(world.map.structure[world.map.idx(u.tx, u.ty)], 0, 'on free ground');
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) assert.equal(world.map.structure[world.map.idx(u.tx + dx, u.ty + dy)], 0, 'in the open, not squeezed between buildings');
     assert.ok(Math.hypot(u.tx - y.x, u.ty - y.y) < 10, 'at the base');
     assert.equal(u.order.type, 'idle', 'the player\'s to command');
   }
