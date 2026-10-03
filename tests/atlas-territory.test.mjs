@@ -80,15 +80,16 @@ test('the player only gains land, step by step', () => {
   }
 });
 
-test('after mission 8 only the Emperor’s region stands against the player, and step 9 leaves it so', () => {
+test('after mission 8 only the Emperor’s region stands against the player, and the last win takes it', () => {
   const last = { atreides: 6, harkonnen: 15, ordos: 4 };
   for (const house of HOUSES) {
-    for (const step of [8, 9]) {
-      const own = ownership(house, step);
-      assert.deepEqual(own.sardaukar, [last[house]], `${house} step ${step}`);
-      assert.equal(own[house].length, 26, `${house} step ${step}`);
-      for (const rival of HOUSES.filter((h) => h !== house)) assert.deepEqual(own[rival], [], `${house} step ${step}: ${rival}`);
-    }
+    const own = ownership(house, 8);
+    assert.deepEqual(own.sardaukar, [last[house]], `${house} step 8`);
+    assert.equal(own[house].length, 26, `${house} step 8`);
+    for (const rival of HOUSES.filter((h) => h !== house)) assert.deepEqual(own[rival], [], `${house} step 8: ${rival}`);
+    const end = ownership(house, 9);
+    assert.deepEqual(end.sardaukar, [], `${house} step 9`);
+    assert.equal(end[house].length, 27, `${house} step 9: all of Arrakis`);
     assert.equal(targetRegion(house, 9), last[house]);
   }
 });

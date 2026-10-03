@@ -62,6 +62,7 @@ for (const house of CAMPAIGNS) {
   for (let step = 0; step <= STEPS; step++) {
     const g = step === 0 ? GROUPS[house][0] : step >= 2 ? GROUPS[house][step - 1] : null;   // [GROUP9] does not exist
     if (g) for (const k of 'AHOS') for (const id of g[k] ?? []) now[id] = HOUSE_OF[k];
+    if (step === STEPS) for (let id = 1; id <= 27; id++) if (now[id] === 'sardaukar') now[id] = house;   // the last win takes the Emperor's land too
     owners[house].push(now.slice());
   }
 }
