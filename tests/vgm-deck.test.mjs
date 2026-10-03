@@ -196,6 +196,10 @@ test('DAC streams write their bank at their own frequency, by start/length, by b
   const { L } = render(d, 40);
   const at = (i, byte) => assert.ok(Math.abs(L[i] - dacLevel(byte)) < 1e-7, `sample ${i}: byte ${byte}`);
   at(10, bank[2]); at(13, bank[2]); at(14, bank[3]); at(18, bank[4]); at(22, bank[5]); at(26, bank[5]); at(30, bank[5]);
+  // reversed (length mode bit 4): the same four bytes from the far end
+  const rev = make([...setup, wait(10), [0x93, 0x00, 2, 0, 0, 0, 0x11, 4, 0, 0, 0], wait(40)], {}, { passes: 1 });
+  const V = render(rev, 40).L;
+  for (const [i, byte] of [[10, bank[5]], [14, bank[4]], [18, bank[3]], [22, bank[2]], [30, bank[2]]]) assert.ok(Math.abs(V[i] - dacLevel(byte)) < 1e-7, `reversed ${i}`);
   // the fast call plays block 1 (bytes 16-31) and loops; 0x94 stops it
   const e = make([...setup, wait(10), [0x95, 0x00, 1, 0, 0x01], wait(16 * 4 + 8), [0x94, 0x00], wait(20)], {}, { passes: 1 });
   const E = render(e, 100).L;
