@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateMap, plateauHalf } from '../src/sim/mapgen.js';
+import { generateMap, plateauHalf, siteSpiceSpot } from '../src/sim/mapgen.js';
 import { GameMap } from '../src/sim/map.js';
 import { G, SURFACE } from '../src/data/terrain.js';
 
@@ -140,10 +140,11 @@ test('sites are connected for tracked vehicles', () => {
 test('every site has spice within reach, off its plateau', () => {
   for (let seed = 1; seed <= 12; seed++) {
     const { map } = generateMap({ w: 64, h: 64, seed, sites: SITES });
-    for (const s of SITES) {
+    for (const s of SITES) {   // within nine tiles of the plateau's sure square
+      const reach = plateauHalf(s.r) + 9;
       let near = 0;
-      for (let i = 0; i < map.spice.length; i++) if (map.spice[i] && Math.hypot(map.xOf(i) - s.x, map.yOf(i) - s.y) <= s.r + 8) near++;
-      assert.ok(near >= 12, `seed ${seed} site ${s.id}: ${near} spice tiles within ${s.r + 8}`);
+      for (let i = 0; i < map.spice.length; i++) if (map.spice[i] && Math.max(Math.abs(map.xOf(i) - s.x), Math.abs(map.yOf(i) - s.y)) <= reach) near++;
+      assert.ok(near >= 20, `seed ${seed} site ${s.id}: ${near} spice tiles within ${reach}`);
     }
     for (let i = 0; i < map.spice.length; i++) {
       if (!map.spice[i] && !map.bloom[i]) continue;
@@ -151,6 +152,23 @@ test('every site has spice within reach, off its plateau', () => {
         const half = plateauHalf(s.r);
         assert.ok(Math.max(Math.abs(map.xOf(i) - s.x), Math.abs(map.yOf(i) - s.y)) > half, `seed ${seed} spice or bloom on the plateau of ${s.id}`);
       }
+    }
+  }
+});
+
+test('a site\'s spice field lies at its spot, towards the centre unless another site is in the way', () => {
+  const two = [{ x: 8, y: 8, r: 6 }, { x: 23, y: 23, r: 7 }];
+  const spot = siteSpiceSpot(two[0], 32, 32, two);
+  for (const o of two.slice(1)) assert.ok(Math.max(Math.abs(o.x - spot.x), Math.abs(o.y - spot.y)) > plateauHalf(o.r) + 3, JSON.stringify(spot));
+  const open = siteSpiceSpot({ x: 12, y: 50, r: 8 }, 64, 64);
+  assert.ok(open.x > 12 && open.y < 50, 'towards the map centre on an open map');
+  for (let seed = 1; seed <= 6; seed++) {
+    const { map } = generateMap({ w: 32, h: 32, seed, sites: two });
+    for (const s of two) {
+      const p = siteSpiceSpot(s, 32, 32, two);
+      let near = 0;
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (map.inBounds(p.x + dx, p.y + dy) && map.spice[map.idx(p.x + dx, p.y + dy)]) near++;
+      assert.ok(near >= 15, `seed ${seed}: ${near} spice tiles round the spot of ${s.x},${s.y}`);
     }
   }
 });

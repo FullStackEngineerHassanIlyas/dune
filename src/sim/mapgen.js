@@ -189,31 +189,35 @@ function placeBlooms(map, rng, starts, count) {
 /** Is tile (x, y) on, or within `margin` tiles of, the sure square of any site's plateau? */
 const nearSite = (sites, x, y, margin = 0) => sites.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= plateauHalf(o.r) + margin);
 
-/** A spice field just off the site's plateau, on the side facing the map centre (where its Refinery stands). */
+/** Where a site's spice field lies: a few tiles past the edge of its sure square, towards the map centre or, when
+ *  another site is in the way (a small map), turned aside from it (a mission lays the site's Refinery out on that
+ *  side, data/missions/layout.js). */
+export function siteSpiceSpot(site, w, h, sites = [site]) {
+  const half = plateauHalf(site.r ?? PLATEAU_RADIUS);
+  const ang = Math.atan2((h - 1) / 2 - site.y, (w - 1) / 2 - site.x);
+  const clear = (x, y) => sites.every((o) => (o.x === site.x && o.y === site.y) || Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > plateauHalf(o.r ?? PLATEAU_RADIUS) + 3);
+  let first = null;
+  for (const turn of [0, 0.5, -0.5, 1, -1]) for (const gap of [5, 4, 3]) {
+    const c = Math.cos(ang + turn), s = Math.sin(ang + turn);
+    const t = (half + gap) / Math.max(Math.abs(c), Math.abs(s));
+    const x = Math.round(site.x + c * t), y = Math.round(site.y + s * t);
+    const spot = { x: Math.max(3, Math.min(w - 4, x)), y: Math.max(3, Math.min(h - 4, y)) };
+    first ??= spot;
+    if (spot.x === x && spot.y === y && clear(x, y)) return spot;
+  }
+  return first;
+}
+
+/** A spice field at the site's spot: a basin of sand is opened there first if rock or mountain stands in the way. */
 function siteSpice(map, rng, s, sites) {
-  const lo = s.r + 2, hi = s.r + 7;
-  const ang = Math.atan2(map.h / 2 - s.y, map.w / 2 - s.x);
-  const candidates = [];
-  for (let dy = -hi; dy <= hi; dy++) for (let dx = -hi; dx <= hi; dx++) {
-    const d = Math.hypot(dx, dy);
-    if (d < lo || d > hi || Math.cos(Math.atan2(dy, dx) - ang) < 0.35) continue;
-    const x = s.x + dx, y = s.y + dy;
-    if (!map.inBounds(x, y) || !isSandGround(map, map.idx(x, y)) || nearSite(sites, x, y, 1)) continue;
-    candidates.push(map.idx(x, y));
+  const { x, y } = siteSpiceSpot(s, map.w, map.h, sites);
+  for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+    const tx = x + dx, ty = y + dy;
+    if (dx * dx + dy * dy > 12.5 || !map.inBounds(tx, ty) || nearSite(sites, tx, ty, 1)) continue;
+    const i = map.idx(tx, ty);
+    if (!isSandGround(map, i)) map.ground[i] = G.SAND;
   }
-  if (!candidates.length) {
-    // rock all round: open a patch of desert toward the map centre, clear of every plateau
-    const x = Math.max(3, Math.min(map.w - 4, Math.round(s.x + Math.cos(ang) * (s.r + 4))));
-    const y = Math.max(3, Math.min(map.h - 4, Math.round(s.y + Math.sin(ang) * (s.r + 4))));
-    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-      const tx = x + dx, ty = y + dy;
-      if (map.inBounds(tx, ty) && !nearSite(sites, tx, ty, 1)) map.ground[map.idx(tx, ty)] = G.SAND;
-    }
-    if (isSandGround(map, map.idx(x, y))) candidates.push(map.idx(x, y));
-  }
-  if (!candidates.length) return;
-  const i = rng.pick(candidates);
-  growField(map, rng, map.xOf(i), map.yOf(i), 28 + rng.int(14));
+  growField(map, rng, x, y, 28 + rng.int(14));
 }
 
 function siteMap(map, rng, given, spiceFields, blooms) {
