@@ -63,6 +63,22 @@ export class CampaignScreens {
 
   clearTimers() { for (const t of this.timers) clearTimeout(t); this.timers.clear(); }
 
+  /** Runs `fn` once the screen has been on show for `ms`, counted in drawn frames (a stall, such as the menu coming
+   *  back from a battle, does not count), unless the screen has changed by then. Without frames (Node): a timer. */
+  shown(fn, ms) {
+    const raf = globalThis.requestAnimationFrame;
+    if (!raf) { this.later(fn, ms); return; }
+    const visit = this.menu.visit;
+    let left = ms, last = null;
+    const frame = (now) => {
+      if (this.menu.visit !== visit) return;
+      if (last !== null) left -= Math.min(100, now - last);
+      last = now;
+      if (left <= 0) fn(); else raf(frame);
+    };
+    raf(frame);
+  }
+
   /** The words and the mission list, loaded once; the screen is drawn again when they arrive. */
   ensureWords() {
     if (this.words || this.wordsLoading) return;
@@ -180,11 +196,14 @@ export class CampaignScreens {
     this.mood('menu');
   }
 
-  /** The backdrop held still (true) or as the player's Pause background setting has it. */
+  /** The backdrop held still (true), or as the player's Pause background setting has it and running. */
   hush(on) {
     if (on === this.hushed) return;
     this.hushed = on;
-    try { this.backdrop?.setPaused?.(on ? true : this.settings.menuMotion === false); } catch (err) { console.warn('campaign: backdrop:', err); }
+    try {
+      this.backdrop?.setPaused?.(on ? true : this.settings.menuMotion === false);
+      if (!on) this.backdrop?.start?.();   // started again if it was stopped (a no-op while it runs)
+    } catch (err) { console.warn('campaign: backdrop:', err); }
   }
 
   /** A menu music mood (C6), each asked for once; without mood() a briefing falls back to briefing(house). */
@@ -360,7 +379,7 @@ export class CampaignScreens {
     }
     this.mood(`victory:${house}`);
     if (part === 'victory') {
-      this.later(next, VICTORY_CARD_MS);
+      this.shown(next, VICTORY_CARD_MS);
       return victoryCard(house, mission, { onContinue: next });
     }
     if (part === 'score') return scoreScreen(r, { later: (fn, ms) => this.later(fn, ms), instant: reducedMotion(), onContinue: next });
@@ -419,10 +438,10 @@ export class CampaignScreens {
     const submit = () => this.go({ type: 'password', text: this.typed });
     input.addEventListener('input', () => set(input.value));
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
-    const key = (label, act, onclick, data) => h('button', { type: 'button', class: 'cp-key', dataset: { act, ...data }, onclick: () => { onclick(); input.focus?.({ preventScroll: true }); } }, label);
+    const key = (label, act, onclick, data, name) => h('button', { type: 'button', class: 'cp-key', 'aria-label': name, dataset: { act, ...data }, onclick: () => { onclick(); input.focus?.({ preventScroll: true }); } }, label);
     const grid = h('div', { class: 'cp-keys', role: 'group', 'aria-label': 'Letters' },
       [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c) => key(c, 'letter', () => set(this.typed + c), { letter: c })),
-      key('←', 'delete', () => set(this.typed.slice(0, -1))), key('End', 'end', submit));
+      key('←', 'delete', () => set(this.typed.slice(0, -1)), {}, 'Delete the last letter'), key('End', 'end', submit, {}, 'Start with this password'));
     return h('div', { class: 'dm-panel cp-password' }, h('h2', {}, 'Enter password'),
       h('p', {}, 'Each mission of the Sega game has a ten-letter password. Type it, or pick the letters below.'),
       input,

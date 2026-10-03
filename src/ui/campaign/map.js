@@ -4,7 +4,7 @@
 // When the atlas module is missing or cannot start (no WebGL), a flat coloured map (art.js) takes its place and
 // the zoom and conquest become short timed pauses.
 import { h } from '../dom.js';
-import { flatMapSvg, flatTarget } from './art.js';
+import { flatMapSvg, flatTarget, flatCentre } from './art.js';
 
 export class CampaignMap {
   constructor({ quality = 'medium', load = () => import('../../render/atlas/index.js'), later = (fn, ms) => setTimeout(fn, ms) } = {}) {
@@ -86,7 +86,8 @@ export class CampaignMap {
   }
 
   flat(house, step, target = null, mode = '') {
-    const box = h('div', { class: `cp-flat${mode ? ` ${mode}` : ''}` });
+    const [ox, oy] = flatCentre(target);
+    const box = h('div', { class: `cp-flat${mode ? ` ${mode}` : ''}`, style: `--ox: ${(ox * 100).toFixed(1)}%; --oy: ${(oy * 100).toFixed(1)}%` });
     box.innerHTML = flatMapSvg(house, step, { target });
     this.el.replaceChildren(box);
   }

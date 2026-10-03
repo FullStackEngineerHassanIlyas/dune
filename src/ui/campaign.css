@@ -34,12 +34,12 @@
 .cp-map canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
 .cp-flat { position: absolute; inset: 0; display: grid; place-items: center; padding: 2vh 1vw; animation: cp-in .6s ease both; }
 .cp-flat svg { width: 100%; height: 100%; max-height: 62vh; filter: drop-shadow(0 18px 30px rgba(0,0,0,.8)); transform: perspective(1200px) rotateX(24deg); transform-origin: 50% 70%; }
-.cp-flat.zoom svg { animation: cp-zoom 7s cubic-bezier(.4,0,.2,1) both; }
+.cp-flat.zoom svg { transform-origin: var(--ox, 50%) var(--oy, 50%); animation: cp-zoom 7s cubic-bezier(.4,0,.2,1) both; }
 .cp-flat.conquer svg { animation: cp-in .9s ease both; }
-.cp-flat-target { stroke: #fff3c4; stroke-width: 5; animation: cp-pulse 1s ease-in-out infinite; }
+.cp-flat-target { animation: cp-pulse 1s ease-in-out infinite; }
 @keyframes cp-in { from { opacity: 0; } }
-@keyframes cp-zoom { to { transform: perspective(1200px) rotateX(10deg) scale(1.5); } }
-@keyframes cp-pulse { 50% { stroke-opacity: .35; } }
+@keyframes cp-zoom { to { transform: perspective(1200px) rotateX(8deg) scale(2.1); } }
+@keyframes cp-pulse { 50% { stroke-opacity: .3; fill-opacity: .1; } }
 .cp-foot { grid-area: foot; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 18px; padding: 10px 0 3.5vh; position: relative; z-index: 2; }
 .cp-mentat-stage .cp-bar { position: static; }
 .cp-note { flex: 1 1 260px; margin: 0; font: 13px/1.4 "Trebuchet MS", sans-serif; color: #e2cc9c; text-shadow: 0 1px 3px #000; }
@@ -65,6 +65,7 @@
 /* the region zoom: the map alone, the mission's name low on the left */
 .cp-region { cursor: pointer; }
 .cp-region-map { position: absolute; inset: 0; display: grid; }
+.cp-region::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34vh; z-index: 1; pointer-events: none; background: linear-gradient(transparent, rgba(0,0,0,.82)); }
 .cp-region-words { position: absolute; left: 4vw; bottom: 3.5vh; z-index: 2; max-width: min(640px, 60vw); pointer-events: none; }
 .cp-region-words p { margin: 0; font: 15px/1.45 "Trebuchet MS", sans-serif; color: #f2d7a0; text-shadow: 0 1px 3px #000; }
 .cp-region .cp-flat svg { max-height: 78vh; }
@@ -126,6 +127,7 @@
 .cp-keys { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }
 .cp-key { min-height: 38px; padding: 0; font: bold 15px "Trebuchet MS", sans-serif; color: #f5d48a; background: linear-gradient(#4a3520, #2a1d10); border: 2px solid #8e6843; border-radius: 3px; }
 .cp-key[data-act="end"] { grid-column: span 2; }
+.cp-key[data-act="delete"] { font-size: 20px; line-height: 1; }
 .cp-key[data-act="delete"] { grid-column: span 2; }
 .cp-key:hover, .cp-key:focus-visible { border-color: #ffd24a; color: #fff3c4; outline: none; }
 
@@ -139,8 +141,13 @@
   .cp-mentat-stage { padding: 72px 16px 0; }
   .cp-stage .cp-bar { right: 16px; bottom: 16px; }
   .cp-stage .cp-bar.cp-bar-left { left: 16px; }
-  .cp-houses-screen { align-content: start; gap: 12px; overflow: auto; }
-  .cp-house { width: min(46vw, 200px); }
+  .cp-houses-screen { align-content: center; gap: 24px; padding-left: 8px; padding-right: 8px; }
+  .cp-houses { flex-wrap: nowrap; gap: 4px; }
+  .cp-house { width: 32vw; padding: 4px 2px; }
+  .cp-plaque { min-width: 0; width: 100%; box-sizing: border-box; padding: 5px 2px 4px; font-size: 11px; letter-spacing: .08em; }
+  .cp-house small { font-size: 11px; text-align: center; }
+  .cp-house small + small:not(.cp-saved) { display: none; }
+  .cp-mentat-stage .cp-btn { min-width: 0; padding: 9px 12px; font-size: 13px; }
   .cp-score-bar { grid-template-columns: 62px 1fr 70px; gap: 8px; }
   .cp-keys { grid-template-columns: repeat(7, 1fr); }
   .cp-key[data-act="end"], .cp-key[data-act="delete"] { grid-column: span 1; }

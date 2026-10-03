@@ -88,7 +88,8 @@ export function flatMapSvg(house, step, { target = null } = {}) {
   const cells = owners.map((owner, k) => {
     const i = k % COLS, j = Math.floor(k / COLS);
     const pts = [P[i][j], P[i + 1][j], P[i + 1][j + 1], P[i][j + 1]].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-    return `<polygon points="${pts}" fill="${owner ? hex(owner) : 'transparent'}" fill-opacity="${owner ? 0.62 : 0}" stroke="#3a2210" stroke-width="2"${k === target ? ' class="cp-flat-target"' : ''}/>`;
+    const cell = `<polygon points="${pts}" fill="${owner ? hex(owner) : 'transparent'}" fill-opacity="${owner ? 0.62 : 0}" stroke="#3a2210" stroke-width="2"/>`;
+    return k === target ? `${cell}<polygon class="cp-flat-target" points="${pts}" fill="#fff3c4" fill-opacity=".35" stroke="#fff3c4" stroke-width="6"/>` : cell;
   });
   return `<svg class="cp-flat-map" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of Arrakis">
   <defs><filter id="f-sand" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="4"/><feColorMatrix values="0 0 0 0 .55  0 0 0 0 .36  0 0 0 0 .18  0 0 0 .55 0"/></filter>
@@ -96,6 +97,14 @@ export function flatMapSvg(house, step, { target = null } = {}) {
   <rect width="${W}" height="${H}" rx="10" fill="url(#f-ground)"/><rect width="${W}" height="${H}" rx="10" filter="url(#f-sand)"/>
   ${cells.join('')}
   <rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="10" fill="none" stroke="#e2b043" stroke-width="3"/></svg>`;
+}
+
+/** A flat-map cell's centre as fractions of the map's width and height (the zoom heads for it). */
+export function flatCentre(k) {
+  if (!(k >= 0 && k < COLS * ROWS)) return [0.5, 0.5];
+  const P = lattice(), i = k % COLS, j = Math.floor(k / COLS);
+  const pts = [P[i][j], P[i + 1][j], P[i + 1][j + 1], P[i][j + 1]];
+  return [pts.reduce((n, p) => n + p[0], 0) / 4 / W, pts.reduce((n, p) => n + p[1], 0) / 4 / H];
 }
 
 /** The cell a mission's region zoom points at on the flat map: the next one beyond the player's land. */
