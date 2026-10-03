@@ -293,6 +293,22 @@ test('Esc steps back along the chain: join to houses to hub to title; region bac
   assert.equal(calls.launch.length, 0);
 });
 
+test('→ reads on in the Mentat\'s words, even with a button focused; Space does not steal a button\'s press', async () => {
+  const story = { ...STORY, BRIEFINGS: { ...STORY.BRIEFINGS, atreides: nine('atreides').map((b, i) => (i === 0 ? { ...b, briefing: ['Line one', 'Line two', 'Line three', 'Line four'] } : b)) } };
+  const { menu } = rig({ story });
+  await open(menu, 'campaign-briefing');
+  const lines = () => menu.el.find((el) => el.className === 'cp-lines').children.map((c) => c.textContent);
+  const button = byAct(menu.el, 'proceed');
+  press('ArrowRight', button);
+  assert.deepEqual(lines(), ['Line one', 'Line two'], 'the pair being typed, finished');
+  press('ArrowRight', button);
+  assert.deepEqual(lines(), ['', ''], 'the next pair begins');
+  press(' ', button);
+  assert.deepEqual(lines(), ['', ''], 'Space on a button is the button\'s');
+  press(' ', null);
+  assert.deepEqual(lines(), ['Line three', 'Line four'], 'Space on the page reads on');
+});
+
 test('arrow keys move between the crests', async () => {
   const { menu } = rig();
   await open(menu, 'campaign-house');

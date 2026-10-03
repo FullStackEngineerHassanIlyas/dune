@@ -237,7 +237,9 @@ export class CampaignScreens {
       e.preventDefault?.();
       return true;
     }
-    if ((e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') && this.typer && !/^(BUTTON|INPUT)$/.test(e.target?.tagName ?? '')) {
+    // reading on: → or Page Down anywhere, Space where it does not press a button
+    const target = e.target?.tagName ?? '';
+    if (this.typer && (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && target !== 'BUTTON' && target !== 'INPUT'))) {
       this.typer.skip();
       e.preventDefault?.();
       return true;
