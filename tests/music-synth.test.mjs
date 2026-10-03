@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { ALGORITHMS, FmVoice, preparePatch, advance, rateSeconds, midiHz, DB_MAX, ATTACK, DECAY, SUSTAIN, RELEASE, OFF } from '../src/audio/music/fm.js';
 import { DrumKit, KIT, softTanh } from '../src/audio/music/drums.js';
 import { PATCHES } from '../src/audio/music/patches.js';
+import { Deck } from '../src/audio/music/deck.js';
+import { compile } from '../src/audio/music/score.js';
 
 const RATE = 48000;
 
@@ -142,4 +144,33 @@ test('every drum hit sounds, stays finite and dies away; the kit caps its polyph
   for (let i = 0; i < 30; i++) k.hit('X', 1);
   assert.equal(k.hits.length, 10);
   assert.ok(Math.abs(softTanh(0.5) - Math.tanh(0.5)) < 0.01 && softTanh(5) === 1 && softTanh(-5) === -1);
+});
+
+test('a crushed drum channel sounds like the Mega Drive’s PCM: held at a low sample rate, on 8-bit steps, silent when done', () => {
+  const rate = 32000, track = (crush) => ({
+    id: 'pcm', bpm: 120, root: 'd', mode: 'aeolian', echo: { wet: 0 },
+    channels: { drums: { drums: true, crush } },
+    patterns: { A: { bars: 1, drums: { P: 'x...............', K: '....x...........' } } }, loop: ['A'],
+  });
+  const out = (crush) => {
+    const d = new Deck(compile(track(crush)), PATCHES, rate, { passes: 1 }), L = new Float32Array(rate * 3), R = new Float32Array(rate * 3);
+    for (let i = 0; i < L.length; i += 128) d.render(L, R, i, 128);
+    return L;
+  };
+  const plain = out(0), pcm = out(8000);
+  let runs = 0, offGrid = 0, peak = 0;
+  for (let i = 0; i < 8000; i++) {
+    peak = Math.max(peak, Math.abs(pcm[i]));
+    if (Math.abs(pcm[i] * 128 - Math.round(pcm[i] * 128)) > 1e-4) offGrid++;
+    if (i % 4 && pcm[i] !== pcm[i - 1]) runs++;
+  }
+  assert.ok(peak > 0.1, `it sounds: ${peak}`);
+  assert.equal(offGrid, 0, 'every sample on a 1/128 step');
+  assert.ok(runs < 40, `held for four samples at a time (8 kHz in 32 kHz): ${runs} changes inside a hold`);
+  assert.notDeepEqual(pcm.subarray(0, 4000), plain.subarray(0, 4000));
+  assert.ok(pcm.subarray(rate * 2.5).every((v) => v === 0), 'nothing held on after the hits have died away');
+});
+
+test('the new kit pieces are there: big snare, timpani, mid tom', () => {
+  for (const piece of ['P', 'J', 'M']) assert.ok(KIT[piece], piece);
 });

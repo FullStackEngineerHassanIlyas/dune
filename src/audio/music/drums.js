@@ -28,6 +28,10 @@ export const KIT = {
   k: { name: 'tek', tone: [540, 500, 0.01, 0.045, 0.45], noise: ['bp', 3000, 1.8, 0.04, 0.8], pan: 0.2 },
   X: { name: 'crash', noise: ['hp', 4200, 0.7, 1.4, 0.5], metal: [2430, 2.41, 3, 1.1, 0.3], pan: 0.2 },
   R: { name: 'anvil', tone: [880, 860, 0.02, 0.5, 0.35], metal: [610, 2.76, 1.6, 0.55, 0.6], pan: -0.2 },
+  // phase 3: the heavier pieces of the Mega Drive's sampled kits — a fat snare, a tuned timpani, a tom between the two
+  P: { name: 'big snare', tone: [236, 182, 0.025, 0.13, 0.75], noise: ['bp', 2100, 0.6, 0.24, 1.05], drive: 1.9, pan: 0 },
+  J: { name: 'timpani', tone: [104, 98, 0.04, 1.4, 0.85], noise: ['lp', 320, 0.7, 0.06, 0.45], drive: 1.7, pan: -0.05 },
+  M: { name: 'mid tom', tone: [196, 124, 0.065, 0.36, 0.88], noise: ['bp', 1000, 1, 0.032, 0.3], drive: 1.35, pan: 0 },
 };
 
 /** tanh, near enough for saturation and far cheaper: exact at 0, within 2% to ±3, then flat at ±1. */
