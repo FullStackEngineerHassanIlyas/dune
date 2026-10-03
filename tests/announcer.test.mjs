@@ -149,3 +149,87 @@ test('sighting texts match the spoken lines', () => {
   assert.equal(sightingText('sardaukar'), 'Warning: Sardaukar approaching.');
   assert.equal(sightingText('mercenary'), 'Warning: enemy unit approaching.');
 });
+
+// ——— each kind of unit in its own voice (src/data/unit-voices.js) ———
+
+function voicedSetup({ has = (id) => id.startsWith('unit.'), rng = () => 0 } = {}) {
+  const world = flatWorld(48, 48, G.ROCK);
+  world.fogOfWar = false;
+  world.spawnStructure('constructionYard', 'atreides', 4, 4);
+  const player = fakePlayer();
+  player.output = { has, prefetched: [], prefetch(ids) { this.prefetched.push(...ids); } };
+  const a = new Announcer({ world, house: 'atreides', player, rng });
+  return { world, a, player };
+}
+const kindOf = (id) => id.split('.').slice(0, 3).join('.');
+
+test('the first of the player\'s units that takes an order answers it in its own voice', () => {
+  const { world, a, player } = voicedSetup();
+  const tank = world.spawnUnit('combatTank', 'atreides', 10, 10), harv = world.spawnUnit('harvester', 'atreides', 12, 10);
+  const fremen = world.spawnUnit('fremen', 'atreides', 14, 10), mcv = world.spawnUnit('mcv', 'atreides', 16, 10);
+  world.issue('atreides', { type: 'move', ids: [tank.id, harv.id], x: 20, y: 20 });
+  a.frame(0);
+  world.issue('atreides', { type: 'attack', ids: [harv.id, tank.id], x: 20, y: 20, force: true });
+  a.frame(2);
+  world.issue('atreides', { type: 'harvest', ids: [harv.id], x: 30, y: 30 });
+  a.frame(4);
+  world.issue('atreides', { type: 'guard', ids: [fremen.id] });
+  a.frame(6);
+  world.issue('atreides', { type: 'deploy', ids: [tank.id, mcv.id] });
+  a.frame(8);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.tanker.move', 'unit.tanker.attack', 'unit.harvester.harvest', 'unit.mcv.deploy'],
+    'a Harvester has nothing to shoot with; the Fremen take no orders; D deploys the MCV and blows nothing up');
+});
+
+test('a Carryall answers its own orders: Duty, Drop, a lift', () => {
+  const { world, a, player } = voicedSetup();
+  const c = world.spawnUnit('carryall', 'atreides', 10, 10), t = world.spawnUnit('trike', 'atreides', 20, 20);
+  world.issue('atreides', { type: 'guard', ids: [c.id] });
+  a.frame(0);
+  world.issue('atreides', { type: 'deploy', ids: [c.id] });
+  a.frame(2);
+  world.issue('atreides', { type: 'lift', ids: [c.id], targetId: t.id });
+  a.frame(4);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.carryall.duty', 'unit.carryall.drop', 'unit.carryall.lift']);
+});
+
+test('one of the freshly selected units answers, in its voice; the voices of its orders are made ready', () => {
+  let r = 0;
+  const { world, a, player } = voicedSetup({ rng: () => r });
+  const tank = world.spawnUnit('siegeTank', 'atreides', 10, 10), grunt = world.spawnUnit('infantry', 'atreides', 12, 10), quad = world.spawnUnit('quad', 'atreides', 14, 10);
+  const sel = new Selection();
+  sel.set([tank.id]);
+  a.frame(0, sel);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.tanker.select']);
+  assert.ok(player.output.prefetched.includes('unit.tanker.move.1') && player.output.prefetched.includes('unit.tanker.attack.3'));
+  r = 0.99;
+  sel.set([tank.id, grunt.id, quad.id]);
+  a.frame(1, sel);
+  assert.equal(kindOf(player.lines[1]), 'unit.scout.select', 'the tank was selected already: one of the two new ones speaks');
+});
+
+test('a unit never says the same line twice in a row', () => {
+  let i = 0;
+  const { world, a, player } = voicedSetup({ rng: () => [0, 0.5, 0.99, 0.2][i++ % 4] });
+  const tank = world.spawnUnit('combatTank', 'atreides', 10, 10);
+  for (let k = 0; k < 12; k++) {
+    world.issue('atreides', { type: 'move', ids: [tank.id], x: 20 + k, y: 20 });
+    a.frame(k * 3);
+  }
+  assert.equal(player.lines.length, 12);
+  for (let k = 1; k < 12; k++) assert.notEqual(player.lines[k], player.lines[k - 1], player.lines.join(' '));
+  assert.equal(new Set(player.lines).size, 3, 'all three are heard');
+});
+
+test('without a unit\'s own line, the old shared reply stands in', () => {
+  const { world, a, player } = voicedSetup({ has: (id) => !id.startsWith('unit.tanker.') });
+  const tank = world.spawnUnit('combatTank', 'atreides', 10, 10), trike = world.spawnUnit('trike', 'atreides', 12, 10);
+  world.issue('atreides', { type: 'move', ids: [tank.id], x: 20, y: 20 });
+  a.frame(0);
+  world.issue('atreides', { type: 'move', ids: [trike.id], x: 20, y: 20 });
+  a.frame(2);
+  const sel = new Selection();
+  sel.set([tank.id]);
+  a.frame(4, sel);
+  assert.deepEqual(player.lines.map(kindOf), ['acknowledged', 'unit.scout.move', 'reporting']);
+});

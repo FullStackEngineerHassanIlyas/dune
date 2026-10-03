@@ -1,11 +1,14 @@
 // What the player's announcer says in a battle (spec §6 Announcer; research audio-ui-controls.md §A.1):
 // simulation events become voiced lines (src/audio/voice.js), the player's unit orders and selections draw
-// a unit's acknowledgement, and two warnings the original spoke are raised here from what the player can
+// an answer from one of the units, in the voice of its kind (src/data/unit-voices.js: the first unit that
+// takes the order, one of those just selected; never the same words twice running; the old shared replies
+// when its own line cannot be had), and two warnings the original spoke are raised here from what the player can
 // see: an enemy unit near the base ("Warning, Harkonnen unit approaching") and a sandworm ("Wormsign").
 // Those two also show in the message bar; every other line's text is already there from its 'eva' event.
 // Approach warnings come one per wave, WARN_EVERY apart; a worm is announced the first time the player sees
 // it (its ridge, sim/worm.js), whatever was said just before — the original's alert on first sight.
 import { lineForEvent, ackForCommand, namedLine, SELECT_ACKS } from '../audio/voice.js';
+import { VARIANTS, voiceGroup, replyKind, voicedKind, pickVariant, unitLine, parseUnitLine } from '../data/unit-voices.js';
 import { unitVisibleTo } from '../sim/fog.js';
 import { HOUSES } from '../data/houses.js';
 
@@ -13,6 +16,7 @@ export const APPROACH_TILES = 12;      // an enemy this close to one of the play
 export const WARN_EVERY = 20;          // seconds between two sighting warnings in the message bar
 const HARMLESS = new Set(['carryall', 'frigate']);   // flying freight is not an attack
 const ENDINGS = new Set(['missionAccomplished', 'missionFailed', 'draw']);
+const PRIMED = ['move', 'attack'];     // a group's commonest answers, decoded as soon as one of its units is selected
 
 /** The message-bar words of an approach warning, as the announcer says them (scripts/voices/lines.json). */
 export function sightingText(houseId) {
@@ -34,9 +38,16 @@ export class Announcer {
     this.nextLook = 0;
     this.lastWarning = -1e9;
     this.radar = undefined;
+    this.lastVariant = new Map();  // '<group>.<kind>' → the variant said last
+    this.primed = new Set();       // groups whose answers were made ready
   }
 
-  say(id, now) { return this.player.say(id, now); }
+  say(id, now) {
+    const ok = this.player.say(id, now);
+    const u = ok && parseUnitLine(id);
+    if (u) this.lastVariant.set(`${u.group}.${u.kind}`, u.n);
+    return ok;
+  }
 
   /** For the debug hooks: what the voice is doing. */
   status() {
@@ -70,22 +81,58 @@ export class Announcer {
     if (!list) return;
     if (list !== this.pending) { this.pending = list; this.pendingSeen = 0; }
     let ack = null;
-    for (let i = this.pendingSeen; i < list.length; i++) if (list[i].houseId === this.house) ack = ackForCommand(list[i].command, this.rng) ?? ack;
+    for (let i = this.pendingSeen; i < list.length; i++) if (list[i].houseId === this.house) ack = this.reply(list[i].command) ?? ack;
     this.pendingSeen = list.length;
     if (ack) this.say(ack, now);
   }
 
-  /** "Reporting" when the player picks up one of their own units that was not selected before. */
+  /** The answer to a command: the first of the player's units that takes it speaks; null if none does. */
+  reply(cmd) {
+    if (!cmd?.ids?.length) return null;
+    const units = [];
+    for (const id of cmd.ids) {
+      const u = this.world.units.get(id);
+      if (u?.house === this.house && !u.inside && !u.visitor && u.destructAt === undefined) units.push(u);
+    }
+    const deployers = cmd.type === 'deploy' ? units.filter((u) => u.type.deploysTo) : [];   // D with an MCV along deploys it and blows nothing up
+    for (const u of deployers.length ? deployers : units) {
+      const kind = replyKind(cmd.type, u);
+      if (kind) return this.unitLine(voiceGroup(u.typeId), kind) ?? ackForCommand(cmd, this.rng);
+    }
+    return null;
+  }
+
+  /** A line of the group's for `kind` (or the nearest kind it has words for), not the one it said last; null if the voice lacks it. */
+  unitLine(group, kind) {
+    const voiced = voicedKind(group, kind);
+    if (!voiced) return null;
+    const id = unitLine(group, voiced, pickVariant(VARIANTS[group][voiced], this.lastVariant.get(`${group}.${voiced}`), this.rng));
+    return this.player.output?.has?.(id) ? id : null;
+  }
+
+  /** One of the player's units just picked up answers ("Reporting"), in its voice; its group's commonest answers are made ready. */
   selection(sel, now) {
     if (sel.version === this.selectionVersion) return;
     this.selectionVersion = sel.version;
-    let fresh = false;
+    const fresh = [];
     for (const id of sel.ids) {
       if (this.selected.has(id)) continue;
-      if (this.world.units.get(id)?.house === this.house) { fresh = true; break; }
+      const u = this.world.units.get(id);
+      if (u?.house === this.house && voiceGroup(u.typeId)) fresh.push(u);
     }
     this.selected = new Set(sel.ids);
-    if (fresh) this.say(SELECT_ACKS[Math.floor(this.rng() * SELECT_ACKS.length) % SELECT_ACKS.length], now);
+    if (!fresh.length) return;
+    const group = voiceGroup(fresh[Math.floor(this.rng() * fresh.length) % fresh.length].typeId);
+    this.say(this.unitLine(group, 'select') ?? SELECT_ACKS[Math.floor(this.rng() * SELECT_ACKS.length) % SELECT_ACKS.length], now);
+    this.prime(group);
+  }
+
+  prime(group) {
+    if (this.primed.has(group) || !this.player.output?.prefetch || this.player.output.live === false) return;   // nothing decodes before the audio opens
+    this.primed.add(group);
+    const ids = [];
+    for (const kind of PRIMED) for (let n = 1; n <= (VARIANTS[group][kind] ?? 0); n++) ids.push(unitLine(group, kind, n));
+    this.player.output.prefetch(ids.filter((id) => this.player.output.has(id)));
   }
 
   /** Sandworms anywhere in sight, each the first time it is seen; enemies the player can see close to their base, one warning per wave. */
