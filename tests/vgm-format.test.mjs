@@ -192,3 +192,55 @@ test('readVgmZip refuses what is not a usable zip', async () => {
   const damaged = zipFile([{ name: 'a.vgm', bytes: vgmFile({ commands: SONG }), deflated: new Uint8Array([0xff, 0xff, 0xff, 0xff]) }]);
   await assert.rejects(readVgmZip(damaged), VgmError);
 });
+
+// review fixes: the zip cap counts what entries really unpack to; an EOF field of 0; clocks no chip runs at
+const setUsize = (zip, size) => {   // the first directory entry's declared (uncompressed) size
+  const v = new DataView(zip.buffer), cd = v.getUint32(zip.length - 22 + 16, true);
+  v.setUint32(cd + 24, size, true);
+  return zip;
+};
+
+test('readVgmZip counts what an entry really unpacks to: a directory that misstates a size is refused', async () => {
+  const plain = new Uint8Array(1 << 20);
+  plain.set(vgmFile({ commands: SONG }));
+  const deflated = deflateRawSync(plain);
+  // a tiny zip whose directory claims 0 bytes for a deflated 1 MB file (and so could list it thousands of times)
+  await assert.rejects(readVgmZip(setUsize(zipFile([{ name: 'x.vgm', bytes: plain, deflated }]), 0)), /more than the zip says/);
+  await assert.rejects(readVgmZip(setUsize(zipFile([{ name: 'x.vgm', bytes: plain, deflated }]), plain.length + 1)), /the zip says/);
+  const small = vgmFile({ commands: SONG });
+  await assert.rejects(readVgmZip(setUsize(zipFile([{ name: 'x.vgm', bytes: small }]), 0)), /the zip says/);   // stored
+  // the reviewer's bomb in small: one entry listed 40 times, each claiming 0 bytes
+  const one = zipFile([{ name: 'x.vgm', bytes: plain, deflated }]), v = new DataView(one.buffer);
+  const cdAt = v.getUint32(one.length - 22 + 16, true), entry = one.slice(cdAt, one.length - 22);
+  new DataView(entry.buffer).setUint32(24, 0, true);
+  const many = new Uint8Array(cdAt + entry.length * 40 + 22);
+  many.set(one.subarray(0, cdAt));
+  for (let k = 0; k < 40; k++) many.set(entry, cdAt + k * entry.length);
+  const eocd = one.slice(one.length - 22), e = new DataView(eocd.buffer);
+  e.setUint16(8, 40, true); e.setUint16(10, 40, true); e.setUint32(12, entry.length * 40, true);
+  many.set(eocd, many.length - 22);
+  await assert.rejects(readVgmZip(many), VgmError);
+  // honest sizes still read
+  assert.deepEqual((await readVgmZip(zipFile([{ name: 'x.vgm', bytes: plain, deflated }])))[0].bytes, plain);
+});
+
+test('an EOF offset of 0, or one before the music data, means the file length (as VGMPlay reads it)', () => {
+  for (const eof of [0, 0x10]) {
+    const f = vgmFile({ commands: SONG });
+    new DataView(f.buffer).setUint32(4, eof, true);
+    const h = parseVgm(f);
+    assert.equal(h.eof, f.length);
+    assert.equal(h.totalSamples, 1000 + 735 + 882 + 6 + 500);
+    assert.ok(!h.warnings.some((w) => /samples/.test(w)), 'the commands are all read');
+    assert.ok(h.warnings.some((w) => /file length|bytes/.test(w)), h.warnings.join('; '));
+  }
+});
+
+test('clocks no real chip runs at are refused: the chips would cost the audio thread without bound', () => {
+  for (const [ymc, sn] of [[0x3fffffff, 3579545], [7670453, 0x3fffffff], [16000001, 3579545], [7670453, 8000001], [999999, 3579545], [7670453, 499999]]) {
+    assert.throws(() => parseVgm(vgmFile({ ym: ymc, sn, commands: SONG })), /clock/, `${ymc} ${sn}`);
+  }
+  for (const [ymc, sn] of [[7670453, 3579545], [7600489, 3546893], [8000000, 4000000], [16000000, 8000000], [0, 3579545], [7670453, 0]]) {
+    assert.deepEqual(parseVgm(vgmFile({ ym: ymc, sn, commands: SONG })).clocks, { ym2612: ymc, sn76489: sn });
+  }
+});

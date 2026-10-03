@@ -14,6 +14,9 @@ export const VGM_RATE = 44100;         // the log's own time base
 export const MAX_VGM_BYTES = 32 << 20; // a soundtrack file is at most a few MB; anything this big is not one
 const MAX_ZIP_ENTRIES = 4096;
 const MAX_ZIP_TOTAL = 256 << 20;
+// Clocks a real chip runs at (Hz). A damaged header outside them is refused: the chips run at the YM2612's
+// rate and the PSG's steps per frame grow with its clock, so a 1 GHz clock would stall the audio thread.
+const YM_CLOCK_RANGE = [1e6, 16e6], PSG_CLOCK_RANGE = [5e5, 8e6];
 
 const bytesOf = (data) => (data instanceof Uint8Array ? data : ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data));
 const u16 = (b, o) => b[o] | (b[o + 1] << 8);
@@ -32,7 +35,7 @@ export function isVgm(data) {
 }
 
 /** Inflates with DecompressionStream, refusing anything that grows past `cap` bytes (a zip bomb stops early). */
-async function inflate(bytes, format, cap, what) {
+async function inflate(bytes, format, cap, what, tooBig = `${what} unpacks to more than ${cap >> 20} MB`) {
   if (typeof DecompressionStream !== 'function') throw new VgmError(`this browser cannot unpack ${what} files (no DecompressionStream)`);
   const ds = new DecompressionStream(format);
   const writer = ds.writable.getWriter();
@@ -46,7 +49,7 @@ async function inflate(bytes, format, cap, what) {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > cap) { reader.cancel().catch(() => {}); throw new VgmError(`${what} unpacks to more than ${cap >> 20} MB`); }
+      if (total > cap) { reader.cancel().catch(() => {}); throw new VgmError(tooBig); }
       chunks.push(value);
     }
   } catch (err) {
@@ -95,14 +98,17 @@ export function readHeader(data) {
   if (b.length < 0x40 || !isVgm(b)) throw new VgmError(b.length >= 3 && isGzip(b) ? 'a VGZ must be unpacked first (inflateVgm)' : 'not a VGM file');
   const warnings = [];
   const version = u32(b, 0x08);
-  const eofField = u32(b, 0x04);
-  let end = b.length;
-  if (eofField + 4 <= b.length) end = eofField + 4;
-  else warnings.push(`the header says ${eofField + 4} bytes, the file has ${b.length}`);
   let dataOffset = 0x40;
   if (version >= 0x150) {
     const rel = u32(b, 0x34);
     if (rel) dataOffset = 0x34 + rel;
+  }
+  // the end: the EOF offset, or the file's length when it gives none or one that cannot be (as VGMPlay reads it)
+  const eofField = u32(b, 0x04);
+  let end = eofField + 4;
+  if (!eofField || end > b.length || end < dataOffset) {
+    warnings.push(eofField ? `the header says ${end} bytes, the file has ${b.length}` : 'the header gives no file length; read to the end of the file');
+    end = b.length;
   }
   if (dataOffset < 0x40 || dataOffset > end) throw new VgmError(`the music data offset ${dataOffset} lies outside the file`);
   const field = (o, size = 4, from = 0) => (version >= from && o + size <= dataOffset ? (size === 4 ? u32(b, o) : size === 2 ? u16(b, o) : b[o]) : 0);
@@ -115,6 +121,9 @@ export function readHeader(data) {
   const ym3438 = version >= 0x151 && !!(ymRaw & 0x80000000);
   const ym2612 = ymRaw & 0x3fffffff;
   const sn76489 = snRaw & 0x3fffffff;
+  const outside = (hz, [lo, hi]) => hz && (hz < lo || hz > hi);
+  if (outside(ym2612, YM_CLOCK_RANGE)) throw new VgmError(`the YM2612 clock ${ym2612} Hz is not a real chip's (1-16 MHz)`);
+  if (outside(sn76489, PSG_CLOCK_RANGE)) throw new VgmError(`the SN76489 clock ${sn76489} Hz is not a real chip's (0.5-8 MHz)`);
   for (const [o, name, from] of OTHER_CHIPS) if (field(o, 4, from) & 0x3fffffff) unsupported.push(name);
 
   let feedback = 0x0009, width = 16, snFlags = 0;
@@ -342,13 +351,17 @@ export async function readVgmZip(data) {
     const start = local + 30 + u16(b, local + 26) + u16(b, local + 28);
     if (start + csize > b.length) throw new VgmError(`${base}: the zip entry runs past the end`);
     if (usize > MAX_VGM_BYTES) throw new VgmError(`${base} is larger than ${MAX_VGM_BYTES >> 20} MB`);
+    // the cap counts the directory's sizes, so an entry must unpack to exactly the size it declares: a tiny
+    // zip that lists one deflated file many times as 0 bytes long is refused, not unpacked
     total += usize;
     if (total > MAX_ZIP_TOTAL) throw new VgmError(`the zip unpacks to more than ${MAX_ZIP_TOTAL >> 20} MB`);
     const raw = b.subarray(start, start + csize);
+    const misstated = (n) => new VgmError(`${base} unpacks to ${n} bytes, the zip says ${usize}`);
     let bytes;
-    if (method === 0) bytes = raw.slice();
-    else if (method === 8) bytes = await inflate(raw, 'deflate-raw', MAX_VGM_BYTES, base);
+    if (method === 0) { if (csize !== usize) throw misstated(csize); bytes = raw.slice(); }
+    else if (method === 8) bytes = await inflate(raw, 'deflate-raw', usize, base, `${base} unpacks to more than the zip says (${usize} bytes)`);
     else throw new VgmError(`${base}: zip compression method ${method} is not supported`);
+    if (bytes.length !== usize) throw misstated(bytes.length);
     out.push({ name: base, bytes });
   }
   return out;

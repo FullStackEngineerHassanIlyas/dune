@@ -317,3 +317,29 @@ test('bad input: no sound chip or no file is a VgmError; garbage in the log neve
     assert.equal(d.error, null);
   }
 });
+
+test('review fix: a clock no chip runs at is a VgmError, not a stalled audio thread', () => {
+  assert.throws(() => new VgmDeck('x', vgmFile({ ym: 0x3fffffff, commands: [wait(10)] }), { sampleRate: 48000 }), VgmError);
+  assert.throws(() => new VgmDeck('x', vgmFile({ sn: 0x3fffffff, commands: [wait(10)] }), { sampleRate: 48000 }), VgmError);
+});
+
+test('review fix: a DAC stream faster than the chip keeps its time and writes once a frame at most', () => {
+  const le = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, v >>> 24];
+  const bank = Array.from({ length: 64 }, (_, i) => 0x80 + i * 2);
+  const setup = (freq) => [block(0, bank), ...DAC_ON, [0x90, 0x00, 0x02, 0x00, 0x2a], [0x91, 0x00, 0x00, 0x01, 0x00], [0x92, 0x00, ...le(freq)]];
+  const counted = (d) => { const w = d.ym.write.bind(d.ym), n = { writes: 0 }; d.ym.write = (...a) => { n.writes++; w(...a); }; return n; };
+  // 88,200 Hz on a 44,100 Hz chip: two bytes a frame, the later one heard; the 64 bytes end on frame 10 + 32
+  const d = make([...setup(88200), wait(10), [0x95, 0x00, 0, 0, 0x00], wait(60)], {}, { passes: 1 });
+  const n = counted(d);
+  const { L } = render(d, 60);
+  for (let j = 0; j < 32; j++) assert.ok(Math.abs(L[10 + j] - dacLevel(bank[2 * j])) < 1e-7, `frame ${10 + j}`);
+  assert.ok(Math.abs(L[42] - dacLevel(bank[63])) < 1e-7, 'the last byte');
+  assert.ok(Math.abs(L[59] - L[42]) < 1e-9, 'then the DAC holds');
+  assert.ok(n.writes <= 33 + 8, `${n.writes} writes`);
+  // a damaged file's 2^31 Hz looping stream: still one write a frame, not millions
+  const h = make([...setup(0x7fffffff), wait(10), [0x95, 0x00, 0, 0, 0x01], wait(44100)], {}, { passes: 1 });
+  const m = counted(h);
+  const H = render(h, 256);
+  assert.ok(m.writes <= 256 + 8, `${m.writes} writes for 256 frames`);
+  for (let i = 0; i < 256; i++) assert.ok(Number.isFinite(H.L[i]));
+});

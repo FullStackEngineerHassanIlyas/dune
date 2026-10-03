@@ -286,7 +286,7 @@ export class VgmDeck {
     let s = this.streamMap.get(id);
     if (c === 0x90) {
       if (!s) {
-        s = { type: 0xff, part: 0, reg: 0, bank: 0, stepSize: 1, stepBase: 0, freq: 0, interval: 0, pos: 0, left: 0, total: 0, start: 0, step: 1, loop: false, running: false, next: 0 };
+        s = { type: 0xff, part: 0, reg: 0, bank: 0, stepSize: 1, stepBase: 0, freq: 0, interval: 0, left: 0, total: 0, start: 0, step: 1, loop: false, running: false, next: 0 };
         this.streamMap.set(id, s);
         this.streams.push(s);
       }
@@ -317,30 +317,33 @@ export class VgmDeck {
     s.start = start;
     s.total = Math.max(0, count);
     s.step = flags & 0x10 ? -s.stepSize : s.stepSize;
-    s.pos = flags & 0x10 ? start + (s.total - 1) * s.stepSize : start;
     s.left = s.total;
     s.loop = !!(flags & 0x80);
     s.next = this.frame;
     s.running = s.total > 0 && s.interval > 0 && (s.type & 0x7f) === 0x02 && !(s.type & 0x80) && !!this.ym;
   }
 
-  /** Writes the stream bytes due before frame f; returns the next frame any stream needs (or Infinity). */
+  /**
+   * Writes the stream bytes due before frame f; returns the next frame any stream needs (or Infinity). Of the
+   * bytes due in one frame only the last is heard (the DAC holds the last write), so only it is written: a
+   * stream faster than the chip keeps its time, as VGMPlay's does, at one write a frame however fast it is.
+   */
   serviceStreams(f) {
     let soonest = Infinity;
     for (const s of this.streams) {
       if (!s.running) continue;
-      while (s.next <= f) {
-        const v = this.bankByte(s.bank, s.pos);
+      if (s.next <= f) {
+        const played = s.total - s.left;                       // bytes of this pass already sent
+        let k = Math.floor((f - s.next) / s.interval) + 1;     // bytes due by frame f
+        if (!s.loop && k > s.left) k = s.left;
+        const first = s.step < 0 ? s.start + (s.total - 1) * s.stepSize : s.start;
+        const v = this.bankByte(s.bank, first + ((played + k - 1) % s.total) * s.step);
         if (v >= 0) this.ym.write(s.part & 1, s.reg, v);
-        s.pos += s.step;
-        s.next += s.interval;
-        if (--s.left <= 0) {
-          if (!s.loop) { s.running = false; break; }
-          s.left = s.total;
-          s.pos = s.step < 0 ? s.start + (s.total - 1) * s.stepSize : s.start;
-        }
+        s.next += k * s.interval;
+        if (!s.loop && played + k >= s.total) { s.running = false; continue; }
+        s.left = s.total - ((played + k) % s.total);
       }
-      if (s.running && s.next < soonest) soonest = s.next;
+      if (s.next < soonest) soonest = s.next;
     }
     return soonest;
   }
