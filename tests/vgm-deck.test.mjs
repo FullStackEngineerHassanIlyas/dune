@@ -20,10 +20,11 @@ function render(deck, n, block = 128) {
   return { L, R };
 }
 
-// ymfm's YM2612 output for a DAC value with the other five channels silent, scaled as the deck scales it
+// ymfm's YM2612 output for a DAC value with the other five channels silent, less the silent chip's ladder
+// offset (6 x 4 -> 504), scaled as the deck scales it
 const sx9 = (v) => (v << 23) >> 23;
 const disc = (v) => (v < 0 ? v - 3 : v + 4);
-const dacLevel = (byte) => (((disc(sx9((byte ^ 0x80) << 1)) + 5 * 4) * 8192 / 390) | 0) / 32768;
+const dacLevel = (byte) => ((((disc(sx9((byte ^ 0x80) << 1)) + 5 * 4) * 8192 / 390) | 0) - 504) / 32768;
 const DAC_ON = [ym(0, 0x2b, 0x80)];
 
 test('VgmDeck has the shape MusicMixer drives', () => {
@@ -231,6 +232,16 @@ test('resampled to 48 kHz: a tone keeps its pitch, a step keeps its time, nothin
   let cross = -1;
   for (let i = 1000; i < 1200; i++) if (S[i] >= mid) { cross = i - 1 + (mid - S[i - 1]) / (S[i] - S[i - 1]); break; }
   assert.ok(Math.abs(cross - (1000 * rate) / 44100) < 0.6, `${cross}`);
+});
+
+test('a silent chip is silence: the ladder offset is taken off, from the first sample, at any rate', () => {
+  for (const rate of [44100, 48000]) {
+    const d = new VgmDeck('q', vgmFile({ commands: [ym(0, 0x30, 0x01), wait(20000)] }), { sampleRate: rate });
+    const { L, R } = render(d, 6000);
+    let peak = 0;
+    for (let i = 0; i < 6000; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+    assert.ok(peak < 1e-6, `${rate}: ${peak}`);
+  }
 });
 
 test('the mixer starts the queued track on the very sample a VgmDeck ends', () => {

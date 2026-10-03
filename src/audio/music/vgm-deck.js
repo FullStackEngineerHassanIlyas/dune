@@ -40,6 +40,8 @@ function bessel0(x) {
 }
 
 /** Filter rows for fractional positions 0, 1/PHASES ... 1: TAPS weights each, summing to 1. */
+const TABLES = new Map();   // by cutoff: every track at one context rate shares one
+
 function filterTable(cutoff) {
   const t = new Float32Array((PHASES + 1) * TAPS), norm = bessel0(BETA);
   for (let p = 0; p <= PHASES; p++) {
@@ -95,6 +97,9 @@ export class VgmDeck {
     this.clock = h.clocks.ym2612 || Math.round((h.clocks.sn76489 * 15) / 7);
     this.inRate = this.clock / YM_CLOCKS_PER_SAMPLE;
     this.ym = h.clocks.ym2612 ? new YM2612({ ym3438: h.ym3438 }) : null;
+    // a silent YM2612 still outputs its DAC ladder's step on all six channels: taken off, so a track
+    // starts and ends on silence rather than a step the mixer's high-pass would turn into a thump
+    this.dc = this.ym && !h.ym3438 ? ((6 * 4 * 8192) / 390) | 0 : 0;
     this.psg = h.clocks.sn76489 ? new SN76489({ num: 9 * h.clocks.sn76489, den: this.clock, ...h.sn }) : null;
     // the log
     this.at = h.dataOffset;
@@ -112,18 +117,22 @@ export class VgmDeck {
     this.streams = [];
     this.streamMap = new Map();
     this.scan(SCAN_STEP);
-    // the resampler: frames from bufBase on, with HALF - 1 frames of silence before the first
+    // the resampler: frames from bufBase on, with HALF - 1 frames of the silent chip before the first
     this.direct = Math.abs(this.inRate - sampleRate) < 1e-9;
     this.bufL = new Float32Array(Math.ceil((CHUNK * this.inRate) / sampleRate) + TAPS + 8);
     this.bufR = new Float32Array(this.bufL.length);
     this.bufLen = this.direct ? 0 : HALF - 1;
+    this.bufL.fill(this.dc, 0, this.bufLen);
+    this.bufR.fill(this.dc, 0, this.bufLen);
     this.bufBase = -this.bufLen;
     this.ipos = 0;                // input frame at or before the next output sample
     this.inum = 0;                // and how far past it, of D2
     this.D2 = YM_CLOCKS_PER_SAMPLE * sampleRate;
     this.stepInt = Math.floor(this.clock / this.D2);
     this.stepRem = this.clock % this.D2;
-    this.table = this.direct ? null : filterTable(0.46 * Math.min(1, sampleRate / this.inRate));
+    const cutoff = 0.46 * Math.min(1, sampleRate / this.inRate);
+    if (!this.direct && !TABLES.has(cutoff)) TABLES.set(cutoff, filterTable(cutoff));
+    this.table = this.direct ? null : TABLES.get(cutoff);
   }
 
   get seconds() { return this.pos / this.rate; }
@@ -391,11 +400,11 @@ export class VgmDeck {
   copy(L, R, at, m) {
     this.bufLen = 0;
     this.produce(m);
-    const bL = this.bufL, bR = this.bufR;
+    const bL = this.bufL, bR = this.bufR, dc = this.dc;
     for (let k = 0; k < m; k++) {
       const g = this.stepGain();
-      L[at + k] += bL[k] * g;
-      R[at + k] += bR[k] * g;
+      L[at + k] += (bL[k] - dc) * g;
+      R[at + k] += (bR[k] - dc) * g;
     }
   }
 
@@ -405,19 +414,19 @@ export class VgmDeck {
     const last = this.ipos + Math.floor((this.inum + (m - 1) * this.clock) / D2);
     const need = last + HALF - (this.bufBase + this.bufLen) + 1;
     if (need > 0) this.produce(need);
-    const bL = this.bufL, bR = this.bufR, t = this.table;
+    const bL = this.bufL, bR = this.bufR, t = this.table, dc = this.dc;
     let ipos = this.ipos, inum = this.inum;
     for (let k = 0; k < m; k++) {
       const x = (inum / D2) * PHASES, p = x | 0, frac = x - p;
       let first = ipos - HALF + 1 - this.bufBase, sl = 0, sr = 0;
-      for (let j = 0, k = p * TAPS * 2; j < TAPS; j++, first++, k += 2) {
-        const c = t[k] + t[k + 1] * frac;
+      for (let j = 0, q = p * TAPS * 2; j < TAPS; j++, first++, q += 2) {
+        const c = t[q] + t[q + 1] * frac;
         sl += bL[first] * c;
         sr += bR[first] * c;
       }
       const g = this.stepGain();
-      L[at + k] += sl * g;
-      R[at + k] += sr * g;
+      L[at + k] += (sl - dc) * g;
+      R[at + k] += (sr - dc) * g;
       ipos += sInt;
       inum += sRem;
       if (inum >= D2) { inum -= D2; ipos++; }
