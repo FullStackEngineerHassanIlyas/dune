@@ -8,6 +8,7 @@ import { WebVoiceOutput, VoicePlayer, LEAD } from '../src/audio/voice.js';
 import { SoundEngine } from '../src/audio/engine.js';
 import { RATE } from '../src/audio/synth.js';
 import { LINE_WORDS } from '../src/formats/dune2-sounds.js';
+import { unitLineIds } from '../src/data/unit-voices.js';
 
 const manifest = JSON.parse(readFileSync(new URL('../assets/voice/manifest.json', import.meta.url)));
 const settle = () => new Promise((r) => setTimeout(r, 0));
@@ -148,6 +149,20 @@ test('every mapped line is spoken once all its words are there, for each playabl
     await out.ready;
     assert.deepEqual(Object.keys(out.original).sort(), Object.keys(LINE_WORDS).sort(), house);
   }
+});
+
+test('with the original replies there, every kind of unit answers with them: no line of ours is mixed in, and one clip is made once', async () => {
+  const b = fakeBrowser(), m = clips(['ZREPORT1', 'ZREPORT2', 'ZREPORT3', 'ZAFFIRM', 'ZOVEROUT', 'ZMOVEOUT']);
+  const out = new WebVoiceOutput(b.sound, 'harkonnen', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn, originals: async () => m });
+  await out.ready;
+  for (const id of unitLineIds()) assert.ok(out.original[id], `${id} is the original's`);
+  await out.load('unit.tanker.select.1');
+  await out.load('unit.harvester.select.2');
+  await out.load('unit.grunt.select.1');
+  assert.equal(out.buffers.get('unit.tanker.select.1'), out.buffers.get('unit.harvester.select.2'), 'both REPORT2: one buffer');
+  assert.notEqual(out.buffers.get('unit.tanker.select.1'), out.buffers.get('unit.grunt.select.1'), 'a man on foot: REPORT1');
+  assert.equal(b.made.length, 2);
+  assert.equal(b.fetched.length, 1, 'only the manifest');
 });
 
 // ——— the effects ———
