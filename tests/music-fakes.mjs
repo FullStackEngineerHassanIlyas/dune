@@ -128,7 +128,8 @@ export function fakeVgmDeck({ samples = 1000, renderThrows = false, breaks = fal
     constructor(id, bytes, { sampleRate, passes = 0, gain = 1 } = {}) {
       if (!(bytes instanceof Uint8Array)) throw new Error('bytes must be a Uint8Array');
       if (tag(bytes).bad) throw new Error('not a VGM file');
-      Object.assign(this, { id, rate: sampleRate, passes, gain, delay: 0, pass: 0, ending: false, pos: 0, endedAt: 0, done: false, fadeTo: gain, step: 0 });
+      // gain: the track's level on top of the file's own (as vgm-deck.js); this.gain is the fade, as Deck's
+      Object.assign(this, { id, rate: sampleRate, passes, level: gain, gain: 1, delay: 0, pass: 0, ending: false, pos: 0, endedAt: 0, done: false, fadeTo: 1, step: 0 });
       made.push(this);
     }
     fade(to, seconds) { this.fadeTo = to; this.step = seconds > 0 ? (to - this.gain) / (seconds * this.rate) : 0; if (!(seconds > 0)) this.gain = to; }
@@ -138,7 +139,7 @@ export function fakeVgmDeck({ samples = 1000, renderThrows = false, breaks = fal
       if (breaks) { this.error = 'broken'; this.ending = this.done = true; return; }   // as vgm-deck.js does: it never throws
       for (let i = 0; i < n; i++) {
         const playing = !this.ending;
-        if (playing) { const v = (Math.floor(this.pos / 24) & 1 ? 0.1 : -0.1) * this.gain; L[at + i] += v; R[at + i] += v; }
+        if (playing) { const v = (Math.floor(this.pos / 24) & 1 ? 0.02 : -0.02) * this.level * this.gain; L[at + i] += v; R[at + i] += v; }
         if (this.step) { this.gain += this.step; if ((this.step < 0 && this.gain <= this.fadeTo) || (this.step > 0 && this.gain >= this.fadeTo)) { this.gain = this.fadeTo; this.step = 0; } }
         this.pos++;
         if (playing && this.pos % samples === 0) { this.pass++; if (this.passes && this.pass >= this.passes) this.finish(); }

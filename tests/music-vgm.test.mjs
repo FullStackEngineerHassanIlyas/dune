@@ -4,7 +4,7 @@
 // The VGM player itself is the vgm stream's (src/audio/music/vgm-deck.js): a stand-in with its shape plays here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MusicMixer } from '../src/audio/music/mixer.js';
+import { MusicMixer, VGM_GAIN } from '../src/audio/music/mixer.js';
 import { MusicOutput, vgmId } from '../src/audio/music/output.js';
 import { Conductor } from '../src/audio/music/music.js';
 import { fakeWindow, fakeEngine, fakeVgmDeck, fakeStore, vgmFile, userVgm, userOgg, settle, sent, plays } from './music-fakes.mjs';
@@ -20,6 +20,7 @@ test('the mixer plays a registered VGM like a track: crossfades, passes, and the
   m.command({ cmd: 'next', id: 'vgm:2', passes: 1 });
   assert.equal(made.length, 1);
   assert.ok(made[0].id === 'vgm:1' && made[0].rate === 1000 && made[0].passes === 2);
+  assert.equal(made[0].level, VGM_GAIN, 'the Sega tracks brought up alongside the game\'s own (+14 dB)');
   const L = new Float32Array(128), R = new Float32Array(128);
   let rendered = 0;
   while (made.length < 2 && rendered < 2000) { m.render(L, R, 128); rendered += 128; }
