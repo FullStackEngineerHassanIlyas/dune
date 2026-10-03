@@ -79,7 +79,7 @@ SETS = {
                                  'acompressor=threshold=-20dB:ratio=6:attack=2:release=60:makeup=3'],
     },
     'scout': {   # Trikes and Quads: quick and light, a clean radio and the wind going by
-        'voice': 'am_puck', 'lang': 'en-us', 'speed': 1.12, 'role': 'unit', 'bed': ('wind', -30),
+        'voice': 'am_puck', 'lang': 'en-us', 'speed': 1.04, 'role': 'unit', 'bed': ('wind', -30),   # at 1.12 Whisper lost 'Strafing', 'Scouting'
         'chain': ['highpass=f=280:p=2', 'lowpass=f=4600:p=2', 'equalizer=f=2000:t=q:w=1.2:g=3', 'volume=5dB',
                   'asoftclip=type=tanh:threshold=0.8:output=1', 'volume=-4dB', 'acompressor=threshold=-21dB:ratio=5:attack=2:release=60:makeup=3'],
     },

@@ -1192,72 +1192,72 @@
     "attack.1": {
      "file": "scout/attack.1.ogg",
      "text": "Guns hot.",
-     "seconds": 0.753
+     "seconds": 0.771
     },
     "attack.2": {
      "file": "scout/attack.2.ogg",
      "text": "Taking the shot.",
-     "seconds": 1.074
+     "seconds": 1.159
     },
     "attack.3": {
      "file": "scout/attack.3.ogg",
      "text": "Strafing!",
-     "seconds": 0.777
+     "seconds": 0.825
     },
     "attackMove.1": {
      "file": "scout/attackMove.1.ogg",
      "text": "Scouting ahead.",
-     "seconds": 0.82
+     "seconds": 0.894
     },
     "guard.1": {
      "file": "scout/guard.1.ogg",
      "text": "Eyes open.",
-     "seconds": 0.812
+     "seconds": 0.852
     },
     "guard.2": {
      "file": "scout/guard.2.ogg",
      "text": "Keeping watch.",
-     "seconds": 0.989
+     "seconds": 0.932
     },
     "move.1": {
      "file": "scout/move.1.ogg",
      "text": "On my way.",
-     "seconds": 0.785
+     "seconds": 0.833
     },
     "move.2": {
      "file": "scout/move.2.ogg",
      "text": "Here we go.",
-     "seconds": 0.753
+     "seconds": 0.792
     },
     "move.3": {
      "file": "scout/move.3.ogg",
-     "text": "Full throttle.",
-     "seconds": 0.89
+     "text": "Hitting the gas.",
+     "seconds": 0.95
     },
     "repair.1": {
      "file": "scout/repair.1.ogg",
      "text": "Heading for repairs.",
-     "seconds": 1.087
+     "seconds": 1.14
     },
     "scatter.1": {
      "file": "scout/scatter.1.ogg",
      "text": "Scattering.",
-     "seconds": 0.726
+     "seconds": 0.754
     },
     "select.1": {
      "file": "scout/select.1.ogg",
      "text": "Ready to roll.",
-     "seconds": 0.876
+     "seconds": 1.117
     },
     "select.2": {
      "file": "scout/select.2.ogg",
      "text": "Wheels ready.",
-     "seconds": 0.842
+     "seconds": 0.872
     },
     "select.3": {
      "file": "scout/select.3.ogg",
      "text": "Scout here.",
-     "seconds": 0.757
+     "seconds": 0.762
     }
    }
   },

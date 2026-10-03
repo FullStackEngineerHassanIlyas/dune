@@ -96,7 +96,7 @@
     },
     "scout": {
       "select": ["Ready to roll.", "Wheels ready.", "Scout here."],
-      "move": ["On my way.", "Here we go.", "Full throttle."],
+      "move": ["On my way.", "Here we go.", "Hitting the gas."],
       "attack": ["Guns hot.", "Taking the shot.", "Strafing!"],
       "attackMove": ["Scouting ahead."],
       "guard": ["Eyes open.", "Keeping watch."],
