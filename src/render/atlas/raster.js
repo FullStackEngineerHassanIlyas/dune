@@ -69,3 +69,25 @@ export function borderField(regions, map, tw, th) {
   for (let n = 0; n < out.length; n++) out[n] = Math.min(255, Math.round((dist[n] / R) * 255));
   return out;
 }
+
+// The rasters per texture size, shared by the atlases alive on the page (making them takes a few tenths of a second)
+// and dropped when the last of them is disposed, so nothing outlives the map. The regions never change.
+const shared = new Map();
+
+/** The region ids and border field for a size × size/2 texture: { ids, edges, users }. Every call must be matched
+ *  by releaseRasters(size). */
+export function acquireRasters(regions, map, size) {
+  let r = shared.get(size);
+  if (!r) shared.set(size, (r = { ids: regionIds(regions, map, size, size / 2), edges: borderField(regions, map, size, size / 2), users: 0 }));
+  r.users++;
+  return r;
+}
+
+/** Gives back one acquireRasters(size); the last one frees them. */
+export function releaseRasters(size) {
+  const r = shared.get(size);
+  if (r && --r.users <= 0) shared.delete(size);
+}
+
+/** The texture sizes whose rasters are held now (tests and debug). */
+export function heldRasters() { return [...shared.keys()]; }

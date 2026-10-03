@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { REGIONS, MAP, regionAt } from '../src/data/territory.js';
-import { regionIds, borderField, BORDER_RANGE } from '../src/render/atlas/raster.js';
+import { regionIds, borderField, BORDER_RANGE, acquireRasters, releaseRasters, heldRasters } from '../src/render/atlas/raster.js';
 
 const TW = 800, TH = 400;
 const ids = regionIds(REGIONS, MAP, TW, TH);
@@ -40,4 +40,24 @@ test('the border field is near zero where neighbouring texels differ and full de
   // the outer edge of the map is not a border: the middle of the top row of a polar region is far from any
   const top = Math.floor((REGIONS[3].centre[0] / MAP.w) * TW);
   assert.equal(field[top], 255);
+});
+
+test('the rasters are shared while an atlas holds them and freed when the last one lets go', () => {
+  const a = acquireRasters(REGIONS, MAP, 64), b = acquireRasters(REGIONS, MAP, 64);
+  assert.equal(a, b, 'a second atlas reuses the first one\'s rasters');
+  assert.equal(a.ids.length, 64 * 32);
+  assert.equal(a.edges.length, 64 * 32);
+  assert.deepEqual(a.ids, regionIds(REGIONS, MAP, 64, 32));
+  assert.deepEqual(heldRasters(), [64]);
+  releaseRasters(64);
+  assert.deepEqual(heldRasters(), [64], 'still held by the other atlas');
+  releaseRasters(64);
+  assert.deepEqual(heldRasters(), [], 'the last atlas gone, nothing is kept');
+  const c = acquireRasters(REGIONS, MAP, 64);
+  assert.notEqual(c, a, 'made afresh');
+  releaseRasters(64);
+  releaseRasters(64);   // one release too many is harmless
+  assert.deepEqual(heldRasters(), []);
+  assert.equal(acquireRasters(REGIONS, MAP, 64).users, 1);
+  releaseRasters(64);
 });

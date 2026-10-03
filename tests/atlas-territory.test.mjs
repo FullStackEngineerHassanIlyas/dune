@@ -13,6 +13,27 @@ const ENEMIES = {
   ordos: [null, ['harkonnen'], ['atreides'], ['atreides'], ['harkonnen'], ['atreides'], ['harkonnen'], ['atreides', 'harkonnen'], ['sardaukar']],
 };
 
+// The PC's REGION[AHO].INI groups applied one after another (numbers only), written out independently of the
+// module: per step 1–8 the owner of regions 1–27 (A, H, O, S; '.' unclaimed), and each group's first REG choice
+// (the region of missions 2–9, the one the scenarios stream builds each mission from).
+const INI = {
+  atreides: {
+    owners: ['..HHHHA.HH..AA....OAAAOOOOO', 'HHHHHHAAHHHOAAAOOOOAAAAOOOO', 'AAAHHHAAHHOOAAAHOOOAAAAOOOO', 'AAAAHHAAAHHOAAAAOOOAAAAOOOO',
+      'AAAAHHAAAHHOAAAAAHOAAAAAAOO', 'AAAAHHAAAAAOAAAAAAOAAAAAAOO', 'AAAAHHAAAAAOAAAAAAAAAAAAAAA', 'AAAAASAAAAAAAAAAAAAAAAAAAAA'],
+    first: [8, 1, 4, 17, 10, 19, 5, 6],
+  },
+  harkonnen: {
+    owners: ['..HHHHA.HH..AA....OAAAOOOOO', 'HHHHHHAHHHOOAAAAOOOAAAAOOOO', 'HHHHHHAHHHHHAAAOHOOAAAAAOOO', 'HHHHHHAHHHHHAAAOHHHAAAAOHOO',
+      'HHHHHHHHHHHHHHAOHHHAAAOOHOO', 'HHHHHHHHHHHHHHAOHHHAAAAHHHH', 'HHHHHHHHHHHHHHAOHHHHHHAHHHH', 'HHHHHHHHHHHHHHSHHHHHHHHHHHH'],
+    first: [1, 17, 25, 13, 24, 20, 16, 15],
+  },
+  ordos: {
+    owners: ['..HHHHA.HH..AA....OAAAOOOOO', 'AAHHHHAAHHHHAAOOOHOAAAOOOOO', 'AHHHHHAOHHHHAOOOOHOAAOOOOOO', 'AAAHHHAOHHHHOOOOOHOOOOOOOOO',
+      'AAAHHHAOHHOOOOOOOOOOOOOOOOO', 'OOAHHHOOHHOOOOOOOOOOOOOOOOO', 'OOAHOOOOHOOOOOOOOOOOOOOOOOO', 'OOOSOOOOOOOOOOOOOOOOOOOOOOO'],
+    first: [15, 14, 13, 11, 1, 10, 3, 4],
+  },
+};
+
 test('27 regions with ids 1 to 27', () => {
   assert.equal(REGIONS.length, 27);
   assert.deepEqual(REGIONS.map((r) => r.id), Array.from({ length: 27 }, (_, i) => i + 1));
@@ -79,7 +100,7 @@ test('each mission’s region: mission 1 at home, then held by that mission’s 
     for (let mission = 2; mission <= 9; mission++) {
       const id = targetRegion(house, mission), owner = ownerOf(house, mission - 1, id);
       assert.notEqual(owner, house, `${house} mission ${mission}: region ${id} is already the player's`);
-      if (mission === 2 && owner === null) continue;   // the Harkonnen's and the Ordos's mission-2 choices are all unclaimed land
+      if (mission === 2 && owner === null) continue;   // every campaign's mission-2 region is still unclaimed land
       assert.ok(ENEMIES[house][mission - 1].includes(owner), `${house} mission ${mission}: region ${id} is held by ${owner}`);
     }
     assert.equal(targetRegion(house, 0), null);
@@ -90,6 +111,17 @@ test('each mission’s region: mission 1 at home, then held by that mission’s 
 test('each mission’s region becomes the player’s once it is won (missions 2 to 8)', () => {
   for (const house of HOUSES) {
     for (let mission = 2; mission <= 8; mission++) assert.equal(ownerOf(house, mission, targetRegion(house, mission)), house, `${house} mission ${mission}`);
+  }
+});
+
+test('every step’s owners and every mission’s region are the PC campaign data’s', () => {
+  const code = { atreides: 'A', harkonnen: 'H', ordos: 'O', sardaukar: 'S' };
+  for (const house of HOUSES) {
+    for (let step = 1; step <= 8; step++) {
+      const row = Array.from({ length: 27 }, (_, k) => code[ownerOf(house, step, k + 1)] ?? '.').join('');
+      assert.equal(row, INI[house].owners[step - 1], `${house} step ${step}`);
+    }
+    for (let mission = 2; mission <= 9; mission++) assert.equal(targetRegion(house, mission), INI[house].first[mission - 2], `${house} mission ${mission}`);
   }
 });
 

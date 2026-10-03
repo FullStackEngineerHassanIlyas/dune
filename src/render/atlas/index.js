@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { REGIONS, MAP, OWNERS, ownerOf, targetRegion, changes } from '../../data/territory.js';
 import { HOUSES } from '../../data/houses.js';
 import { qualityPreset, pixelRatioFor } from '../quality.js';
-import { regionIds, borderField, BORDER_RANGE } from './raster.js';
+import { acquireRasters, releaseRasters, heldRasters, BORDER_RANGE } from './raster.js';
 import { FOV, WORLD, RELIEF, overviewPose, regionPose, zoomPose, posePosition, drift, easeInOut } from './camera-path.js';
 import { BAKE_VERTEX, BAKE_TERRAIN, BAKE_COLOUR, SURFACE_VERTEX, SURFACE_FRAGMENT, NOISE_SIZE } from './shaders.js';
 import { Rng } from '../../core/rng.js';
@@ -31,7 +31,6 @@ const PULSE = 1.6;            // seconds per pulse of the mission's region
 const FAR = 1e3;              // a flood radius that covers the map: the region shows its final owner
 
 const CAMPAIGNS = ['atreides', 'harkonnen', 'ordos'];
-const rasters = {};   // region ids and border field per texture size, made once a page (~0.1 s) and kept for the next atlas
 const houseOf = (house) => (CAMPAIGNS.includes(house) ? house : 'atreides');
 
 function gridGeometry(seg) {
@@ -129,7 +128,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
 
   // ---- what the map is made of
   const size = detail.tex, rasterStart = performance.now();
-  const raster = (rasters[size] ??= { ids: regionIds(REGIONS, MAP, size, size / 2), edges: borderField(REGIONS, MAP, size, size / 2) });
+  const raster = acquireRasters(REGIONS, MAP, size);   // shared with the other atlases alive; the last dispose() frees it
   const regionTex = dataTexture(raster.ids, size, THREE.NearestFilter);
   const edgeTex = dataTexture(raster.edges, size, THREE.LinearFilter);
   const rasterMs = +(performance.now() - rasterStart).toFixed(1);
@@ -159,8 +158,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   const bakeQuad = new THREE.Mesh(quad, bakeTerrain), spareQuad = new THREE.Mesh(quad, bakeColour);
   bakeQuad.frustumCulled = spareQuad.frustumCulled = false;
   const bakeScene = new THREE.Scene().add(bakeQuad), bakeCamera = new THREE.Camera();
-  let relief = null, baked = false, bakedNow;
-  const whenBaked = new Promise((resolve) => { bakedNow = resolve; });
+  let relief = null, baked = false;
   const bakeMs = {};
   const target = (options) => new THREE.WebGLRenderTarget(size, size / 2, { depthBuffer: false, generateMipmaps: false, ...options });
   function bake() {
@@ -185,7 +183,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
     bakeUniforms.uTerrain.value = null;
     uniforms.uRelief.value = relief.texture;
     baked = true;
-    bakedNow();
+    startWaiting();
   }
   async function prepare() {
     const t0 = performance.now(), scratch = new THREE.WebGLRenderTarget(4, 4, { depthBuffer: false });
@@ -216,7 +214,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   const s = { house: 'atreides', step: 0, target: 0, mission: null, shown: false, view: 'overview' };
   const view = { w: 0, h: 0, aspect: 16 / 9, inset };
   const overview = overviewPose(view.aspect, inset), close = {}, pose = {}, wobble = {}, at = {};
-  let zoom = null, floods = null, lost = false, disposed = false, raf = 0, frames = 0, lastFrame = 0, generation = 0, firstDraw;
+  let zoom = null, floods = null, waiting = null, lost = false, disposed = false, raf = 0, frames = 0, lastFrame = 0, generation = 0, firstDraw;
   const ready = new Promise((resolve) => { firstDraw = resolve; });
   const frameMs = ring(), gpuMs = ring();
 
@@ -232,6 +230,16 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
       uniforms.uFlood.value[id].set(0, 0, FAR, 0.001);
     }
   }
+
+  // A zoom or conquest asked for before the map can be seen waits for the bake (its clock starts then). Only the
+  // latest one waits: anything shown, hidden or disposed meanwhile settles it with false, so no promise is left hanging.
+  function afterBake(resolve, start) {
+    dropWaiting();
+    if (baked) start();
+    else waiting = { resolve, start };
+  }
+  function startWaiting() { const w = waiting; waiting = null; w?.start(); }
+  function dropWaiting() { const w = waiting; waiting = null; w?.resolve(false); }
 
   function endZoom(done) {
     if (!zoom) return;
@@ -256,6 +264,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   function show({ house, step = 0, target } = {}) {
     if (disposed) return;
     generation++;
+    dropWaiting();
     endZoom(false);
     endConquer(false);
     s.house = houseOf(house);
@@ -282,7 +291,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
     s.target = id;
     s.mission = n;
     return new Promise((resolve) => {
-      whenBaked.then(() => {   // the clock starts when the map can be seen
+      afterBake(resolve, () => {   // the clock starts when the map can be seen
         if (token !== generation || disposed) { resolve(false); return; }
         const t = performance.now() / 1000;
         const from = basePose(t, {}), k0 = driftWeight(t), to = regionPose(REGIONS[id - 1], view.aspect, view.inset, {});
@@ -308,7 +317,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
     if (!list.length) { paint(h, st); s.target = targetRegion(h, st + 1) ?? 0; wake(); return Promise.resolve(true); }
     const token = ++generation;
     return new Promise((resolve) => {
-      whenBaked.then(() => {
+      afterBake(resolve, () => {
         if (token !== generation || disposed) { resolve(false); return; }
         const now = performance.now() / 1000;
         const items = list.map(({ id, to }, k) => {
@@ -331,6 +340,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   function hide() {
     generation++;
     s.shown = false;
+    dropWaiting();
     endZoom(false);
     endConquer(false);
     if (raf) cancelAnimationFrame(raf);
@@ -447,7 +457,9 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   /** Keeps the map clear of part of the picture ({ left, right, top, bottom } shares), e.g. for a Mentat. */
   function setInset(next) { view.inset = next ?? null; view.w = 0; resize(); }
 
-  const onLost = (e) => { e.preventDefault(); lost = true; };
+  // lost before the first bake: a waiting zoom or conquest starts its clock anyway (as one under way keeps its own),
+  // so its promise settles on time even if the context never comes back
+  const onLost = (e) => { e.preventDefault(); lost = true; startWaiting(); };
   const onRestored = () => { lost = false; bake(); wake(); };
   canvas.addEventListener('webglcontextlost', onLost);
   canvas.addEventListener('webglcontextrestored', onRestored);
@@ -464,6 +476,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
     canvas.removeEventListener('webglcontextrestored', onRestored);
     for (const slot of queries) gl.deleteQuery(slot.q);
     geometry.dispose(); surface.dispose(); regionTex.dispose(); edgeTex.dispose(); relief?.dispose();
+    releaseRasters(size);
     quad.dispose(); bakeTerrain.dispose(); bakeColour.dispose(); bakeUniforms.uNoise.value.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -476,7 +489,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
       house: s.house, step: s.step, target: s.target, mission: s.mission, view: s.view, shown: s.shown, zooming: !!zoom,
       zoomProgress: zoom ? +Math.min(1, (performance.now() / 1000 - zoom.start) / zoom.seconds).toFixed(3) : null,
       conquering: floods ? floods.items.map((it) => it.id) : [], reducedMotion: still.value, quality, lost, frames,
-      size: [view.w, view.h], pixelRatio: renderer.getPixelRatio(), textures: size, segments: detail.seg, rasterMs, bakeMs,
+      size: [view.w, view.h], pixelRatio: renderer.getPixelRatio(), textures: size, segments: detail.seg, rasterMs, rastersHeld: heldRasters(), bakeMs,
       camera: { x: +at.x?.toFixed(3), y: +at.y?.toFixed(3), z: +at.z?.toFixed(3), tx: +pose.tx?.toFixed(3), tz: +pose.tz?.toFixed(3), dist: +pose.dist?.toFixed(3) },
       draws: info.calls, triangles: info.triangles, frameMs: frameMs.stats(), gpuMs: gpuMs.stats(),
       resetTimes() { frameMs.reset(); gpuMs.reset(); },

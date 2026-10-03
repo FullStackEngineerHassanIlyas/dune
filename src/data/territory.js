@@ -3,7 +3,8 @@
 // partition of hand-placed centres whose shared borders meander (generated here, deterministic, no DOM). Who holds
 // which region after each mission comes from the PC's REGION[AHO].INI groups (numbers only): [GROUPm] lists the
 // regions taken by each house after mission m, and its REG lines the regions the next mission may be fought in.
-// The Sega campaign is fixed and linear, so a mission's region is the first of those choices an enemy holds.
+// The Sega campaign is fixed and linear, so a mission's region is the first of those choices (the PC scenario the
+// scenarios stream builds that mission from).
 //
 // Steps count missions won: step 0 is the opening map (the houses' first claims, GROUP1), step s has GROUP1..s
 // applied. Mission 1 is fought at home and takes no land (step 1 = step 0), and the data has no group after the
@@ -91,13 +92,12 @@ export function changes(house, step) {
 }
 
 /** The region mission `mission` (1–9) of `house`'s campaign is fought in, or null: mission 1 at home, then the
- *  first choice of the previous step's group that a rival holds (else its first choice); mission 9 the Emperor's. */
+ *  first REG choice of the previous step's group (mission 2's is still unclaimed land); mission 9 the Emperor's. */
 export function targetRegion(house, mission) {
   const h = campaign(house), n = Math.round(Number(mission));
   if (!(n >= 1 && n <= STEPS)) return null;
   if (n === 1) return HOME[h];
-  const choices = GROUPS[h][n - 2].to;
-  return choices.find((id) => { const o = ownerOf(h, n - 1, id); return o && o !== h; }) ?? choices[0];
+  return GROUPS[h][n - 2].to[0];
 }
 
 // ---- Shapes ----------------------------------------------------------------------------------------------------
