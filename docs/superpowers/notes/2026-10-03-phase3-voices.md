@@ -69,17 +69,16 @@ came out byte-identical to the shipped files).
 - `node --test tests/unit-voices.test.mjs tests/voice.test.mjs tests/announcer.test.mjs tests/original-sounds.test.mjs tests/original-files.test.mjs`
 - Browser (real GPU): `?scene=battle&idle=1&specials=1`, then `await __dune.voiceCheck()` decodes every
   line of the house (lines, decoded, missing); select units and read `__dune.voice().said`.
-- Listening: the audition page
-  `/tmp/claude-1000/-home-hassan-games-Dune/4a2127ac-cad7-477b-b1e2-a8fc90205fa5/scratchpad/voices/audition/index.html`
-  (outside the repo; 166 players: three or four probe lines of every group in each candidate voice, and the
+- Listening: the audition page in the session scratchpad (`voices/audition/index.html`;
+  outside the repo; 166 players: three or four probe lines of every group in each candidate voice, and the
   whole scout set at the shipped ×1.04; regenerate with `generate.py --models <dir> --audition <dir> --sets
   <group> --voices a,b:speed:tape`) has a player per candidate voice and line.
 
 ## Measurements
 
 All numbers from the shipped files (`assets/voice/`), measured with ffmpeg `ebur128` and Whisper `small.en`
-(int8, 2 threads; `scratchpad/voices/judge.py`, results in `scratchpad/voices/final-judge.json` and
-`scout-final.json`).
+(int8, 2 threads; `voices/judge.py` in the session scratchpad, outside the repo, results in
+`voices/final-judge.json` and `scout-final.json` beside it).
 
 - **Size**: 317 lines, 1,656,147 bytes in all (budget in `tests/voice.test.mjs`: 2.5 MB, each file
   1–20 kB); the 119 unit lines are 545,354 bytes, the three reinforcements lines 6.3–7.0 kB.
@@ -141,6 +140,21 @@ All numbers from the shipped files (`assets/voice/`), measured with ffmpeg `ebur
   The audition page has the candidates side by side for the manager's ear.
 - The Mega Drive's own unit replies are undocumented here; if a person compares, the grunt voice is the
   closest to "one soldier on a radio".
+
+## Review fixes
+
+- A harvester docked in a refinery's slot answers its orders again (the base answered every order with
+  the shared reply): the announcer now counts a unit held inside when it is `docked`, the rule the
+  controller and the selection already use (`harvest.js orderDocked` takes its orders).
+- An MCV that cannot deploy no longer says "Deploying." before "Unable to deploy here.": with an MCV in
+  a D selection only one with a `deploySpot` answers; if none has one, the Devastators stay silent too
+  (`orders.js deployOrDestruct` blows nothing up) and the announcer's line is the only answer.
+- D on an empty Carryall says nothing (`carryall.js` sets nothing down): `replyKind` gives 'drop' only
+  with cargo, as it gives 'deliver'.
+- New announcer tests: a docked harvester told to harvest; units held inside, visiting or counting down
+  stay silent; an MCV on sand beside a Devastator; an empty and a loaded Carryall told D.
+- This notes file lies outside the voices stream's files (docs/superpowers/notes/ belongs to nobody);
+  the lead decides whether it stays. Its session scratch paths are gone.
 
 ## For the README
 

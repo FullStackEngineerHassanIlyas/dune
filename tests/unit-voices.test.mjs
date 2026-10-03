@@ -62,7 +62,10 @@ test('which reply an order draws depends on the unit', () => {
   assert.equal(replyKind('destruct', unit('devastator')), 'destruct');
   assert.equal(replyKind('deploy', unit('combatTank')), null);
   assert.equal(replyKind('guard', unit('carryall')), 'duty', 'G is a Carryall\'s Duty');
-  assert.equal(replyKind('deploy', unit('carryall')), 'drop', 'D is its Drop');
+  assert.equal(replyKind('deploy', unit('carryall')), null, 'D on an empty Carryall drops nothing');
+  assert.equal(replyKind('drop', unit('carryall')), null);
+  assert.equal(replyKind('deploy', unit('carryall', { cargo: 9 })), 'drop', 'D is a loaded one\'s Drop');
+  assert.equal(replyKind('drop', unit('carryall', { cargo: 9 })), 'drop');
   assert.equal(replyKind('lift', unit('carryall')), 'lift');
   assert.equal(replyKind('returnToBase', unit('carryall')), null, 'nothing to bring home');
   assert.equal(replyKind('repairAt', unit('carryall', { cargo: 9 })), 'deliver');

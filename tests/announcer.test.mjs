@@ -190,7 +190,36 @@ test('a Carryall answers its own orders: Duty, Drop, a lift', () => {
   a.frame(2);
   world.issue('atreides', { type: 'lift', ids: [c.id], targetId: t.id });
   a.frame(4);
-  assert.deepEqual(player.lines.map(kindOf), ['unit.carryall.duty', 'unit.carryall.drop', 'unit.carryall.lift']);
+  c.cargo = t.id;
+  world.issue('atreides', { type: 'deploy', ids: [c.id] });
+  a.frame(6);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.carryall.duty', 'unit.carryall.lift', 'unit.carryall.drop'],
+    'D on an empty Carryall drops nothing and says nothing (carryall.js: only a loaded one sets down)');
+});
+
+test('a harvester in a refinery\'s slot answers; units held inside, visiting or counting down do not', () => {
+  const { world, a, player } = voicedSetup();
+  const ref = world.spawnStructure('refinery', 'atreides', 20, 20);
+  const h = world.spawnUnit('harvester', 'atreides', 10, 10), held = world.spawnUnit('trike', 'atreides', 12, 10);
+  const dev = world.spawnUnit('devastator', 'atreides', 14, 10), guest = world.spawnUnit('carryall', 'atreides', 16, 10);
+  h.inside = ref.id; h.docked = ref.id;   // what harvest.js enter() sets when it docks
+  held.inside = ref.id; dev.destructAt = world.time + 5; guest.visitor = true;
+  world.issue('atreides', { type: 'harvest', ids: [h.id], x: 30, y: 30 });
+  a.frame(0);
+  world.issue('atreides', { type: 'move', ids: [held.id, dev.id, guest.id], x: 30, y: 30 });
+  a.frame(2);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.harvester.harvest'], 'the docked harvester takes its order (harvest.js orderDocked); the others take none');
+});
+
+test('an MCV that cannot deploy leaves the answer to "Unable to deploy here."; one that can says so', () => {
+  const { world, a, player } = voicedSetup();
+  const sand = world.spawnUnit('mcv', 'atreides', 30, 30), rock = world.spawnUnit('mcv', 'atreides', 16, 10), dev = world.spawnUnit('devastator', 'atreides', 18, 10);
+  for (let y = 28; y <= 31; y++) for (let x = 28; x <= 31; x++) world.map.ground[world.map.idx(x, y)] = G.SAND;   // a Construction Yard needs rock
+  world.issue('atreides', { type: 'deploy', ids: [sand.id, dev.id] });
+  a.frame(0);
+  world.issue('atreides', { type: 'deploy', ids: [sand.id, rock.id] });
+  a.frame(2);
+  assert.deepEqual(player.lines.map(kindOf), ['unit.mcv.deploy'], 'with an MCV along the Devastator does not blow up (orders.js deployOrDestruct); the one on rock answers');
 });
 
 test('one of the freshly selected units answers, in its voice; the voices of its orders are made ready', () => {

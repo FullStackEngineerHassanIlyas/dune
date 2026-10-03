@@ -10,6 +10,7 @@
 import { lineForEvent, ackForCommand, namedLine, SELECT_ACKS } from '../audio/voice.js';
 import { VARIANTS, voiceGroup, replyKind, voicedKind, pickVariant, unitLine, parseUnitLine } from '../data/unit-voices.js';
 import { unitVisibleTo } from '../sim/fog.js';
+import { deploySpot } from '../sim/deploy.js';
 import { HOUSES } from '../data/houses.js';
 
 export const APPROACH_TILES = 12;      // an enemy this close to one of the player's buildings is approaching
@@ -92,10 +93,14 @@ export class Announcer {
     const units = [];
     for (const id of cmd.ids) {
       const u = this.world.units.get(id);
-      if (u?.house === this.house && !u.inside && !u.visitor && u.destructAt === undefined) units.push(u);
+      if (u?.house === this.house && (!u.inside || u.docked) && !u.visitor && u.destructAt === undefined) units.push(u);   // a harvester in a refinery's slot takes orders (harvest.js orderDocked)
     }
-    const deployers = cmd.type === 'deploy' ? units.filter((u) => u.type.deploysTo) : [];   // D with an MCV along deploys it and blows nothing up
-    for (const u of deployers.length ? deployers : units) {
+    let speakers = units;
+    if (cmd.type === 'deploy' && units.some((u) => u.type.deploysTo)) {   // D with an MCV along deploys it and blows nothing up (orders.js deployOrDestruct)
+      const ready = units.filter((u) => u.type.deploysTo && deploySpot(this.world, u));   // one that cannot leaves the answer to "Unable to deploy here."
+      speakers = ready.length ? ready : units.filter((u) => !u.type.deploysTo && !u.type.destructs);
+    }
+    for (const u of speakers) {
       const kind = replyKind(cmd.type, u);
       if (kind) return this.unitLine(voiceGroup(u.typeId), kind) ?? ackForCommand(cmd, this.rng);
     }

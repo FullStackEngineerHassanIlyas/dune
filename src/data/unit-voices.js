@@ -40,7 +40,7 @@ export const GROUPS = Object.keys(VARIANTS);
 const FALLBACK = { attackMove: ['attack', 'move'], scatter: ['move'], guard: ['select'], repair: ['move'], capture: ['attack', 'move'], return: ['move'], deliver: ['move'] };
 
 // A Carryall's orders are its own (src/sim/carryall.js orderCarryalls): G is its Duty, D its Drop.
-const CARRYALL = { move: 'move', lift: 'lift', guard: 'duty', duty: 'duty', deploy: 'drop', drop: 'drop' };
+const CARRYALL = { move: 'move', lift: 'lift', guard: 'duty', duty: 'duty' };
 const CAPTURERS = new Set(['soldier', 'infantry', 'trooper', 'troopers']);   // src/sim/capture.js canCapture
 const REPAIRED = new Set(['tracked', 'wheeled', 'harvester']);                // src/sim/repair-bay.js: ground vehicles
 const armed = (t) => !!(t?.weapon && WEAPONS[t.weapon] && (t.damage > 0 || WEAPONS[t.weapon].gas));   // src/sim/combat.js isArmed
@@ -65,6 +65,7 @@ export function replyKind(cmdType, unit) {
   if (!t || !voiceGroup(id)) return null;
   if (id === 'carryall') {
     if (cmdType === 'returnToBase' || cmdType === 'repairAt') return unit.cargo ? 'deliver' : null;   // it brings its load home
+    if (cmdType === 'deploy' || cmdType === 'drop') return unit.cargo ? 'drop' : null;                // only a loaded one sets anything down
     return CARRYALL[cmdType] ?? null;
   }
   if (t.autonomous) return null;   // the Fremen go their own way
