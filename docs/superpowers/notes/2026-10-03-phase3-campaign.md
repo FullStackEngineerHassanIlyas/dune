@@ -141,7 +141,8 @@ From the review of this branch (each reproduced by a test that failed first, the
   under `docs/superpowers/notes/` are blessed).
 
 Measured after the fixes: full unit suite 966/966 (under the npm-test lock), campaign tests 76/76, campaign e2e
-25/25 on the branch, the 12 smoke scenes pass.
+25/25 on the branch and in 3 of 3 runs on a scratch merge of all ten phase 3 branches (where the campaign tests,
+with the real words and mission list, pass 107/107), the 12 smoke scenes pass.
 
 ## For the README
 
