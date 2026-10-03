@@ -139,6 +139,16 @@ test('Back and Esc chain: briefing, region and the rest lead where the player ca
   assert.deepEqual(out.state, { screen: 'campaign-briefing', house: 'ordos', mission: 2 });
 });
 
+test('a button can open a campaign screen directly, and nothing else', () => {
+  assert.deepEqual(step(emptyProgress(), { screen: 'campaign' }, { type: 'open', screen: 'campaign-password' }).state, { screen: 'campaign-password' });
+  assert.deepEqual(step(emptyProgress(), { screen: 'campaign' }, { type: 'open', screen: 'campaign-ending', house: 'ordos', mission: 9 }).state,
+    { screen: 'campaign-ending', house: 'ordos', mission: 9 });
+  assert.deepEqual(step(emptyProgress(), { screen: 'campaign-defeat', house: 'ordos', mission: 4 }, { type: 'open', screen: 'campaign' }).state,
+    { screen: 'campaign', house: 'ordos', mission: 4 }, 'the hub remembers the house');
+  const state = { screen: 'campaign' };
+  assert.equal(step(emptyProgress(), state, { type: 'open', screen: 'options' }).state, state);
+});
+
 test('an action that does not fit the screen changes nothing', () => {
   const state = { screen: 'campaign-house' };
   const p = emptyProgress();

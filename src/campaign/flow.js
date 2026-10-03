@@ -40,6 +40,11 @@ export function step(progress, state, action) {
   const same = { progress, state };
   const { house, mission } = state;
   switch (action?.type) {
+    case 'open': {   // a screen straight from a button: the hub, the password entry, a won house's ending again
+      if (!SCREENS.includes(action.screen)) return same;
+      const id = CAMPAIGN_HOUSES.includes(action.house) ? action.house : house;
+      return { progress, state: { screen: action.screen, ...(id ? { house: id, mission: missionNumber(action.mission) ?? mission ?? null } : {}) } };
+    }
     case 'new': return { progress, state: { screen: 'campaign-house' } };
     case 'pick': return CAMPAIGN_HOUSES.includes(action.house) ? { progress, state: { screen: 'campaign-join', house: action.house } } : same;
     case 'decline': return { progress, state: { screen: 'campaign-house' } };
