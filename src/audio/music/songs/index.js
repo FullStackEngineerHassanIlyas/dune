@@ -13,9 +13,10 @@ import { atreides, harkonnen, ordos } from './houses.js';
 import { victory, defeat } from './endings.js';
 import { victoryAtreides, victoryHarkonnen, victoryOrdos, defeatAtreides, defeatHarkonnen, defeatOrdos } from './victories.js';
 import { finale, credits } from './finale.js';
+import { harvest, stormfront } from './ingame.js';
 
 const ALL = [
-  opening, title, houseSelect, region, atreides, harkonnen, ordos, erg, dawn, lanterns, assault, iron, shieldwall,
+  opening, title, houseSelect, region, atreides, harkonnen, ordos, erg, dawn, lanterns, harvest, assault, iron, shieldwall, stormfront,
   victory, defeat, victoryAtreides, victoryHarkonnen, victoryOrdos, defeatAtreides, defeatHarkonnen, defeatOrdos, finale, credits,
 ];
 
@@ -26,8 +27,8 @@ export const POOLS = {
   menu: ['title'],
   houseSelect: ['houseSelect'],
   region: ['region'],
-  peace: ['erg', 'dawn', 'lanterns'],
-  battle: ['assault', 'iron', 'shieldwall'],
+  peace: ['erg', 'dawn', 'lanterns', 'harvest'],
+  battle: ['assault', 'iron', 'shieldwall', 'stormfront'],
   victory: ['victory'],
   defeat: ['defeat'],
   finale: ['finale'],

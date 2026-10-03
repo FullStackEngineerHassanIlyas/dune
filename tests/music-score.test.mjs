@@ -112,7 +112,7 @@ const ONCE = Object.values(TRACKS).filter((t) => t.once);
 const once = (t) => { const d = durations(t); return d.intro + d.loop; };
 
 test('every track is valid, in its mode, loops on whole bars, and the pools name real tracks', () => {
-  assert.equal(Object.keys(TRACKS).length, 23);
+  assert.equal(Object.keys(TRACKS).length, 25);
   for (const t of Object.values(TRACKS)) {
     assert.deepEqual(checkTrack(t, PATCHES), [], t.id);
     assert.ok(MODES[t.mode], `${t.id} declares a mode`);
@@ -122,8 +122,8 @@ test('every track is valid, in its mode, loops on whole bars, and the pools name
     assert.ok(d.intro <= 15, `${t.id}: intro ${d.intro.toFixed(1)} s`);
   }
   for (const [pool, ids] of Object.entries(POOLS)) for (const id of ids) assert.ok(TRACKS[id], `${pool}: ${id}`);
-  assert.equal(POOLS.peace.length, 3);
-  assert.equal(POOLS.battle.length, 3);
+  assert.equal(POOLS.peace.length, 4);
+  assert.equal(POOLS.battle.length, 4);
   for (const pool of ['intro', 'menu', 'houseSelect', 'region', 'victory', 'defeat', 'finale', 'credits']) assert.ok(POOLS[pool]?.length, pool);
   for (const house of HOUSES) {
     assert.equal(TRACKS[BRIEFINGS[house]].house, house);
