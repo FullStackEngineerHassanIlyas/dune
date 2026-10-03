@@ -341,16 +341,17 @@ test('playlists take MP3, OGG and WAV by their contents, and give them back as t
   await files.addTracks('battle', [{ name: 'war.ogg', data: ogg.buffer }]);
   const peace = await files.playlistTracks('peace');
   assert.deepEqual(peace.map((t) => [t.name, t.type]), [['dunes.mp3', 'audio/mpeg'], ['raw.mp3', 'audio/mpeg'], ['wind.ogg', 'audio/ogg'], ['drums.wav', 'audio/wav']]);
-  for (const t of peace) assert.ok(t.data instanceof ArrayBuffer && Object.keys(t).sort().join() === 'data,name,type');
+  for (const t of peace) assert.ok(t.data instanceof ArrayBuffer && Object.keys(t).sort().join() === 'data,id,meta,name,type');
   assert.deepEqual([...new Uint8Array(peace[2].data)], [...ogg]);
   assert.deepEqual(await files.playlistTracks('menu'), []);
   assert.deepEqual(await files.playlistTracks('credits'), []);
+  assert.deepEqual(await files.playlistTracks('nope'), []);
   const listed = await files.listTracks('peace');
-  assert.deepEqual(Object.keys(listed[0]).sort(), ['id', 'list', 'name', 'size', 'type'], 'listing does not read the music itself');
+  assert.deepEqual(Object.keys(listed[0]).sort(), ['id', 'list', 'lists', 'meta', 'name', 'size', 'type'], 'listing does not read the music itself');
   await files.removeTrack(listed[1].id);
   assert.deepEqual((await files.playlistTracks('peace')).map((t) => t.name), ['dunes.mp3', 'wind.ogg', 'drums.wav']);
   assert.equal((await files.listTracks()).length, 4);
-  await assert.rejects(files.addTracks('credits', []), /no playlist/);
+  await assert.rejects(files.addTracks('nope', []), /no playlist/);
 });
 
 test('a full browser says so instead of failing silently', async () => {
