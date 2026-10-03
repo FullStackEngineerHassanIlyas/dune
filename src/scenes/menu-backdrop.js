@@ -8,10 +8,15 @@
 // framing shot. The next battle is built, simulated ahead, primed and compiled while the planet stands still, so a
 // seam has no work left to do. Only a cold start (the menu opening, or back from a skirmish) comes in from black.
 // Reduced motion swaps the zooms for haze crossfades; paused, the picture holds still and silent.
+// The Sega-style opening (scenes/menu-intro.js) plays before the loop starts and the campaign's ending borrows it: both
+// draw space through drawSpace(), with the opening's near stars and dust (render/space-travel.js) always in the scene,
+// and hand back with a warm start, which carries straight on from their last frame instead of coming in from black.
 import { Renderer3D } from '../render/renderer.js';
 import { wakeCheck, WAKE_GAP_MS } from '../render/wake.js';
 import { CameraRig } from '../render/camera-rig.js';
-import { PlanetShot, SEAM_ALTITUDE, menuShare } from '../render/planet.js';
+import { PlanetShot, SEAM_ALTITUDE, menuShare, planetFraming } from '../render/planet.js';
+import { SpaceTravel } from '../render/space-travel.js';
+import { travelCorridor } from '../game/intro-timeline.js';
 import { DustVeil } from '../render/dust-veil.js';
 import { createDustPass } from '../render/dust-pass.js';
 import { BattleStage } from '../game/battle-stage.js';
@@ -50,6 +55,7 @@ export class MenuBackdrop {
     this.dustLinked = false;
     this.r3d.composer.insertPass(this.dust, this.r3d.composer.passes.indexOf(this.r3d.grade));
     this.planet = new PlanetShot({ seed });
+    this.travel = this.planet.attach(new SpaceTravel({ seed, corridor: travelCorridor(planetFraming(this.r3d.width / this.r3d.height, undefined, menuShare(this.r3d.width)).distance) }));
     this.rig = new CameraRig(this.r3d.camera, SHOWCASE.w, SHOWCASE.h);
     this.clock = new BackdropClock({ hold });
     this.loop = new FixedLoop(DT);
@@ -107,8 +113,11 @@ export class MenuBackdrop {
 
   get paused() { return this.frozen; }
 
-  /** Shown (the menu opening, or back from a skirmish): a cold start in space, in from black; paused, a still planet with its caption. */
-  start() {
+  /**
+   * Shown (the menu opening, or back from a skirmish): a cold start in space, in from black; paused, a still planet with
+   * its caption. warm: straight on from the frame on screen (the opening's or the ending's framing shot), no black.
+   */
+  start({ warm = false } = {}) {
     if (this.running) return;
     this.running = true;
     this.r3d.reclaim();   // the GPU memory given back during the skirmish, rebuilt from scratch
@@ -116,6 +125,7 @@ export class MenuBackdrop {
     const c = this.clock;
     if (!c.hold) {
       c.restart();
+      if (warm) c.cold = false;
       if (this.frozen) c.t = HOLD_AT.planet;   // past the black, caption up: a still worth looking at, not a fade stuck half-way
       this.retire();
     }
@@ -126,6 +136,28 @@ export class MenuBackdrop {
     } catch (err) { this.fail(err); }
     this.overlays();   // fade, scrim and mute right before the first frame, which may take a while to build
     this.resume();
+  }
+
+  /**
+   * The opening or the ending takes the picture: the loop stops where it is (it starts again with start({ warm: true })),
+   * and the fade, the caption, the seam overlay and the battle's scrim are cleared off the canvas. Returns whether it ran.
+   */
+  lend() {
+    const was = this.running;
+    if (was) { this.running = false; this.halt(); }
+    this.hideZoom();
+    this.fade.style.opacity = '0';
+    this.caption.style.opacity = '0';
+    this.app.classList.remove('mb-battle');
+    return was;
+  }
+
+  /** While lent: one frame of space, the camera as PlanetShot.update's `view` options set it (travel, centred, tint). */
+  drawSpace(dt, view = {}) {
+    const r3d = this.r3d;
+    this.planet.update(dt, { aspect: r3d.width / r3d.height, menu: menuShare(r3d.width), reduced: this.reduced, pixelRatio: r3d.renderer.getPixelRatio(), ...view });
+    this.air(this.planet.haze, Math.log(SEAM_ALTITUDE / this.planet.altitude));
+    r3d.render(this.planet.scene, this.planet.camera);
   }
 
   /** A skirmish opens over the menu: nothing more to draw or hear. */
