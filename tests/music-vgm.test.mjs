@@ -14,6 +14,8 @@ test('the mixer plays a registered VGM like a track: crossfades, passes, and the
   const m = new MusicMixer({ rate: 1000, VgmDeck: fakeVgmDeck({ samples: 300, made }), onEvent: (e) => events.push(e) });
   m.command({ cmd: 'vgm', id: 'vgm:1', data: vgmFile().buffer });
   m.command({ cmd: 'vgm', id: 'vgm:2', data: vgmFile({ track: 'Credit Roll' }) });   // a Uint8Array does as well
+  assert.deepEqual(made.map((d) => [d.id, d.pos]), [['vgm:1:warm', 64 * 128]], 'the first one registered while nothing plays warms the player up');
+  made.length = 0;
   m.command({ cmd: 'play', id: 'vgm:1', passes: 2 });
   m.command({ cmd: 'next', id: 'vgm:2', passes: 1 });
   assert.equal(made.length, 1);
@@ -45,6 +47,13 @@ test('a VGM that will not read, or breaks while playing, is reported and dropped
   assert.doesNotThrow(() => m2.render(new Float32Array(128), new Float32Array(128), 128));
   assert.deepEqual(events.at(-1), { type: 'error', id: 'vgm:3', message: 'broken' });
   assert.equal(m2.active, false);
+  const m4 = new MusicMixer({ rate: 1000, VgmDeck: fakeVgmDeck({ breaks: true }), onEvent: (e) => events.push(e) });
+  m4.command({ cmd: 'vgm', id: 'vgm:5', data: vgmFile().buffer });
+  m4.command({ cmd: 'play', id: 'vgm:5' });
+  m4.command({ cmd: 'next', id: 'title' });
+  m4.render(new Float32Array(128), new Float32Array(128), 128);
+  assert.deepEqual(events.slice(-1), [{ type: 'error', id: 'vgm:5', message: 'broken' }], 'stopped with its error set: an error, not an end');
+  assert.equal(m4.active, false, 'and nothing queued behind it starts');
   const m3 = new MusicMixer({ rate: 1000, onEvent: (e) => events.push(e) });
   m3.command({ cmd: 'vgm', id: 'vgm:4', data: vgmFile().buffer });
   m3.command({ cmd: 'play', id: 'vgm:4' });

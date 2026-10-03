@@ -121,9 +121,9 @@ export const fakeVgmFormat = {
 /**
  * A VGM player with the VgmDeck's shape: it plays a steady square wave, `samples` long a pass (the first pass and
  * each loop pass alike), and stops after `passes` passes (0: for ever). A file whose tag says bad: true will not
- * read; `renderThrows` makes it break while playing.
+ * read; `breaks` makes it stop with `error` set while playing, as the real one does, `renderThrows` throw.
  */
-export function fakeVgmDeck({ samples = 1000, renderThrows = false, made = [] } = {}) {
+export function fakeVgmDeck({ samples = 1000, renderThrows = false, breaks = false, made = [] } = {}) {
   return class FakeVgmDeck {
     constructor(id, bytes, { sampleRate, passes = 0, gain = 1 } = {}) {
       if (!(bytes instanceof Uint8Array)) throw new Error('bytes must be a Uint8Array');
@@ -135,6 +135,7 @@ export function fakeVgmDeck({ samples = 1000, renderThrows = false, made = [] } 
     finish() { if (!this.ending) { this.ending = true; this.endedAt = this.pos; } }
     render(L, R, at, n) {
       if (renderThrows) throw new Error('broken');
+      if (breaks) { this.error = 'broken'; this.ending = this.done = true; return; }   // as vgm-deck.js does: it never throws
       for (let i = 0; i < n; i++) {
         const playing = !this.ending;
         if (playing) { const v = (Math.floor(this.pos / 24) & 1 ? 0.1 : -0.1) * this.gain; L[at + i] += v; R[at + i] += v; }
