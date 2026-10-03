@@ -7,7 +7,8 @@
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
 // building its blast brings down. A skirmish is a free-for-all: every other house is a rival, computer or
 // not, and each wave picks its foe — near and weakly guarded first, a house that raided the base before others.
-// (The original's campaign allied every computer house against the player; see the phase 2 opponents notes.)
+// A campaign mission allies every computer house against the player, as the original did (sim/alliance.js):
+// allies are no rivals, targets or intruders.
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
@@ -21,6 +22,7 @@ import { needsRepair } from './repair-bay.js';
 import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
 import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
+import { friendly } from './alliance.js';
 
 export const DIFFICULTY = {
   easy:   { buildSpeed: 0.7, income: 1, firstAttack: 480, waveEvery: 180, waveBase: 3, waveGrow: 1, waveMax: 10, armyCap: 12, turrets: 1, reserve: 300 },
@@ -41,16 +43,36 @@ export const BUILD_ORDER = {
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
 
-export function createBrain(world, houseId, difficulty = 'normal') {
+/**
+ * A computer house's brain at a difficulty. A campaign mission (game/mission-setup.js) tunes it further with
+ * `mission` = { firstAttack, attackEvery (seconds), buildSpeed, incomeRate, passive (no attack waves) }: those
+ * go into brain.params over the difficulty's own, so the skirmish's DIFFICULTY table keeps its three presets.
+ */
+export function createBrain(world, houseId, difficulty = 'normal', mission = null) {
   const house = world.houses.get(houseId);
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
-  const d = DIFFICULTY[level];
+  const d = mission ? missionParams(DIFFICULTY[level], mission) : DIFFICULTY[level];
   house.isAI = true;
   house.buildSpeed = d.buildSpeed;
   house.incomeRate = d.income;
-  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waveFoe: {}, waves: 0, nextAttack: d.firstAttack, commands: 0 };
+  house.brain = { difficulty: level, noRoom: {}, rallied: [], wave: [], waveFoe: {}, waves: 0, nextAttack: d.passive ? Infinity : d.firstAttack, commands: 0 };
+  if (mission) house.brain.params = d;
   return house.brain;
 }
+
+const num = (v) => typeof v === 'number' && Number.isFinite(v);
+
+function missionParams(d, m) {
+  const p = { ...d, passive: !!m.passive };
+  if (num(m.firstAttack)) p.firstAttack = Math.max(0, m.firstAttack);
+  if (num(m.attackEvery)) p.waveEvery = Math.max(10, m.attackEvery);
+  if (num(m.buildSpeed)) p.buildSpeed = Math.max(0.1, m.buildSpeed);
+  if (num(m.incomeRate)) p.income = Math.max(0, m.incomeRate);
+  return p;
+}
+
+/** What a brain plays by: its mission's parameters, else its difficulty's. */
+const tuning = (house) => house.brain.params ?? DIFFICULTY[house.brain.difficulty];
 
 export function updateAI(world) {
   for (const house of world.houses.values()) if (house.brain && !house.defeated) think(world, house);
@@ -107,7 +129,7 @@ function deployMcv(world, house, view) {
  *  with `only`, that house's alone. A sandworm belongs to no house in the game and is nobody's target. */
 export function nearestEnemyTarget(world, houseId, x, y, only = null) {
   let best = null, bestD = Infinity;
-  const skip = (h) => h === houseId || (only !== null && h !== only) || !world.houses.has(h);
+  const skip = (h) => friendly(world, h, houseId) || (only !== null && h !== only) || !world.houses.has(h);
   for (const s of world.structures.values()) {
     if (skip(s.house) || s.type.isWall) continue;
     const d = Math.hypot(s.x + s.w / 2 - x, s.y + s.h / 2 - y);
@@ -129,7 +151,7 @@ export function nearestEnemyTarget(world, houseId, x, y, only = null) {
  */
 export function sizeUpRivals(world, houseId, from) {
   const rivals = new Map();
-  for (const h of world.houses.values()) if (h.id !== houseId && !h.defeated) rivals.set(h.id, { house: h.id, d: Infinity, at: null, army: 0, ud: Infinity, uat: null });
+  for (const h of world.houses.values()) if (!friendly(world, h.id, houseId) && !h.defeated) rivals.set(h.id, { house: h.id, d: Infinity, at: null, army: 0, ud: Infinity, uat: null });
   for (const s of world.structures.values()) {
     const r = rivals.get(s.house);
     if (!r || s.type.isWall) continue;
@@ -198,7 +220,7 @@ function buildBase(world, house, view) {
     return;
   }
   const yardUp = upgradeId('constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
-  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + DIFFICULTY[house.brain.difficulty].reserve) issue(world, house, { type: 'build', typeId: yardUp });
+  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + tuning(house).reserve) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
 const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
@@ -263,7 +285,7 @@ function nextStructure(world, house, view) {
 }
 
 function wantedStructure(world, house, view, can) {
-  const id = house.id, d = DIFFICULTY[house.brain.difficulty];
+  const id = house.id, d = tuning(house);
   const has = (t) => view.count[t] ?? 0;
   const need = {};
   for (const t of BUILD_ORDER[id] ?? BUILD_ORDER.atreides) {
@@ -302,7 +324,7 @@ function keepCarryall(world, house, view) {
   const air = house.lines.air;
   const queued = (air.current?.typeId === 'carryall' ? 1 : 0) + air.queue.filter((t) => t === 'carryall').length;
   const have = view.units.filter((u) => u.typeId === 'carryall' && !u.visitor).length;
-  if (have + queued >= 1 || house.credits < 800 + DIFFICULTY[house.brain.difficulty].reserve || !canBuild(world, house.id, 'carryall')) return;
+  if (have + queued >= 1 || house.credits < 800 + tuning(house).reserve || !canBuild(world, house.id, 'carryall')) return;
   issue(world, house, { type: 'build', typeId: 'carryall' });
 }
 
@@ -327,7 +349,7 @@ function vehicleChoice(view, pool) {
 }
 
 function buildArmy(world, house, view) {
-  const d = DIFFICULTY[house.brain.difficulty];
+  const d = tuning(house);
   if (view.units.filter(fighter).length >= d.armyCap) return;
   const options = buildOptions(world, house.id);
   for (const line of ['heavy', 'infantry', 'air']) {
@@ -342,7 +364,7 @@ const FACTORY_UPGRADES = ['heavyFactory', 'barracks', 'wor', 'hiTech'];   // wha
 
 /** Factory upgrades open better units: one new purchase per think, saving up for the most useful one. */
 function buyUpgrades(world, house, view) {
-  const d = DIFFICULTY[house.brain.difficulty];
+  const d = tuning(house);
   for (const type of FACTORY_UPGRADES) {
     const id = upgradeId(type);
     if (!view.count[type] || !canBuild(world, house.id, id)) continue;
@@ -369,7 +391,7 @@ function defend(world, house, view, repairing = []) {
   const b = house.brain;
   let intruder = null, best = 10;
   for (const u of world.units.values()) {
-    if (u.house === house.id || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm
+    if (friendly(world, u.house, house.id) || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm or an ally
     for (const s of view.mine) {
       const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
       if (d < best) { best = d; intruder = u; }
@@ -405,7 +427,7 @@ function sendForRepairs(world, house, view) {
 }
 
 function attack(world, house, view, defending = []) {
-  const b = house.brain, d = DIFFICULTY[b.difficulty];
+  const b = house.brain, d = tuning(house);
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
@@ -420,7 +442,7 @@ function attack(world, house, view, defending = []) {
   }
   if (world.time < b.nextAttack) return;
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
-  const ready = view.units.filter((u) => fighter(u) && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder
+  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
   if (ready.length < size) { b.nextAttack = world.time + 15; return; }
   const units = ready.slice(0, size);
   const foe = chooseFoe(world, house, view, units.reduce((n, u) => n + u.type.cost, 0));
@@ -448,7 +470,7 @@ function hunt(world, house, members, foe) {
 function nearestEnemyWall(world, houseId, x, y, radius) {
   let best = null, bestD = radius;
   for (const s of world.structures.values()) {
-    if (s.house === houseId || !s.type.isWall) continue;
+    if (friendly(world, s.house, houseId) || !s.type.isWall) continue;
     const d = Math.hypot(s.x + 0.5 - x, s.y + 0.5 - y);
     if (d < bestD) { bestD = d; best = s; }
   }
@@ -470,12 +492,12 @@ export function richestTarget(world, houseId, spare = 0) {
   const things = [], own = [];
   for (const s of world.structures.values()) {
     if (s.type.isWall) continue;
-    if (s.house !== houseId) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
+    if (!friendly(world, s.house, houseId)) things.push({ x: s.x + s.w / 2, y: s.y + s.h / 2, value: s.type.cost });
     else if (spare) own.push({ kind: 'structure', entity: s });
   }
   for (const u of world.units.values()) {
     if (!u.isGround || u.inside) continue;
-    if (u.house !== houseId) things.push({ x: u.x, y: u.y, value: u.type.cost });
+    if (!friendly(world, u.house, houseId)) things.push({ x: u.x, y: u.y, value: u.type.cost });
     else if (spare) own.push({ kind: 'unit', x: u.x, y: u.y });
   }
   let best = null, bestValue = 0;
@@ -507,7 +529,7 @@ function sabotage(world, house, view) {
     if (!u.type.sabotage || u.order.type === 'sabotage') continue;
     let best = null, bestD = Infinity, bestFalls = false;
     for (const s of world.structures.values()) {
-      if (s.house === house.id || s.type.isWall) continue;
+      if (friendly(world, s.house, house.id) || s.type.isWall) continue;
       const d = Math.hypot(s.x + s.w / 2 - u.x, s.y + s.h / 2 - u.y), falls = s.hp <= SABOTEUR.blast;
       const better = !best || (falls !== bestFalls ? falls : s.type.cost > best.type.cost || (s.type.cost === best.type.cost && d < bestD));
       if (better) { best = s; bestD = d; bestFalls = falls; }

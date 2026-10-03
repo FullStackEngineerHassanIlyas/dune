@@ -1,9 +1,11 @@
 // Victory (spec §4.11): a house is out when it has no structures and no MCV, and its fall is named to everyone
-// ('houseDefeated'). A skirmish is a free-for-all: it ends when at most one house stands (nobody left is a draw),
-// or when every human player is out while computers fight on — a loss for the player, not a draw. The outcome
-// is decided once and announced once; the statistics of every house are frozen with it.
+// ('houseDefeated'). A skirmish is a free-for-all: it ends when at most one house stands (nobody left is a draw)
+// or only allies do (sim/alliance.js), or when every human player is out while computers fight on — a loss for
+// the player, not a draw. The outcome is decided once and announced once; the statistics of every house are
+// frozen with it.
 import { announce, defeatText } from './announce.js';
 import { HOUSES } from '../data/houses.js';
+import { friendly } from './alliance.js';
 
 /** A house stands while it has a structure (walls do not count) or an MCV. */
 export function standing(world, houseId) {
@@ -24,8 +26,10 @@ export function updateVictory(world) {
     house.defeatedAt = world.time;
     world.events.push('houseDefeated', { house: house.id, name: HOUSES[house.id]?.name ?? house.id, text: defeatText(house.id) });
   }
-  if (left.length > 1 && (humansLeft > 0 || humans === 0)) return;
-  finishGame(world, { winner: left.length === 1 ? left[0] : null, draw: left.length === 0, standing: left });
+  const oneSide = left.every((id) => friendly(world, id, left[0]));   // allies left alone together have won
+  if (left.length > 1 && !oneSide && (humansLeft > 0 || humans === 0)) return;
+  const winner = left.length === 1 ? left[0] : left.length && oneSide ? left.find((id) => !world.houses.get(id).isAI) ?? left[0] : null;
+  finishGame(world, { winner, draw: left.length === 0, standing: left });
 }
 
 /** Ends the game once (a skirmish's last house standing, or a mission's objective): freezes every house's

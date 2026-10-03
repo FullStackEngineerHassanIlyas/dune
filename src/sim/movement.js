@@ -5,6 +5,7 @@
 import { DT, SIM_HZ, TURN_RATE, TURRET_TURN_RATE, DRIVE_ANGLE, groundSpeed, STUCK_REPATH_SECONDS, STUCK_GIVEUP_SECONDS } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { onFoot } from '../data/units.js';
+import { friendly } from './alliance.js';
 
 const REPATH_TICKS = Math.round(STUCK_REPATH_SECONDS * SIM_HZ);
 const GIVEUP_TICKS = Math.round(STUCK_GIVEUP_SECONDS * SIM_HZ);
@@ -67,7 +68,7 @@ const isIdle = (u) => u.pathState !== 'ready' && u.pathState !== 'waiting';
 
 function blocked(world, u, occupantId) {
   const other = world.units.get(occupantId);
-  if (other && u.move === 'tracked' && onFoot(other.move) && other.house !== u.house && world.onCrush) { world.onCrush(u, other); return; }   // tracks crush enemy infantry
+  if (other && u.move === 'tracked' && onFoot(other.move) && !friendly(world, other.house, u.house) && world.onCrush) { world.onCrush(u, other); return; }   // tracks crush enemy infantry
   const lastStep = u.pathIndex === u.path.length - 1;
   const parked = other && !other.step && isIdle(other);
   if (parked) {

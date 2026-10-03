@@ -1,10 +1,11 @@
-// window.__dune: read-only hooks for smoke and end-to-end tests (no cheats).
+// window.__dune: read-only hooks for smoke and end-to-end tests (no cheats). A campaign mission adds
+// __dune.mission(): its objective, progress, next reinforcement, outcome and how the end was handed over.
 import { findFreeTile } from './setup.js';
 import { STRUCTURES } from '../data/structures.js';
 import { findPlacement } from '../sim/placement.js';
 import { sidebarModel } from '../ui/sidebar-model.js';
 
-export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view }) {
+export function createDebugApi({ world, house, selection, project, positionOf, rig, controller, view, scene = 'skirmish' }) {
   const brief = (u) => u && { id: u.id, typeId: u.typeId, house: u.house, tx: u.tx, ty: u.ty, x: u.x, y: u.y, order: u.order.type, hp: u.hp, inside: u.inside ?? 0, docked: u.docked ?? 0, harvest: u.harvest ? { state: u.harvest.state, load: Math.round(u.harvest.load) } : null };
   const screen = (x, z, lift) => { const s = project(x, z, lift); return { x: Math.round(s.x), y: Math.round(s.y), visible: s.visible }; };
   const rect = (el) => {
@@ -15,7 +16,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
   const yard = () => [...world.structures.values()].find((s) => s.house === house && s.typeId === 'constructionYard');
   return {
     ready: false,
-    scene: 'skirmish',
+    scene,
+    mission: world.mission ? () => ({ ...world.mission.debug(), handoff: view?.handoff ?? null, flyover: view?.flyover?.debug?.() ?? null }) : undefined,
     world,
     house,
     selection: () => selection.list(),

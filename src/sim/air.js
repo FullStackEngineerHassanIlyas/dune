@@ -22,6 +22,19 @@ export function nearestEdge(map, x, y) {
   return { x: ex, y: ey };
 }
 
+/** A point on one side of the map ('north', 'east', 'south' or 'west') level with (x, y): where a mission's
+ *  reinforcements come in from (game/mission.js); any other side is the nearest edge. */
+export function edgePoint(map, side, x, y) {
+  const tx = Math.max(0, Math.min(map.w - 1, Math.floor(x))), ty = Math.max(0, Math.min(map.h - 1, Math.floor(y)));
+  switch (side) {
+    case 'north': return { x: tx, y: 0 };
+    case 'south': return { x: tx, y: map.h - 1 };
+    case 'west': return { x: 0, y: ty };
+    case 'east': return { x: map.w - 1, y: ty };
+    default: return nearestEdge(map, x, y);
+  }
+}
+
 /** Keep a flying unit over the map and its tile indices current (fog, radar and picking read them). */
 export function track(world, u) {
   const map = world.map;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTime, endTable, fightOn } from '../src/ui/end-screen.js';
+import { formatTime, endTable, fightOn, endLayout } from '../src/ui/end-screen.js';
 
 test('game time reads as minutes and seconds', () => {
   assert.equal(formatTime(0), '0:00');
@@ -25,4 +25,12 @@ test('who fights on after the player falls', () => {
   assert.equal(fightOn(['Ordos']), 'Ordos fights on.');
   assert.equal(fightOn(['Harkonnen', 'Ordos']), 'Harkonnen and Ordos fight on.');
   assert.equal(fightOn(['Harkonnen', 'Ordos', 'Sardaukar']), 'Harkonnen, Ordos and Sardaukar fight on.');
+});
+
+test('a skirmish ends with Play again, Keep watching and the main menu; a mission on its own names itself', () => {
+  const won = { won: true, draw: false }, lost = { won: false, draw: false };
+  assert.deepEqual(endLayout(won), { heading: 'Mission accomplished', subtitle: '', buttons: [['replay', 'Play again'], ['close', 'Keep watching'], ['menu', 'Main menu']] });
+  assert.deepEqual(endLayout({ won: false, draw: true }, { hasMenu: false }).buttons.map((b) => b[0]), ['replay', 'close']);
+  const m = endLayout(lost, { mission: { title: 'Destroy the Harkonnen base' } });
+  assert.deepEqual(m, { heading: 'Mission failed', subtitle: 'Destroy the Harkonnen base', buttons: [['replay', 'Play again'], ['menu', 'Main menu']] });
 });

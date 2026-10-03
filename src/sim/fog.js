@@ -3,7 +3,9 @@
 // (C&C-style option): explored ground goes dim out of sight and hides enemy units there; then every
 // armed unit and building sees at least as far as it shoots, so nothing fires from where its target's
 // side cannot see. Enemy structures stay visible once seen. 'revealed' (world.fogOfWar false): all of it.
+// Allies (a mission's computer houses, sim/alliance.js) share what they see.
 import { unitSight } from '../data/tuning.js';
+import { friendly } from './alliance.js';
 
 export class FogLayer {
   constructor(w, h) {
@@ -46,11 +48,11 @@ export function updateFog(world) {
     const fog = (house.fog ??= new FogLayer(map.w, map.h));
     if (fogged) fog.visible.fill(0);   // in the Dune II shroud, what was once seen stays in view
     fog.revision++;
-    for (const u of world.units.values()) if (u.house === house.id) fog.reveal(u.tx, u.ty, unitReach(u.type, fogged));
-    for (const s of world.structures.values()) if (s.house === house.id) fog.reveal(s.x + (s.w - 1) / 2, s.y + (s.h - 1) / 2, structureReach(s.type, fogged));
+    for (const u of world.units.values()) if (friendly(world, u.house, house.id)) fog.reveal(u.tx, u.ty, unitReach(u.type, fogged));
+    for (const s of world.structures.values()) if (friendly(world, s.house, house.id)) fog.reveal(s.x + (s.w - 1) / 2, s.y + (s.h - 1) / 2, structureReach(s.type, fogged));
     const bit = 1 << house.slot;
     for (const s of world.structures.values()) {
-      if (s.house === house.id || (s.seenBy ?? 0) & bit) continue;
+      if (friendly(world, s.house, house.id) || (s.seenBy ?? 0) & bit) continue;
       for (let dy = 0; dy < s.h && !((s.seenBy ?? 0) & bit); dy++) for (let dx = 0; dx < s.w; dx++) {
         if (fog.visible[(s.y + dy) * map.w + s.x + dx]) { s.seenBy = (s.seenBy ?? 0) | bit; break; }
       }
@@ -66,11 +68,11 @@ export function isVisible(world, houseId, x, y) {
 }
 
 export function unitVisibleTo(world, houseId, u) {
-  return u.house === houseId || isVisible(world, houseId, u.tx, u.ty);
+  return friendly(world, u.house, houseId) || isVisible(world, houseId, u.tx, u.ty);
 }
 
 export function structureVisibleTo(world, houseId, s) {
-  if (s.house === houseId || !world.fogOfWar) return true;
+  if (friendly(world, s.house, houseId) || !world.fogOfWar) return true;
   const house = world.houses.get(houseId);
   return !!house && ((s.seenBy ?? 0) & (1 << house.slot)) !== 0;
 }
