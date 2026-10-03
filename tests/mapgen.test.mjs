@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateMap } from '../src/sim/mapgen.js';
+import { generateMap, plateauHalf, siteSpiceSpot } from '../src/sim/mapgen.js';
 import { GameMap } from '../src/sim/map.js';
 import { G, SURFACE } from '../src/data/terrain.js';
 
@@ -82,4 +82,109 @@ test('surface reflects structures, concrete, rubble and mountains', () => {
   m.ground[2] = G.MOUNTAIN; assert.equal(m.moveFactor(2, 'tracked'), 0);
   assert.ok(m.isBuildableGround(3));
   m.ground[3] = G.SAND; assert.ok(!m.isBuildableGround(3)); assert.ok(m.isSand(3));
+});
+
+// ---- campaign sites (phase 3, C10): plateaus where a mission puts its bases ----
+
+function fnv(bytes, h = 2166136261) {
+  for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+
+test('skirmish maps (no sites) stay byte-identical to the phase 2 generator', () => {
+  // hashes of ground, spice, blooms and starts taken from the generator before sites existed
+  const pinned = [
+    [{ w: 64, h: 64, seed: 1 }, 'dfa3748c'], [{ w: 64, h: 64, seed: 7, players: 3 }, '2022e60e'], [{ w: 32, h: 32, seed: 2, players: 1 }, '12a623d8'],
+    [{ w: 96, h: 96, seed: 42, players: 4 }, '6383fd3'], [{ w: 128, h: 128, seed: 3, players: 4, spiceFields: 20, blooms: 6 }, '6aa9b975'], [{ w: 48, h: 40, seed: 99, players: 2 }, '50189033'],
+  ];
+  for (const [opts, hash] of pinned) {
+    for (const extra of [{}, { sites: null }, { sites: [] }]) {
+      const { map, starts } = generateMap({ ...opts, ...extra });
+      let h = fnv(map.ground);
+      h = fnv(new Uint8Array(map.spice.buffer), h);
+      h = fnv(map.bloom, h);
+      h = fnv(new TextEncoder().encode(JSON.stringify(starts)), h);
+      assert.equal(h.toString(16), hash, JSON.stringify({ ...opts, ...extra }));
+    }
+  }
+});
+
+const SITES = [{ id: 'player', x: 12, y: 50, r: 8 }, { id: 'base1', x: 50, y: 13, r: 11 }, { id: 'base2', x: 50, y: 48, r: 9 }];
+
+test('sites get rock plateaus of their own radius and are the starts, in order', () => {
+  for (let seed = 1; seed <= 6; seed++) {
+    const { map, starts } = generateMap({ w: 64, h: 64, seed, sites: SITES });
+    assert.deepEqual(starts, SITES.map((s) => ({ x: s.x, y: s.y })));
+    for (const s of SITES) {
+      const half = plateauHalf(s.r);
+      for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+        assert.equal(map.ground[map.idx(s.x + dx, s.y + dy)], G.ROCK, `seed ${seed} site ${s.id} offset ${dx},${dy}`);
+      }
+    }
+  }
+});
+
+test('the guaranteed square of a plateau: 13x13 for the skirmish radius, larger for larger sites', () => {
+  assert.equal(plateauHalf(8), 6);
+  assert.ok(plateauHalf(11) >= 9);
+  assert.ok(plateauHalf(4) >= 3);
+});
+
+test('sites are connected for tracked vehicles', () => {
+  for (let seed = 1; seed <= 12; seed++) {
+    const { map } = generateMap({ w: 64, h: 64, seed, sites: SITES });
+    for (const s of SITES.slice(1)) assert.ok(reachableTracked(map, map.idx(SITES[0].x, SITES[0].y), map.idx(s.x, s.y)), `seed ${seed} ${s.id}`);
+  }
+});
+
+test('every site has spice within reach, off its plateau', () => {
+  for (let seed = 1; seed <= 12; seed++) {
+    const { map } = generateMap({ w: 64, h: 64, seed, sites: SITES });
+    for (const s of SITES) {   // within nine tiles of the plateau's sure square
+      const reach = plateauHalf(s.r) + 9;
+      let near = 0;
+      for (let i = 0; i < map.spice.length; i++) if (map.spice[i] && Math.max(Math.abs(map.xOf(i) - s.x), Math.abs(map.yOf(i) - s.y)) <= reach) near++;
+      assert.ok(near >= 20, `seed ${seed} site ${s.id}: ${near} spice tiles within ${reach}`);
+    }
+    for (let i = 0; i < map.spice.length; i++) {
+      if (!map.spice[i] && !map.bloom[i]) continue;
+      for (const s of SITES) {
+        const half = plateauHalf(s.r);
+        assert.ok(Math.max(Math.abs(map.xOf(i) - s.x), Math.abs(map.yOf(i) - s.y)) > half, `seed ${seed} spice or bloom on the plateau of ${s.id}`);
+      }
+    }
+  }
+});
+
+test('a site\'s spice field lies at its spot, towards the centre unless another site is in the way', () => {
+  const two = [{ x: 8, y: 8, r: 6 }, { x: 23, y: 23, r: 7 }];
+  const spot = siteSpiceSpot(two[0], 32, 32, two);
+  for (const o of two.slice(1)) assert.ok(Math.max(Math.abs(o.x - spot.x), Math.abs(o.y - spot.y)) > plateauHalf(o.r) + 3, JSON.stringify(spot));
+  const open = siteSpiceSpot({ x: 12, y: 50, r: 8 }, 64, 64);
+  assert.ok(open.x > 12 && open.y < 50, 'towards the map centre on an open map');
+  for (let seed = 1; seed <= 6; seed++) {
+    const { map } = generateMap({ w: 32, h: 32, seed, sites: two });
+    for (const s of two) {
+      const p = siteSpiceSpot(s, 32, 32, two);
+      let near = 0;
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (map.inBounds(p.x + dx, p.y + dy) && map.spice[map.idx(p.x + dx, p.y + dy)]) near++;
+      assert.ok(near >= 15, `seed ${seed}: ${near} spice tiles round the spot of ${s.x},${s.y}`);
+    }
+  }
+});
+
+test('sites work on a 32 map and on small outposts, and are deterministic', () => {
+  const sites = [{ id: 'player', x: 8, y: 23, r: 6 }, { id: 'base1', x: 23, y: 8, r: 7 }, { id: 'post', x: 22, y: 24, r: 3 }];
+  const a = generateMap({ w: 32, h: 32, seed: 4, sites }), b = generateMap({ w: 32, h: 32, seed: 4, sites });
+  assert.deepEqual(a.map.ground, b.map.ground);
+  assert.deepEqual(a.map.spice, b.map.spice);
+  assert.deepEqual(a.map.bloom, b.map.bloom);
+  assert.equal(a.starts.length, 3);
+  for (const s of sites) {
+    const half = plateauHalf(s.r);
+    for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) assert.equal(a.map.ground[a.map.idx(s.x + dx, s.y + dy)], G.ROCK);
+  }
+  let spice = 0;
+  for (let i = 0; i < a.map.spice.length; i++) if (a.map.spice[i] && Math.hypot(a.map.xOf(i) - 8, a.map.yOf(i) - 23) <= 14) spice++;
+  assert.ok(spice >= 12, `spice near the player: ${spice}`);
 });
