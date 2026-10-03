@@ -1,16 +1,18 @@
 // The player's own files (spec §6 Original files): clips read out of the .PAK files of their own Dune II
-// PC copy, and MP3/OGG/WAV tracks for the menu, peace and battle playlists. All of it stays in this
-// browser — IndexedDB, or memory for the session where the browser keeps no site data — and nothing is
-// uploaded. The Original Game Files page (src/ui/original-files.js) fills it; the announcer
+// PC copy, and music: the Mega Drive game's soundtrack as VGM files (.vgm, .vgz, or a .zip of them, as rips
+// come), or MP3/OGG/WAV tracks, each in the slots it plays in (src/audio/music/sega-tracks.js). All of it
+// stays in this browser — IndexedDB, or memory for the session where the browser keeps no site data — and
+// nothing is uploaded. The Original Game Files page (src/ui/original-files.js) fills it; the announcer
 // (src/audio/voice.js) and the sound engine (src/audio/engine.js) read the clips when "Use the original
-// sounds" is on, the music reads its playlists through playlistTracks(). Whoever reads the clips can
-// follow() the store and is told (originalsChanged()) when the player changes them; the store holds
-// followers weakly, so a finished battle's engine is not kept alive by it.
+// sounds" is on, the music reads its slots through playlists() / playlistTracks(). Whoever reads them can
+// follow() the store and is told (originalsChanged(), playlistsChanged(), auditionChanged()) when the player
+// changes them; the store holds followers weakly, so a finished battle's engine is not kept alive by it.
 import { readPak } from '../formats/pak.js';
 import { readVoc } from '../formats/voc.js';
 import { clipKey, summarize, resolveEffects, effectSample } from '../formats/dune2-sounds.js';
+import { SLOTS, autoSlots, isGerman } from '../audio/music/sega-tracks.js';
 
-export const PLAYLISTS = ['menu', 'peace', 'battle'];
+export const PLAYLISTS = SLOTS;
 const DB_NAME = 'dune2-3d.user-files', DB_VERSION = 1;
 const STORES = { clips: { keyPath: 'name' }, tracks: { keyPath: 'id', autoIncrement: true }, meta: { keyPath: 'key' } };
 
@@ -119,6 +121,15 @@ export function notify(what = 'originals') {
   for (const t of followed()) try { t[call]?.(); } catch (err) { console.warn('original files:', err); }
 }
 
+let auditioning = false;
+
+/** The Music Test is (not) playing a track: whatever music plays meanwhile makes way (`auditionChanged(on)`). */
+export function audition(on) {
+  if (auditioning === !!on) return;
+  auditioning = !!on;
+  for (const t of followed()) try { t.auditionChanged?.(auditioning); } catch (err) { console.warn('original files:', err); }
+}
+
 // ——— the original game's clips ———
 
 const extension = (name) => String(name).split('.').pop().toUpperCase();
@@ -211,18 +222,39 @@ export async function originalEffects() {
 
 // ——— the player's music ———
 
-/** The audio type the first bytes give away (MP3, OGG or WAV), or null. */
+export const VGM_TYPE = 'audio/x-vgm';   // the player's VGM files are stored plain (inflated), under this type
+const VGM_FORMAT = () => import('../formats/vgm.js');   // the VGM reader (contract C8): gzip, zip, header, GD3
+const VGM_RATE = 44100;                 // VGM's own clock: samples per second
+
+/** The type the first bytes give away: MP3, OGG, WAV, a VGM ('audio/x-vgm'), a gzip (a .vgz) or a zip; else null. */
 export function sniffAudio(bytes) {
   const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   const text = (i, s) => [...s].every((c, k) => b[i + k] === c.charCodeAt(0));
   if (text(0, 'ID3') || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
   if (text(0, 'OggS')) return 'audio/ogg';
   if (text(0, 'RIFF') && text(8, 'WAVE')) return 'audio/wav';
+  if (text(0, 'Vgm ')) return VGM_TYPE;
+  if (b[0] === 0x1f && b[1] === 0x8b) return 'application/gzip';
+  if (text(0, 'PK\x03\x04')) return 'application/zip';
   return null;
+}
+const MEDIA = new Set(['audio/mpeg', 'audio/ogg', 'audio/wav']);
+
+const bytesView = (d) => (ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d));
+const storageError = (err) => (/quota/i.test(`${err?.name} ${err?.message}`) ? 'not enough storage space left in this browser' : err?.message ?? String(err));
+/** The slots a stored track plays in (one 'list' in the store's first version). */
+const slotsOf = (t) => (Array.isArray(t.lists) ? t.lists : t.list ? [t.list] : []).filter((n) => SLOTS.includes(n));
+/** "16 - Atredies Dirge.vgm" → "Atredies Dirge": a title when a file has no tag. */
+const titleFromName = (name) => String(name).split(/[\\/]/).pop().replace(/\.[^.]+$/, '').replace(/^\s*\d+\s*[-._)]?\s*/, '').trim() || String(name);
+
+async function settle(added) {
+  if (!added) return;
+  try { await globalThis.navigator?.storage?.persist?.(); } catch { /* best effort: ask the browser not to evict them */ }
+  notify('playlists');   // the music takes the new tracks at once
 }
 
 /**
- * Adds tracks ([File] or [{ name, data: ArrayBuffer }]) to playlist `list` ('menu', 'peace' or 'battle').
+ * Adds MP3, OGG or WAV tracks ([File] or [{ name, data: ArrayBuffer }]) to slot `list` (one of SLOTS).
  * Returns { added, files: [{ name, error }] }: a file that is not MP3, OGG or WAV is refused.
  */
 export async function addTracks(list, files) {
@@ -233,36 +265,148 @@ export async function addTracks(list, files) {
     const name = String(f.name ?? 'track'), row = { name, error: null };
     report.push(row);
     try {
-      const head = f.data !== undefined ? (ArrayBuffer.isView(f.data) ? new Uint8Array(f.data.buffer, f.data.byteOffset, f.data.byteLength) : new Uint8Array(f.data)).subarray(0, 12) : new Uint8Array(await f.slice(0, 12).arrayBuffer());
+      const head = f.data !== undefined ? bytesView(f.data).subarray(0, 12) : new Uint8Array(await f.slice(0, 12).arrayBuffer());
       const type = sniffAudio(head);
-      if (!type) throw new Error('not an MP3, OGG or WAV file');
+      if (!MEDIA.has(type)) throw new Error('not an MP3, OGG or WAV file');
       const blob = f.data !== undefined ? new Blob([f.data], { type }) : f;
-      await s.put('tracks', { list, name, type, size: blob.size, blob });
+      await s.put('tracks', { list, lists: [list], name, type, size: blob.size, blob, meta: { title: titleFromName(name) } });
       added++;
     } catch (err) {
-      row.error = /quota/i.test(`${err?.name} ${err?.message}`) ? 'not enough storage space left in this browser' : err.message;
+      row.error = storageError(err);
     }
   }
-  if (added) try { await globalThis.navigator?.storage?.persist?.(); } catch { /* best effort: ask the browser not to evict them */ }
-  if (added) notify('playlists');   // the menu's music takes the new tracks at once
+  await settle(added);
   return { added, files: report };
 }
 
-/** A playlist's tracks without their data: [{ id, list, name, type, size }], in the order added. */
+/**
+ * The Music Test's import: VGM files (.vgm, .vgz, or .zip packs of them — the Mega Drive game's soundtrack as rips
+ * come) and MP3/OGG/WAV ([File] or [{ name, data }]). VGMs are inflated here and kept plain with what their header
+ * and tag say ({ title, game, seconds, loopSeconds, chips }); each track goes in the slots its title names in the
+ * Sega table (sega-tracks.js), or in `slot` when one is given, or none (the player picks them). German versions are
+ * left out (English only), and a file already here is not added twice. `format`: the VGM reader (tests).
+ * Returns { added, files: [{ name, title, slots, seconds, loopSeconds, error, note }] }, one row per track.
+ */
+export async function importMusic(files, { slot = null, format = VGM_FORMAT } = {}) {
+  if (slot !== null && !SLOTS.includes(slot)) throw new Error(`no playlist "${slot}"`);
+  const report = [], s = await db(), have = new Set((await s.all('tracks')).map((t) => `${t.name}|${t.size}`));
+  let added = 0, fmt = null;
+  const reader = async () => {
+    if (!fmt) {
+      try { fmt = await format(); } catch { fmt = {}; }
+    }
+    if (typeof fmt.parseVgm !== 'function') throw new Error('this copy of the game cannot read VGM files');
+    return fmt;
+  };
+  const keep = async (row, record) => {
+    if (have.has(`${record.name}|${record.size}`)) { row.note = 'already here'; return; }
+    try {
+      await s.put('tracks', record);
+      have.add(`${record.name}|${record.size}`);
+      added++;
+    } catch (err) { row.error = storageError(err); }
+  };
+  const vgm = async (name, bytes, row) => {
+    const r = await reader();
+    let plain = bytes;
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) plain = await r.inflateVgm(bytes);
+    const v = r.parseVgm(plain), tag = v.gd3 ?? {};
+    row.title = String(tag.track || '').trim() || titleFromName(name);
+    if (isGerman(row.title) || isGerman(name)) { row.note = 'German version: left out (English only)'; return; }
+    const chips = [v.clocks?.ym2612 ? 'YM2612' : null, v.clocks?.sn76489 ? 'SN76489' : null].filter(Boolean);
+    if (!chips.length) throw new Error('no Mega Drive sound chips in it');
+    row.seconds = (v.totalSamples ?? 0) / VGM_RATE;
+    row.loopSeconds = v.loopOffset ? (v.loopSamples ?? 0) / VGM_RATE : 0;
+    row.slots = slot ? [slot] : autoSlots(row.title, name);
+    if (v.unsupported?.length) row.note = `not all of it can be played: ${v.unsupported.join(', ')}`;
+    const blob = new Blob([plain], { type: VGM_TYPE });
+    await keep(row, {
+      list: row.slots[0] ?? '', lists: row.slots, name, type: VGM_TYPE, size: blob.size, blob,
+      meta: { title: row.title, game: String(tag.game || ''), seconds: row.seconds, loopSeconds: row.loopSeconds, chips, version: v.version ?? null },
+    });
+  };
+  for (const f of files) {
+    const name = String(f.name ?? 'track');
+    try {
+      const bytes = f.data !== undefined ? bytesView(f.data) : new Uint8Array(await f.arrayBuffer());
+      const type = sniffAudio(bytes.subarray(0, 12));
+      if (type === 'application/zip') {
+        const entries = (await (await reader()).readVgmZip(bytes)).filter((e) => /\.(vgm|vgz)$/i.test(e.name));
+        if (!entries.length) report.push({ name, error: 'no VGM files in it' });
+        for (const e of entries) {
+          const entry = e.name.split(/[\\/]/).pop(), row = { name: entry, from: name, title: titleFromName(entry), slots: [], error: null, note: null };
+          report.push(row);
+          try { await vgm(entry, bytesView(e.bytes), row); } catch (err) { row.error = err.message; }
+        }
+        continue;
+      }
+      const row = { name, title: titleFromName(name), slots: [], error: null, note: null };
+      report.push(row);
+      try {
+        if (type === VGM_TYPE || type === 'application/gzip') await vgm(name, bytes, row);
+        else if (MEDIA.has(type)) {
+          row.slots = slot ? [slot] : autoSlots(null, name);
+          const blob = new Blob([bytes], { type });
+          await keep(row, { list: row.slots[0] ?? '', lists: row.slots, name, type, size: blob.size, blob, meta: { title: row.title } });
+        } else throw new Error('not a music file (VGM, VGZ, ZIP, MP3, OGG or WAV)');
+      } catch (err) { row.error = err.message; }
+    } catch (err) {
+      report.push({ name, error: err.message });
+    }
+  }
+  await settle(added);
+  return { added, files: report };
+}
+
+/** The tracks without their data: [{ id, list, lists, name, type, size, meta }], in the order added; `list` filters by slot. */
 export async function listTracks(list) {
   const all = await (await db()).all('tracks');
-  return all.filter((t) => !list || t.list === list).sort((a, b) => a.id - b.id).map(({ id, list: l, name, type, size }) => ({ id, list: l, name, type, size }));
+  return all.filter((t) => !list || slotsOf(t).includes(list)).sort((a, b) => a.id - b.id)
+    .map((t) => ({ id: t.id, list: t.list ?? '', lists: slotsOf(t), name: t.name, type: t.type, size: t.size, meta: t.meta ?? null }));
+}
+
+/** Puts a track in these slots (none: kept, but not played). */
+export async function assignTrack(id, lists) {
+  const s = await db(), t = await s.get('tracks', id);
+  if (!t) throw new Error('that track is gone');
+  const slots = [...new Set(lists ?? [])].filter((n) => SLOTS.includes(n));
+  await s.put('tracks', { ...t, list: slots[0] ?? '', lists: slots });
+  notify('playlists');
 }
 
 export async function removeTrack(id) { await (await db()).delete('tracks', id); notify('playlists'); }
 
-/** Contract with the music (src/audio/music): a playlist's tracks as [{ name, type, data: ArrayBuffer }]; empty when there are none. */
+/** One track with its data ({ id, name, type, data, meta }), for the Music Test to play; null when it is gone. */
+export async function trackData(id) {
+  const t = await (await db()).get('tracks', id);
+  return t ? { id: t.id, name: t.name, type: t.type, data: await t.blob.arrayBuffer(), meta: t.meta ?? null } : null;
+}
+
+/** Contract with the music (src/audio/music): a slot's tracks as [{ id, name, type, data: ArrayBuffer, meta }]; empty when there are none. */
 export async function playlistTracks(name) {
   if (!PLAYLISTS.includes(name)) return [];
-  const all = (await (await db()).all('tracks')).filter((t) => t.list === name).sort((a, b) => a.id - b.id);
+  const all = (await (await db()).all('tracks')).filter((t) => slotsOf(t).includes(name)).sort((a, b) => a.id - b.id);
   const out = [];
   for (const t of all) {
-    try { out.push({ name: t.name, type: t.type, data: await t.blob.arrayBuffer() }); } catch { /* a track the browser lost: skipped */ }
+    try { out.push({ id: t.id, name: t.name, type: t.type, data: await t.blob.arrayBuffer(), meta: t.meta ?? null }); } catch { /* a track the browser lost: skipped */ }
+  }
+  return out;
+}
+
+/**
+ * These slots' tracks (every slot's by default; { slot: [...] } as playlistTracks gives them) in one read; a track in
+ * two slots is one object in both. Only the tracks in these slots are read (a battle need not hold the menu's music).
+ */
+export async function playlists(names = SLOTS) {
+  const want = SLOTS.filter((n) => names.includes(n));
+  const all = (await (await db()).all('tracks')).sort((a, b) => a.id - b.id), out = Object.fromEntries(want.map((n) => [n, []]));
+  for (const t of all) {
+    const lists = slotsOf(t).filter((n) => want.includes(n));
+    if (!lists.length) continue;
+    let data;
+    try { data = await t.blob.arrayBuffer(); } catch { continue; }   // a track the browser lost: skipped
+    const item = { id: t.id, name: t.name, type: t.type, data, meta: t.meta ?? null };
+    for (const n of lists) out[n].push(item);
   }
   return out;
 }

@@ -2,9 +2,24 @@
 // master volume act on it, and suspending the context — the game paused, a hidden tab — holds it), fed by the FM
 // mixer on the audio thread (worklet.js) or, where there is no AudioWorklet, by a worker rendering ahead in small
 // blocks (worker.js) that the page queues a fraction of a second ahead. The player's own MP3/OGG/WAV files play
-// through a media element into the same gain, crossfaded the same way. `audio` is anything with an AudioContext
-// `ctx` (null until a gesture opens it) and a `master` node: the battle's SoundEngine, or the menu's own.
+// through a media element into the same gain, crossfaded the same way; their Mega Drive VGM files (contract C8) go
+// to the mixer as data and play there like a track — the VGM player's code is added to the worklet only when the
+// first one is to play, and the commands behind it wait in order. `audio` is anything with an AudioContext `ctx`
+// (null until a gesture opens it, or made suspended at page load) and a `master` node: the battle's SoundEngine,
+// or the menu's own.
 import { BLOCK } from './mixer.js';
+
+export const VGM_TYPE = 'audio/x-vgm';
+const vgmIds = new WeakMap();
+let vgmCount = 0;
+/** The mixer's id for one of the player's VGM files: its key in the store, else one given here once. */
+export function vgmId(file) {
+  if (file?.id !== undefined && file.id !== null) return `vgm:${file.id}`;
+  if (!vgmIds.has(file)) vgmIds.set(file, `vgm:t${++vgmCount}`);
+  return vgmIds.get(file);
+}
+/** A one-line module that puts the VGM player where the worklet's mixer looks for it. */
+const vgmShim = (url) => `import { VgmDeck } from ${JSON.stringify(url)};\nglobalThis.duneVgmDeck = VgmDeck;\n`;
 
 const AHEAD = 0.4;          // seconds the worker fallback keeps queued
 const PUMP_MS = 100;        // how often it tops the queue up
@@ -26,6 +41,9 @@ export class MusicOutput {
     this.load = null;        // share of the audio thread the synth takes (worklet only)
     this.gen = 0;            // bumped by release(): a synth still loading from before is thrown away
     this.modules = new WeakMap();   // context → the worklet module loading or loaded into it
+    this.vgmModules = new WeakMap();   // context → the VGM player loading or loaded into its worklet scope
+    this.gated = false;      // the VGM player is loading: commands wait behind it
+    this.vgmSent = new Set();   // the VGM ids this synth has the data of (a new synth starts empty)
   }
 
   get ctx() { return this.audio?.ctx ?? null; }
@@ -63,7 +81,7 @@ export class MusicOutput {
     } finally {
       if (gen === this.gen) {
         this.loading = null;
-        for (const c of this.pending.splice(0)) this.send(c);
+        this.flush();
       }
     }
   }
@@ -109,11 +127,76 @@ export class MusicOutput {
     else this.onEvent(e);
   }
 
-  /** A command for the FM mixer (mixer.js): play, next, stop. */
+  /** A command for the mixer (mixer.js): play, next, stop, hold, vgm — in order, queued until the synth can take it. */
   send(cmd) {
-    if (this.node) this.node.port.postMessage(cmd);
-    else if (this.worker) this.worker.postMessage(cmd);
-    else this.pending.push(cmd);
+    this.pending.push(cmd);
+    this.flush();
+  }
+
+  /** What waits goes out, in order — until a VGM's data needs the player loaded into the worklet first. */
+  flush() {
+    while (this.pending.length && this.synthUp && !this.gated) {
+      const c = this.pending[0];
+      if (c.cmd === 'vgm' && c.data && this.node) {
+        const player = this.vgmPlayer();
+        if (!player.done) { this.gate(player.loaded); return; }
+      }
+      this.pending.shift();
+      // the VGM player may be warmed up (about 0.1 s of the audio thread) only where no one hears it
+      if (c.cmd === 'vgm' && c.data) c.warm = !this.node || this.ctx?.state !== 'running';
+      if (this.node) this.node.port.postMessage(c);
+      else this.worker.postMessage(c);
+    }
+  }
+
+  /** The VGM player added to the worklet's scope, once per context; a missing one only means each VGM reports an error. */
+  vgmPlayer() {
+    const ctx = this.ctx, win = this.win;
+    let p = this.vgmModules.get(ctx);
+    if (p) return p;
+    p = { done: false };
+    p.loaded = (async () => {
+      const url = win.URL.createObjectURL(new win.Blob([vgmShim(new URL('./vgm-deck.js', import.meta.url).href)], { type: 'text/javascript' }));
+      try { await ctx.audioWorklet.addModule(url); } finally { win.URL.revokeObjectURL?.(url); }
+      p.ok = true;
+    })().catch((err) => { console.warn('music: the VGM player did not load:', err); p.ok = false; }).finally(() => { p.done = true; });
+    this.vgmModules.set(ctx, p);
+    return p;
+  }
+
+  /** Commands wait until `promise` settles (for this synth: a release in between drops them anyway). */
+  gate(promise) {
+    if (this.gated) return;
+    this.gated = true;
+    const gen = this.gen;
+    promise.then(() => {
+      if (gen !== this.gen) return;
+      this.gated = false;
+      this.flush();
+    });
+  }
+
+  /** One of the player's VGM files ({ id?, name, data }) started like a track: its data first, once per synth. */
+  playVgm(file, { fade = 0, fadeIn = 0, wait = 0, passes = 0 } = {}) {
+    const id = this.registerVgm(file);
+    this.send({ cmd: 'play', id, fade, fadeIn, wait, passes });
+    return id;
+  }
+
+  /** A VGM queued to start on the very sample the playing track ends. */
+  queueVgm(file, passes = 0) {
+    const id = this.registerVgm(file);
+    this.send({ cmd: 'next', id, passes });
+    return id;
+  }
+
+  registerVgm(file) {
+    const id = vgmId(file);
+    if (!this.vgmSent.has(id)) {
+      this.vgmSent.add(id);
+      this.send({ cmd: 'vgm', id, data: file.data });
+    }
+    return id;
   }
 
   setLevel(v) {
@@ -137,7 +220,7 @@ export class MusicOutput {
       src.connect(gain);
       gain.connect(this.gain);
       ramp(gain.gain, 1, fadeIn, ctx);
-      const f = (this.file = { el, url, src, gain, done: false });
+      const f = (this.file = { el, url, src, gain, done: false, paused });
       const over = (failed) => { if (f.done) return; f.done = true; if (this.file === f) onEnded(failed); };
       el.onended = () => over(false);
       el.onerror = () => over(true);
@@ -166,8 +249,15 @@ export class MusicOutput {
   setPaused(paused) {
     const el = this.file?.el;
     if (!el) return;
+    this.file.paused = paused;
     if (paused) el.pause();
     else el.play()?.catch?.(() => {});
+  }
+
+  /** A file that should be playing but was stopped before any gesture let it (the browser's autoplay rule): now. */
+  kick() {
+    const f = this.file;
+    if (f && !f.done && !f.paused && f.el.paused) f.el.play()?.catch?.(() => {});
   }
 
   /**
@@ -195,6 +285,8 @@ export class MusicOutput {
     this.gen++;
     this.loading = null;
     this.pending = [];
+    this.gated = false;
+    this.vgmSent.clear();   // the next synth is sent every VGM again
     if (this.node) { this.node.port.postMessage({ cmd: 'dispose' }); this.node.disconnect(); this.node = null; }
     if (this.worker) { this.worker.terminate(); this.worker = null; this.win.clearInterval?.(this.pumpTimer); }
     this.stopFile(0);

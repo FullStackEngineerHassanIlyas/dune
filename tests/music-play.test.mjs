@@ -7,6 +7,8 @@ import { Conductor, BattleMusic, MenuMusic, musicVolume, loadPlaylist, DUCK, DEF
 import { MusicOutput } from '../src/audio/music/output.js';
 import { MusicMixer, BLOCK } from '../src/audio/music/mixer.js';
 import { POOLS, TRACKS } from '../src/audio/music/songs/index.js';
+import * as SONGS from '../src/audio/music/songs/index.js';
+import { SLOTS } from '../src/audio/music/sega-tracks.js';
 
 // ——— Web Audio stand-ins: they record what the music does with them ———
 
@@ -219,7 +221,7 @@ test('the player\'s own playlists take over their moods; empty or missing ones l
   const win = fakeWindow(), audio = fakeEngine(win);
   const c = new Conductor({ audio, settings: {}, win, importer });
   await c.ready;
-  assert.deepEqual(asked.sort(), ['battle', 'menu', 'peace']);
+  assert.deepEqual(asked.sort(), [...SLOTS].sort(), 'every slot is asked for');
   assert.equal(await loadPlaylist('peace', async () => { throw new Error('missing'); }).then((l) => l.length), 0);
   assert.equal(await loadPlaylist('peace', async () => ({})).then((l) => l.length), 0, 'a module without the function');
   c.want('peace');
@@ -249,7 +251,7 @@ test('a queued FM track that starts queues the one after it; a mood change repla
   await settle();
   const node = win.nodes[0], next = node.sent.find((m) => m.cmd === 'next');
   assert.ok(next && next.id !== plays(win)[0].id && next.passes === TRACKS[next.id].passes);
-  node.port.onmessage({ data: { type: 'started', id: next.id } });
+  node.port.onmessage({ data: { type: 'started', id: next.id, queued: true } });
   const nexts = node.sent.filter((m) => m.cmd === 'next');
   assert.equal(nexts.length, 2);
   assert.notEqual(nexts[1].id, next.id);
@@ -262,7 +264,7 @@ test('a battle: peace, battle on contact, silence when decided, then victory; du
   const world = flatWorld(48, 48, G.ROCK);
   world.fogOfWar = false;
   world.spawnStructure('constructionYard', 'atreides', 4, 4);
-  const win = fakeWindow(), engine = fakeEngine(win), settings = { musicVolume: 0.5 };
+  const win = fakeWindow(), engine = fakeEngine(win), settings = { musicVolume: 0.5, musicMode: 'adaptive' };
   const m = new BattleMusic({ world, house: 'atreides', engine, settings, win, importer: async () => ({}) });
   await m.conductor.ready;
   m.frame();
@@ -289,7 +291,7 @@ test('a battle: peace, battle on contact, silence when decided, then victory; du
   m.frame();
   assert.equal(last().cmd, 'stop');
   m.end(true);
-  assert.equal(last().id, 'victory');
+  assert.equal(last().id, SONGS.VICTORY?.atreides ?? 'victory', 'the house\'s own victory, else the plain one');
   assert.equal(last().passes, 1, 'once through on the result screen, then it rings out');
 });
 
@@ -361,7 +363,7 @@ test('an enemy that only stays in sight near the base starts one battle, not an 
   const world = flatWorld(48, 48, G.ROCK);
   world.fogOfWar = false;   // everything in view, as explored ground stays in shroud mode
   world.spawnStructure('constructionYard', 'atreides', 4, 4);
-  const m = new BattleMusic({ world, house: 'atreides', engine: { ctx: null, master: null }, settings: {}, win: null, importer: async () => ({}) });
+  const m = new BattleMusic({ world, house: 'atreides', engine: { ctx: null, master: null }, settings: { musicMode: 'adaptive' }, win: null, importer: async () => ({}) });
   world.spawnUnit('harvester', 'harkonnen', 12, 5);   // parked at work by the base for good, never firing
   const moods = [];
   for (let i = 0; i < 20 * 300; i++) { world.time += 0.05; m.frame(); if (world.time > 2 * (CALM + MIN_BATTLE)) moods.push(m.director.mood); }
@@ -443,8 +445,8 @@ test('the result screen: victory or defeat play once through and ring out; a dra
   assert.equal(sent(win).at(-1).cmd, 'stop');
   m.end(false);
   const p = plays(win).at(-1);
-  assert.deepEqual([p.id, p.passes], ['defeat', 1], 'once through, so it does not loop on behind "Keep watching"');
-  win.nodes[0].port.onmessage({ data: { type: 'ended', id: 'defeat' } });
+  assert.deepEqual([p.id, p.passes], [SONGS.DEFEAT?.atreides ?? 'defeat', 1], 'once through, so it does not loop on behind "Keep watching"');
+  win.nodes[0].port.onmessage({ data: { type: 'ended', id: p.id } });
   assert.equal(m.debug().track, null, 'rung out: nothing playing');
 });
 
