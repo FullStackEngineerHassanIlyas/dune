@@ -47,3 +47,19 @@ test('reduced motion: the credits show a group at a time, still, then it ends', 
   assert.equal(endingLength({ pages: 4, reduced: true }), ENDING.credits + 4 * ENDING.page + 1);
   assert.equal(endingView(5, { reduced: true }).centred, 1, 'no camera move: the planet simply in the middle');
 });
+
+test('the victor\'s colour draws back over the planet alone at the end, so the title returns on the tan planet', () => {
+  for (const reduced of [false, true]) {
+    const length = endingLength({ rollHeight: 2400, viewHeight: 900, pages: 5, reduced });
+    const tail = reduced ? 1 : ENDING.tail;
+    assert.equal(endingView(length - tail, { reduced, length }).tint, 1, 'all there until the last line has gone');
+    assert.equal(endingView(length, { reduced, length }).tint, 0, 'tan again at the end');
+    let last = 2;
+    for (let t = length - tail; t <= length; t += 0.01) {
+      const k = endingView(t, { reduced, length }).tint;
+      assert.ok(k <= last + 1e-12, `${reduced}: ${t}`);
+      assert.ok(Math.abs(endingView(t + H, { reduced, length }).tint - endingView(t - H, { reduced, length }).tint) < 3 * H, `no jump at ${t}`);
+      last = k;
+    }
+  }
+});

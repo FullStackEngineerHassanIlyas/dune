@@ -35,7 +35,7 @@ C12 (ending), C4 (story's CREDITS).
   together; without the method it starts at once, silent.
 - **The opening** (seconds after the gesture, INTRO_MARKS): 0 stars fade in from black (1.2 s); the camera drifts
   sideways and a little forwards at 3.7 planet radii a second, so 600 near stars along its way slide right to left with
-  parallax over the static 2,400-star shell; 4.0-6.6 `A FAN REMAKE`, 6.9-9.5 `AFTER WESTWOOD STUDIOS'` / `1992 GAME`,
+  parallax at the Sega's pace (see Review fixes) while the 2,400-star shell stays faint until the planet comes; 4.0-6.6 `A FAN REMAKE`, 6.9-9.5 `AFTER WESTWOOD STUDIOS'` / `1992 GAME`,
   10.0-13.3 `IN 3D` (in place of the Sega's logos and its "PRESENT"; nothing that implies an affiliation); 13.5-16 empty
   stars; from 15 the nebulae fade in and from 16.0 the planet and the blue dust behind it slide in from the right as the
   drift eases out (1 - smoothstep speed) to a stop at 17.8 on exactly the menu's framing shot; 18.8, 20.3, 21.8 the
@@ -45,25 +45,28 @@ C12 (ending), C4 (story's CREDITS).
   for Arrakis` in white serif — centred on what lies right of the menu column; 30.0 the hand-over.
 - **Hand-over.** The last frame is the framing shot; the moon has been run so its time reaches the backdrop's 0 at
   30.0; `startBackdrop({ warm: true })` restarts the loop's clock without the cold flag (no fade in from black);
-  `menu.show()` and `#app.intro-reveal` fade the menu in over 0.9 s while the title lockup fades out.
+  `menu.show()` and `#app.intro-reveal` fade the menu in over 0.9 s while the opening's `DUNE` glides into the menu's
+  own lockup and gives way to it as it lands (see Review fixes).
 - **Skips.** From the gesture on, any key (but Alt+Enter, which stays full screen) or click skips to the title: the key
   is consumed in the capture phase and its repeats and release are swallowed until keyup, so the Skirmish button the
-  menu focuses never sees it; a click's release is eaten by the fading layer. `music.skipIntro?.()` is called.
+  menu focuses never sees it; a click's release is eaten by the fading layer. `music.skipIntro?.()` is called. The
+  browser's own keys (F1-F12, anything with Ctrl, Meta or Alt) skip too but keep their default, so F5 still reloads.
 - **When not.** Once per page load (back from a battle in the frame shows the title; a battle on its own page that quits
   back to the menu is recognised by its referrer); not with the Intro setting off (`?intro=0`), a held backdrop
   (`?backdrop=`), `?screen=`, an automated browser (navigator.webdriver, or HeadlessChrome — headless Chrome under CDP
   does not set webdriver) unless `?intro=1`, or when the backdrop fell back to the dune flight. Under reduced motion or
   with the background paused: a 6 s still version (the framing shot fades up, the words beside the planet, the title,
   the menu). If anything throws: `console.warn('intro: …')`, the layer goes, the title shows.
-- **Background work.** The backdrop's next battle is built at 17.85 s (the camera has stopped, the first ship is a
-  second away) and run ahead and compiled from 23.3 s (the ships have landed, the title is three seconds off), so the
-  menu does not stall once it is up.
+- **Background work.** The backdrop's first battle is built, run ahead and compiled behind the gate's black, a slice a
+  frame, while the page waits for the key. What a quick player leaves undone still waits for the old moments: the build
+  at 17.85 s (the camera has stopped), the run-ahead and compile from 23.3 s (the ships have landed).
 - **Ending** (`playEnding({ house, app, backdrop, menu, music })`, C12): the backdrop is lent (its loop stops, overlays
   cleared); the planet eases to the middle and 0.55 radii nearer over 3 s while the victor's colour sweeps across it
   from the lit limb on a ragged, sparkling front (2.5-12.5 s; music `finale`); from 13 s the planet eases back to the
   right and the credits — story's `CREDITS` when `src/data/story.js` exists, else a short list of our own — roll up the
-  left at 6 % of the window's height a second (music `credits`); 2.5 s after the last line it fades, the backdrop starts
-  warm, the title shows and the mood goes back to `menu`. Any key or click skips (consumed the same way). Reduced
+  left at 6 % of the window's height a second (music `credits`); in the 2.5 s after the last line the colour draws back
+  the way it came, then the layer fades, the backdrop starts warm, the title shows and the mood goes back to `menu`. A
+  skip eases the planet back to the framing shot and tan in 0.8 s before the backdrop takes over. Any key or click skips (consumed the same way). Reduced
   motion: no camera move, the credits a group at a time. Without the planet (dune-flight fallback) it rolls on black.
 
 ## Decisions
@@ -92,14 +95,53 @@ C12 (ending), C4 (story's CREDITS).
 | planet alone 23.3-26 s (run-ahead and compile) | 39.7 (33.3, **799.9**) | 45.3 (16.8, **616.7**) |
 | title 26-28.5 s | 59.6 (16.7, 33.4) | 54.0 (33.3, 50.1) |
 
-The two long frames are the backdrop's next battle being built and compiled; they are placed where the picture stands
-still (only the slow spin and the twinkle stop for that moment) and the music, on its own thread, plays on. Without the
+Measured before the review fixes. The two long frames were the backdrop's next battle being built and compiled; that
+work now runs behind the gate's black (Review fixes has the frame times since). Without the
 opening the same work lands in the menu's first planet phase, with the menu up. The ship model is 3,492 triangles
 (three instances, one draw call per part).
 
+## Review fixes (2026-10-04)
+
+The report-only review proved ten findings; all are fixed except the stray notes file (the lead's call).
+
+- **Music told on every way past the opening** (important). With the opening off (Intro off, `?screen=`, back from a
+  battle, an automated browser, or a failure), and with Esc or the debug skip at the gate, runIntro now calls
+  `music.skipIntro?.()` (in try/catch) after `prime()`; `finish(skipped)` does it for every skip. Before, the first click
+  on a still title started the 30 s `opening` cue. Proof: `tests/intro-opening.test.mjs`, `tests/intro-gate.test.mjs`;
+  in a scratch merge of phase3/music + score + this branch the first click after `intro=0`, after Esc at the gate and
+  after a skip all play the `title` track (`mood: menu`).
+- **Enter works on the title again** (important). intro.css's first-paint guard hid the menu with `visibility: hidden`,
+  so MainMenu's `focus()` was refused and Enter did nothing; the keyframes are now `opacity: 0; pointer-events: none`.
+  Real Chrome, `intro=0` and headless: the first button has the focus and Enter opens Skirmish.
+- **Stars at the Sega's pace** (important). The near stars lie 0.87-1.93 framing distances in front of the camera's way
+  (3.6-8 radii on a wide window, was 4-64), so they cross at 0.47-0.72 screen widths a second (research §8); the
+  keep-clear rule is now the stopped shot itself (no star nearer than the planet's far side inside it), so the field
+  does not thin out before the planet comes; the far shell is at 8 % in the empty stars and comes up with the nebula,
+  so what the eye follows moves; the near stars are a touch brighter. `tests/intro-stars.test.mjs` pins the median
+  (0.47-0.72), the slowest tenth (≥ 0.3), the count in view (20-140) on four laptop windows and three seeds, and that
+  the stopped shot has near stars around the planet but none in front of it. On the GPU, frame-exact stills 0.1 s
+  apart: matched near stars move at a median 0.54-0.61 widths a second.
+- **A music that throws never holds the gate** (minor): `intro()` is called in try/catch, the opening plays silent.
+- **Still version holds the moon** at the backdrop's moon time 0 (minor); the planet's spin and twinkle were already still.
+- **The title glides into the menu's lockup** (minor). At the hand-over the opening's `DUNE` moves and scales onto the
+  menu's `.mm-brand h1` (its first word), its letters spreading to that one's spacing, in 0.8 s; its subtitle fades on
+  the way; the lockup (intro.css `#app.intro-glide .mm-brand`) fades in over the last 0.3 s as the opening's fades out.
+  Checked with the campaign's lockup (a scratch merge) and the base one. The Sega keeps the title where it is: if the
+  lead wants that, the campaign's title screen would put its lockup over the planet and the glide becomes a crossfade.
+- **The ending hands back tan** (minor): the colour draws back over the tail, and a skip settles it.
+- **No stall at 24 s** (minor). Real GPU, 1600 × 900, Medium, three runs (load average 6-10): no frame over 90 ms
+  between the gesture and the hand-over, against 300 ms at 17.86 s, 150 ms at 18.35 s and 667 ms at 23.66 s for the
+  code before, in one run under the same load. Low: none either. Every stretch runs at 54-60 fps on both (Medium's
+  arrival 49). Left: the first frame after the gesture (100-150 ms, still black) and one frame at the hand-over
+  (100-167 ms in four of six Medium runs, none in two); the main thread does about 7 ms there (backdrop start 1.4 ms,
+  menu 5.3 ms, backdrop frames 1 ms), so it is the browser drawing the menu in, not our work.
+- **F5 and the browser's other keys** (minor): see Skips.
+- **Notes file outside the ownership list**: left for the lead (other phase 3 streams add the same kind of notes).
+
 ## How to test
 
-- Unit: `node --test tests/intro-*.test.mjs tests/ending-timeline.test.mjs tests/planet.test.mjs`.
+- Unit: `node --test tests/intro-*.test.mjs tests/ending-timeline.test.mjs tests/planet.test.mjs` (the opening and the
+  ending at work on a DOM stand-in: `tests/intro-opening.test.mjs`; the stars' pace: `tests/intro-stars.test.mjs`).
 - E2E (SwiftShader, holds the Chrome lock): `flock /tmp/dune-chrome.lock env E2E_INTRO_PORT=8610 node scripts/e2e-intro.mjs`
   — 28 checks, screenshots in `screenshots/e2e-intro/`.
 - Smoke stills: `flock /tmp/dune-chrome.lock env SMOKE_PORT=8611 node scripts/smoke.mjs intro-stars intro-credits

@@ -28,6 +28,9 @@ const MENU_VW = 0.07, MENU_PX = 380, MENU_GAP = 0.02;
 const TALL = 0.5;                            // tall screens: the planet's disc spans half the width, centred
 const STAR_SIZE = { min: 2, span: 3 };       // pixels: most stars at the minimum, a rare few up to min + span
 const STAR_GLOW = { min: 0.45, span: 1.0 };  // brightness min + span · r^2.5: the brightest few bloom
+// In the opening's empty stars (nebula 0, render/space-travel.js) this far shell is faint: what the eye follows is the
+// near stars drifting past, as on the Mega Drive, where every star moves; it comes up with the planet and its dust.
+const FAR_IN_DRIFT = 0.08;
 
 /** At dive = 1, the seam with the battle, the camera is this high above the landing site, in planet radii, looking straight down. */
 export const SEAM_ALTITUDE = 0.004;
@@ -603,7 +606,7 @@ export class PlanetShot {
     su.uTime.value = this.time;
     su.uTwinkle.value = reduced ? 0 : 1;
     su.uPixelRatio.value = pixelRatio;
-    su.uFade.value = space;
+    su.uFade.value = space * (FAR_IN_DRIFT + (1 - FAR_IN_DRIFT) * clamp01(nebula));
     this.atmosphere.visible = this.moon.visible = this.stars.visible = space > 0.001;
     this.nebula.visible = space * nebula > 0.001;
     for (const layer of this.layers) layer.update({ fade: space, nebula, time: this.time, pixelRatio, reduced });

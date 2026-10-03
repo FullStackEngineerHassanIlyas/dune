@@ -326,6 +326,9 @@ test('travel moves the camera off the framing shot looking the same way; centred
   assert.ok(forward.distanceTo(new THREE.Vector3(0, 0, -1)) < 1e-9);
   assert.ok(p.altitude > 15 && p.haze === 0, 'far out in space: no haze');
   assert.ok(p.stars.material.uniforms.uFade.value === 1);
+  p.update(0, { travel: { x: -20, y: 0, z: 3 }, nebula: 0 });
+  const far = p.stars.material.uniforms.uFade.value;
+  assert.ok(far > 0 && far < 0.2, `the far stars faint in the opening's empty stars (${far}), so the drifting near ones lead`);
   p.update(0, { centred: 1 });
   assert.equal(Math.abs(p.camera.view.offsetX), 0);
   assert.equal(Math.abs(p.camera.view.offsetY), 0);
@@ -360,9 +363,11 @@ test('a layer of space follows the planet\'s fade; the opening\'s near stars kee
   assert.equal(travel.group.visible, false);
   assert.ok(p.stars.geometry.attributes.position.count + travel.stars.geometry.attributes.position.count <= 3000);
   const pos = travel.stars.geometry.attributes.position;
+  const T = Math.tan((19 * Math.PI) / 180);   // half the planet camera's field of view
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
-    assert.ok(z <= -1.5 || x <= -12, `star ${i} at (${x}, ${z}) could cover the planet`);
+    // nearer than the planet's far side only out of the shot the camera stops on (behind it, or left of its left edge)
+    assert.ok(z <= -1.5 || z >= f.distance || x / ((f.distance - z) * T * (16 / 9)) + f.shiftX < -1, `star ${i} at (${x}, ${z}) could cover the planet`);
   }
   p.dispose();
 });

@@ -12,22 +12,26 @@ import { modelDef } from './models/index.js';
 import { HOUSES } from '../data/houses.js';
 
 const NEAR_STARS = 600;          // with the far shell's 2,400, the 3,000 particle budget
-const DEPTH = [4, 64];           // planet radii in front of the camera's way: log-uniform, so every speed of drift shows
-const KEEP_CLEAR = { z: -1.5, x: -12 };   // never in front of the planet where the camera ends up: behind z, or far left of it
+// how far in front of the camera's way, log-uniform, in framing distances (4.1 planet radii on a wide window, so 3.6-8):
+// the Sega's narrow band of drift speeds, 0.47-0.72 screen widths a second for most of them
+const DEPTH = [0.87, 1.93];
+// never nearer than the planet's far side in what the camera sees when it has stopped: behind z, or left of that shot's
+// left edge (slope × depth from the camera's stop, plus a margin: wide enough for a 21:9 window)
+const KEEP_CLEAR = { z: -1.5, slope: 1.3, margin: 1 };
 const T = Math.tan((19 * Math.PI) / 180), WIDE = 16 / 9;
 const SIZE = { min: 1.7, span: 3.2 };     // pixels; from about 3.2 up a star is drawn as a cross, as the Sega's are
 
 function nearStars(rng, { from, to }) {
   const pos = new Float32Array(NEAR_STARS * 3), size = new Float32Array(NEAR_STARS), tone = new Float32Array(NEAR_STARS * 3), phase = new Float32Array(NEAR_STARS);
   for (let i = 0; i < NEAR_STARS;) {
-    const s = rng.range(-0.08, 1.06), d = DEPTH[0] * (DEPTH[1] / DEPTH[0]) ** rng.next();
+    const s = rng.range(-0.08, 1.06), d = to[2] * DEPTH[0] * (DEPTH[1] / DEPTH[0]) ** rng.next();
     const x = from[0] + (to[0] - from[0]) * s + rng.range(-1.65, 1.25) * d * T * WIDE;
     const y = from[1] + (to[1] - from[1]) * s + rng.range(-1.15, 1.15) * d * T;
     const z = from[2] + (to[2] - from[2]) * s - d;
-    if ((z > KEEP_CLEAR.z && x > KEEP_CLEAR.x) || Math.hypot(x, y, z) < 1.3) continue;
+    if ((z > KEEP_CLEAR.z && x > to[0] - KEEP_CLEAR.slope * (to[2] - z) - KEEP_CLEAR.margin) || Math.hypot(x, y, z) < 1.3) continue;
     pos.set([x, y, z], i * 3);
     size[i] = SIZE.min + SIZE.span * rng.next() ** 2.5;
-    const b = 0.5 + 0.9 * rng.next() ** 2;
+    const b = 0.62 + 0.9 * rng.next() ** 2;
     tone.set([b * 0.78, b * 0.88, b * 1.06], i * 3);   // the Sega's pale blue
     phase[i] = rng.next();
     i++;
@@ -59,7 +63,7 @@ function nearStars(rng, { from, to }) {
       varying float vSize;
       void main() {
         vec2 q = abs(gl_PointCoord - 0.5) * (ceil(vSize) + 2.0);   // pixels from the centre
-        float core = 1.0 - smoothstep(0.3, 0.95, length(q));
+        float core = 1.0 - smoothstep(0.45, 1.15, length(q));   // a dot of about two pixels
         float arm = (1.0 - smoothstep(0.25, 0.75, min(q.x, q.y))) * max(0.0, 1.0 - max(q.x, q.y) / (0.5 * vSize + 0.5));
         float a = max(core, arm * 0.8 * smoothstep(2.8, 3.6, vSize));
         gl_FragColor = vec4(vTone * a, 1.0);

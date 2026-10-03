@@ -16,10 +16,16 @@ export const ENDING = Object.freeze({
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smoothstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 
-/** The planet camera at t: { centred (0..1, PlanetShot.update's), travel z (nearer: negative), tint (the colour's spread 0..1) }. */
-export function endingView(t, { reduced = false } = {}) {
+/**
+ * The planet camera at t: { centred (0..1, PlanetShot.update's), travel z (nearer: negative), tint (the colour's spread
+ * 0..1) }. Given the ending's length, the colour draws back over the planet alone at the end (the last second under
+ * reduced motion), so the title comes back on the tan planet it always stands on.
+ */
+export function endingView(t, { reduced = false, length = Infinity } = {}) {
   const c = reduced ? (t < ENDING.credits ? 1 : 0) : smoothstep(...ENDING.centre, t) * (1 - smoothstep(...ENDING.back, t));
-  return { centred: c, z: -ENDING.nearer * c, tint: clamp01((t - ENDING.shimmer[0]) / (ENDING.shimmer[1] - ENDING.shimmer[0])) };
+  let tint = clamp01((t - ENDING.shimmer[0]) / (ENDING.shimmer[1] - ENDING.shimmer[0]));
+  if (Number.isFinite(length)) tint *= 1 - smoothstep(length - (reduced ? 1 : ENDING.tail), length, t);
+  return { centred: c, z: -ENDING.nearer * c, tint };
 }
 
 /** Seconds from the start to the end: the roll (rollHeight px tall in a window viewHeight px tall) has passed, or every page has shown. */

@@ -82,12 +82,17 @@ export function unlocksAudio(key) {
   return key !== 'Escape' && !NOT_A_KEY.has(key);
 }
 
+/** The browser's own keys (F5, Ctrl+R, F11, F12, Alt+Left …): they still skip, but keep doing what the browser does with them. */
+export function browserKey(e) {
+  return !!(e.ctrlKey || e.metaKey || e.altKey) || /^F\d{1,2}$/.test(e.key ?? '');
+}
+
 /** Swallows the rest of a key press (its repeats and its release) so it cannot also press the button the menu focuses. */
-function swallowKey(code) {
+function swallowKey(code, prevent = true) {
   let timer = 0;
   const eat = (e) => {
     if (e.code !== code) return;
-    e.preventDefault();
+    if (prevent) e.preventDefault();
     e.stopImmediatePropagation();
     if (e.type === 'keyup') done();
   };
@@ -95,6 +100,11 @@ function swallowKey(code) {
   addEventListener('keydown', eat, true);
   addEventListener('keyup', eat, true);
   timer = setTimeout(done, 1500);
+}
+
+/** The music is told the opening will not play on (contract C6): the title follows, not the opening's cue at the first click. */
+function skipCue(music) {
+  try { music?.skipIntro?.(); } catch (err) { console.warn('intro: music:', err); }
 }
 
 const el = (tag, cls, attrs = {}) => { const e = document.createElement(tag); if (cls) e.className = cls; for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -115,6 +125,7 @@ class WallClock {
 
 // ---- the opening ---------------------------------------------------------------------------------------------------------
 const ZERO = Object.freeze({ x: 0, y: 0, z: 0 });
+const SETTLE = 0.8;   // seconds the ending's planet takes back to the title's shot (centre, distance and colour) when it ends early
 const AUDIO_WAIT = 1600;   // ms the picture waits at black for the music to become audible (contract C6: it says within 1.5 s)
 
 class Opening {
@@ -166,14 +177,32 @@ class Opening {
     this.ships?.update();
   }
 
-  /** The black screen and its prompt until a key or a click: 'start', or 'skip' for Escape (it cannot start sound). */
+  /** The music's cue, inside the player's gesture; if the music breaks, the opening plays silent. */
+  cue() {
+    try { this.audible = this.music?.intro?.(); } catch (err) { console.warn('intro: music:', err); this.audible = false; }
+  }
+
+  /**
+   * The black screen and its prompt until a key or a click: 'start', or 'skip' for Escape (it cannot start sound).
+   * Meanwhile the backdrop builds, runs ahead and compiles its first battle behind the black, a slice a frame, so none
+   * of that long work is left to stall a frame of the opening (what is left when the player is quick still waits for
+   * the moments the timeline gives it).
+   */
   waitForGesture() {
     this.gate.append(pixelCanvas('PRESS ANY KEY', pixelScale(13 * 6, 'small'), '#dfe6ff'));
     this.gate.focus?.({ preventScroll: true });
     return new Promise((resolve) => {
+      let work = 0;
+      const prepare = () => {
+        work = 0;
+        if (!this.gateDone || this.backdrop.next?.ready) return;
+        try { this.backdrop.prepare?.(); } catch (err) { console.warn('intro: preparing the backdrop:', err); return; }
+        work = requestAnimationFrame(prepare);
+      };
       const finish = (how) => {
         removeEventListener('keydown', onKey);
         this.layer.removeEventListener('pointerdown', onPointer);
+        cancelAnimationFrame(work);
         this.gateDone = null;
         resolve(how);
       };
@@ -183,14 +212,15 @@ class Opening {
         if (e.repeat) return;
         if (e.key === 'Escape') { e.preventDefault(); finish('skip'); return; }
         if (!unlocksAudio(e.key)) return;
-        this.audible = this.music?.intro?.();
-        swallowKey(e.code);
+        this.cue();
+        swallowKey(e.code, !browserKey(e));
         finish('start');
       };
-      const onPointer = () => { this.audible = this.music?.intro?.(); finish('start'); };
+      const onPointer = () => { this.cue(); finish('start'); };
       addEventListener('keydown', onKey);
       this.layer.addEventListener('pointerdown', onPointer);
       this.gateDone = finish;   // seek() and skip() from the debug hook answer the gate too
+      if (this.backdrop.prepare) work = requestAnimationFrame(prepare);
     });
   }
 
@@ -224,9 +254,10 @@ class Opening {
   listen() {
     this.onKey = (e) => {
       if (e.repeat || NOT_A_KEY.has(e.key) || (e.altKey && e.key === 'Enter')) return;   // Alt+Enter stays full screen
-      e.preventDefault();
+      const own = !browserKey(e);   // F5 still reloads, F12 still opens the tools
+      if (own) e.preventDefault();
       e.stopImmediatePropagation();
-      swallowKey(e.code);
+      swallowKey(e.code, own);
       this.skip();
     };
     this.onPointer = (e) => {
@@ -265,7 +296,8 @@ class Opening {
     const t = this.t, reduced = this.reduced;
     this.phase = introPhase(t, { reduced });
     travelOffset(t, this.offset, { reduced });
-    this.planet.startPass(t - this.length);   // the moon reaches the backdrop's moon time 0 as the menu takes over
+    // the moon reaches the backdrop's moon time 0 as the menu takes over; the still version holds it there
+    this.planet.startPass(reduced ? 0 : t - this.length);
     if (this.ships) this.placeShips(t);
     this.backdrop.drawSpace(reduced ? 0 : dt, { travel: this.offset, nebula: nebulaAt(t, { reduced }) });   // the still version: no spin, no twinkle
     this.overlays(t);
@@ -293,7 +325,6 @@ class Opening {
   skip() {
     if (this.done) return;
     if (this.gateDone) { this.gateDone('skip'); return; }
-    this.music?.skipIntro?.();
     this.finish(true);
   }
 
@@ -305,6 +336,7 @@ class Opening {
     this.phase = 'done';
     cancelAnimationFrame(this.raf);
     this.cleanup();
+    if (skipped) skipCue(this.music);   // its cue gives way to the title's music (it runs on by itself to the end)
     try {
       this.planet.startPass(0);
       this.backdrop.drawSpace(0, { travel: ZERO });
@@ -312,12 +344,46 @@ class Opening {
     this.black.style.opacity = '0';
     this.card.style.opacity = '0';
     if (skipped) this.title.style.opacity = '0';
-    this.layer.classList.add('out');
     this.app.classList.add('intro-reveal');
     this.startBackdrop?.({ warm: true });
     this.menu.show();
-    setTimeout(() => { this.layer.remove(); this.app.classList.remove('intro-reveal'); }, 1000);
+    if (!skipped && !this.reduced) this.glide();   // before the layer goes out, so the title's fade waits for the glide
+    this.layer.classList.add('out');
+    setTimeout(() => { this.layer.remove(); this.app.classList.remove('intro-reveal', 'intro-glide'); }, 1000);
     this.resolve({ played: true, skipped });
+  }
+
+  /**
+   * The title on screen moves into the menu's own lockup, its letters spreading as that one's, and only then gives way
+   * to it (intro.css holds the lockup back until it lands), so the name never jumps from the planet to the menu's place.
+   * The Sega keeps it where it stands: where the menu's title screen puts its lockup decides how far it travels.
+   */
+  glide() {
+    try {
+      const target = this.app.querySelector?.('.mm-brand h1'), dune = this.title.querySelector('.intro-dune'), face = this.title.querySelector('.intro-dune-face');
+      if (!target || !dune || !face) return;
+      const box = (node) => { const r = document.createRange(); r.selectNodeContents(node); return r.getBoundingClientRect(); };
+      const word = [...target.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());   // its name, not what follows it
+      const to = box(word ?? target), from = box(face);
+      if (!(from.height > 0 && to.height > 0)) return;
+      // the menu's letter spacing in the title's own size: set for a moment to measure where the letters will lie
+      const scale = to.height / from.height, spacing = parseFloat(getComputedStyle(target).letterSpacing) / scale;
+      const spread = Number.isFinite(spacing) ? { letterSpacing: `${spacing.toFixed(2)}px`, paddingLeft: `${spacing.toFixed(2)}px` } : {};
+      const was = { letterSpacing: dune.style.letterSpacing, paddingLeft: dune.style.paddingLeft };
+      Object.assign(dune.style, spread);
+      const end = box(face), frame = this.title.getBoundingClientRect();
+      Object.assign(dune.style, was);
+      void dune.offsetWidth;   // laid out as it was, so the spacing moves from there
+      const ex = end.left + end.width / 2, ey = end.top + end.height / 2, ease = '.8s cubic-bezier(.45, 0, .2, 1)';
+      this.title.style.transformOrigin = `${(ex - frame.left).toFixed(1)}px ${(ey - frame.top).toFixed(1)}px`;
+      this.title.style.transition = `transform ${ease}, opacity .3s ease .65s`;
+      dune.style.transition = `letter-spacing ${ease}, padding-left ${ease}`;
+      Object.assign(dune.style, spread);
+      const sub = this.title.querySelector('.intro-sub');   // the menu's own line lies elsewhere under its name: this one goes on the way
+      if (sub) Object.assign(sub.style, { transition: 'opacity .45s ease', opacity: '0' });
+      this.title.style.transform = `translate(${(to.left + to.width / 2 - ex).toFixed(1)}px, ${(to.top + to.height / 2 - ey).toFixed(1)}px) scale(${scale.toFixed(3)})`;
+      this.app.classList.add('intro-glide');
+    } catch (err) { console.warn('intro: the title:', err); }
   }
 
   cleanup() {
@@ -330,7 +396,6 @@ class Opening {
 
   fail(err) {
     console.warn('intro:', err);
-    try { this.music?.skipIntro?.(); } catch { /* the music carries on */ }
     this.finish(true);
   }
 
@@ -382,7 +447,7 @@ export async function runIntro(ctx = {}) {
       planet: !!(backdrop?.planet && backdrop?.drawSpace), reduced: prefersReduced() || !!backdrop?.reduced, still: settings.menuMotion === false,
     });
     app?.classList.add('intro-checked');   // intro.css keeps the menu out of sight until this is known
-    if (!rule.play) return { played: false, reason: rule.reason };
+    if (!rule.play) { skipCue(music); return { played: false, reason: rule.reason }; }
     menu.hide();
     backdrop.lend();
     opening = new Opening({ backdrop, app, menu, music, startBackdrop, rule });
@@ -391,6 +456,7 @@ export async function runIntro(ctx = {}) {
   } catch (err) {
     console.warn('intro:', err);
     try { opening?.cleanup(); opening?.layer.remove(); } catch { /* already gone */ }
+    skipCue(music);
     app?.classList.add('intro-checked');
     menu?.show?.();
     return { played: false, reason: 'failed' };
@@ -447,7 +513,7 @@ export async function playEnding({ house, app, backdrop, menu, music, at = null,
     length = endingLength({ rollHeight: roll.offsetHeight, viewHeight: h, pages: groups.length, reduced });
   };
   const draw = (dt) => {
-    const t = state.t, v = endingView(t, { reduced });
+    const t = state.t, v = endingView(t, { reduced, length });
     state.phase = t < ENDING.credits ? 'shimmer' : t < length ? 'credits' : 'done';
     if (t >= ENDING.credits && !state.creditsMusic) {
       state.creditsMusic = true;
@@ -476,19 +542,44 @@ export async function playEnding({ house, app, backdrop, menu, music, at = null,
     removeEventListener('resize', measure);
     layer.classList.add('out');
     setTimeout(() => layer.remove(), 700);
-    if (space) {
-      try { backdrop.drawSpace(0, { travel: ZERO }); } catch (err) { console.warn('ending:', err); }
-      if (lent) backdrop.start({ warm: true });
-    }
     menu?.show?.();
     try { music?.mood?.('menu'); } catch { /* the title plays when it can */ }
-    resolve({ played: true, skipped });
+    settle(() => {
+      if (lent) backdrop.start({ warm: true });
+      resolve({ played: true, skipped });
+    });
+  };
+  // the planet goes back to the title's shot (the framing, tan) before the backdrop carries on from it: at the natural
+  // end it already is; a skip eases it there, the colour drawing back the way it came
+  const settle = (done) => {
+    if (!space) { done(); return; }
+    const from = { centred: view.centred, z: view.travel.z, tint: view.tint.amount }, t0 = performance.now();
+    const moving = from.centred > 1e-3 || Math.abs(from.z) > 1e-3 || from.tint > 1e-3;
+    let prev = t0;
+    const step = (now) => {
+      try {
+        const k = moving ? Math.min(1, (now - t0) / 1000 / SETTLE) : 1, u = 1 - k * k * (3 - 2 * k);
+        if (k < 1) {
+          view.centred = from.centred * u;
+          view.travel.z = from.z * u;
+          view.tint.amount = from.tint * u;
+          backdrop.drawSpace(reduced ? 0 : Math.min(0.1, Math.max(0, (now - prev) / 1000)), view);
+          prev = now;
+          raf = requestAnimationFrame(step);
+          return;
+        }
+        backdrop.drawSpace(0, { travel: ZERO });
+      } catch (err) { console.warn('ending:', err); }
+      done();
+    };
+    step(t0);
   };
   const onKey = (e) => {
     if (e.repeat || NOT_A_KEY.has(e.key) || (e.altKey && e.key === 'Enter')) return;
-    e.preventDefault();
+    const own = !browserKey(e);   // F5 still reloads
+    if (own) e.preventDefault();
     e.stopImmediatePropagation();
-    swallowKey(e.code);
+    swallowKey(e.code, own);
     finish(true);
   };
   const onPointer = (e) => {

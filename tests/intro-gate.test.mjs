@@ -40,7 +40,7 @@ function fakes({ settings = {}, query = '', backdrop } = {}) {
   const params = { str: (k) => (p.has(k) ? p.get(k) : null), num: (k) => (p.has(k) ? Number(p.get(k)) : null) };
   const app = { classList: { add: (c) => calls.push(`app+${c}`), remove: () => {} } };
   const menu = { hide: () => calls.push('menu.hide'), show: () => calls.push('menu.show') };
-  const music = { prime: () => calls.push('music.prime') };
+  const music = { prime: () => calls.push('music.prime'), skipIntro: () => calls.push('music.skipIntro') };
   backdrop ??= { planet: {}, drawSpace() {}, lend: () => calls.push('backdrop.lend') };
   return { calls, ctx: { params, settings, app, backdrop, menu, music, startBackdrop: () => calls.push('startBackdrop'), debug: {} } };
 }
@@ -53,6 +53,7 @@ test('without the opening the title stays as it is: Intro off, a held backdrop, 
     const out = await runIntro(ctx);
     assert.deepEqual(out, { played: false, reason }, reason);
     assert.ok(calls.includes('music.prime'), 'the music is primed at load anyway');
+    assert.ok(calls.indexOf('music.skipIntro') > calls.indexOf('music.prime'), `${reason}: and told the opening is not coming`);
     assert.ok(calls.includes('app+intro-checked'), 'the menu is let out of hiding');
     assert.ok(!calls.includes('menu.hide') && !calls.includes('menu.show'), `${reason}: the menu untouched`);
   }
@@ -71,4 +72,5 @@ test('if the opening breaks, it warns (never an error) and shows the title', asy
   assert.ok(warned.some((w) => w.startsWith('intro:')), warned.join('\n'));
   assert.deepEqual(errors, []);
   assert.ok(calls.indexOf('menu.hide') < calls.lastIndexOf('menu.show'), calls.join(' '));
+  assert.ok(calls.includes('music.skipIntro'), 'the music is told: the title\'s theme, not the cue');
 });
