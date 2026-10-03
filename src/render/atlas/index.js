@@ -31,6 +31,7 @@ const PULSE = 1.6;            // seconds per pulse of the mission's region
 const FAR = 1e3;              // a flood radius that covers the map: the region shows its final owner
 
 const CAMPAIGNS = ['atreides', 'harkonnen', 'ordos'];
+const rasters = {};   // region ids and border field per texture size, made once a page (~0.1 s) and kept for the next atlas
 const houseOf = (house) => (CAMPAIGNS.includes(house) ? house : 'atreides');
 
 function gridGeometry(seg) {
@@ -128,8 +129,9 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
 
   // ---- what the map is made of
   const size = detail.tex, rasterStart = performance.now();
-  const regionTex = dataTexture(regionIds(REGIONS, MAP, size, size / 2), size, THREE.NearestFilter);
-  const edgeTex = dataTexture(borderField(REGIONS, MAP, size, size / 2), size, THREE.LinearFilter);
+  const raster = (rasters[size] ??= { ids: regionIds(REGIONS, MAP, size, size / 2), edges: borderField(REGIONS, MAP, size, size / 2) });
+  const regionTex = dataTexture(raster.ids, size, THREE.NearestFilter);
+  const edgeTex = dataTexture(raster.edges, size, THREE.LinearFilter);
   const rasterMs = +(performance.now() - rasterStart).toFixed(1);
   const vec4s = () => Array.from({ length: 28 }, () => new THREE.Vector4(0, 0, FAR, 0.001));
   const uniforms = {
@@ -167,7 +169,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
     relief?.dispose();
     relief = target({ generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, colorSpace: THREE.SRGBColorSpace,
       anisotropy: Math.min(detail.aniso, renderer.capabilities.getMaxAnisotropy()) });
-    const terrain = target({ type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    const terrain = target({ type: THREE.HalfFloatType });   // linear: the hollows ring reads between texels
     const previous = renderer.getRenderTarget();
     bakeQuad.material = bakeTerrain;
     renderer.setRenderTarget(terrain);
@@ -207,8 +209,8 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
   // ---- state
   const colour = {};
   for (const owner of ['atreides', 'harkonnen', 'ordos', 'sardaukar']) colour[owner] = new THREE.Color(HOUSES[owner].color);
-  const still = { value: reducedMotion ?? globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false };
-  const media = reducedMotion === undefined ? globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') : null;
+  const media = reducedMotion === undefined ? globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null : null;
+  const still = { value: reducedMotion ?? media?.matches ?? false };
   const onMotion = (e) => { still.value = e.matches; wake(); };
   media?.addEventListener?.('change', onMotion);
   const s = { house: 'atreides', step: 0, target: 0, mission: null, shown: false, view: 'overview' };
