@@ -408,6 +408,8 @@ export class Conductor {
       get from() { return self.source?.mood ?? null; },
       get queued() { return name(self.queued ?? self.after); },
       get level() { return self.on ? self.level : 0; },
+      /** Resting where it is: the game's sound muted, or a track being heard in the Music Test. */
+      get held() { return self.held; },
       get synth() { return self.output.node ? 'worklet' : self.output.worker ? 'worker' : null; },
       /** Share of the audio thread the synth takes (from the worklet's own clock), when known. */
       get load() { return self.output.load; },

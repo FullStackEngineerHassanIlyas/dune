@@ -51,6 +51,7 @@ export const MUSIC_STYLE = `
 .of-music .of-title { flex: 1 1 180px; min-width: 0; color: #f2d7a0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .of-music .of-title small { display: block; color: #8e7650; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 .of-music .of-time { width: 92px; color: #a88a5c; font: 12px Consolas, "Courier New", monospace; }
+.of-music .of-play { min-width: 66px; }
 .of-music select { max-width: 190px; padding: 4px 6px; font: 12px "Trebuchet MS", sans-serif; color: #f2d7a0; background: #120c06; border: 1px solid #8e6843; border-radius: 3px; }
 .of-music select:focus-visible { outline: none; border-color: #ffd24a; box-shadow: 0 0 8px rgba(255,210,74,.3); }
 .of-music .bad { flex-basis: 100%; color: #ff9c84; font-size: 12px; }
@@ -128,14 +129,14 @@ export class MusicTest {
     const was = this.id;
     this.id = null;
     if (this.out) { this.out.release(); this.out = null; }
-    this.files.audition?.(false);
+    if (was !== null) this.files.audition?.(false);
     if (tell && was !== null) this.onChange();
   }
 }
 
 /**
- * The section's elements, drawn from `state` ({ tracks, report, busy }): the picker, what was read, the Music
- * Test list. act(label, fn) runs a change and draws the page again; picker(accept, onFiles) makes a file input.
+ * The section's elements (a flat list), drawn from `state` ({ musicTracks, musicReport }): the picker, what was
+ * read, the Music Test list. act(label, fn) runs a change and draws the page again; picker(accept, onFiles) makes a file input.
  */
 export function musicSection({ state, busy, act, picker, test, files }) {
   const input = picker(MUSIC_ACCEPT, (list) => act(`Reading ${list.map((f) => f.name).join(', ')}…`, async () => {
@@ -143,7 +144,7 @@ export function musicSection({ state, busy, act, picker, test, files }) {
   }));
   const tracks = state.musicTracks ?? [];
   const select = (t) => {
-    const value = slotValue(t.lists), choices = SLOT_CHOICES.some(([v]) => v === value) ? SLOT_CHOICES : [...SLOT_CHOICES, [value, where(t.lists)]];
+    const value = slotValue(t.lists), choices = SLOT_CHOICES.some(([v]) => v === value) ? SLOT_CHOICES : [...SLOT_CHOICES, [value, where(value.split(','))]];
     return h('select', { 'aria-label': `Where ${t.meta?.title ?? t.name} plays`, disabled: busy, dataset: { focus: `slot-${t.id}` },
       onchange: (e) => act(null, () => files.assignTrack(t.id, e.target.value.split(',').filter(Boolean))) },
     choices.map(([v, text]) => h('option', { value: v, selected: v === value }, text)));
@@ -155,7 +156,7 @@ export function musicSection({ state, busy, act, picker, test, files }) {
       h('span', { class: 'of-title', title: `${title} — ${t.name}` }, `${i + 1}. ${title}`, h('small', {}, t.name)),
       h('span', { class: 'of-time', title: 'Length, and the part that loops' }, formatTime(t.meta?.seconds), loop && h('br'), loop),
       select(t),
-      h('button', { type: 'button', class: 'dm-btn small', disabled: busy, 'aria-pressed': String(playing), 'aria-label': `${playing ? 'Stop' : 'Play'} ${title}`, dataset: { focus: `play-${t.id}` },
+      h('button', { type: 'button', class: 'dm-btn small of-play', disabled: busy, 'aria-pressed': String(playing), 'aria-label': `${playing ? 'Stop' : 'Play'} ${title}`, dataset: { focus: `play-${t.id}` },
         onclick: () => (playing ? test.stop() : test.play(t.id)) }, playing ? 'Stop' : 'Play'),
       h('button', { type: 'button', class: 'dm-btn small', disabled: busy, 'aria-label': `Remove ${title}`, dataset: { focus: `rm-${t.id}` },
         onclick: () => act(null, async () => { if (test.id === t.id) test.stop(false); await files.removeTrack(t.id); }) }, 'Remove'),
@@ -175,5 +176,5 @@ export function musicSection({ state, busy, act, picker, test, files }) {
     tracks.length
       ? [h('ul', { class: 'of-music', 'aria-label': 'Music test' }, tracks.map(row)), h('p', { class: 'of-cover' }, coverageText(tracks))]
       : h('div', { class: 'of-empty' }, 'No tracks yet: this game’s own music plays everywhere.'),
-  ];
+  ].flat();
 }
