@@ -1,6 +1,9 @@
 // The campaign's words (src/data/story.js, contract C4): every house and mission has its four sections, every
 // line fits the Mentat screen, each briefing names exactly the enemies the Sega mission table gives (phase 3
-// research §6), the advice names what the Sega tech ladder adds, and nothing is copied from the original.
+// research §6), the advice names what the Sega tech ladder adds, and nothing is copied from the original. Once
+// the other streams' data is merged, the words are held to it: the missions place what the briefings promise
+// (src/data/campaign.js), the advice's factories are the ladder's (src/data/sega-tech.js) and the map captions
+// name the houses the atlas takes land from (src/data/territory.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -36,7 +39,7 @@ const ADVICE = {
     [/Palace/, /Fremen/], [/Death Hand/],
   ],
   ordos: [
-    [/concrete/i, /Wind Trap/, /Refinery/], [/Silo/, /Barracks/, /Raider/], [/Quad/], [/Combat Tank/, /Wall/],
+    [/concrete/i, /Wind Trap/, /Refinery/], [/Silo/, /Barracks/, /Raider/], [/Quad/], [/Combat Tank/, /Wall/, /Trooper/],
     [/Carryall/, /Repair Facility/], [/Rocket Turret/, /Starport/], [/Deviator/, /Siege Tank/, /Ornithopter/],
     [/Palace/, /Saboteur/], [/Death Hand/],
   ],
@@ -55,7 +58,17 @@ const ORIGINAL = [
   'controls the spice', 'rules of engagement', 'no set territories', 'only one will prevail', 'land of sand',
   'spice melange', 'three houses have come', 'select your next region', 'successfully completed your mission',
   'failed your mission', 'battle for dune begins', 'do you wish to join',
+  // the PC intro's premise: "The Emperor has proposed a challenge to each of the Houses. The House that
+  // produces the most Spice will control Dune."
+  'proposed a challenge', 'produces the most spice', 'will control dune',
 ];
+// The same premise with its words swapped for synonyms: "the House that <verb>s (the) most ... will <rule> it".
+const PREMISE = /\b(the house|whoever|whichever house)\b[^.]{0,30}\bmost\b[^.]{0,30}\b(will (rule|control|own|keep|have)|keeps|rules|owns)\b/i;
+
+/** A text's sentences, joined across line breaks as the Mentat reads them. */
+const sentences = (lines) => lines.join(' ').split(/(?<=[.!?])\s+/);
+/** A sentence that only warns of what may happen; the rest state facts the mission must bear out. */
+const HEDGE = /\b(if|should|may|might|would|could|perhaps|yet)\b/i;
 
 const NAMES = { atreides: /\bAtreides\b/, harkonnen: /\bHarkonnen\b/, ordos: /\bOrdos\b/, sardaukar: /\bSardaukar\b/ };
 /** The houses a text names, besides the player's own. */
@@ -175,6 +188,7 @@ test('nothing is taken from the original game text', () => {
       const plain = Object.values(m).flat().join(' ').toLowerCase();
       for (const phrase of ORIGINAL) assert.ok(!plain.includes(phrase), `${h}: "${phrase}"`);
     }
+    BRIEFINGS[h].forEach((m, i) => assert.doesNotMatch(m.briefing.join(' '), PREMISE, `${h} ${i + 1}: the original's premise, reworded`));
   }
 });
 
@@ -187,7 +201,7 @@ test('the credits name the remake, its borrowed parts and the original without c
   }
 });
 
-test('the mission data, once merged, fights the houses its briefing names', async (t) => {
+test('the mission data, once merged, fights the houses its briefing names and places what it promises', async (t) => {
   if (!existsSync(new URL('../src/data/campaign.js', import.meta.url))) return t.skip('src/data/campaign.js is not on this branch');
   const { CAMPAIGN_HOUSES, MISSIONS, missionDef } = await import('../src/data/campaign.js');
   assert.deepEqual([...CAMPAIGN_HOUSES].sort(), [...HOUSE_IDS].sort());
@@ -199,6 +213,57 @@ test('the mission data, once merged, fights the houses its briefing names', asyn
       // The briefing may warn of Sardaukar drops the map leaves out, but names no Great House that is not there.
       for (const e of says) if (e !== 'sardaukar') assert.ok(def.enemies.includes(e), `${h} ${n}: the briefing names ${e}`);
       if (def.objective.quota) assert.ok(text.join(' ').includes(`${def.objective.quota} credits`), `${h} ${n}: quota ${def.objective.quota}`);
+
+      // What the words state as fact (not as a warning), the mission must hold.
+      const facts = sentences([...text, ...BRIEFINGS[h][n - 1].advice]).filter((s) => !HEDGE.test(s));
+      const dropsIn = def.reinforcements.some((r) => r.house === 'sardaukar' && r.via === 'carryall');
+      // Mission 4 is where every briefing says the Sardaukar Troopers come down by Carryall.
+      if (n === 4) assert.ok(dropsIn, `${h} 4: the briefing says Sardaukar drop in by Carryall; the mission has no such drop`);
+      for (const s of facts.filter((s) => /Sardaukar/.test(s) && /Carryall|\bdrop/i.test(s))) assert.ok(dropsIn, `${h} ${n}: "${s}" but no Sardaukar drop`);
+      const sardaukarPalace = def.houses.some((x) => x.id === 'sardaukar' && x.structures.some((b) => b.type === 'palace'));
+      for (const s of facts.filter((s) => /Sardaukar/.test(s) && /Palace|Death Hand/.test(s))) assert.ok(sardaukarPalace, `${h} ${n}: "${s}" but the Sardaukar have no Palace`);
+      for (const s of facts.filter((s) => /\bgift\b/i.test(s))) {
+        assert.ok(def.player.structures.some((b) => b.type !== 'constructionYard'), `${h} ${n}: "${s}" but the player starts with the yard alone`);
+      }
     }
+  }
+});
+
+test('the advice, once the Sega ladder is merged, names the factories it uses', async (t) => {
+  if (!existsSync(new URL('../src/data/sega-tech.js', import.meta.url))) return t.skip('src/data/sega-tech.js is not on this branch');
+  const { segaUnit } = await import('../src/data/sega-tech.js');
+  const FACTORY = { Barracks: 'barracks', WOR: 'wor' };
+  const UNIT = { 'Missile Tank': 'missileTank', 'Combat Tank': 'combatTank', 'Siege Tank': 'siegeTank', Quad: 'quad', Trike: 'trike' };
+  for (const h of HOUSE_IDS) {
+    BRIEFINGS[h].forEach((m, i) => {
+      for (const s of sentences(m.advice)) {
+        // "the WOR for Trooper squads": Troopers are trained where the ladder trains them
+        const factory = s.match(/\b(Barracks|WOR)\b/)?.[1];
+        if (factory && /\bTrooper/.test(s)) {
+          const id = /squad/.test(s) ? 'troopers' : 'trooper';
+          assert.equal(FACTORY[factory], segaUnit(id, h)?.at, `${h} ${i + 1}: "${s}"`);
+        }
+        // "already builds Missile Tanks": the house starts with that factory level, no upgrade bought
+        const already = s.match(/\balready (?:builds|makes) ([A-Z]\w+(?: [A-Z]\w+)?)s\b/)?.[1];
+        if (already) {
+          const u = segaUnit(UNIT[already], h);
+          assert.ok(u && u.level <= (HOUSES[h].startUpgrades?.[u.at] ?? 0), `${h} ${i + 1}: "${s}" needs ${u?.at} level ${u?.level}`);
+        }
+      }
+    });
+  }
+});
+
+test('the map captions, once the atlas is merged, match the land that changes hands', async (t) => {
+  if (!existsSync(new URL('../src/data/territory.js', import.meta.url))) return t.skip('src/data/territory.js is not on this branch');
+  const { changes, ownership } = await import('../src/data/territory.js');
+  for (const h of HOUSE_IDS) {
+    // Mission 1 takes no land; from step 2 a rival the caption names is one the atlas takes a region from.
+    for (let s = 2; s <= 8; s++) {
+      const losers = new Set(changes(h, s).map((c) => c.from));
+      for (const e of named([MAP_CAPTIONS[h][s]], h)) if (e !== 'sardaukar') assert.ok(losers.has(e), `${h} step ${s}: "${MAP_CAPTIONS[h][s]}" but the atlas takes nothing from ${e}`);
+    }
+    // While the atlas leaves the Emperor his region after mission 9, the caption says so.
+    if (ownership(h, 9).sardaukar.length) assert.match(MAP_CAPTIONS[h][9], /Emperor|Sardaukar/, `${h} step 9`);
   }
 });

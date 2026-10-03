@@ -43,12 +43,13 @@ Nothing else changed.
 - **The advice follows the Sega ladder** (research §6 tech, upgrades and units on sale): 1 concrete, Wind Trap,
   Spice Refinery; 2 Silos (only stored spice counts), Radar Outpost, Barracks and Trikes (Atreides), Barracks,
   capturing with Infantry and Raider Trikes (Ordos), WOR and Troopers (Harkonnen, whose vehicle factory waits
-  for mission 3); 3 Quads (Harkonnen: the Heavy Factory itself), worms; 4 Combat Tanks, Walls, Trooper upgrades;
-  5 Hi-Tech and Carryalls, Repair Facility, Missile Tanks (Atreides upgrade, Harkonnen already have them; Ordos
-  get Gun Turrets instead); 6 Rocket Turrets, Starport, Siege Tanks (Ordos: Missile Tanks from the Starport and
+  for mission 3); 3 Quads (Harkonnen: the Heavy Factory itself), worms; 4 Combat Tanks, Walls, Troopers (the
+  Harkonnen WOR upgrade; for the Ordos the advice names no factory, see Review fixes);
+  5 Hi-Tech and Carryalls, Repair Facility, Missile Tanks (a Heavy Factory upgrade for Atreides and Harkonnen;
+  Ordos get Gun Turrets instead); 6 Rocket Turrets, Starport, Siege Tanks (Ordos: Missile Tanks from the Starport and
   Trooper squads); 7 the house tank (Sonic Tank, Devastator with its self-destruct, Deviator), Ornithopters for
-  Atreides and Ordos, Siege Tanks for Ordos; 8 the Palace (needs a Starport) and its weapon; 9 the Sardaukar
-  Palace's Death Hand and flank raids. No Harkonnen Ornithopters, no House of IX, no Light Factory.
+  Atreides and Ordos, Siege Tanks for Ordos; 8 the Palace (needs a Starport) and its weapon; 9 the Death Hand
+  of a Sardaukar Palace, as a warning ("if they hold one"), and flank raids. No Harkonnen Ornithopters, no House of IX, no Light Factory.
 - **Building and unit names are this game's menu names** (`src/data/structures.js`, `units.js`): Wind Trap,
   Spice Refinery, Spice Silo, Radar Outpost, Heavy Factory (the one vehicle factory), WOR, Hi-Tech Factory,
   Repair Facility, Gun Turret, Rocket Turret, Construction Yard. If a name changes there, the advice must follow.
@@ -66,9 +67,10 @@ Nothing else changed.
 
 ## How to test
 
-- `node --test tests/story.test.mjs` — 11 tests: Mentat names, pages and question, section lengths, 56-character
+- `node --test tests/story.test.mjs` — 13 tests: Mentat names, pages and question, section lengths, 56-character
   plain lines, no line used twice, the enemy table above, the objectives (1000, 2700 or the base, destroy), the
-  advice per mission, the original-phrase guard, the credits' required names and the no-affiliation line.
+  advice per mission, the original-phrase guard (and the PC intro's premise reworded), the credits' required
+  names and the no-affiliation line, and three cross-checks that skip until the other streams are merged.
 - The last test cross-checks `src/data/campaign.js` (scenarios stream) once it is merged and skips until then:
   every enemy in `missionDef(h, n).enemies` must be named in that briefing, the briefing may name no Great House
   the mission lacks (Sardaukar warnings are allowed), and a quota must appear as "<quota> credits". I ran it
@@ -85,8 +87,8 @@ Nothing else changed.
 1. Read one mission per house aloud (say 1, 5 and 9): does each Mentat sound like himself all the way through?
 2. Radnor's jokes at the player's expense (Harkonnen losses 1, 5, 7): funny, or too much?
 3. The facts in the advice against the game once the Sega ladder (scenarios stream) is merged: which upgrade
-   unlocks what, Harkonnen Missile Tanks already available in mission 5, Ordos Missile Tanks only from the
-   Starport, a Palace needing a Starport, the Devastator's self-destruct.
+   unlocks what, Ordos Missile Tanks only from the Starport, a Palace needing a Starport, the Devastator's
+   self-destruct.
 4. Whether the missions really drop Sardaukar where the briefing warns of them (4 says they have come).
 5. That mission 9's map really is two Sardaukar bases and no rival House.
 6. Map captions against the atlas once it shows real territory (they name no compass directions on purpose).
@@ -97,6 +99,50 @@ Nothing else changed.
   any mismatch at integration.
 - Who shows the house pages (the Mentat or a narrator) is the campaign screen's choice; the Atreides pages are
   in the third person, the Harkonnen and Ordos pages say "we", as the Sega lines quoted in the research do.
+
+## Review fixes
+
+What the review proved, and what changed:
+
+- **Briefings promised content no stream was asked to build.** Harkonnen 8 promised a "gift among your
+  buildings" (every mission starts the player with the Construction Yard alone); all three mission 9 advices
+  stated the Sardaukar *have* a Palace and its Death Hand (the AI never builds one on the Sega ladder, so only the
+  mission data can place it); Ordos 7 and Harkonnen 7 said Sardaukar drops *continue* (the scenarios data drops
+  them in 4 and 8 only). Now: no gift (Radnor gloats instead, and "You may build a Palace" is true again); mission
+  9 warns *if* the Sardaukar hold a Palace; 7 says they *may* drop in; Atreides 7 and Ordos 8 hedged the same way.
+  The cross-check test now holds the words to the data: mission 4 must have a Sardaukar Carryall drop (every
+  mission 4 briefing says so); any sentence that states (does not hedge with if/may/could/...) a Sardaukar drop
+  or a Sardaukar Palace or Death Hand needs that drop or a Sardaukar `palace` in that mission; a "gift" needs a
+  player structure beyond the yard. Reproduced first: against the reviewer's stub it failed at "atreides 4: no
+  drop"; against a scratch tree with the scenarios stream's current data it failed at the Ordos 7 drop, the
+  Harkonnen 8 gift (with the other lines fixed) and passes now.
+- **The PC intro's premise, reworded.** Atreides 1, Harkonnen 1 and Ordos 1 kept the frame "the House that
+  produces the most spice will control Dune" with synonyms. Recast in each Mentat's own frame (Cyril: the
+  Emperor's decree gives Arrakis to his best supplier; Radnor: Arrakis is the greedy Emperor's bait; Ammon: the
+  Emperor is selling Arrakis, the price is spice). The test adds the PC intro's phrases to the forbidden list and
+  a pattern for the reworded frame (the reviewer's probe passes too).
+- **Advice against the Sega ladder** (scenarios' `src/data/sega-tech.js`). Ordos 4 said the Barracks is upgraded
+  for Troopers; the ladder trains Ordos Troopers at a WOR from mission 4 while `ORDOS_TROOPERS_AT === 'wor'`. It
+  now says "Troopers can now be trained" without naming the factory, true either way. Harkonnen 5 said the Heavy
+  Factory *already* builds Missile Tanks; the ladder sells that level (300) in mission 5, so it now says to
+  upgrade. A new cross-check (skips until `sega-tech.js` is merged): a sentence naming Troopers and a factory
+  names the one `segaUnit` gives; "already builds X" needs the house's start upgrades to cover X's level.
+- **Map captions against the atlas** (`src/data/territory.js`, atlas stream, committed cd1b286). Step 9 claimed
+  the whole planet while the atlas still gives the Emperor a region at step 9 (the ending takes it): the three
+  step 9 captions now say only the Emperor's stronghold remains. Step 2 of the Harkonnen and Ordos campaigns
+  named the beaten rival (Atreides, Harkonnen) while the atlas takes open sand (and an Ordos region for the
+  Harkonnen): those two captions now speak of the open sand, true either way. A new cross-check (skips until
+  `territory.js` is merged): from step 2 to 8 every rival a caption names loses a region at that step in
+  `changes(h, s)`, and step 9 names the Emperor while `ownership(h, 9).sardaukar` is not empty.
+- **For the atlas stream:** its step 2 for the Harkonnen campaign takes a region from the Ordos although
+  Harkonnen mission 2 is fought against the Atreides (Sega table); for the Ordos campaign step 2 takes only sand
+  although mission 2 is against the Harkonnen. Steps 3-8 agree with the captions (probed with `changes`).
+- **This notes file** sits outside the stream's two files; the fix brief asked for this section here. The lead
+  decides whether to keep it (a new file, no conflict).
+
+Measured: `node --test tests/story.test.mjs` 10 pass, 3 skipped on this branch; 13 pass, 0 skipped in a scratch
+tree with the scenarios stream's `campaign.js`, `missions/`, `sega-tech.js`, `tech.js`, `mapgen.js` and the atlas
+stream's `territory.js` copied in.
 
 ## For the README
 

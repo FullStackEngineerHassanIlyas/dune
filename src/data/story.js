@@ -58,8 +58,8 @@ export const BRIEFINGS = {
       briefing: [
         'Welcome to Arrakis, Commander. I am Cyril,',
         'Mentat of House Atreides. I will advise you here.',
-        'The Emperor has thrown this planet open to all.',
-        'The House that gathers the most spice will rule it.',
+        'The Emperor cares for one thing here: spice.',
+        'His decree gives Arrakis to his best supplier.',
         'We begin with a modest task: harvest spice until',
         '1000 credits are held safely in our stores.',
         'Ordos patrols roam this basin. They have no base,',
@@ -212,7 +212,7 @@ export const BRIEFINGS = {
         'Beware their Deviators: they can turn our own',
         'tanks against us for a time.',
         'Destroy both bases before they grow any stronger.',
-        'The Sardaukar have been sighted again, so keep',
+        'The Sardaukar could appear at any time, so keep',
         'a reserve at home.',
       ],
       advice: [
@@ -266,8 +266,8 @@ export const BRIEFINGS = {
         'served beside you.',
       ],
       advice: [
-        'The Sardaukar have a Palace of their own. Expect',
-        'its Death Hand, and do not crowd your buildings.',
+        'If the Sardaukar hold a Palace, its Death Hand will',
+        'fall on us. Do not crowd your buildings together.',
         'Watch every flank: they favour sudden raids on',
         'Harvesters and lightly guarded corners.',
       ],
@@ -287,8 +287,8 @@ export const BRIEFINGS = {
       briefing: [
         'So, you are the new commander. I am Radnor,',
         'Mentat to the Baron. Try not to bore me.',
-        'The Emperor has made Arrakis a free-for-all.',
-        'Whoever bleeds the most spice from it keeps it.',
+        'The Emperor is greedy, and Arrakis is his bait.',
+        'Feed him enough spice and he will hand it to us.',
         'Your first task is beneath a true Harkonnen:',
         'harvest until 1000 credits sit in our stores.',
         'Some Atreides soldiers wander this region. Kill',
@@ -394,8 +394,8 @@ export const BRIEFINGS = {
       advice: [
         'Build a Hi-Tech Factory and it will give you Carryalls',
         'to carry Harvesters to the spice faster.',
-        'Your Heavy Factory already builds Missile Tanks; use',
-        'them. A Repair Facility will save you a few tanks.',
+        'Upgrade the Heavy Factory and it builds Missile Tanks.',
+        'Use them. A Repair Facility will save you a few tanks.',
       ],
       win: [
         'The Atreides base burns. A lovely sight.',
@@ -435,7 +435,7 @@ export const BRIEFINGS = {
         'Sonic Tanks are a nuisance; their pride is worse.',
         'Destroy both bases. All of them. Every building.',
         'I want the Duke to hear of it and weep.',
-        'Sardaukar have been dropping in on all sides, so',
+        'The Sardaukar may yet drop in on either side, so',
         'keep an eye on the sky.',
       ],
       advice: [
@@ -460,8 +460,8 @@ export const BRIEFINGS = {
         'each with a base here. The Emperor\'s doing, again;',
         'his Sardaukar will not be far away.',
         'Destroy them both, and Arrakis is all but ours.',
-        'I have arranged a small gift for the occasion.',
-        'You will find it among your buildings.',
+        'Two Houses, one army, and twice the corpses.',
+        'I expect you to enjoy this one.',
       ],
       advice: [
         'You may build a Palace, once you have a Starport.',
@@ -488,7 +488,7 @@ export const BRIEFINGS = {
         'Do not fail me now. I have grown used to you.',
       ],
       advice: [
-        'The Sardaukar will fire a Death Hand of their own.',
+        'A Sardaukar Palace would mean a Death Hand for us.',
         'Spread your buildings out; do not make it easy.',
         'They raid from the flanks. Leave guards at home.',
       ],
@@ -508,8 +508,8 @@ export const BRIEFINGS = {
       briefing: [
         'I am Ammon, Mentat to the Ordos Council.',
         'I will be brief. Time is money.',
-        'The Emperor has opened Arrakis to all bidders.',
-        'The House that harvests most will own the planet.',
+        'The Emperor is selling Arrakis. The price is spice.',
+        'We intend to be the highest bidder.',
         'Your first contract: 1000 credits in our stores.',
         'Harkonnen thugs prowl this region. No base, only',
         'brutes. Avoid them where you can, kill them if not.',
@@ -586,7 +586,7 @@ export const BRIEFINGS = {
       ],
       advice: [
         'Upgrade the Heavy Factory for Combat Tanks.',
-        'The Barracks can be upgraded to train Troopers.',
+        'Troopers can now be trained. Their rockets hurt tanks.',
         'Walls are cheap. Harvesters are not. Protect them.',
       ],
       win: [
@@ -649,7 +649,7 @@ export const BRIEFINGS = {
       briefing: [
         'The Harkonnen have two bases again, and Devastators.',
         'Brute force. Very expensive brute force.',
-        'Destroy both bases. The Sardaukar drops continue,',
+        'Destroy both bases. The Sardaukar may drop in again,',
         'so do not leave the Refinery unguarded.',
         'This is the last step before the big contracts.',
       ],
@@ -675,7 +675,7 @@ export const BRIEFINGS = {
         'They despise each other. Their alliance will fail,',
         'but it need not last long to ruin us.',
         'Destroy both bases. The Emperor is behind this deal.',
-        'Expect his Sardaukar.',
+        'Watch for his Sardaukar.',
       ],
       advice: [
         'You may now build a Palace, once a Starport stands.',
@@ -702,8 +702,8 @@ export const BRIEFINGS = {
         'this. Do not waste it.',
       ],
       advice: [
-        'The Sardaukar have a Palace and a Death Hand. Keep',
-        'the base spread out.',
+        'The Sardaukar may own a Palace, and so a Death Hand.',
+        'Keep the base spread out.',
         'They will raid the flanks. Guard the Harvesters.',
       ],
       win: [
@@ -747,7 +747,8 @@ export const ENDINGS = {
   ],
 };
 
-/** A caption for each territory-map step: 0 before mission 1, n after mission n is won. */
+/** A caption for each territory-map step: 0 before mission 1, n after mission n is won. As the atlas draws it,
+ *  mission 1 takes no land and step 9 still leaves the Emperor his region (the ending takes it). */
 export const MAP_CAPTIONS = {
   atreides: [
     'House Atreides sets foot on Arrakis.',
@@ -759,31 +760,31 @@ export const MAP_CAPTIONS = {
     'The Harkonnen are driven from their strongholds.',
     'Only scattered Ordos camps remain.',
     'Both rival Houses are broken.',
-    'Arrakis is held by House Atreides.',
+    'Only the Emperor\'s stronghold still defies the Duke.',
   ],
   harkonnen: [
     'House Harkonnen lands on Arrakis, hungry.',
     'The Atreides cower behind their honour.',
-    'The Atreides retreat, as weaklings do.',
+    'The open sand bows to the Harkonnen banner.',
     'The Ordos learn what their coin is worth.',
     'The Ordos bleed. The Sardaukar watch.',
     'The Atreides are trampled into the sand.',
     'Ordos land is ours. They may rent it back.',
     'Little is left of House Atreides.',
     'Two Houses broken. One remains: ours.',
-    'Arrakis kneels to House Harkonnen.',
+    'Only the Emperor\'s fortress stands. Not for long.',
   ],
   ordos: [
     'House Ordos stakes its first claims.',
     'First profits secured. The Harkonnen are restless.',
-    'The Harkonnen are bought out of their land.',
+    'Unclaimed sand registered to the Ordos. No charge.',
     'Atreides holdings pass into Ordos hands.',
     'The Atreides retreat. The Sardaukar take notes.',
     'Two Harkonnen bases written off.',
     'Atreides territory acquired at a fair price.',
     'The Harkonnen are nearly out of business.',
     'Both rivals are bankrupt.',
-    'Arrakis is an Ordos holding.',
+    'One holding left to acquire: the Emperor\'s own.',
   ],
 };
 
