@@ -79,7 +79,7 @@ game as released on the Sega Mega Drive.
 
 ## How to test
 
-- Unit: `node --test tests/campaign-*.test.mjs tests/menu-entries.test.mjs` (65 tests).
+- Unit: `node --test tests/campaign-*.test.mjs tests/menu-entries.test.mjs` (66 tests).
 - End to end: `flock /tmp/dune-chrome.lock env E2E_CAMPAIGN_PORT=8620 node scripts/e2e-campaign.mjs` (25 checks).
 - Smoke: `flock /tmp/dune-chrome.lock env SMOKE_PORT=8623 node scripts/smoke.mjs campaign-hub campaign-house
   campaign-join campaign-briefing campaign-region campaign-victory campaign-win campaign-score
@@ -89,7 +89,7 @@ game as released on the Sega Mega Drive.
 
 ## Measurements
 
-- Full unit suite 955/955 (under the npm-test lock); campaign e2e 25/25; the 12 smoke scenes pass without console
+- Full unit suite 956/956 (under the npm-test lock); campaign e2e 25/25; the 12 smoke scenes pass without console
   errors.
 - Looked at on the real GPU (Chrome, ANGLE/GL) at 1600x900, 1280x720, 1024x520, 800x900 and 420x860: title, hub,
   houses, join, briefing, region (start and mid-zoom), victory, win lines, score, password reveal, password entry,
