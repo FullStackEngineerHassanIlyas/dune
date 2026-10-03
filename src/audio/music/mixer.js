@@ -15,15 +15,16 @@ export const BLOCK = 2048;  // samples per block the render-ahead worker sends (
 export const KNEE = 0.8;   // the sum is untouched below this, then rounds off smoothly towards full scale
 const MIN_FADE = 0.03;     // seconds: even a cut is a short fade, never a click
 const HP_HZ = 40;          // the high-pass under the music
-const WARM_BLOCKS = 64;
+const WARM_BLOCKS = 64;    // blocks of 128 a VGM player is run through before its first real track (about 0.17 s of audio)
 // The player's Sega tracks against this game's FM tracks: from vgm-deck.js at its native scale the rip measures
 // -34 to -37 dB RMS (peaks 0.05-0.15) where ours sit at -19 to -21 dB; +14 dB brings them alongside, below the
 // ceiling's knee, and keeps the original's own balance between its tracks (one gain for all of them).
-export const VGM_GAIN = 5;    // blocks of 128 a VGM player is run through before its first real track (about 0.17 s of audio)
+export const VGM_GAIN = 5;
 
 export class MusicMixer {
   /**
-   * onEvent({ type: 'started'|'pass'|'ended'|'error', id, ... }): what the director hears back. VgmDeck: the class
+   * onEvent({ type: 'started'|'pass'|'ended'|'error', id, ... }): what the director hears back ('started' with
+   * `queued` when it is the queued track taking over, not a play command's own). VgmDeck: the class
    * that plays a VGM (else globalThis.duneVgmDeck, put there when the page loads it).
    */
   constructor({ rate, tracks = TRACKS, patches = PATCHES, onEvent = () => {}, VgmDeck = null } = {}) {
@@ -79,18 +80,21 @@ export class MusicMixer {
     else if (m.cmd === 'stop') this.stop(m.fade ?? 0.5);
     else if (m.cmd === 'hold') this.held = !!m.on;
     else if (m.cmd === 'vgm') {
-      // a VGM's plain bytes under an id (sent again after a synth restart); no data forgets it
+      // a VGM's plain bytes under an id (sent again after a synth restart); no data forgets it. `warm`: the page
+      // says no one is listening (the context not yet running), so the player may be warmed up now
       if (m.data) {
         this.vgms.set(m.id, m.data instanceof Uint8Array ? m.data : new Uint8Array(m.data));
-        if (!this.warm && !this.decks.length) this.warmUp(m.id);
+        if (m.warm && !this.warm && !this.decks.length) this.warmUp(m.id);
       } else this.vgms.delete(m.id);
     }
   }
 
   /**
-   * The VGM player's code run through once, while nothing plays (the intro's cue is queued before the gesture lets
-   * the context run): a throwaway deck renders a moment of the file, so the real one's first blocks are not slowed
-   * by the engine compiling the chips' code (measured: 24 ms for the first block cold, inside the 2.7 ms budget after).
+   * The VGM player's code run through once, while nothing plays and no one listens (the intro's cue is queued before
+   * the gesture lets the context run): a throwaway deck renders a moment of the file, so the real one's first blocks
+   * are not slowed by the engine compiling the chips' code (measured: 24 ms for the first block cold, inside the
+   * 2.7 ms budget after). It takes about 0.1 s, so a running context never asks for it: there the first VGM's first
+   * block runs cold instead.
    */
   warmUp(id) {
     const Player = this.VgmDeck ?? globalThis.duneVgmDeck;
@@ -116,9 +120,12 @@ export class MusicMixer {
     this.onEvent({ type: 'started', id, time: this.time + wait });
   }
 
-  /** Everything playing fades out; a track still waiting to come in is simply dropped (unheard, it has nothing to fade). */
+  /**
+   * Everything playing fades out; a track not heard yet — still waiting to come in, or queued on a context that has
+   * not run (the intro's primed cue) — is simply dropped: it has nothing to fade.
+   */
   fadeAll(fade) {
-    this.decks = this.decks.filter((d) => !(d.delay > 0));
+    this.decks = this.decks.filter((d) => !(d.delay > 0) && d.pos > 0);
     for (const d of this.decks) d.fade(0, Math.max(MIN_FADE, fade));
   }
 
@@ -163,7 +170,7 @@ export class MusicMixer {
             next.delay = Math.max(0, n - (d.pos - d.endedAt));
             this.decks.push(next);   // rendered later in this same loop, from that sample
             this.current = next;
-            this.onEvent({ type: 'started', id: q.id, time: this.time + next.delay / this.rate });
+            this.onEvent({ type: 'started', id: q.id, time: this.time + next.delay / this.rate, queued: true });
           }
         }
       }

@@ -4,16 +4,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MenuMusic } from '../src/audio/music/music.js';
-import { TRACKS } from '../src/audio/music/songs/index.js';
-import { fakeWindow, fakeStore, settle, sent, plays, userVgm, userOgg } from './music-fakes.mjs';
+import { fakeWindow, fakeStore, settle, sent, plays, userVgm, userOgg, songTable } from './music-fakes.mjs';
 
-/** The FM tracks with an 'opening' cue, whatever the score has written so far. */
-const TR = { ...TRACKS, opening: { ...TRACKS.victory, id: 'opening' } };
+/** The phase-2 tracks with an 'opening' cue (a fixed table: whatever the score has written). */
+const TR = songTable({ add: ['opening'] });
 const cue = (win) => sent(win).filter((m) => m.cmd === 'play' || m.cmd === 'next').map((m) => [m.cmd, m.id, m.passes]);
 
-function menuMusic({ settings = { sound: true, volume: 0.8 }, store = fakeStore(), tracks = TR, track = null, win = fakeWindow({ suspended: true }) } = {}) {
+function menuMusic({ settings = { sound: true, volume: 0.8 }, store = fakeStore(), table = TR, track = null, win = fakeWindow({ suspended: true }) } = {}) {
   win.document ??= { hidden: false, addEventListener() {} };
-  const music = new MenuMusic({ settings, win, importer: store.importer, tracks, track, rng: () => 0 });
+  const music = new MenuMusic({ settings, win, importer: store.importer, ...table, track, rng: () => 0 });
   return { win, music, settings, store };
 }
 const prime = async (music) => { music.prime(); await music.conductor.ready; await settle(); await settle(); };
@@ -43,7 +42,7 @@ test('intro() inside the gesture starts the queued cue at once and says it is he
   assert.deepEqual(cue(win), [['play', 'opening', 1], ['next', 'title', 0]], 'not started again: the queued cue simply runs');
   const port = win.nodes[0].port;
   port.onmessage({ data: { type: 'ended', id: 'opening' } });
-  port.onmessage({ data: { type: 'started', id: 'title' } });
+  port.onmessage({ data: { type: 'started', id: 'title', queued: true } });
   assert.deepEqual([music.debug().mood, music.debug().playing, music.debug().track], ['menu', 'menu', 'title'], 'the menu\'s music now');
   music.leave();
   win.flush();
@@ -141,7 +140,7 @@ test('the player\'s own intro comes first, then the game\'s cue, then the menu\'
   await prime(two.music);
   assert.deepEqual(cue(two.win).filter(([c]) => c !== 'vgm'), [['play', 'opening', 1], ['next', 'vgm:9', 0]]);
   // and without any cue (the score has not written one), the menu's music is the intro's too
-  const three = menuMusic({ tracks: TRACKS });
+  const three = menuMusic({ table: songTable() });
   await prime(three.music);
   assert.deepEqual(cue(three.win), [['play', 'title', 0]]);
   assert.equal(three.music.debug().mood, 'menu');
@@ -161,7 +160,7 @@ test('the player\'s files read late: the game\'s cue goes ahead after a moment, 
   const store = { importer: async () => ({ playlists: () => late }) };
   const win = fakeWindow({ suspended: true });
   win.document = { hidden: false, addEventListener() {} };
-  const music = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: store.importer, tracks: TR, rng: () => 0 });
+  const music = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: store.importer, ...TR, rng: () => 0 });
   music.prime();
   await settle(); await settle();
   assert.equal(plays(win).length, 0, 'waiting for the store');
@@ -174,4 +173,116 @@ test('the player\'s files read late: the game\'s cue goes ahead after a moment, 
   await settle(); await settle();
   assert.equal(plays(win).length, 1, 'the cue is not started again');
   assert.deepEqual(cue(win).at(-1), ['next', 'vgm:4', 0], 'the menu file now follows it');
+});
+
+// ——— review fixes: the cue belongs to the intro alone ———
+
+/** A menu whose synth is a real mixer: the cue is 'victory' and the menu 'title' (ids every song table keeps). */
+async function realMixer({ settings = { sound: true, volume: 0.8 }, store = fakeStore(), win = fakeWindow({ suspended: true, mixer: true }) } = {}) {
+  const table = songTable();
+  const { music } = menuMusic({ settings, store, win, table: { ...table, pools: { ...table.pools, intro: ['victory'] } } });
+  await prime(music);
+  return { win, music, store, node: win.nodes[0], decks: () => win.nodes[0].mixer.decks.map((d) => d.id) };
+}
+
+test('primed, but the intro never asks for its cue (switched off, back from a battle): the first click plays the menu\'s music, the cue dropped unheard', async () => {
+  const { win, music, decks } = await realMixer();
+  assert.deepEqual(decks(), ['victory'], 'the cue waits in the synth for the intro');
+  win.listeners.pointerdown[0]();   // a click on the title (the menu's own listener)
+  assert.equal(music.audio.ctx.state, 'running');
+  assert.deepEqual([music.debug().mood, music.debug().playing, music.debug().track], ['menu', 'menu', 'title']);
+  assert.deepEqual(decks(), ['title'], 'never heard, so never faded: gone before the context ran');
+  for (const fn of win.timers) fn();   // the menu's poll
+  assert.deepEqual(decks(), ['title']);
+});
+
+test('a key before the intro\'s own (the menu\'s listener hears it first): the cue still starts from its top at the intro\'s word', async () => {
+  const { win, music, decks } = await realMixer();
+  win.listeners.keydown[0]();          // the menu's audio listener, then the intro's gate in the same event
+  const heard = music.intro();
+  assert.deepEqual(decks(), ['victory'], 'the title it had turned to is dropped unheard, the cue is the one deck');
+  assert.equal(music.debug().mood, 'intro');
+  assert.equal(await heard, true);
+  win.render(128);   // the synth's events of all three plays reach the page now
+  assert.ok(win.nodes[0].mixer.decks[0].pos > 0, 'and it plays');
+  assert.deepEqual([music.debug().mood, music.debug().track, music.debug().queued], ['intro', 'victory', 'title'],
+    'the title\'s own start (a play, long gone) is not taken for the queued title starting');
+});
+
+test('through a real synth: the cue plays once and the title takes over on its last sample, the mood the menu\'s', async () => {
+  const { win, music, node } = await realMixer();
+  assert.equal(await music.intro(), true);
+  let blocks = 0;
+  while (music.debug().playing === 'intro' && blocks++ < 40000) win.render(2048);
+  assert.deepEqual([music.debug().mood, music.debug().playing, music.debug().track, node.mixer.current?.id], ['menu', 'menu', 'title', 'title']);
+});
+
+for (const [label, settings, turnOn] of [
+  ['music volume 0', { sound: true, volume: 0.8, musicVolume: 0 }, (s) => { s.musicVolume = 0.5; }],
+  ['Sound off', { sound: false, volume: 0.8 }, (s) => { s.sound = true; }],
+]) {
+  test(`an intro that said it was silent (${label}) leaves the menu's music for later, never its cue`, async () => {
+    const { win, music, decks } = await realMixer({ settings });
+    assert.equal(await music.intro(), false);
+    win.tick(31000);                   // the intro runs to the title in silence
+    turnOn(settings);                  // Options, on the menu
+    music.update(); await settle(); await settle(); music.update();
+    for (let i = 0; i < 8; i++) win.render(128);
+    assert.equal(music.audio.ctx.state, 'running');
+    assert.deepEqual([music.debug().mood, music.debug().track], ['menu', 'title']);
+    assert.deepEqual(decks(), ['title'], 'the cue was never heard and is not now');
+  });
+}
+
+test('a context the browser starts late: a cue heard within 3 s plays on in its place; one still unheard then gives way to the menu', async () => {
+  for (const late of [2000, null]) {
+    const win = fakeWindow({ suspended: true, mixer: true });
+    win.noActivation = true;
+    const { music, decks } = await realMixer({ win });
+    let said = null;
+    music.intro().then((v) => { said = v; });
+    win.tick(1500); await settle();
+    assert.equal(said, false, 'not heard within 1.5 s');
+    if (late) { win.tick(late - 1500); win.noActivation = false; music.audio.ctx.resume(); }
+    win.tick(250); music.update();
+    win.tick(3000); music.update();
+    if (late) assert.deepEqual([music.debug().mood, decks()], ['intro', ['victory']], 'late, but the intro\'s cue');
+    else {
+      assert.deepEqual([music.debug().mood, decks()], ['menu', ['title']], 'never let run: the cue given up unheard');
+      win.noActivation = false;
+      win.listeners.pointerdown[0]();   // a click on the title at last
+      assert.deepEqual([music.audio.ctx.state, music.debug().track], ['running', 'title']);
+    }
+  }
+});
+
+test('a tab hidden and shown again before the gesture leaves the primed context waiting for it', async () => {
+  const win = fakeWindow({ suspended: false });   // a browser that lets a new context run at once
+  const { music } = menuMusic({ win });
+  await prime(music);
+  assert.equal(music.audio.ctx.state, 'suspended');
+  win.document.hidden = true; music.update();
+  win.document.hidden = false; music.update();
+  assert.deepEqual([music.audio.ctx.state, music.audio.ctx.resumes], ['suspended', 0], 'the cue waits for the key press');
+  assert.equal(await music.intro(), true);
+  assert.equal(music.audio.ctx.state, 'running');
+});
+
+test('the menu\'s file turning up late leaves nothing of the game\'s title queued in the synth behind the cue', async () => {
+  const store = fakeStore();
+  const { win, music, node } = await realMixer({ store });
+  await music.intro();
+  assert.equal(node.mixer.queued?.id, 'title', 'the title queued behind the cue');
+  store.slots = { menu: [userOgg(7, 'my-menu.ogg')] };
+  music.conductor.playlistsChanged();
+  await music.conductor.ready; await settle(); await settle();
+  assert.equal(music.debug().queued, 'my-menu.ogg');
+  assert.equal(node.mixer.queued, null, 'the synth forgot the title');
+  const started = [];
+  const take = node.port.onmessage;
+  node.port.onmessage = (m) => { if (m.data.type === 'started') started.push(m.data.id); take(m); };
+  for (let i = 0; i < 40000 && music.debug().track !== 'my-menu.ogg'; i++) win.render(2048);
+  assert.equal(music.debug().track, 'my-menu.ogg', 'the file follows the cue');
+  assert.ok(!started.includes('title'), `the title never started (${started})`);
+  assert.deepEqual([music.debug().mood, win.elements.length], ['menu', 1]);
 });

@@ -142,6 +142,8 @@ export class MusicOutput {
         if (!player.done) { this.gate(player.loaded); return; }
       }
       this.pending.shift();
+      // the VGM player may be warmed up (about 0.1 s of the audio thread) only where no one hears it
+      if (c.cmd === 'vgm' && c.data) c.warm = !this.node || this.ctx?.state !== 'running';
       if (this.node) this.node.port.postMessage(c);
       else this.worker.postMessage(c);
     }

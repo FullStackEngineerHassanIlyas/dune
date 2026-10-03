@@ -393,11 +393,15 @@ export async function playlistTracks(name) {
   return out;
 }
 
-/** Every slot's tracks ({ slot: [...] } as playlistTracks gives them) in one read; a track in two slots is one object in both. */
-export async function playlists() {
-  const all = (await (await db()).all('tracks')).sort((a, b) => a.id - b.id), out = Object.fromEntries(SLOTS.map((n) => [n, []]));
+/**
+ * These slots' tracks (every slot's by default; { slot: [...] } as playlistTracks gives them) in one read; a track in
+ * two slots is one object in both. Only the tracks in these slots are read (a battle need not hold the menu's music).
+ */
+export async function playlists(names = SLOTS) {
+  const want = SLOTS.filter((n) => names.includes(n));
+  const all = (await (await db()).all('tracks')).sort((a, b) => a.id - b.id), out = Object.fromEntries(want.map((n) => [n, []]));
   for (const t of all) {
-    const lists = slotsOf(t);
+    const lists = slotsOf(t).filter((n) => want.includes(n));
     if (!lists.length) continue;
     let data;
     try { data = await t.blob.arrayBuffer(); } catch { continue; }   // a track the browser lost: skipped

@@ -251,7 +251,7 @@ test('a queued FM track that starts queues the one after it; a mood change repla
   await settle();
   const node = win.nodes[0], next = node.sent.find((m) => m.cmd === 'next');
   assert.ok(next && next.id !== plays(win)[0].id && next.passes === TRACKS[next.id].passes);
-  node.port.onmessage({ data: { type: 'started', id: next.id } });
+  node.port.onmessage({ data: { type: 'started', id: next.id, queued: true } });
   const nexts = node.sent.filter((m) => m.cmd === 'next');
   assert.equal(nexts.length, 2);
   assert.notEqual(nexts[1].id, next.id);

@@ -74,3 +74,33 @@ test('the Music Test plays a VGM on a context of its own, the menu\'s music maki
   assert.ok(win.nodes[1].disconnected, 'stopped: its synth goes');
   assert.equal(win.contexts.length, 1, 'one context for every track heard here');
 });
+
+test('the Music Test\'s context rests when a track stops, and is closed when the page goes (Back, or Esc while it plays)', async () => {
+  const win = fakeWindow();
+  const files = { trackData: async (id) => userVgm(id), audition() {} };
+  const page = { isConnected: true };
+  const player = new MusicTest({ sound: true, volume: 0.8 }, { win, files });
+  player.bind(page);
+  await player.play(1);
+  await settle();
+  const ctx = win.contexts[0];
+  assert.equal(ctx.state, 'running');
+  player.stop();
+  assert.equal(ctx.state, 'suspended', 'stopped: the context rests');
+  await player.play(1);
+  await settle();
+  assert.deepEqual([ctx.state, win.contexts.length], ['running', 1], 'the same context again');
+  page.isConnected = false;           // Esc: the page is gone while the track plays
+  for (const fn of win.timers) fn();  // the page's watch
+  assert.deepEqual([ctx.state, player.ctx, player.id], ['closed', null, null], 'closed with the page');
+  const next = new MusicTest({ sound: true, volume: 0.8 }, { win, files });
+  next.bind({ isConnected: true });
+  await next.play(2);
+  await settle();
+  next.close();                       // Back
+  assert.deepEqual(win.contexts.map((c) => c.state), ['closed', 'closed'], 'nothing left running, visit after visit');
+  next.close();
+  const idle = new MusicTest({ sound: true, volume: 0.8 }, { win, files });
+  idle.close();
+  assert.equal(win.contexts.length, 2, 'a page where nothing was played made no context');
+});

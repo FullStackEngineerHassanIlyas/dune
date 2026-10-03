@@ -12,7 +12,7 @@ files, read in their browser and kept there.
 |---|---|
 | `src/audio/music/music.js` | `Conductor` resolves a **mood** to its music: the player's files in the mood's slot, else the game's FM tracks for that role, else the nearest role (table below). Items are FM ids, media files or VGM files. A synth item queued behind another starts on the sample it ends; a media item starts when the one before it ends. The music already sounding carries on when the next mood's music is the same. `MenuMusic` gains `prime()`, `intro()`, `skipIntro()`, `mood(name)`; `BattleMusic` gains the Sega mode and `reroll()`. |
 | `src/audio/music/sega-tracks.js` (new) | The one list of 18 slots, their labels, the selector's choices, and the Sega soundtrack table (research §9) with `autoSlots(title, fileName)`, `segaTrack`, `isGerman`, `normaliseTitle`. Pure data. |
-| `src/audio/music/mixer.js` | VGM registry (`{ cmd: 'vgm', id, data }`), VGM decks through the contract's `VgmDeck` (handed in, or `globalThis.duneVgmDeck`), `error` events (a deck that will not read, throws, or stops with `error` set), `next` with no id clears the queue, a one-time warm-up of the VGM player while nothing plays, `VGM_GAIN`. |
+| `src/audio/music/mixer.js` | VGM registry (`{ cmd: 'vgm', id, data }`), VGM decks through the contract's `VgmDeck` (handed in, or `globalThis.duneVgmDeck`), `error` events (a deck that will not read, throws, or stops with `error` set), `next` with no id clears the queue, a one-time warm-up of the VGM player while nothing plays on a context not yet running, a deck never rendered dropped rather than faded, `started` marked `queued` for a queued start, `VGM_GAIN`. |
 | `src/audio/music/output.js` | `playVgm` / `queueVgm` (data sent once per synth, again after a restart), the VGM player loaded into the worklet only when the first VGM is to play (a one-line blob module that imports `vgm-deck.js` and puts the class on the worklet's global scope), commands queued in order behind it; `kick()` for a media file the browser held back before a gesture. |
 | `src/audio/music/worker.js` | Imports `vgm-deck.js` the first time a VGM is registered; messages wait behind it in order. |
 | `src/audio/music/worklet.js` | Comment only: the VGM player is not imported statically. |
@@ -63,15 +63,18 @@ files, read in their browser and kept there.
   worklet stays small and loads fast for the intro, and this branch works before the vgm stream's files exist.
   A missing player only turns each VGM into an `error` → the conductor leaves that file out and moves on (to the
   next file or the FM). The same for a file that will not read or breaks while playing.
-- **Warm-up:** the first VGM registered while nothing plays runs a throwaway deck for 64 blocks. In Node the real
-  deck's first block went from 24 ms (cold) to 12 ms; in Chrome the primed hand-over intro was heard 131 ms after
-  the click instead of 195 ms.
+- **Warm-up:** the first VGM registered while nothing plays, on a context that is not running (the page says so:
+  `warm` on the `vgm` command), runs a throwaway deck for 64 blocks. In Node the real deck's first block went from
+  24 ms (cold) to 12 ms; in Chrome the primed hand-over intro was heard 131 ms after the click instead of 195 ms.
+  The warm-up itself takes 80–130 ms, so a running context (a battle's) never does it: there the first VGM's first
+  block runs cold (about 24 ms) instead.
 - **Starport** (the Sega tutorial's loop) is imported but plays nowhere until the player picks a slot; the two German
   tracks are left out with a note (English only).
 - **Music Test:** one context of its own per page (created by the Play click), the Options volume, the music volume
   (0.5 when the music is off, so a track can be heard), loops a track with a loop point; the menu's (or battle's)
   conductor holds while it plays (`user-files audition()` → `auditionChanged`). It stops on Stop, Remove, Back, or
-  when the page is gone (checked twice a second while playing).
+  when the page is gone; its context is suspended between tracks and closed with the page (Back, or a watch twice a
+  second that finds the page gone, as after Esc).
 
 ## How to test
 
@@ -113,6 +116,49 @@ files, read in their browser and kept there.
 - **campaign:** `music.mood('houseSelect' | 'briefing:<house>' | 'region' | 'victory:<house>' | 'defeat:<house>' |
   'finale' | 'credits' | 'menu')` per screen.
 - Firefox and Safari were not tried: a blob module through `audioWorklet.addModule`, a context made before a gesture.
+
+## Review fixes
+
+The report-only review of `606e101` found ten things; these were fixed, each with a test written failing first:
+
+- **The cue belongs to the intro.** `prime()` queued the 'intro' mood for good, so with the intro off (setting,
+  `intro=0`, `?screen=`, a return from a battle) the first click played the 30 s cue under the title, and a silent
+  intro (Sound off, music volume 0) played it later on the menu. Now `MenuAudio` remembers whether it was let run
+  (`started`; `onStart` is told before the first resume): primed but never asked for by `intro()`, the cue gives way
+  to the menu's music as sound is let run; asked for but not heard within 3 s of the gesture (`INTRO_LATE`), it gives
+  way too (a cue heard late, up to then, plays on in its place). The mixer drops a deck that has not rendered a
+  sample (`fadeAll`: `pos > 0`), so a primed cue that is given up is never heard, not even as a fade.
+- **A play's `started` is not the queue's.** Found while checking the above in Chrome: the title's own `started`
+  (from a play command) arrived after the cue had been put back and was taken for the queued title starting, so the
+  intro ran under the title theme. The mixer now marks a queued start (`queued: true`) and only that counts.
+- **The primed context waits for the gesture:** `hold(false)` resumes only once `started` (a hidden-then-shown tab
+  no longer starts the cue before the key, where autoplay is allowed).
+- **No stale queue in the synth:** the conductor remembers what it told the mixer to queue (`synthNext`) and sends
+  `{ cmd: 'next', id: null }` when the plan behind the item playing becomes a media file or nothing (a late menu OGG
+  behind the FM cue no longer lets the FM title in first).
+- **Tests pinned to a fixed song table** (`songTable()` in `tests/music-fakes.mjs`): the conductor takes the house
+  themes (`themes: { briefing, victory, defeat }`, default from songs/index.js) like `tracks` and `pools`, and no
+  music test asserts the shape of the real songs index. Checked on a scratch tree with `phase3/score` (`d5a7192`) and
+  `phase3/vgm` (`b480246`) laid over this branch: every music test passes.
+- **Music Test context:** suspended on Stop, closed with the page (above). Chrome: three visits with Play then Esc
+  leave three closed contexts (were three running).
+- **VGM warm-up only where no one hears it** (above). Node, the real `VgmDeck`: `command(vgm)` 0.9 ms on a running
+  context (was 103 ms for Spice Trip).
+- **Each conductor reads only its slots:** `playlists(names)` in `user-files.js` reads only the tracks in those
+  slots; a battle reads `ingame`, `peace`, `battle` and its house's victory and defeat (the rip: 3.0 MB in 7 tracks,
+  was 15.4 MB in 19), the menu every other slot. `enter()` still reads the menu's slots again: the battle's own game
+  menu has an Original Game Files page in another document, whose changes the menu's store never hears of.
+- The misplaced `WARM_BLOCKS` / `VGM_GAIN` comments.
+
+Left for the lead: the Sega mode playing the player's peace and battle files before ours when the `ingame` slot is
+empty (a departure from the brief's letter, kept on purpose above; dropping it is one line, `also` in `role()`, and
+one assertion in `tests/music-moods.test.mjs`); this notes file and `tests/music-fakes.mjs` sit outside the stream's
+listed files (the helper is the music tests' own, as `missions-helpers.mjs` is the missions').
+
+Chrome after the fixes (a scratch merge with `phase3/intro`, `phase3/score` and `phase3/vgm`): `intro=0` and a
+click: `mood` 'menu', `track` 'title', −37 dB. The intro's gate and a key: `mood` 'intro', `track` 'opening',
+`queued` 'title', heard 43–96 ms after the key (three runs). The whole rip imported on the menu: the Opening VGM
+plays, `synth` 'worklet', −35.5 dB, the in-game slots not read.
 
 ## For the README
 

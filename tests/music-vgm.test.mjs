@@ -12,9 +12,9 @@ import { fakeWindow, fakeEngine, fakeVgmDeck, fakeStore, vgmFile, userVgm, userO
 test('the mixer plays a registered VGM like a track: crossfades, passes, and the next one queued to the sample', () => {
   const made = [], events = [];
   const m = new MusicMixer({ rate: 1000, VgmDeck: fakeVgmDeck({ samples: 300, made }), onEvent: (e) => events.push(e) });
-  m.command({ cmd: 'vgm', id: 'vgm:1', data: vgmFile().buffer });
-  m.command({ cmd: 'vgm', id: 'vgm:2', data: vgmFile({ track: 'Credit Roll' }) });   // a Uint8Array does as well
-  assert.deepEqual(made.map((d) => [d.id, d.pos]), [['vgm:1:warm', 64 * 128]], 'the first one registered while nothing plays warms the player up');
+  m.command({ cmd: 'vgm', id: 'vgm:1', data: vgmFile().buffer, warm: true });
+  m.command({ cmd: 'vgm', id: 'vgm:2', data: vgmFile({ track: 'Credit Roll' }), warm: true });   // a Uint8Array does as well
+  assert.deepEqual(made.map((d) => [d.id, d.pos]), [['vgm:1:warm', 64 * 128]], 'the first one registered while nothing plays (on a suspended context) warms the player up');
   made.length = 0;
   m.command({ cmd: 'play', id: 'vgm:1', passes: 2 });
   m.command({ cmd: 'next', id: 'vgm:2', passes: 1 });
@@ -26,13 +26,34 @@ test('the mixer plays a registered VGM like a track: crossfades, passes, and the
   while (made.length < 2 && rendered < 2000) { m.render(L, R, 128); rendered += 128; }
   assert.equal(made.length, 2, 'the queued VGM started');
   const ended = events.find((e) => e.type === 'ended'), started = events.filter((e) => e.type === 'started');
-  assert.deepEqual(started.map((e) => e.id), ['vgm:1', 'vgm:2']);
+  assert.deepEqual(started.map((e) => [e.id, !!e.queued]), [['vgm:1', false], ['vgm:2', true]], 'the queue\'s start says so (a play\'s own does not)');
   assert.ok(Math.abs(ended.time - 0.6) < 1e-9 && Math.abs(started[1].time - 0.6) < 1e-9, 'on the very sample the first one finished its two passes');
   assert.deepEqual(events.filter((e) => e.type === 'pass').map((e) => [e.id, e.n]), [['vgm:1', 1], ['vgm:1', 2]]);
   m.command({ cmd: 'play', id: 'title', fade: 0.5 });
   assert.equal(made[1].fadeTo, 0, 'a new track fades the VGM out like any deck');
   m.command({ cmd: 'vgm', id: 'vgm:1' });
   assert.equal(m.vgms.has('vgm:1'), false, 'no data forgets it');
+});
+
+test('on a running context the VGM player is not warmed up: the audio thread is never held for it', () => {
+  const made = [];
+  const m = new MusicMixer({ rate: 1000, VgmDeck: fakeVgmDeck({ made }) });
+  m.command({ cmd: 'vgm', id: 'vgm:1', data: vgmFile().buffer, warm: false });
+  m.command({ cmd: 'vgm', id: 'vgm:2', data: vgmFile().buffer });
+  assert.deepEqual(made, [], 'no throwaway deck');
+  m.command({ cmd: 'vgm', id: 'vgm:3', data: vgmFile().buffer, warm: true });
+  assert.deepEqual(made.map((d) => d.id), ['vgm:3:warm'], 'later, on a resting context, it may be');
+});
+
+test('the page asks for the warm-up only where no one hears it: on a context not yet running', async () => {
+  for (const [state, warm] of [['suspended', true], ['running', false]]) {
+    const win = fakeWindow({ suspended: state === 'suspended' }), audio = fakeEngine(win), out = new MusicOutput({ audio, win });
+    out.open();
+    await settle();
+    out.playVgm(userVgm(1));
+    await settle(); await settle();
+    assert.equal(win.nodes[0].sent.find((m) => m.cmd === 'vgm').warm, warm, state);
+  }
 });
 
 test('a VGM that will not read, or breaks while playing, is reported and dropped; the audio thread never throws', () => {

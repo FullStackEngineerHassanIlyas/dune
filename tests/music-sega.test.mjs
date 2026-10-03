@@ -7,24 +7,25 @@ import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { flatWorld } from './helpers.mjs';
 import { BattleMusic } from '../src/audio/music/music.js';
-import { POOLS, TRACKS } from '../src/audio/music/songs/index.js';
-import { fakeWindow, fakeEngine, fakeStore, settle, sent, plays, userVgm } from './music-fakes.mjs';
+import { fakeWindow, fakeEngine, fakeStore, settle, sent, plays, userVgm, songTable } from './music-fakes.mjs';
 
+/** A fixed song table (whatever the score has written): the phase-2 tracks. */
+const TABLE = songTable(), { pools: POOLS, tracks: TRACKS } = TABLE;
 const INGAME = [...POOLS.peace, ...POOLS.battle];
 
-async function battle({ settings = {}, store = fakeStore(), tracks = TRACKS, rng = Math.random } = {}) {
+async function battle({ settings = {}, store = fakeStore(), table = TABLE, rng = Math.random } = {}) {
   const world = flatWorld(48, 48, G.ROCK);
   world.fogOfWar = false;
   world.spawnStructure('constructionYard', 'atreides', 4, 4);
   const win = fakeWindow(), engine = fakeEngine(win);
-  const music = new BattleMusic({ world, house: 'atreides', engine, settings, win, rng, importer: store.importer, tracks });
+  const music = new BattleMusic({ world, house: 'atreides', engine, settings, win, rng, importer: store.importer, ...table });
   await music.conductor.ready;
   music.frame();
   await settle();
   return { world, win, music, engine };
 }
 /** The synth says the queued tune has started (as the worklet does on its first sample). */
-const startQueued = (win, music) => win.nodes[0].port.onmessage({ data: { type: 'started', id: music.conductor.queued } });
+const startQueued = (win, music) => win.nodes[0].port.onmessage({ data: { type: 'started', id: music.conductor.queued, queued: true } });
 
 test('the Sega mode (the default) plays every in-game tune in random order, never the same twice running, and does not switch on a fight', async () => {
   let seed = 7;
@@ -95,8 +96,7 @@ test('the player\'s in-game files come first; without them their peace and battl
 });
 
 test('the end: the battle house\'s own victory or defeat once through, else the plain one; a draw is silent', async () => {
-  const own = { ...TRACKS, 'victory-atreides': { ...TRACKS.victory, id: 'victory-atreides' } };
-  const { win, music } = await battle({ tracks: own });
+  const { win, music } = await battle({ table: songTable({ add: ['victory-atreides'] }) });
   music.onEvent({ type: 'gameOver', winner: 'atreides' });
   music.frame();
   assert.equal(sent(win).at(-1).cmd, 'stop', 'decided: the music stops');

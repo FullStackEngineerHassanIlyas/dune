@@ -19,6 +19,12 @@ import * as SONGS from './songs/index.js';
 import { SLOTS } from './sega-tracks.js';
 
 const { POOLS, TRACKS, BRIEFINGS } = SONGS;
+/** Each house's own briefing, victory and defeat tracks (songs/index.js, contract C7; a table may lack the last two). */
+const THEMES = { briefing: BRIEFINGS, victory: SONGS.VICTORY, defeat: SONGS.DEFEAT };
+/** The slots a battle's music can play (its house's ending added); the menu plays all the others. */
+const IN_GAME = ['ingame', 'peace', 'battle'];
+export const battleSlots = (house) => [...IN_GAME, `victory-${house}`, `defeat-${house}`].filter((n) => SLOTS.includes(n));
+export const MENU_SLOTS = SLOTS.filter((n) => !IN_GAME.includes(n));
 
 export const DEFAULT_VOLUME = 0.5;
 export const DUCK = 0.6;            // the music under an announcer line: about -4.4 dB
@@ -26,6 +32,7 @@ export const PLAYLISTS = SLOTS;     // the moments the player's own files can ta
 const PLAYLIST_WAIT = 3000;         // ms to wait for the player's playlists before playing the game's own music
 const INTRO_LIST_WAIT = 400;        // ms past the intro's gesture the cue waits for them at most
 const INTRO_AUDIBLE_WAIT = 1500;    // ms intro() waits to hear the cue before it says there is none
+const INTRO_LATE = 3000;            // ms past the intro's gesture a cue not yet heard is given up (too far out of step)
 const SKIP_FADE = 0.4;              // seconds: a skipped intro's cue fades out under the menu's music
 /** How a mood comes in: the old music fades over `fade` s, the new one starts after `wait` s, fading in over `fadeIn`. */
 export const ENTRANCES = {
@@ -71,27 +78,35 @@ export async function loadPlaylist(name, importer = USER_FILES) {
   }
 }
 
-/** Every slot's tracks ({ slot: [...] }), in one read where the store offers it (a file in two slots is one object). */
-export async function loadPlaylists(importer = USER_FILES) {
+/**
+ * These slots' tracks ({ slot: [...] }), in one read where the store offers it (a file in two slots is one object);
+ * only these are read, so a battle does not hold the menu's music.
+ */
+export async function loadPlaylists(importer = USER_FILES, slots = SLOTS) {
   let m = null;
   try { m = await importer(); } catch { return {}; }
   try {
     if (typeof m?.playlists === 'function') {
-      const all = (await m.playlists()) ?? {};
-      return Object.fromEntries(SLOTS.map((n) => [n, Array.isArray(all[n]) ? all[n].filter(usable) : []]));
+      const all = (await m.playlists(slots)) ?? {};
+      return Object.fromEntries(slots.map((n) => [n, Array.isArray(all[n]) ? all[n].filter(usable) : []]));
     }
   } catch { /* the one read failed: slot by slot */ }
-  const lists = await Promise.all(SLOTS.map((n) => loadPlaylist(n, async () => m)));
-  return Object.fromEntries(SLOTS.map((n, i) => [n, lists[i]]));
+  const lists = await Promise.all(slots.map((n) => loadPlaylist(n, async () => m)));
+  return Object.fromEntries(slots.map((n, i) => [n, lists[i]]));
 }
 
 export class Conductor {
-  /** audio: { ctx, master } (null ctx until a gesture opens it); pools: role → FM track ids (POOLS, contract C7). */
-  constructor({ audio, settings, win = globalThis.window, rng = Math.random, importer, pools = POOLS, tracks = TRACKS, house = null, entrances = ENTRANCES }) {
+  /**
+   * audio: { ctx, master } (null ctx until a gesture opens it); pools: role → FM track ids (POOLS, contract C7);
+   * themes: { briefing, victory, defeat }, house → its own track id; slots: those of the player's files it reads.
+   */
+  constructor({ audio, settings, win = globalThis.window, rng = Math.random, importer, pools = POOLS, tracks = TRACKS, themes = THEMES, slots = SLOTS, house = null, entrances = ENTRANCES }) {
     this.settings = settings;
     this.importer = importer;
     this.pools = pools;
     this.tracks = tracks;
+    this.themes = { ...THEMES, ...themes };
+    this.slots = slots;
     this.house = house;
     this.entrances = entrances;
     this.win = win;
@@ -106,6 +121,7 @@ export class Conductor {
     this.source = null;      // what it resolved to: { mood (the role that has music), items }
     this.current = null;     // the item playing: an FM track id or one of the player's files
     this.queued = null;      // the synth item queued to follow it, to the sample
+    this.synthNext = null;   // the id the synth was last told to queue, until it starts it or is told otherwise
     this.after = null;       // or the item to start when it ends (a media file is involved)
     this.chain = null;       // the mood the queued/after item belongs to (the intro's hand-over to the menu)
     this.ducked = false;
@@ -132,10 +148,10 @@ export class Conductor {
    */
   reloadPlaylists() {
     const read = ++this.reads, wait = new Promise((resolve) => this.win?.setTimeout?.(resolve, PLAYLIST_WAIT));
-    return Promise.race([loadPlaylists(this.importer), wait.then(() => null)]).then((lists) => {
+    return Promise.race([loadPlaylists(this.importer, this.slots), wait.then(() => null)]).then((lists) => {
       if (read !== this.reads) return;   // a later read is on its way
       let changed = false;
-      if (lists) for (const n of SLOTS) {
+      if (lists) for (const n of this.slots) {
         const list = lists[n] ?? [];
         if (signature(list) === signature(this.lists[n])) continue;   // unchanged: the same objects stay (the shuffle knows them)
         if (list.length) this.lists[n] = list; else delete this.lists[n];
@@ -189,7 +205,7 @@ export class Conductor {
     this.output.release();
     this.on = false;
     this.playing = null;
-    this.current = this.queued = this.after = this.chain = null;
+    this.current = this.queued = this.after = this.chain = this.synthNext = null;
     this.level = -1;
     this.held = false;   // a new synth starts unheld; the next update holds it again if need be
   }
@@ -213,13 +229,13 @@ export class Conductor {
       case 'menu': return { slot: 'menu', pool: this.fm(p.menu ?? ['title']) };
       case 'houseSelect': return { slot: 'houseSelect', pool: this.fm(p.houseSelect ?? ['houseSelect']), near: 'menu' };
       case 'briefing': {
-        const theme = BRIEFINGS[who ?? this.house] ?? 'atreides';   // the Fremen fight with the Atreides, ...
+        const theme = this.themes.briefing?.[who ?? this.house] ?? 'atreides';   // the Fremen fight with the Atreides, ...
         return { slot: `briefing-${theme}`, pool: this.fm([theme]), near: 'menu' };
       }
       case 'region': return { slot: 'region', pool: this.fm(p.region ?? ['region']), near: this.house ? 'briefing' : 'menu' };
       case 'victory': case 'defeat': {
         if (!who) return { slot: null, pool: this.fm(p[kind] ?? [kind]) };
-        const own = `${kind}-${who}`, table = kind === 'victory' ? SONGS.VICTORY : SONGS.DEFEAT;
+        const own = `${kind}-${who}`, table = this.themes[kind];
         return { slot: SLOTS.includes(own) ? own : null, pool: this.fm([table?.[who] ?? own]), near: kind };
       }
       case 'finale': return { slot: 'finale', pool: this.fm(p.finale ?? ['finale']), near: 'credits' };
@@ -274,7 +290,7 @@ export class Conductor {
     }
     if (carry) {
       // the music the mood wants is the one sounding: on it goes, and what follows it is planned again
-      if (!this.planNext() && onSynth(item)) this.output.send({ cmd: 'next', id: null });   // nothing left queued behind it
+      this.planNext();
       return;
     }
     this.play(item, how, this.passesFor(item, src.items.length, loop));
@@ -284,7 +300,7 @@ export class Conductor {
   silence(fade) {
     this.output.send({ cmd: 'stop', fade });
     this.output.stopFile(fade);
-    this.current = null;
+    this.current = this.synthNext = null;
   }
 
   /** How many times through: one of many plays its own number, one alone loops for ever (or once, for a once mood). */
@@ -297,6 +313,7 @@ export class Conductor {
   play(item, how, passes) {
     const out = this.output, fade = how.fade ?? ENTRANCE.fade, fadeIn = how.fadeIn ?? 0, wait = how.wait ?? 0;
     this.current = item;
+    this.synthNext = null;   // a play or a stop empties the synth's queue
     if (typeof item === 'string') {
       out.stopFile(fade);
       out.send({ cmd: 'play', id: item, fade, fadeIn, wait, passes });
@@ -323,18 +340,30 @@ export class Conductor {
     if (this.chain) {
       mood = this.chain;
       src = this.resolve(mood);
-      if (!src) { this.chain = null; return false; }
+      if (!src) { this.chain = null; this.unqueue(); return false; }
     } else if (!src || src.items.length < 2) {
       if (isFile(cur) && !isVgm(cur) && !this.entranceOf(mood).once) this.after = cur;   // a file alone plays again
+      this.unqueue();
       return this.after !== null;
     }
     const next = this.shuffle.pick(mood, src.items), passes = this.passesFor(next, src.items.length, !this.entranceOf(mood).once);
     if (onSynth(cur) && onSynth(next) && !this.endedCurrent) {
       this.queued = next;
+      this.synthNext = synthId(next);
       if (typeof next === 'string') this.output.send({ cmd: 'next', id: next, passes });
       else this.output.queueVgm(next, passes);
-    } else this.after = next;
+    } else {
+      this.after = next;
+      this.unqueue();
+    }
     return true;
+  }
+
+  /** What the synth was told to queue is not what follows now (a file, or nothing): it forgets it. */
+  unqueue() {
+    if (this.synthNext === null) return;
+    this.synthNext = null;
+    this.output.send({ cmd: 'next', id: null });
   }
 
   /** The intro's queued music has begun: the mood is the menu's now. */
@@ -373,9 +402,12 @@ export class Conductor {
     this.start(mood);
   }
 
-  /** The synth's events: a queued item has started, an item has ended, or a VGM would not play. */
+  /** The synth's events: the queued item has started, an item has ended, or a VGM would not play. */
   onSynth(e) {
-    if (e.type === 'started' && this.queued !== null && e.id === synthId(this.queued)) {
+    // only the queue's own start counts: a play command's 'started' (of the same id, maybe long gone) is not it
+    const fromQueue = e.type === 'started' && e.queued;
+    if ((fromQueue || e.type === 'error') && e.id === this.synthNext) this.synthNext = null;   // taken from the queue
+    if (fromQueue && this.queued !== null && e.id === synthId(this.queued)) {
       this.current = this.queued;
       this.queued = null;
       this.endedCurrent = false;
@@ -430,13 +462,13 @@ export class Conductor {
  * the battle house's own victory or defeat, else the plain one.
  */
 export class BattleMusic {
-  constructor({ world, house, engine, settings, win, rng, importer, tracks, pools }) {
+  constructor({ world, house, engine, settings, win, rng, importer, tracks, pools, themes }) {
     this.world = world;
     this.house = house;
     this.engine = engine;
     this.settings = settings;
     this.director = new MusicDirector({ house });
-    this.conductor = new Conductor({ audio: engine, settings, win, rng, importer, house, tracks, pools });
+    this.conductor = new Conductor({ audio: engine, settings, win, rng, importer, house, tracks, pools, themes, slots: battleSlots(house) });
     this.nextLook = 0;
     this.near = [];   // the enemies near the player's forces at the last look (reused)
   }
@@ -496,6 +528,8 @@ export class MenuAudio {
     this.ctx = null;
     this.master = null;
     this.held = false;
+    this.started = false;   // let run (a gesture, or the intro's word); a context primed before that waits for it
+    this.onStart = null;    // told once, as it is first let run, before it resumes
     const Context = this.win.AudioContext ?? this.win.webkitAudioContext;
     this.available = typeof Context === 'function';
     if (this.available) {
@@ -529,6 +563,7 @@ export class MenuAudio {
       }
     }
     if (!start) return;
+    if (!this.started) { this.started = true; this.onStart?.(); }
     this.hold(this.held);
     if (this.ctx.state === 'running' && this.onGesture) {
       this.win.removeEventListener?.('pointerdown', this.onGesture);
@@ -547,9 +582,10 @@ export class MenuAudio {
     if (this.master.gain.value !== v) this.master.gain.value = v;
   }
 
-  /** Held: suspended (a battle in the frame, a hidden page, nothing to hear); otherwise running. */
+  /** Held: suspended (a battle in the frame, a hidden page, nothing to hear); otherwise running — once let run. */
   hold(held) {
     this.held = !!held;
+    if (!held && !this.started) return;   // primed ahead of the gesture: a page shown again does not start it
     try { (held ? this.ctx?.suspend?.() : this.ctx?.resume?.())?.catch?.(() => {}); } catch { /* it plays on */ }
   }
 }
@@ -566,17 +602,20 @@ const POLL_MS = 250;
  */
 export class MenuMusic {
   /** track: a track id to play instead of the menu's music, everywhere on the menu (the ?music= flag, for listening). */
-  constructor({ settings, win = globalThis.window, track = null, importer, rng, tracks = TRACKS, pools = POOLS }) {
+  constructor({ settings, win = globalThis.window, track = null, importer, rng, tracks = TRACKS, pools = POOLS, themes }) {
     this.win = win;
     this.settings = settings;
     this.audio = new MenuAudio(settings, win);
+    this.audio.onStart = () => this.update();   // a gesture that is not the intro's: the primed cue gives way first
     this.track = track && tracks[track] ? track : null;
     this.conductor = new Conductor({
-      audio: this.audio, settings, win, rng, tracks, pools: this.track ? { ...pools, menu: [this.track] } : pools,
+      audio: this.audio, settings, win, rng, tracks, themes, slots: MENU_SLOTS, pools: this.track ? { ...pools, menu: [this.track] } : pools,
       importer: this.track ? async () => ({}) : importer, entrances: MENU_ENTRANCES,
     });
     this.conductor.want('menu');
     this.primed = false;
+    this.introAt = null;     // when intro() was called (performance.now ms): the cue is the intro's to play
+    this.introHeard = false; // and it has been heard
     this.introDelay = null;  // ms from intro() to the cue sounding (debug)
     this.away = false;       // a battle is in the frame
     this.behind = false;     // and the music has faded out behind it
@@ -586,11 +625,27 @@ export class MenuMusic {
   }
 
   update() {
+    this.giveUpCue();
     this.audio.update();
     this.conductor.update();
     this.rest();
     if (this.audio.ctx?.state === 'running') this.conductor.output.kick();
   }
+
+  /**
+   * The intro's cue belongs to the intro: primed for one that never asks for it (the intro off, a return from a
+   * battle) once sound is let run, or not heard within INTRO_LATE of the intro's gesture (Sound off, music volume 0,
+   * a browser that kept the context from running), it gives way to the menu's music — and a cue never heard is
+   * dropped by the synth without a sound.
+   */
+  giveUpCue() {
+    const c = this.conductor;
+    if (c.wanted !== 'intro' || !this.audio.started || this.introHeard) return;
+    if (this.introAt !== null && this.sounding()) { this.introHeard = true; return; }
+    if (this.introAt === null || this.now() - this.introAt > INTRO_LATE) c.want('menu');
+  }
+
+  now() { return this.win?.performance?.now?.() ?? Date.now(); }
 
   /** The context suspended whenever nothing is to be heard, and a player's file paused on a hidden page. */
   rest() {
@@ -612,10 +667,13 @@ export class MenuMusic {
   /**
    * Inside the player's gesture: the intro's cue (the player's file in the 'intro' slot, else the game's 'opening')
    * starts now. Resolves true once it is heard; false at once when the music is off, muted or unavailable, and in
-   * any case if nothing is heard within 1.5 s. The menu follows the cue by itself.
+   * any case if nothing is heard within 1.5 s. The menu follows the cue by itself; a cue still unheard a moment
+   * later is given up for the menu's music (giveUpCue), so it never plays later on the title.
    */
   intro() {
     const c = this.conductor;
+    this.introAt = this.now();
+    this.introHeard = false;
     if (this.track) c.want('menu');
     else if (c.playing !== 'intro') c.want('intro');
     this.prime();
@@ -649,11 +707,11 @@ export class MenuMusic {
 
   /** Resolves true when the music is heard, false when it cannot be (at once) or is not within `ms`. */
   audible(ms) {
-    const now = () => this.win?.performance?.now?.() ?? Date.now(), t0 = now();
+    const t0 = this.now();
     return new Promise((resolve) => {
       const look = () => {
-        if (this.sounding()) { this.introDelay = Math.round(now() - t0); resolve(true); return; }
-        if (this.silentAnyway() || now() - t0 >= ms || !this.win?.setTimeout) { resolve(false); return; }
+        if (this.sounding()) { this.introDelay = Math.round(this.now() - t0); this.introHeard = true; resolve(true); return; }
+        if (this.silentAnyway() || this.now() - t0 >= ms || !this.win?.setTimeout) { resolve(false); return; }
         this.win.setTimeout(look, 20);
       };
       look();

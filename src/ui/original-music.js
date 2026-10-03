@@ -60,7 +60,8 @@ export const MUSIC_STYLE = `
 
 /**
  * Plays one track for the Music Test on an audio context of its own, made by the click that asks for it; the menu's
- * music makes way while it plays. onChange(): what plays changed (the page draws itself again).
+ * music makes way while it plays. The context rests (suspended) between tracks and is closed when the page goes
+ * (close(): Back; or found gone by a watch, as after Esc). onChange(): what plays changed (the page draws itself again).
  */
 export class MusicTest {
   constructor(settings, { win = globalThis.window, files, onChange = () => {} } = {}) {
@@ -72,7 +73,7 @@ export class MusicTest {
     this.watch = 0;
   }
 
-  /** The page this lives on is gone (Esc, Back): the track stops with it. */
+  /** The page this lives on: once it is gone (Esc, Back) the track stops and the context is closed. */
   bind(el) { this.el = el; }
 
   context() {
@@ -82,6 +83,7 @@ export class MusicTest {
       this.ctx = new Context();
       this.master = this.ctx.createGain();
       this.master.connect(this.ctx.destination);
+      this.watch = this.win.setInterval?.(() => { if (this.el && !this.el.isConnected) this.close(); }, 500) ?? 0;
     }
     this.ctx.resume?.()?.catch?.(() => {});
     this.master.gain.value = this.settings.sound === false ? 0 : Number(this.settings.volume ?? 0.8);
@@ -104,7 +106,6 @@ export class MusicTest {
       if (file.type === VGM_TYPE) out.playVgm(file, { passes: file.meta?.loopSeconds > 0 ? 0 : 1 });
       else out.playFile(file, { fadeIn: 0, fade: 0, onEnded: (failed) => (failed ? this.fail(id, 'this browser cannot play it') : this.ended(id)) });
       this.files.audition?.(true);
-      this.watch = this.win.setInterval?.(() => { if (this.el && !this.el.isConnected) this.stop(); }, 500) ?? 0;
     } catch (err) {
       this.fail(id, err.message);
     }
@@ -125,12 +126,21 @@ export class MusicTest {
   }
 
   stop(tell = true) {
-    if (this.watch) { this.win.clearInterval?.(this.watch); this.watch = 0; }
     const was = this.id;
     this.id = null;
     if (this.out) { this.out.release(); this.out = null; }
+    try { this.ctx?.suspend?.()?.catch?.(() => {}); } catch { /* it rests anyway once closed */ }
     if (was !== null) this.files.audition?.(false);
     if (tell && was !== null) this.onChange();
+  }
+
+  /** The page is gone: the track stops and the context is closed (a new one is made if anything plays again). */
+  close() {
+    if (this.watch) { this.win.clearInterval?.(this.watch); this.watch = 0; }
+    this.stop(false);
+    const ctx = this.ctx;
+    this.ctx = this.master = null;
+    try { ctx?.close?.()?.catch?.(() => {}); } catch { /* already closed */ }
   }
 }
 

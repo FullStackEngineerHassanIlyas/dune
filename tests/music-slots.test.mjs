@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SLOTS, SLOT_LABELS, SLOT_CHOICES, SEGA_TRACKS, autoSlots, segaTrack, isGerman, normaliseTitle } from '../src/audio/music/sega-tracks.js';
 import * as files from '../src/core/user-files.js';
-import { PLAYLISTS } from '../src/audio/music/music.js';
+import { PLAYLISTS, BattleMusic, MenuMusic } from '../src/audio/music/music.js';
 import { formatTime, slotValue, musicReportText, coverageText } from '../src/ui/original-music.js';
 import { fakeIndexedDB } from './fake-indexeddb.mjs';
 import { fakeVgmFormat, vgmFile, vgz, zip } from './music-fakes.mjs';
@@ -94,6 +94,30 @@ test('a whole rip in its .zip: twenty tracks kept plain, each in its slots, the 
   const again = await files.importMusic([{ name: 'dune_emu.zip', data: ripZip().buffer }], { format });
   assert.equal(again.added, 0, 'the same files twice: kept once');
   assert.ok(again.files.filter((f) => !f.note?.startsWith('German')).every((f) => f.note === 'already here'));
+});
+
+test('each reader of the playlists reads only the slots it can play: a battle the in-game music and its house\'s ending', async () => {
+  freshStore();
+  await files.importMusic([{ name: 'dune_emu.zip', data: ripZip().buffer }], { format });
+  const read = [], arrayBuffer = Blob.prototype.arrayBuffer;
+  Blob.prototype.arrayBuffer = function () { read.push(this.size); return arrayBuffer.call(this); };
+  try {
+    const some = await files.playlists(['ingame', 'victory-atreides']);
+    assert.deepEqual(Object.keys(some), ['ingame', 'victory-atreides']);
+    assert.deepEqual([some.ingame.length, some['victory-atreides'][0].meta.title], [5, 'Conquest']);
+    assert.equal(read.length, 6, 'the other fourteen tracks are not read');
+  } finally { Blob.prototype.arrayBuffer = arrayBuffer; }
+  const asked = [];
+  const importer = async () => ({ playlists: async (names) => { asked.push(names); return files.playlists(names); } });
+  const world = { time: 0 }, win = { setTimeout: () => 0 };
+  const battle = new BattleMusic({ world, house: 'atreides', engine: { ctx: null, master: null }, settings: {}, win, importer });
+  await battle.conductor.ready;
+  assert.deepEqual(asked[0], ['ingame', 'peace', 'battle', 'victory-atreides', 'defeat-atreides']);
+  assert.deepEqual(Object.keys(battle.conductor.lists).sort(), ['defeat-atreides', 'ingame', 'victory-atreides']);
+  const menu = new MenuMusic({ settings: {}, win: { setTimeout: () => 0 }, importer });
+  await menu.conductor.ready;
+  assert.deepEqual(asked[1], SLOTS.filter((n) => !['ingame', 'peace', 'battle'].includes(n)), 'the menu: every slot but the in-game ones');
+  assert.equal(menu.conductor.lists.ingame, undefined);
 });
 
 test('.vgz and .vgm one by one, MP3/OGG/WAV beside them; anything else is refused, and the slots can be changed', async () => {

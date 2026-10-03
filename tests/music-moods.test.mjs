@@ -4,18 +4,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MenuMusic, Conductor } from '../src/audio/music/music.js';
-import { TRACKS } from '../src/audio/music/songs/index.js';
-import { fakeWindow, fakeStore, settle, plays, userVgm, userOgg } from './music-fakes.mjs';
+import { fakeWindow, fakeStore, settle, plays, userVgm, userOgg, songTable } from './music-fakes.mjs';
 
-/** Every role's FM track (contract C7), standing in for those the score has not written yet. */
-const as = (id, like = 'victory') => ({ ...(TRACKS[id] ?? TRACKS[like]), id });
-const C7 = Object.fromEntries(['opening', 'houseSelect', 'region', 'finale', 'credits', ...['atreides', 'harkonnen', 'ordos'].flatMap((h) => [`victory-${h}`, `defeat-${h}`])].map((id) => [id, as(id)]));
-const FULL = { ...TRACKS, ...C7 };
+/** Fixed song tables (whatever the score has written): every role's own FM track (contract C7), and only phase 2's. */
+const FULL = songTable({ c7: true }), PHASE2 = songTable();
 
-async function onMenu({ tracks = FULL, store = fakeStore() } = {}) {
+async function onMenu({ table = FULL, store = fakeStore() } = {}) {
   const win = fakeWindow();
   win.document = { hidden: false, addEventListener() {} };
-  const music = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: store.importer, tracks, rng: () => 0 });
+  const music = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: store.importer, ...table, rng: () => 0 });
   await music.conductor.ready;
   win.listeners.pointerdown[0]();
   music.update();
@@ -63,7 +60,7 @@ test('the player\'s file in a slot comes first; one in two slots carries on from
 });
 
 test('a role the game has no track for falls back on the nearest: the menu, the briefing, the plain victory, the credits', async () => {
-  const { win, music } = await onMenu({ tracks: TRACKS });
+  const { win, music } = await onMenu({ table: PHASE2 });
   assert.deepEqual(last(win), ['title', 0]);
   music.mood('houseSelect');
   assert.equal(plays(win).length, 1, 'no house-selection track yet: the title plays on, not restarted');
@@ -81,12 +78,15 @@ test('a role the game has no track for falls back on the nearest: the menu, the 
 });
 
 test('a mood\'s role, slot and fallback, for every name in the contract', () => {
-  const c = new Conductor({ audio: { ctx: null, master: null }, settings: {}, win: null, importer: async () => ({}), tracks: FULL });
+  const c = new Conductor({ audio: { ctx: null, master: null }, settings: {}, win: null, importer: async () => ({}), ...FULL });
   const pick = (mood) => { const r = c.resolve(mood); return r && [r.mood, r.items.join()]; };
   assert.deepEqual(pick('intro'), ['intro', 'opening']);
   assert.deepEqual(pick('briefing:fremen'), ['briefing:fremen', 'atreides']);
   assert.deepEqual(c.role('briefing:mercenary').slot, 'briefing-ordos');
-  assert.deepEqual(c.role('victory:sardaukar'), { slot: null, pool: [], near: 'victory' }, 'a house without a theme of its own: the plain victory');
+  assert.deepEqual(c.role('victory:sardaukar'), { slot: null, pool: [], near: 'victory' }, 'a house without a theme of its own (in this table): the plain victory');
+  const score = new Conductor({ audio: { ctx: null, master: null }, settings: {}, win: null, importer: async () => ({}), ...FULL,
+    themes: { ...FULL.themes, victory: { ...FULL.themes.victory, sardaukar: 'victory-harkonnen' } } });
+  assert.deepEqual(score.resolve('victory:sardaukar'), { mood: 'victory:sardaukar', items: ['victory-harkonnen'] }, 'the house themes are the table\'s, given to the conductor');
   assert.deepEqual(pick('victory:sardaukar'), ['victory', 'victory']);
   assert.deepEqual(pick('ingame'), ['ingame', 'erg,dawn,lanterns,assault,iron,shieldwall']);
   for (const mood of ['over', null, 'nonsense']) assert.equal(c.resolve(mood), null, `${mood}: silence`);

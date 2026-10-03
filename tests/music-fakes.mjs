@@ -58,7 +58,8 @@ export function fakeWindow({ worklet = true, suspended = false, mixer = false, V
     createBuffer(ch, length, rate) { return { length, rate, data: [], copyToChannel(d, c) { this.data[c] = d; } }; }
     createBufferSource() { const s = Object.assign(new Node(), { start: (t) => { s.at = t; this.started.push(s); } }); return s; }
     suspend() { this.state = 'suspended'; return Promise.resolve(); }
-    resume() { this.resumes++; if (!win.noActivation) this.state = 'running'; return Promise.resolve(); }
+    resume() { this.resumes++; if (!win.noActivation && this.state !== 'closed') this.state = 'running'; return Promise.resolve(); }
+    close() { this.state = 'closed'; return Promise.resolve(); }
   }
   win.AudioContext = Ctx;
   if (worklet) {
@@ -163,6 +164,31 @@ export function fakeStore(slots = {}) {
     follow: (t) => { store.follower = t; },
   });
   return store;
+}
+
+// ——— a fixed song table ———
+
+const PHASE2 = { title: 1, atreides: 1, harkonnen: 1, ordos: 1, erg: 2, dawn: 2, lanterns: 2, assault: 2, iron: 3, shieldwall: 3, victory: 0, defeat: 0 };
+const HOUSES = ['atreides', 'harkonnen', 'ordos'];
+const C7 = ['opening', 'houseSelect', 'region', 'finale', 'credits', ...HOUSES.flatMap((h) => [`victory-${h}`, `defeat-${h}`])];
+
+/**
+ * A song table in songs/index.js's shape, as the music takes it ({ tracks, pools, themes }), fixed here so the music
+ * tests do not hang on what the score has written: the phase-2 tracks, with `c7` every role's own (contract C7),
+ * and any `add`ed ids. The tracks are stand-ins ({ id, passes }): the conductor only asks whether one exists and how
+ * often it plays; a test that renders through a real mixer uses ids the score keeps ('title', 'victory', 'defeat').
+ */
+export function songTable({ c7 = false, add = [] } = {}) {
+  const ids = { ...PHASE2, ...Object.fromEntries([...(c7 ? C7 : []), ...add].map((id) => [id, 1])) };
+  const tracks = Object.fromEntries(Object.entries(ids).map(([id, passes]) => [id, { id, passes }]));
+  const pools = { menu: ['title'], peace: ['erg', 'dawn', 'lanterns'], battle: ['assault', 'iron', 'shieldwall'], victory: ['victory'], defeat: ['defeat'] };
+  if (c7) Object.assign(pools, { intro: ['opening'], houseSelect: ['houseSelect'], region: ['region'], finale: ['finale'], credits: ['credits'] });
+  const own = (kind) => (c7 ? Object.fromEntries(HOUSES.map((h) => [h, `${kind}-${h}`])) : {});
+  const themes = {
+    briefing: { atreides: 'atreides', fremen: 'atreides', harkonnen: 'harkonnen', sardaukar: 'harkonnen', ordos: 'ordos', mercenary: 'ordos' },
+    victory: own('victory'), defeat: own('defeat'),
+  };
+  return { tracks, pools, themes };
 }
 
 export { BLOCK };

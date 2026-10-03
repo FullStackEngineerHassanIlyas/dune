@@ -135,7 +135,7 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
           } }, state.armed ? 'Click again to remove them' : 'Forget the game files'),
         h('small', {}, 'Deletes the clips from this browser; your music below stays.')),
       ...musicSection({ state, busy, act, picker, test, files }),
-      h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', dataset: { focus: 'back' }, onclick: () => { test.stop(); onBack(); } }, 'Back')),
+      h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', dataset: { focus: 'back' }, onclick: () => { test.close(); onBack(); } }, 'Back')),
     );
     if (state.focus && (!document.activeElement || document.activeElement === document.body || el.contains(document.activeElement))) {
       (el.querySelector(`[data-focus="${state.focus}"]:not(:disabled)`) ?? (busy ? null : el.querySelector('[data-focus="back"]')))?.focus({ preventScroll: true });
