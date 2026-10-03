@@ -32,10 +32,10 @@
 @media (max-width: 900px), (max-aspect-ratio: 1/1) { .intro-title { left: 0; } }
 
 /* the hand-over: the menu fades in over the shot the opening ended on; until the page knows whether the opening plays,
-   the menu stays out of sight (at most 0.6 s, so the menu shows even if the opening's module never loads) */
+   the menu stays out of sight (at most 0.4 s, so the menu shows even if the opening's module never loads) */
 #app.intro-reveal .main-menu { animation: intro-menu-in .9s ease both; }
 @keyframes intro-menu-in { from { opacity: 0; } }
-#app.in-menu:not(.intro-checked) .main-menu { animation: intro-wait .6s; }
+#app.in-menu:not(.intro-checked) .main-menu { animation: intro-wait .4s; }
 @keyframes intro-wait { from, to { visibility: hidden; } }
 
 /* the ending: the credits roll up the left, clear of the planet on the right */
