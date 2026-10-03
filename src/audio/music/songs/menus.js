@@ -10,7 +10,7 @@ import { rep, rest, at } from './kit.js';
 
 export const houseSelect = {
   id: 'houseSelect', title: 'Three Banners', pool: 'houseSelect',
-  bpm: 84, root: 'd', mode: 'phrygian-dominant', passes: 1, gain: 1.1,
+  bpm: 84, root: 'd', mode: 'phrygian-dominant', passes: 0, gain: 1.1,
   echo: { steps: 6, feedback: 0.32, wet: 0.24, damp: 0.45 },
   channels: {
     low: { patch: 'drone', voices: 2, res: 16, vol: -18 },

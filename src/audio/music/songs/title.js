@@ -17,7 +17,7 @@ const GROOVE = { K: 'x.....x...x.....', P: '........x.......' };
 
 export const title = {
   id: 'title', title: 'Dunes of Arrakis', pool: 'title',
-  bpm: 80, root: 'd', mode: 'phrygian-dominant', passes: 1, gain: 0,
+  bpm: 80, root: 'd', mode: 'phrygian-dominant', passes: 0, gain: 0,
   echo: { steps: 6, feedback: 0.32, wet: 0.24, damp: 0.45 },
   channels: {
     low: { patch: 'drone', voices: 2, res: 16, vol: -17 },
@@ -62,7 +62,7 @@ export const title = {
       low: 'd2+a2 d2+a2 c2+g2 d2+a2',
       choir: 'd3+f#3+a3*2 | d3+f#3+a3 eb3+g3+bb3 | c3+eb3+g3*2 | d3+f#3+a3*2',
       lead: 'd5*3 a4 d5*2 eb5*2 | f#5*4 eb5*2 d5*2 | c5*3 bb4 c5*2 eb5*2 | d5*4 c5 bb4 a4*2',
-      horn: '@8 f#4*2 | a4 bb4 | g4*2 | f#4 eb4',
+      horn: '@8 f#4*2 | a4 bb4 | g4*2 | f#4*2',
       bass: [B_D, B_DEB, B_CM, B_D].join(' | '),
       drums: {
         X: 'x............... ' + rest(3),

@@ -99,7 +99,7 @@ const HAMMER = 'd3*2 d3 eb3 d3*2 c3*2 | bb2*4 a2*2 bb2*2 | c3*2 eb3*2 d3*2 c3 bb
 
 export const credits = {
   id: 'credits', title: 'Songs of the Spice', pool: 'credits',
-  bpm: 120, root: 'd', mode: 'phrygian-dominant', passes: 1, gain: 0.9,
+  bpm: 120, root: 'd', mode: 'phrygian-dominant', passes: 0, gain: 0.9,
   echo: { steps: 3, feedback: 0.3, wet: 0.22, damp: 0.45 },
   channels: {
     lead: { patch: 'power', res: 2, vol: -6, pan: 0.1, echo: 0.3, glide: 0.04 },

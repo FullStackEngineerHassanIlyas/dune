@@ -9,7 +9,7 @@ import { rep, rest } from './kit.js';
 
 export const victoryAtreides = {
   id: 'victory-atreides', title: 'The Duke’s Banner', pool: 'victory', house: 'atreides',
-  bpm: 132, root: 'd', mode: 'ionian', passes: 1, gain: -1.7,
+  bpm: 132, root: 'd', mode: 'ionian', passes: 0, gain: -1.7,
   echo: { steps: 6, feedback: 0.3, wet: 0.22, damp: 0.45 },
   channels: {
     horn: { patch: 'power', res: 2, vol: -5, pan: 0.1, echo: 0.25, glide: 0.03 },
@@ -61,13 +61,13 @@ export const victoryAtreides = {
 
 export const victoryHarkonnen = {
   id: 'victory-harkonnen', title: 'Iron Heel', pool: 'victory', house: 'harkonnen',
-  bpm: 100, root: 'c', mode: 'phrygian', passes: 1, gain: -1.5,
+  bpm: 100, root: 'c', mode: 'phrygian', passes: 0, gain: -1.2,
   echo: { steps: 4, feedback: 0.28, wet: 0.2, damp: 0.55 },
   channels: {
     brass: { patch: 'power', voices: 2, res: 2, vol: -7, echo: 0.2, glide: 0.04 },
     choir: { patch: 'choir', voices: 3, res: 16, vol: -15, pan: 0.2, echo: 0.3 },
-    low: { patch: 'drone', voices: 2, res: 16, vol: -17 },
-    bass: { patch: 'drive', res: 1, vol: -13, gate: 0.5 },
+    low: { patch: 'drone', voices: 2, res: 16, vol: -20 },
+    bass: { patch: 'drive', res: 1, vol: -15, gate: 0.5 },
     drums: { drums: true, vol: -8, echo: 0.1, crush: 11000 },
   },
   patterns: {
@@ -126,7 +126,7 @@ const SLITHER = 'e2 . e2 g2 f#2 . e2 d#2 | e2 . e2 g2 a#2 . b2 . | c3 . b2 a#2 g
 
 export const victoryOrdos = {
   id: 'victory-ordos', title: 'The Silent Partner', pool: 'victory', house: 'ordos',
-  bpm: 92, swing: 0.08, root: 'e', mode: 'hungarian-minor', passes: 1, gain: 2.6,
+  bpm: 92, swing: 0.08, root: 'e', mode: 'hungarian-minor', passes: 0, gain: 2.6,
   echo: { steps: 3, feedback: 0.4, wet: 0.3, damp: 0.35 },
   channels: {
     bass: { patch: 'slap', res: 2, vol: -10, gate: 0.5 },
@@ -179,7 +179,7 @@ export const victoryOrdos = {
 
 export const defeatAtreides = {
   id: 'defeat-atreides', title: 'The Fallen Banner', pool: 'defeat', house: 'atreides',
-  bpm: 68, root: 'd', mode: 'aeolian', passes: 1, gain: 0.8,
+  bpm: 68, root: 'd', mode: 'aeolian', passes: 0, gain: 0.8,
   echo: { steps: 6, feedback: 0.36, wet: 0.28, damp: 0.5 },
   channels: {
     horn: { patch: 'brass', res: 2, vol: -9, pan: 0.1, echo: 0.35, glide: 0.06 },
@@ -201,7 +201,7 @@ export const defeatAtreides = {
 
 export const defeatHarkonnen = {
   id: 'defeat-harkonnen', title: 'Ashes of the Furnace', pool: 'defeat', house: 'harkonnen',
-  bpm: 54, root: 'c', mode: 'phrygian', passes: 1, gain: 1.1,
+  bpm: 54, root: 'c', mode: 'phrygian', passes: 0, gain: 1.1,
   echo: { steps: 4, feedback: 0.34, wet: 0.25, damp: 0.55 },
   channels: {
     brass: { patch: 'brass', voices: 2, res: 4, vol: -10, echo: 0.25, glide: 0.06 },
@@ -223,7 +223,7 @@ export const defeatHarkonnen = {
 
 export const defeatOrdos = {
   id: 'defeat-ordos', title: 'The Ledger Closed', pool: 'defeat', house: 'ordos',
-  bpm: 68, root: 'e', mode: 'hungarian-minor', passes: 1, gain: 3.1,
+  bpm: 68, root: 'e', mode: 'hungarian-minor', passes: 0, gain: 3.1,
   echo: { steps: 3, feedback: 0.42, wet: 0.32, damp: 0.4 },
   channels: {
     reed: { patch: 'reed', res: 2, vol: -10, pan: -0.15, echo: 0.4, glide: 0.08 },
