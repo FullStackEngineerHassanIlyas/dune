@@ -12,6 +12,7 @@
 // K-weighted): the voice to its Kokoro lines', each effect to the synthesized sound it stands in for.
 import { RATE, loudness } from '../audio/synth.js';
 import { joinClips } from './voc.js';
+import { FOOT_GROUPS, parseUnitLine, unitLineIds } from '../data/unit-voices.js';
 
 /** The letter of each house's announcer files. */
 export const HOUSE_LETTER = { atreides: 'A', harkonnen: 'H', ordos: 'O', fremen: 'O', sardaukar: 'H', mercenary: 'M' };
@@ -68,6 +69,22 @@ export const ACK_CLIPS = {
   affirmative: 'AFFIRM', acknowledged: 'OVEROUT', movingOut: 'MOVEOUT', onOurWay: 'MOVEOUT', engaging: 'OVEROUT', attacking: 'OVEROUT',
 };
 
+// What a man on foot answered each order with (table/actioninfo.c): Attack, Guard and Retreat "Over and out",
+// Move "Moving out", Sabotage REPORT3. Capturing was a Move onto the building in the original.
+const FOOT_CLIPS = { select: 'REPORT1', move: 'MOVEOUT', capture: 'MOVEOUT', attack: 'OVEROUT', attackMove: 'OVEROUT', guard: 'OVEROUT', scatter: 'OVEROUT' };
+/**
+ * Every unit line of ours (src/data/unit-voices.js, unit.<group>.<kind>.<n>) → the shared clip the original
+ * answers with in that place, so the original-files mode never mixes its voice with ours: selecting a man
+ * on foot REPORT1, a vehicle REPORT2 (unit.c Unit_Select); an order to a man on foot his action's clip; to
+ * a vehicle REPORT3 or AFFIRM, which the original drew at random (gui/viewport.c) and here alternate by variant.
+ */
+export const UNIT_CLIPS = Object.fromEntries(unitLineIds().map((id) => {
+  const { group, kind, n } = parseUnitLine(id);
+  if (FOOT_GROUPS.has(group)) return [id, FOOT_CLIPS[kind] ?? 'REPORT3'];
+  return [id, kind === 'select' ? 'REPORT2' : n % 2 ? 'REPORT3' : 'AFFIRM'];
+}));
+const REPLY_CLIPS = { ...ACK_CLIPS, ...UNIT_CLIPS };
+
 /**
  * Synthesized effects (src/audio/synth.js ids) → [the original clips that stand in for them, loudness in
  * LUFS of the synthesized sound]. Clip meanings from the research's file list; ROCKET is every rocket's
@@ -88,8 +105,8 @@ export const clipKey = (fileName) => String(fileName).toUpperCase().replace(/\.V
 
 /** The clip names a line needs for `house`, in order, or null when `has(name)` lacks one of them. */
 export function resolveLine(id, house, has) {
-  if (ACK_CLIPS[id]) {
-    const name = SHARED_PREFIXES.map((p) => p + ACK_CLIPS[id]).find(has);
+  if (REPLY_CLIPS[id]) {
+    const name = SHARED_PREFIXES.map((p) => p + REPLY_CLIPS[id]).find(has);
     return name ? [name] : null;
   }
   const words = LINE_WORDS[id], letter = HOUSE_LETTER[house];
@@ -106,7 +123,7 @@ export function resolveLine(id, house, has) {
 }
 
 /** Every line id the original files can voice. */
-export const ORIGINAL_LINES = [...Object.keys(LINE_WORDS), ...Object.keys(ACK_CLIPS)];
+export const ORIGINAL_LINES = [...Object.keys(LINE_WORDS), ...Object.keys(REPLY_CLIPS)];
 
 /** Sound id → the clip names `has` holds for it ({ id: [names] }): its variations, when there are several. */
 export function resolveEffects(has) {
