@@ -1,0 +1,180 @@
+{
+ "source": "ymfm 81aec25 (C++), ym2612 / ym3438 generate, Int16 stereo clamped, CRC32 per 8192 samples",
+ "chunk": 8192,
+ "scripts": {
+  "algorithms": {
+   "samples": 26400,
+   "crc": [
+    "7fe8b86b",
+    "ca1847c5",
+    "055d0c4c",
+    "51b25869"
+   ]
+  },
+  "feedback": {
+   "samples": 17600,
+   "crc": [
+    "3ca4140c",
+    "4c85932e",
+    "d3c565a5"
+   ]
+  },
+  "detune-multiple": {
+   "samples": 30720,
+   "crc": [
+    "bcfef053",
+    "41f179f0",
+    "d9480907",
+    "dab07ec0"
+   ]
+  },
+  "envelopes": {
+   "samples": 81100,
+   "crc": [
+    "6aa37ae0",
+    "004cf985",
+    "3005fcf1",
+    "3fa24054",
+    "26865420",
+    "909325bb",
+    "67b4cc9c",
+    "186f680b",
+    "e8266948",
+    "bf90ed09"
+   ]
+  },
+  "ssg-eg": {
+   "samples": 40000,
+   "crc": [
+    "67ffa028",
+    "722f1dff",
+    "35f59ab3",
+    "1ab44417",
+    "530ad2e8"
+   ]
+  },
+  "lfo": {
+   "samples": 41400,
+   "crc": [
+    "af8c433e",
+    "68312577",
+    "0c90deee",
+    "968e95a0",
+    "d821541a",
+    "d5f8f89b"
+   ]
+  },
+  "ch3-special": {
+   "samples": 8000,
+   "crc": [
+    "f781ad85"
+   ]
+  },
+  "csm-timers": {
+   "samples": 24360,
+   "crc": [
+    "c886641e",
+    "09331a13",
+    "93503fb0"
+   ]
+  },
+  "dac": {
+   "samples": 7155,
+   "crc": [
+    "128cfeee"
+   ]
+  },
+  "pan": {
+   "samples": 7200,
+   "crc": [
+    "fcd5f557"
+   ]
+  },
+  "latch": {
+   "samples": 2700,
+   "crc": [
+    "836fccde"
+   ]
+  },
+  "keys": {
+   "samples": 4658,
+   "crc": [
+    "757bd4d6"
+   ]
+  },
+  "fuzz-1": {
+   "samples": 46703,
+   "crc": [
+    "a07243ed",
+    "24ef7fdc",
+    "1b4e270e",
+    "87384c23",
+    "3188a642",
+    "fb6d4a36"
+   ]
+  },
+  "fuzz-2": {
+   "samples": 47158,
+   "crc": [
+    "eae94e5c",
+    "4a0e742b",
+    "0e7a9ac3",
+    "17d6da4c",
+    "44d060c6",
+    "d87bc029"
+   ]
+  },
+  "redundant": {
+   "samples": 27725,
+   "crc": [
+    "ed67eb4d",
+    "273e8e55",
+    "4cde1c4f",
+    "cac1ed7d"
+   ]
+  },
+  "long": {
+   "samples": 90000,
+   "crc": [
+    "bd678e0f",
+    "a4c8d467",
+    "aa33e790",
+    "4fa97176",
+    "24733e19",
+    "f6e79ecd",
+    "9bf89705",
+    "d21c61bf",
+    "39946174",
+    "46b4d959",
+    "8d70902f"
+   ]
+  },
+  "algorithms-3438": {
+   "samples": 26400,
+   "crc": [
+    "5622bf62",
+    "becdd1ea",
+    "79089258",
+    "d71c4302"
+   ]
+  },
+  "dac-3438": {
+   "samples": 7155,
+   "crc": [
+    "e498a7cb"
+   ]
+  },
+  "fuzz-3438": {
+   "samples": 50104,
+   "crc": [
+    "848c1a26",
+    "cdf8bea8",
+    "ab386812",
+    "133c09c3",
+    "fbc7dbb6",
+    "f4e5ddb0",
+    "45c0863f"
+   ]
+  }
+ }
+}
