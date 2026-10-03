@@ -85,7 +85,8 @@ under its menu) and rebuilds; its pulse (sixteenths at 80) is the opening's (eig
   moves a line by semitones.
 - **`once: true`** marks a track that plays one pass and never loops (`opening`, `region`, both `passes: 1`).
   Looping tracks queued after another (`title`, `houseSelect`, the victories, the dirges, `credits`) default to
-  `passes: 0`; `finale` plays one pass so the credits can follow it.
+  `passes: 0`; `finale` plays one pass so the credits can follow it (in the game the ending moves to the credits
+  at 13 s, so the finale's turn to major comes first, at 4.8 s; see Review fixes).
 
 ## songs/index.js (contract C7)
 
@@ -138,7 +139,7 @@ a gentler split than the FFT bands above). Every track: **−18.0 LUFS integrate
 | defeat-atreides | −18.0 | −17.9 | 4.4 | −4.5 | −4.5 | 24 % |
 | defeat-harkonnen | −18.0 | −17.9 | 3.4 | −4.2 | −4.2 | 32 % |
 | defeat-ordos | −18.0 | −18.0 | 1.2 | −3.6 | −3.6 | 19 % |
-| finale | −18.0 | −18.4 | 1.4 | −1.9 | −1.9 | 25 % |
+| finale | −18.0 | −18.4 | 1.5 | −2.8 | −2.9 | 25 % |
 | credits | −18.0 | −18.3 | 2.7 | −1.8 | −1.9 | 36 % |
 | harvest | −18.0 | −18.9 | 2.4 | −3.4 | −3.4 | 38 % |
 | stormfront | −18.0 | −18.1 | 2.7 | −2.8 | −2.8 | 47 % |
@@ -212,6 +213,20 @@ grittier, 16000 cleaner, 0 off) and the tempo of the title (80).
 - `MusicMixer` compiles a track on its first play, on the audio thread: the opening costs ~20–30 ms cold (JIT and
   compile) in Node — a prime() that compiles it while the context is still suspended would keep the first hit
   from stalling the first render quantum.
+
+## Review fixes
+
+- **The finale's turn to major was never heard** (the ending, `src/game/ending-timeline.js` on phase3/intro, moves to
+  the credits' music at `ENDING.credits` = 13 s; the major theme began at 14.4 s). The loop is now
+  `['B', 'C', 'A', 'D', 'B', 'F']`: the Phrygian hits (0–4.8 s), the theme in D major while the planet takes the
+  victor's colour (4.8–14.4 s, its held tonic from 12.0 s, so the 13 s crossfade lands on it), the choir's climax, the
+  theme as the menu knows it, the climb, the major theme again and the cadence. Same length (62.4 s), same gain.
+  New test: the first Mixolydian pattern starts at least 6 s before `ENDING.credits` (read from the intro's module
+  when it is there, else 13). Re-measured: −18.0 LUFS integrated, −18.4 over the first 13 s and the first 24 s,
+  LRA 1.5 LU, true peak −2.8 dBTP, sample peak −2.9 dBFS, DC 0; 7.4 % of one core. Audition `finale.wav` again
+  (the first 13 s are what the game plays).
+- **This notes file sits outside the score stream's files** (docs/superpowers/notes/ belongs to nobody): kept, as the
+  brief asks for notes; the lead accepts it at merge or moves its text (with "For the README") into the PR.
 
 ## For the README
 

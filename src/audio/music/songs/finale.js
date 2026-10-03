@@ -1,7 +1,9 @@
 // The end of the campaign (spec §6 Music, §7; research.md §9: the Sega "Finale" plays while the planet turns to the
 // victor's colour, then the "Credit Roll"). Two original pieces written for this game:
-// - finale: the title theme in triumph — first as the menu knows it in D Phrygian dominant, then turned to D major
-//   (Mixolydian) under choir and brass, a climb through B-flat and C, and the Phrygian cadence home again.
+// - finale: the title theme in triumph — the Phrygian hits, then the theme turned to D major (Mixolydian) under choir
+//   and brass from 4.8 s, while the planet takes the victor's colour (the ending moves on to the credits at 13 s,
+//   src/game/ending-timeline.js), the choir's climax, the theme as the menu knows it in D Phrygian dominant, a climb
+//   through B-flat and C, the major theme again and the Phrygian cadence home.
 // - credits: a steady medley at 120 — the groove, the title theme, then each house's tune from the house selection
 //   (the Atreides horn call, the Ordos reed, the Harkonnen brass), a new song for the reed, and the theme in major.
 import { rep, rest, shift } from './kit.js';
@@ -31,7 +33,7 @@ export const finale = {
       pad: '@8 d3+f#3+a3*2 | eb3+g3+bb3 d3+f#3+a3',
       drums: { X: 'x............... ........x.......', J: 'x.......g.g.g.g. x.......x...x.xX', B: 'x............... ........x.......' },
     },
-    // the theme as the menu knows it
+    // the theme as the menu knows it, recalled after the climax
     A: {
       bars: 4,
       hit: 'd3+f#3+a3! - . . . . . . | .*8 | .*8 | .*8',
@@ -89,7 +91,7 @@ export const finale = {
     },
   },
   intro: ['intro'],
-  loop: ['A', 'B', 'C', 'D', 'B', 'F'],
+  loop: ['B', 'C', 'A', 'D', 'B', 'F'],   // the turn to major first: the credits cut in at 13 s
 };
 
 // the house tunes, as the house selection plays them

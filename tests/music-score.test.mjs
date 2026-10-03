@@ -169,6 +169,16 @@ test('the opening is written to the intro: a hit at the gesture, the drums with 
   assert.ok(d.done, 'and it falls silent');
 });
 
+test('the finale turns to major while the planet takes the victor\'s colour, well before the credits take over', async () => {
+  // contract C12: the ending moves to the credits' music at ENDING.credits (src/game/ending-timeline.js, 13 s)
+  const ending = await import('../src/game/ending-timeline.js').catch(() => null), creditsAt = ending?.ENDING?.credits ?? 13;
+  const t = TRACKS.finale, starts = [];
+  let s = durations(t).intro;
+  for (const name of t.loop) { starts.push({ name, s }); s += durations({ ...t, loop: [name] }).loop; }
+  const turn = starts.find(({ name }) => t.patterns[name].mode === 'mixolydian');
+  assert.ok(turn && turn.s + 6 <= creditsAt, `the major theme starts at ${turn?.s.toFixed(1)} s: at least 6 s of it before the credits at ${creditsAt} s`);
+});
+
 test('a once-through cue hands over on the sample it ends: the title follows the opening, the region simply ends', () => {
   const rate = 16000, events = [], m = new MusicMixer({ rate, onEvent: (e) => events.push(e) });
   m.play('opening', { passes: TRACKS.opening.passes });
