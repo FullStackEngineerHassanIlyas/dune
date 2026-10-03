@@ -12,7 +12,8 @@
 // appends them twice; 0xE0 seeks in the bank, 0x8n writes a bank byte to the DAC then waits n (not n+1);
 // DAC streams 0x90-0x95 write at their own frequency. Passes count loops (0 = for ever); a file without a
 // loop point starts again from the top; a loop that takes no time ends the track rather than spin. finish()
-// keys every channel off and the track rings out until silent or 4 s. Loads in an AudioWorkletGlobalScope:
+// keys every channel off and the track rings out until silent or 4 s, fading over the last second (a note
+// with no release would otherwise stop with a click). Loads in an AudioWorkletGlobalScope:
 // static imports only, no DOM, nothing allocated per block, and render() never throws (a broken file stops
 // with `error` set).
 import { readHeader, commandLength, VgmError, VGM_RATE } from '../../formats/vgm.js';
@@ -20,6 +21,7 @@ import { YM2612, YM_CLOCKS_PER_SAMPLE } from './chips/ym2612.js';
 import { SN76489 } from './chips/sn76489.js';
 
 const TAIL = 4;              // seconds a finished track may ring on at most
+const TAIL_FADE = 1;         // and the last of them a fade, so a note still sounding is not cut with a click
 const CHUNK = 1024;          // output samples worked out at a time
 const TAPS = 32;             // resampler taps (each output weighs 32 chip frames)
 const HALF = TAPS / 2;
@@ -384,6 +386,7 @@ export class VgmDeck {
     if (this.ending && !this.done) {
       const after = this.pos - this.endedAt;
       if (after > TAIL * this.rate || (after > TAPS && (!this.ym || this.ym.silent))) this.done = true;
+      else if (after > (TAIL - TAIL_FADE) * this.rate && this.fadeTo > 0) this.fade(0, TAIL - after / this.rate);
     }
     if (this.gain <= 0 && this.fadeTo <= 0) this.done = true;
   }

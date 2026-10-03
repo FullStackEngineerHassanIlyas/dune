@@ -158,6 +158,27 @@ test('at the end every channel keys off and the track rings out: done once silen
   assert.equal(cut.done, true);
 });
 
+test('a note that would ring past the 4 s cap fades out over the last second instead of stopping with a click', () => {
+  const held = make([...NOTE(0x00), wait(4410)], {}, { passes: 1 });   // release rate 0: rings for minutes
+  const L = new Float32Array(44100 * 6), R = new Float32Array(L.length);
+  let n = 0;
+  while (!held.done && n < L.length) { held.render(L, R, n, 128); n += 128; }
+  assert.equal(held.done, true);
+  const end = held.endedAt + 4 * 44100;
+  assert.ok(n >= end && n <= end + 256, `done at ${n}, the cap is ${end}`);
+  const before = rms(L, held.endedAt + 2.5 * 44100, held.endedAt + 2.6 * 44100);
+  const middle = rms(L, held.endedAt + 3.45 * 44100, held.endedAt + 3.55 * 44100);
+  assert.ok(before > 0.001, 'still ringing before the last second');
+  assert.ok(middle > 0.3 * before && middle < 0.7 * before, `half way down: ${middle} of ${before}`);
+  assert.ok(rms(L, n - 256, n) < 0.02 * before, 'silent when it is dropped');
+  // a fade the mixer started is left alone
+  const faded = make([...NOTE(0x00), wait(4410)], {}, { passes: 1 });
+  render(faded, 4410 + 3.2 * 44100);
+  faded.fade(0, 0.1);
+  render(faded, 0.2 * 44100);
+  assert.equal(faded.done, true);
+});
+
 test('gain and the header volume modifier scale the output; a fade to 0 ends the deck', () => {
   const song = [...NOTE(0x0f), wait(4000)];
   const a = render(make(song), 2000).L;
