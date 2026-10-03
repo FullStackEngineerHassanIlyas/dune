@@ -26,6 +26,7 @@ import { hiTechFactory } from './structures/hi-tech.js';
 import { carryall } from './units/carryall.js';
 import { ornithopter } from './units/ornithopter.js';
 import { frigate } from './units/frigate.js';
+import { houseShip } from './units/house-ship.js';
 import { starport } from './structures/starport.js';
 import { houseOfIX } from './structures/house-of-ix.js';
 import { palace } from './structures/palace.js';
@@ -35,7 +36,7 @@ import { concreteSlab } from './structures/concrete.js';
 import { placeholderStructure, placeholderUnit } from './structures/placeholder.js';
 
 const BUILDERS = {
-  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, deathHandMissile, rocket, sandworm,
+  combatTank, siegeTank, missileTank, deviator, sonicTank, devastator, harvester, mcv, trike, quad, soldier, trooper, saboteur, fremen, carryall, ornithopter, frigate, houseShip, deathHandMissile, rocket, sandworm,
   constructionYard, windtrap, refinery, silo, outpost, barracks, wor, heavyFactory, repairFacility, hiTechFactory, starport, houseOfIX, palace,
   turret: gunTurret, rocketTurret, wallPost, wallArm, concrete: concreteSlab(1), concrete4: concreteSlab(2), placeholderUnit,
 };
