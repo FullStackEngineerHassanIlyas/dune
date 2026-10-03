@@ -29,7 +29,10 @@ const PHASES = 64;           // filter phases, linearly interpolated between
 const BETA = 7;              // Kaiser window: about 70 dB down outside the band
 const SCAN_STEP = 8192;      // commands the data-block scan reads ahead per block
 const FULL = 32768;          // chip output that maps to 1.0
-export const PSG_LEVEL = 0.5;   // the PSG against the YM2612 (both at their native full scale)
+// The PSG against the YM2612: a full-volume tone swings a quarter of a full-level FM carrier, Genesis Plus GX's
+// balance tuned to a VA4 Model 1 (a PSG channel 2,800 x 1.5 against an FM channel's 14 bits). Measured on the
+// rips, libvgm's defaults put the PSG 1.1 dB above that; 0.5 here was 3.4 dB above it.
+export const PSG_LEVEL = 0.34;
 const VGM_DEN = YM_CLOCKS_PER_SAMPLE * VGM_RATE;   // chip frames per VGM sample = clock / VGM_DEN
 
 const u16 = (b, o) => b[o] | (b[o + 1] << 8);

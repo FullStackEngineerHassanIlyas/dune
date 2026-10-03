@@ -209,6 +209,15 @@ test('the PSG joins the YM2612 in the same frames, at its level', () => {
   assert.ok(Math.abs(ups / (43100 / 44100) - 3579545 / (32 * 254)) < 2, `${ups}`);
 });
 
+test('a PSG tone at full volume swings a quarter of a full-level FM carrier, as on a VA4 Model 1', () => {
+  // Genesis Plus GX's balance, tuned to that console: a PSG channel 2,800 x 1.5 against an FM channel's 14 bits
+  const swing = (x) => { let lo = Infinity, hi = -Infinity; for (let i = 2000; i < x.length; i++) { lo = Math.min(lo, x[i]); hi = Math.max(hi, x[i]); } return hi - lo; };
+  const fm = swing(render(make([...NOTE(0x0f), wait(8000)]), 8000).L);
+  const tone = swing(render(make([psg(0x80 | 14), psg(254 >> 4), psg(0x90), wait(8000)], { sn: 3579545 }), 8000).L);
+  const ratio = tone / fm, want = (2800 * 1.5) / 16384;
+  assert.ok(Math.abs(ratio / want - 1) < 0.05, `PSG/FM swing ${ratio.toFixed(3)}, want ${want.toFixed(3)}`);
+});
+
 test('DAC streams write their bank at their own frequency, by start/length, by block, looped and stopped', () => {
   const bank = Array.from({ length: 32 }, (_, i) => 0x80 + i * 3);
   const setup = [block(0, bank.slice(0, 16)), block(0, bank.slice(16)), ...DAC_ON,
