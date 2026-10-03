@@ -10,7 +10,7 @@
 //   await atlas.conquer({ house, step });         // the land won at `step` floods in, then the next region pulses
 //   atlas.hide(); atlas.resize(); atlas.dispose(); atlas.debug();
 import * as THREE from 'three';
-import { REGIONS, MAP, ownerOf, targetRegion, changes } from '../../data/territory.js';
+import { REGIONS, MAP, OWNERS, ownerOf, targetRegion, changes } from '../../data/territory.js';
 import { HOUSES } from '../../data/houses.js';
 import { qualityPreset, pixelRatioFor } from '../quality.js';
 import { regionIds, borderField, BORDER_RANGE } from './raster.js';
@@ -208,7 +208,7 @@ export function createAtlas(container, { quality = 'medium', reducedMotion, inse
 
   // ---- state
   const colour = {};
-  for (const owner of ['atreides', 'harkonnen', 'ordos', 'sardaukar']) colour[owner] = new THREE.Color(HOUSES[owner].color);
+  for (const owner of OWNERS) colour[owner] = new THREE.Color(HOUSES[owner].color);
   const media = reducedMotion === undefined ? globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null : null;
   const still = { value: reducedMotion ?? media?.matches ?? false };
   const onMotion = (e) => { still.value = e.matches; wake(); };
