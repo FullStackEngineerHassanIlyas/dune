@@ -342,7 +342,7 @@ export class CampaignScreens {
     const { house, mission } = this.state;
     this.mood('region');
     this.typer = null;
-    const box = h('div', { class: 'cp-region-map' });
+    const box = h('div', { class: 'cp-region-map', dataset: { act: 'skip-zoom' } });
     const start = () => { if (this.state.screen === 'campaign-region') this.go({ type: 'launch' }); };
     box.addEventListener('click', start);
     const caption = this.words.caption(house, mission - 1);

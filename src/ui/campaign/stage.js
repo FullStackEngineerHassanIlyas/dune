@@ -77,7 +77,7 @@ export function typeLines(box, lines, { later, instant = reducedMotion(), onDone
 export function mentatStage(house, { mentatName, later, className = '', label = '' } = {}) {
   const kicker = h('div', { class: 'cp-kicker' });
   const title = h('h2', { class: 'cp-title' });
-  const box = h('div', { class: 'cp-lines', 'aria-hidden': 'true', title: 'Click to read on' });
+  const box = h('div', { class: 'cp-lines', 'aria-hidden': 'true', title: 'Click to read on', dataset: { act: 'read-on' } });
   const spoken = h('div', { class: 'cp-sr', 'aria-live': 'polite' });
   const note = h('p', { class: 'cp-note', hidden: true });
   const portrait = h('figure', { class: 'cp-mentat', 'aria-label': `${mentatName}, Mentat of House ${label || house}` });
