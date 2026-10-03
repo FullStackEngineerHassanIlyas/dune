@@ -20,6 +20,9 @@ export const OPTION_ROWS = [
   { key: 'volume', label: 'Volume', range: [0.05, 1, 0.05], format: (v) => `${Math.round(v * 100)}%` },
   { key: 'voiceVolume', label: 'Voices', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off'), note: 'The announcer and the units\' replies; M mutes them with the rest.' },
   { key: 'musicVolume', label: 'Music', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off') },
+  { key: 'musicMode', label: 'Battle music', choices: [['sega', 'Sega'], ['adaptive', 'Adaptive']],
+    notes: { sega: 'Like the Sega game: the battle tunes play one after another in random order.', adaptive: 'Calm music in peace; battle music takes over when fighting starts near your forces.' } },
+  { key: 'intro', label: 'Intro', choices: ON_OFF, note: 'The opening before the title. Any key or click skips it.' },
 ];
 
 export function changeSetting(settings, key, value, storage) {

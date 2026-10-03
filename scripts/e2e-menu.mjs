@@ -21,11 +21,12 @@ const chrome = await launchChrome();
 let page;
 try {
   await page?.close?.();
-  page = await openPage(chrome, `http://localhost:${PORT}/?scene=menu&quality=low&seed=5`);
+  page = await openPage(chrome, `http://localhost:${PORT}/?scene=menu&quality=low&seed=5&intro=0`);
   await page.waitFor('window.__dune && window.__dune.ready === true && window.__dune.scene === "menu"', 60000);
   await sleep(400);
   const ev = (expr) => page.eval(expr);
-  const center = (sel) => ev(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r && { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  // the element is scrolled into view first: long pages (Options) reach below a 900 px window
+  const center = (sel) => ev(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null; el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
   const clickOn = async (sel) => { const p = await center(sel); if (!p) throw new Error(`no ${sel}`); await page.click(p.x, p.y); await sleep(150); };
   await page.screenshot(path.join(shots, '01-title.png'));
   check('the address without a query opens the main menu', (await ev('!!document.querySelector(".mm-nav")')));

@@ -43,6 +43,7 @@ export class World {
     // 'many'; sim/worm.js reads a missing setting as 'few'). A bare world — tests, showcases — has none.
     this.rules = { victory: false, airDelivery: false, worms: 'off' };
     this.outcome = null;
+    this.mission = null;   // a campaign mission's objectives and reinforcements (game/mission.js): update(world) every 5 ticks
     this.time = 0;
     this.houses = new Map();
     this.units = new Map();
@@ -175,6 +176,7 @@ export class World {
     if (this.tick % 20 === 0) revalidateProduction(this);
     if (this.tick % 20 === 10) updateAI(this);
     if (this.tick % 5 === 0) updateVictory(this);
+    if (this.mission && this.tick % 5 === 0) this.mission.update(this);
     this.tick++;
     this.time = this.tick * DT;
   }

@@ -2,25 +2,7 @@
 // has no query at all, a skirmish when it has one without a scene (older links and flags). Battles also
 // get the frame-time monitor (spec §8, ui/perf-monitor.js) and Space's jump to the last alert (spec §5.7).
 import { installCursors } from './ui/cursors.js';
-
-const SCENES = {
-  boot: () => import('./scenes/boot.js'),
-  menu: () => import('./scenes/menu.js'),
-  'render-test': () => import('./scenes/render-test.js'),
-  terrain: () => import('./scenes/terrain.js'),
-  gallery: () => import('./scenes/gallery.js'),
-  skirmish: () => import('./scenes/skirmish.js'),
-  stress: () => import('./scenes/stress.js'),
-  structures: () => import('./scenes/structures.js'),
-  model: () => import('./scenes/model.js'),
-  icons: () => import('./scenes/icons.js'),
-  base: () => import('./scenes/base.js'),
-  battle: () => import('./scenes/battle.js'),
-  planet: () => import('./scenes/planet.js'),
-};
-
-/** Scenes the player plays, watched by the frame-time monitor; galleries and the stress test are not. */
-const BATTLES = new Set(['skirmish', 'base', 'battle']);
+import { SCENES, BATTLES } from './scenes/registry.js';
 
 function watchBattle(view) {
   view?.controller?.listenTo?.(view);   // Space's jump to the last alert hears the battle's events from the first frame

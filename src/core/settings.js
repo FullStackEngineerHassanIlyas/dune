@@ -3,6 +3,8 @@ const KEY = 'dune2-3d.settings';
 export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true, rightDragScroll: true, scrollSpeed: 1, healthBars: 'selected', gameSpeed: 'normal', sound: true, volume: 0.8,
   voiceVolume: 0.8,     // the announcer and the units' acknowledgements (src/audio/voice.js); 0 turns them off
   musicVolume: 0.5,     // the music (src/audio/music); 0 turns it off
+  musicMode: 'sega',    // in battle: 'sega' plays the battle tunes in random order like the Sega game; 'adaptive' switches peace/battle
+  intro: true,          // the opening before the title (scenes/menu-intro.js); ?intro=0 skips it
   perfCheck: true,      // the frame-rate check offers a lower preset when battles run slow (src/ui/perf-monitor.js, spec §8)
   menuMotion: true };   // false: the main menu's backdrop stands still (its Pause background button, WCAG 2.2.2)
 const ZERO_OK = new Set(['voiceVolume', 'musicVolume']);   // numbers that may be 0 (off); the rest must be positive
@@ -12,6 +14,7 @@ const CHOICES = {
   scheme: ['classic', 'modern'],
   healthBars: ['selected', 'damaged', 'always'],
   gameSpeed: ['slowest', 'slow', 'normal', 'fast', 'fastest'],
+  musicMode: ['sega', 'adaptive'],
 };
 
 export function sanitize(obj) {

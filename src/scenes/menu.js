@@ -103,7 +103,8 @@ export async function start({ search }) {
     };
     wait();
   };
-  const quit = () => {
+  // back from a battle: to the title, or to the screen the battle asked for (a campaign screen)
+  const quit = (screen) => {
     frame?.remove();
     frame = null;
     Object.assign(settings, loadSettings(params));   // what the battle's own options changed
@@ -111,23 +112,43 @@ export async function start({ search }) {
     backdrop.setPaused?.(!settings.menuMotion);
     backdrop.start();
     music.enter();
-    menu.show();
+    menu.show(screen);
     window.focus();
   };
+  // Messages from the battle in the frame: { dune: '<type>', ... } goes to the handler registered for the type.
+  // 'quit' is the shell's own; the campaign screens register theirs through shell.on (e.g. a mission's result).
+  const handlers = new Map([['quit', (data) => quit(data?.screen)]]);
+  const shell = { launch, quit, on: (type, handler) => { handlers.set(type, handler); } };
 
-  const menu = new MainMenu(document.getElementById('ui'), { settings, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
+  const menu = new MainMenu(document.getElementById('ui'), { settings, music, shell, backdrop, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
     // Pause background (WCAG 2.2.2), remembered; the flyover fallback cannot pause
     isBackdropPaused: () => !settings.menuMotion,
     onBackdropPause: (paused) => { changeSetting(settings, 'menuMotion', !paused); backdrop.setPaused?.(paused); menu.refresh(); } });
   onFullscreenChange(() => menu.refresh());
   addEventListener('message', (e) => {
-    if (e.origin === location.origin && frame && e.source === frame.contentWindow && e.data?.dune === 'quit') quit();
+    if (e.origin !== location.origin || !frame || e.source !== frame.contentWindow) return;
+    handlers.get(e.data?.dune)?.(e.data);
   });
   addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.altKey && !e.repeat) { e.preventDefault(); toggleFullscreen(); }
   });
-  window.__duneShell = { launch, quit };
-  backdrop.setPaused?.(!settings.menuMotion);
-  backdrop.start();
+  window.__duneShell = shell;
+  let started = false;
+  const startBackdrop = (opts) => {
+    if (started) return;
+    started = true;
+    backdrop.setPaused?.(!settings.menuMotion);
+    backdrop.start(opts);
+  };
   window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, music: music.debug(), get frame() { return frame; } };
+  // The opening (scenes/menu-intro.js) plays before the title; it hides the menu while it runs and starts the
+  // backdrop when it wants it. Whatever happens, the backdrop and the menu end up running. ?screen=<name> then
+  // opens a menu screen straight away (screenshots, development).
+  (async () => {
+    try { await (await import('./menu-intro.js')).runIntro({ params, settings, app, backdrop, menu, music, startBackdrop, debug: window.__dune }); }
+    catch (err) { console.warn('intro:', err); menu.show(); }
+    startBackdrop();
+    const screen = params.str('screen');
+    if (screen) menu.go(screen);
+  })();
 }

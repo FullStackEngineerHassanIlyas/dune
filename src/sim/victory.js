@@ -5,7 +5,8 @@
 import { announce, defeatText } from './announce.js';
 import { HOUSES } from '../data/houses.js';
 
-function standing(world, houseId) {
+/** A house stands while it has a structure (walls do not count) or an MCV. */
+export function standing(world, houseId) {
   for (const s of world.structures.values()) if (s.house === houseId && !s.type.isWall) return true;   // walls are terrain, not a base
   for (const u of world.units.values()) if (u.house === houseId && u.type.deploysTo) return true;
   return false;
@@ -24,15 +25,23 @@ export function updateVictory(world) {
     world.events.push('houseDefeated', { house: house.id, name: HOUSES[house.id]?.name ?? house.id, text: defeatText(house.id) });
   }
   if (left.length > 1 && (humansLeft > 0 || humans === 0)) return;
-  const winner = left.length === 1 ? left[0] : null, draw = left.length === 0;
+  finishGame(world, { winner: left.length === 1 ? left[0] : null, draw: left.length === 0, standing: left });
+}
+
+/** Ends the game once (a skirmish's last house standing, or a mission's objective): freezes every house's
+ *  statistics, tells everyone ('gameOver') and announces the result to each house. `lost` names the houses
+ *  that hear "Mission failed"; by default the defeated ones. Returns the outcome. */
+export function finishGame(world, { winner = null, draw = false, standing: left = [], lost = null } = {}) {
+  if (world.outcome) return world.outcome;
   const stats = Object.fromEntries([...world.houses.values()].map((h) => [h.id, { ...h.stats }]));
   world.outcome = { winner, draw, standing: left, tick: world.tick, seconds: world.time, stats };
   world.events.push('gameOver', { winner });
   for (const house of world.houses.values()) {
     if (draw) announce(world, house.id, 'draw', 'The battle is a draw.');
     else if (house.id === winner) announce(world, house.id, 'missionAccomplished', 'Mission accomplished.');
-    else if (house.defeated) announce(world, house.id, 'missionFailed', 'Mission failed.');
+    else if (lost ? lost.includes(house.id) : house.defeated) announce(world, house.id, 'missionFailed', 'Mission failed.');
   }
+  return world.outcome;
 }
 
 const shown = (id) => HOUSES[id]?.plural ?? HOUSES[id]?.name ?? id;   // "the Mercenaries" on the end screen

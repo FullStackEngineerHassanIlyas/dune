@@ -1,4 +1,10 @@
 // Scenes captured by `npm run smoke`. Each scene sets window.__dune.ready when its first frame is drawn.
+// Phase 3 streams add theirs in scripts/scenarios/<stream>.mjs, so no two of them edit this list.
+import intro from './scenarios/intro.mjs';
+import campaign from './scenarios/campaign.mjs';
+import atlas from './scenarios/atlas.mjs';
+import missions from './scenarios/missions.mjs';
+
 export const SCENARIOS = {
   boot: { query: 'scene=boot' },
   'menu-planet': { query: 'scene=menu&backdrop=planet&seed=5', settleMs: 2500 },
@@ -47,4 +53,8 @@ export const SCENARIOS = {
   'planet-dive-seam': { query: 'scene=planet&dive=1&moon=14' },
   'planet-moon-early': { query: 'scene=planet&moon=2&freeze=1' },
   'planet-moon-late': { query: 'scene=planet&moon=8&freeze=1' },
+  ...intro,
+  ...campaign,
+  ...atlas,
+  ...missions,
 };
