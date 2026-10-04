@@ -6,8 +6,10 @@ normalises loudness and writes small mono Ogg Opus files plus assets/voice/manif
 set -> line id -> file). The runtime is src/audio/voice.js; which unit speaks in which voice is
 src/data/unit-voices.js.
 
-One announcer per Great House, like the original's three (Atreides calm and clear, Harkonnen deep and
-harsh, Ordos cool and precise); the old field-radio replies shared by every unit ('units', now only the
+One deep announcer shared by every house ('announcer', the default: the Mega Drive release has one, credited
+to Frank Klepacki, the PC's Harkonnen voice); one announcer per Great House, like the PC original's three
+(Atreides calm and clear, Harkonnen deep and harsh, Ordos cool and precise; Options -> Announcer "Each
+house"); the old field-radio replies shared by every unit ('units', now only the
 fallback); and a voice for each kind of unit (role 'unit': foot soldiers on a field radio, troopers in
 powered suits, scouts on the wind, tank crews on the intercom, harvester and MCV drivers, pilots in their
 headsets, the Saboteur close and quiet, the Fremen far off in the open desert).
@@ -47,6 +49,14 @@ FIELD_RADIO = ['highpass=f=320:p=2', 'lowpass=f=3600:p=2', 'equalizer=f=1700:t=q
                'asoftclip=type=tanh:threshold=0.7:output=1', 'volume=-5dB', 'lowpass=f=4800:p=2',   # the clipper's overtones stay in the radio's band
                'acompressor=threshold=-20dB:ratio=6:attack=2:release=60:makeup=3']
 SETS = {
+    'announcer': {   # every house's, as on the Mega Drive: deeper than the Harkonnen set, and clean where that one is gritty
+        # (its grit is that house's character): am_fenrir, the Harkonnen voice, weighted with am_onyx and slowed like a
+        # tape to 88 % (median pitch ~122 Hz against the Harkonnen set's ~143 Hz), then presence at 2.6 and 4.5 kHz so
+        # the deep voice stays clear, no clipper; notes docs/superpowers/notes/2026-10-04-art-announcer.md
+        'voice': [('am_fenrir', 0.7), ('am_onyx', 0.3)], 'lang': 'en-us', 'speed': 1.0, 'role': 'announcer',
+        'chain': slower(0.88) + ['highpass=f=75:p=1', 'lowpass=f=10500:p=1', 'equalizer=f=300:t=q:w=1:g=-3', 'equalizer=f=2600:t=q:w=1:g=5',
+                                 'equalizer=f=4500:t=q:w=1.2:g=2.5', 'acompressor=threshold=-24dB:ratio=3.5:attack=4:release=90:makeup=3', CONSOLE_ROOM],
+    },
     'atreides': {   # calm and clear
         'voice': 'af_heart', 'lang': 'en-us', 'speed': 0.94, 'role': 'announcer',
         'chain': ['highpass=f=120:p=1', 'lowpass=f=9800:p=1', 'equalizer=f=260:t=q:w=1.1:g=-2.5', 'equalizer=f=3200:t=q:w=1.3:g=2.5',
@@ -121,6 +131,7 @@ SETS = {
     },
 }
 HOUSE_SETS = {'atreides': 'atreides', 'harkonnen': 'harkonnen', 'ordos': 'ordos'}
+SHARED_SET = 'announcer'   # the manifest's 'shared': the set src/audio/voice.js gives every house by default
 
 # Names espeak gets wrong, as Kokoro phonemes per accent.
 PRONOUNCE = {
@@ -268,7 +279,7 @@ def seconds_of(path):
 
 def write_manifest(out, lines):
     """The manifest from what is on disk: every set, every line of lines.json that has its file."""
-    manifest = {'version': 1, 'houses': HOUSE_SETS, 'sets': {}}
+    manifest = {'version': 1, 'houses': HOUSE_SETS, 'shared': SHARED_SET, 'sets': {}}
     for name, spec in SETS.items():
         table = table_of(lines, name, spec)
         entry = {'voice': voice_name(spec['voice']), 'role': spec['role'], **({'group': name} if spec['role'] == 'unit' else {}), 'lines': {}}
@@ -278,7 +289,9 @@ def write_manifest(out, lines):
                 entry['lines'][key] = {'file': file, 'text': table[key], 'seconds': seconds_of(os.path.join(out, file))}
         if entry['lines']:
             manifest['sets'][name] = entry
-    tmp = os.path.join(out, 'manifest.json.tmp')
+    if SHARED_SET not in manifest['sets']:
+        del manifest['shared']   # not rendered: every house keeps its own
+    tmp =os.path.join(out, 'manifest.json.tmp')
     with open(tmp, 'w') as f:
         json.dump(manifest, f, indent=1, ensure_ascii=False)
         f.write('\n')

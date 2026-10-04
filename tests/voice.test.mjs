@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { VoiceQueue, VoicePlayer, WebVoiceOutput, lineForEvent, lineInfo, ackForCommand, namedLine, ACK_LINES, SELECT_ACKS, NAMED_HOUSES, EVA_KEYS, GAP, LEAD, VOICE_LEVEL } from '../src/audio/voice.js';
+import { VoiceQueue, VoicePlayer, WebVoiceOutput, announcerSet, lineForEvent, lineInfo, ackForCommand, namedLine, ACK_LINES, SELECT_ACKS, NAMED_HOUSES, EVA_KEYS, GAP, LEAD, VOICE_LEVEL } from '../src/audio/voice.js';
 import { PLAYABLE_HOUSES } from '../src/data/houses.js';
 import { unitLineIds } from '../src/data/unit-voices.js';
 import { DEFAULTS, sanitize } from '../src/core/settings.js';
@@ -10,7 +10,8 @@ import { OPTION_ROWS } from '../src/ui/options.js';
 const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('assets/voice/manifest.json', root)));
 const lines = JSON.parse(readFileSync(new URL('scripts/voices/lines.json', root)));
-const setOf = (house) => manifest.sets[manifest.houses[house]];
+const setOf = (house) => manifest.sets[manifest.houses[house]];   // the house's own announcer (Options → Announcer "Each house")
+const sharedSet = () => manifest.sets[manifest.shared];             // every house's by default (tests/announcer-shared.test.mjs)
 
 // Every 'eva' key the simulation can raise, read from its source: eva(…, 'key' …), key: 'key', announce(…, 'key' …) and refusals.
 function simEvaKeys() {
@@ -30,8 +31,7 @@ test('every announcement the simulation raises has a voiced line for every playa
   const keys = simEvaKeys();
   assert.ok(keys.size >= 35, `found ${keys.size} keys`);
   for (const key of keys) assert.ok(EVA_KEYS.includes(key), `eva key ${key} has no line: map it in EVA_LINES (src/audio/voice.js) or list it in SILENT_EVA`);
-  for (const house of PLAYABLE_HOUSES) {
-    const set = setOf(house);
+  for (const house of PLAYABLE_HOUSES) for (const set of [setOf(house), sharedSet()]) {
     for (const key of keys) {
       if (lineForEvent({ type: 'eva', house, key }, house) === null && !['enemyUnitDestroyed', 'enemyStructureDestroyed'].includes(key)) continue;   // silent by choice
       const variants = key === 'enemyUnitDestroyed' || key === 'enemyStructureDestroyed' ? [...NAMED_HOUSES, 'mercenary'] : [null];
@@ -53,10 +53,10 @@ test('every line the game can ask for exists in every set, and every file exists
   const wanted = new Set([...ACK_LINES, ...SELECT_ACKS, 'radarOn', 'radarOff', 'wormsign', 'selectTarget', 'missileLaunched', 'missileApproaching',
     'yardDeployed', 'structureSold', 'repairing', 'unitRepaired', 'reinforcements', ...NAMED_HOUSES.concat('enemy').map((h) => namedLine('approaching', h)),
     ...unitLineIds()]);
-  for (const house of PLAYABLE_HOUSES) {
-    const out = new WebVoiceOutput(null, house, { fetchFn: null });   // the lines a battle of this house can say
+  for (const house of PLAYABLE_HOUSES) for (const announcer of ['one', 'house']) {
+    const out = new WebVoiceOutput(null, house, { fetchFn: null, announcer });   // the lines a battle of this house can say
     out.useManifest(manifest);
-    for (const id of wanted) assert.ok(out.lines[id], `${house}: ${id}`);
+    for (const id of wanted) assert.ok(out.lines[id], `${house} (${announcer}): ${id}`);
     assert.ok(out.lines[`weaponReady.${house === 'atreides' ? 'fremen' : house === 'harkonnen' ? 'deathHand' : 'saboteur'}`]);
   }
   let bytes = 0;
@@ -78,7 +78,7 @@ test('every line the game can ask for exists in every set, and every file exists
   assert.ok(bytes < 2.5e6, `${bytes} bytes of voices`);
 });
 
-test('each Great House has an announcer of its own', () => {
+test('under "Each house", each Great House has an announcer of its own', () => {
   const voices = PLAYABLE_HOUSES.map((h) => setOf(h).voice);
   assert.equal(new Set(voices).size, 3, voices.join(', '));
 });
@@ -275,7 +275,7 @@ test('the browser output reads the manifest, decodes a line on demand and plays 
   assert.ok(out.has('constructionComplete') && out.has('reporting'));
   assert.equal(out.status('constructionComplete'), 'loading');
   await out.load('constructionComplete');
-  assert.ok(b.fetched.some((u) => u.endsWith(`/assets/voice/${manifest.sets[manifest.houses.ordos].lines.constructionComplete.file}`)));
+  assert.ok(b.fetched.some((u) => u.endsWith(`/assets/voice/${manifest.sets[announcerSet(manifest, 'ordos')].lines.constructionComplete.file}`)));
   assert.equal(out.status('constructionComplete'), 'ready');
   assert.equal(out.play('constructionComplete', 0.6), 1.2);
   assert.equal(b.started.length, 1);
@@ -412,6 +412,7 @@ test('reinforcements arriving are announced in the house\'s voice (the missions\
   assert.equal(lineInfo('reinforcements').cls, 'news');
   assert.equal(lines.announcer.reinforcements, 'Reinforcements have arrived.');
   for (const house of PLAYABLE_HOUSES) assert.equal(setOf(house).lines.reinforcements?.text, 'Reinforcements have arrived.', house);
+  assert.equal(sharedSet().lines.reinforcements?.text, 'Reinforcements have arrived.', 'the shared announcer');
 });
 
 test('the browser output fetches lines it is told to expect, one after another, once', async () => {
