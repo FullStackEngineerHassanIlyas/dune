@@ -246,8 +246,10 @@ export function createMission(world, def, { orders = new Map(), starts = [] } = 
       if (w !== world) return;
       if (world.outcome && !final) final = scoreNow();   // ended some other way (a debug win): frozen from here
       if (baseOf(player) > 0) hadBase = true;
-      while (next < schedule.length && world.time >= schedule[next].at) launch(schedule[next++]);
-      if (arrivals.length) land();
+      if (!world.outcome) {   // over: no group sets off, and one still in the air comes down unannounced
+        while (next < schedule.length && world.time >= schedule[next].at) launch(schedule[next++]);
+        if (arrivals.length) land();
+      }
       if (!stocked) stockStarport();
       if (calls++ % ORDERS_EVERY === 0) standingOrders();
       if (world.outcome || world.time < minSeconds) return;

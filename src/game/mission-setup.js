@@ -2,7 +2,7 @@
 // setupSkirmish. A def (C1, src/data/campaign.js) becomes a world: a fixed map with a rock plateau at every
 // site, the houses with their credits, tech level and upgrades, concrete, prebuilt bases (structures before
 // units; a Refinery gets its Harvester at the dock rather than by Carryall at t = 0, a prebuilt Palace starts
-// charging as the original's did), units with their orders, computer brains with the mission's parameters,
+// charging as the original's did), units with their orders (the player's start force on guard), computer brains with the mission's parameters,
 // every computer house allied with every other against the player (as in the original; a house that only drops
 // reinforcements joins them, with no base or brain of its own), and the mission's
 // objectives and reinforcements on world.mission (game/mission.js). Node-runnable: tests and soaks need no DOM.
@@ -60,6 +60,7 @@ export function setupMission(def, { seed = null } = {}) {
   for (const f of forces) if (world.houses.has(f.id)) for (const u of f.units ?? []) {
     const unit = spawnAt(world, f.id, u, problems);
     if (unit && f.id !== player) orders.set(unit.id, giveOrder(unit, u.order ?? 'guard'));
+    else if (unit) standGuard(unit);
   }
   setAlliances(world, [[...sides.map((h) => h.id), ...dropOnly].filter((id) => world.houses.has(id))]);
   for (const h of sides) if (world.houses.has(h.id)) createBrain(world, h.id, h.ai?.difficulty ?? 'normal', h.ai ?? {});
@@ -142,6 +143,12 @@ function giveOrder(u, order) {
   const post = { x: u.tx, y: u.ty };
   if (kind !== 'hunt') { u.order = { type: 'guard', ...post, ...guardOf(kind) }; u.garrison = true; }
   return { kind, post };
+}
+
+/** The player's start force stands guard where it was set down, as the original's scenario units did: it takes on a
+ *  raider that comes for the base nearby, not only what walks into its guns. A move order makes it the player's again. */
+function standGuard(u) {
+  if (isArmed(u.type) && !u.harvest && !u.type.deploysTo && u.isGround) u.order = { type: 'guard', x: u.tx, y: u.ty };
 }
 
 /** A small mission of our own (C1 shape) for when src/data/campaign.js has no def: the player's base in the

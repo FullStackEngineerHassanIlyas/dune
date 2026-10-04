@@ -126,6 +126,12 @@ export const PALACE = {
   names: { deathHand: 'Death Hand', fremen: 'Fremen', saboteur: 'Saboteur' },
 };
 
+/** The Mega Drive's Palace recharge by house (research.md §6: Harkonnen Death Hand 11-12 min, Sardaukar 15-16,
+ *  Ordos Saboteur 6-7, Atreides Fremen about 4), for worlds on the Sega ladder; the skirmish keeps PALACE.recharge. */
+export const SEGA_PALACE = {
+  recharge: { harkonnen: 690, sardaukar: 930, ordos: 390, atreides: 240 },   // seconds
+};
+
 export const DEATH_HAND = {
   speed: 6,             // tiles per second
   scatter: 2,           // it comes down up to this far from the aim
