@@ -4,7 +4,7 @@
 // mission 1), each with a red bar for the player and a blue one for the enemy filling step by step — and last the
 // password for the next mission. The pictures are rendered from the game's own models (results-render.js) into
 // assets/campaign/results/; campaign.css puts them in place by house, and by subject on the score screen: line art
-// of a Combat Tank, a Trooper or an Ornithopter engraved into the gold, as the Sega draws one of the three there.
+// of a Combat Tank, a Soldier or an Ornithopter engraved into the gold, as the Sega draws one of the three there.
 // defeatCard is the same card for a lost mission: the base burning (index.js shows the Mentat's lose lines).
 import { h } from '../dom.js';
 import { HOUSES } from '../../data/houses.js';
@@ -13,8 +13,8 @@ import { formatTime } from '../../campaign/score.js';
 const name = (house) => HOUSES[house]?.name ?? house;
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
-/** The line art behind a mission's score screen: tank, trooper, ornithopter in turn. */
-export const SCORE_SUBJECTS = ['tank', 'trooper', 'ornithopter'];
+/** The line art behind a mission's score screen: tank, soldier, ornithopter in turn. */
+export const SCORE_SUBJECTS = ['tank', 'soldier', 'ornithopter'];
 export const scoreSubject = (mission) => SCORE_SUBJECTS[(Math.max(1, mission | 0) - 1) % SCORE_SUBJECTS.length];
 
 /** A full-screen picture card: the picture (CSS sets it by house and kind), its title across the top, a line under it. */
@@ -34,7 +34,8 @@ export function victoryCard(house, mission, { onContinue }) {
     [h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')]);
 }
 
-/** The defeat card: the base burning at dusk, MISSION FAILED across it; Continue moves on to the Mentat. */
+/** The defeat card: the base burning at dusk, DEFEAT across it and "House X · mission n failed" under it; Continue
+ *  moves on to the Mentat (index.js does not show it yet: see the integration notes). */
 export function defeatCard(house, mission, { onContinue }) {
   return card('defeat', house, 'Defeat', `House ${name(house)} · mission ${mission} failed`,
     [h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')]);

@@ -19,6 +19,58 @@ const DIR = path.join(root, 'assets/campaign/results');
 const css = readFileSync(path.join(root, 'src/ui/campaign.css'), 'utf8');
 const HOUSES = ['atreides', 'ordos', 'harkonnen'];
 
+/** Splits `text` on `sep` outside parentheses and quotes (a data URI or a gradient keeps its commas and colons). */
+function split(text, sep) {
+  const out = [];
+  let depth = 0, quote = null, start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) { if (c === quote) quote = null; continue; }
+    if (c === '"' || c === "'") quote = c;
+    else if (c === '(') depth++;
+    else if (c === ')') depth--;
+    else if (c === sep && depth === 0) { out.push(text.slice(start, i)); start = i + 1; }
+  }
+  out.push(text.slice(start));
+  return out.map((t) => t.trim()).filter(Boolean);
+}
+
+/** The stylesheet's rules: { media, selectors, decl } with `media` the @media prelude around a rule ('' at the top). */
+function cssRules(text) {
+  const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [];
+  const walk = (from, to, media) => {
+    let i = from;
+    while (i < to) {
+      const open = src.indexOf('{', i);
+      if (open < 0 || open >= to) break;
+      const prelude = src.slice(i, open).trim();
+      let depth = 1, j = open + 1;
+      for (; j < to && depth; j++) { if (src[j] === '{') depth++; else if (src[j] === '}') depth--; }
+      const body = src.slice(open + 1, j - 1);
+      if (prelude.startsWith('@media')) walk(open + 1, j - 1, prelude);
+      else if (!prelude.startsWith('@')) {
+        const decl = new Map(split(body, ';').map((d) => { const k = d.indexOf(':'); return [d.slice(0, k).trim(), d.slice(k + 1).trim()]; }));
+        rules.push({ media, selectors: split(prelude, ','), decl });
+      }
+      i = j;
+    }
+  };
+  walk(0, src.length, '');
+  return rules;
+}
+const RULES = cssRules(css);
+/** The declarations given to `selector` (merged in order), under `media` ('' the top level; a RegExp to match). */
+function style(selector, media = '') {
+  const out = new Map();
+  for (const r of RULES) {
+    if (!r.selectors.includes(selector)) continue;
+    if (media instanceof RegExp ? !media.test(r.media) : r.media !== media) continue;
+    for (const [k, v] of r.decl) out.set(k, v);
+  }
+  return out;
+}
+
 /** Width and height of a WebP file (simple lossy, lossless or extended). */
 function webpSize(buf) {
   assert.equal(buf.toString('ascii', 0, 4), 'RIFF');
@@ -52,7 +104,7 @@ test('the stylesheet points only at pictures that exist, and gives every house a
   }
   for (const subject of SCORE_SUBJECTS) {
     assert.ok(RESULT_ART[`line-${subject}`], `the renderer makes no line art of a ${subject}`);
-    assert.match(css, new RegExp(`\\.cp-score-art\\[data-subject="${subject}"\\] span \\{ background-image: url\\(\\.\\./\\.\\./assets/campaign/results/line-${subject}\\.webp\\)`));
+    assert.equal(style(`.cp-score-art[data-subject="${subject}"] span`).get('background-image'), `url(../../assets/campaign/results/line-${subject}.webp)`);
   }
   // the house's own picture for every house other than the default (Atreides) one
   for (const house of HOUSES.slice(1)) {
@@ -83,8 +135,8 @@ test('the victory and defeat cards: their picture, title and line, and Continue'
   assert.equal(done, 2);
 });
 
-test('the score screen engraves a tank, a trooper or an ornithopter in turn, mission by mission', () => {
-  assert.deepEqual(Array.from({ length: 9 }, (_, i) => scoreSubject(i + 1)), ['tank', 'trooper', 'ornithopter', 'tank', 'trooper', 'ornithopter', 'tank', 'trooper', 'ornithopter']);
+test('the score screen engraves a tank, a soldier or an ornithopter in turn, mission by mission', () => {
+  assert.deepEqual(Array.from({ length: 9 }, (_, i) => scoreSubject(i + 1)), ['tank', 'soldier', 'ornithopter', 'tank', 'soldier', 'ornithopter', 'tank', 'soldier', 'ornithopter']);
   assert.equal(scoreSubject(0), 'tank', 'a mission number out of range still draws something');
   const r = readResult({ dune: 'missionEnd', house: 'harkonnen', mission: 3, won: true, seconds: 600, stats: { rows: [] } });
   const el = scoreScreen(r, { later() {}, instant: true, onContinue() {} });
@@ -100,4 +152,52 @@ test('the password tiles turn over one after another: each knows its place', () 
   assert.equal(tiles.getAttribute('aria-label'), 'DEFTHUNTER');
   assert.deepEqual(tiles.children.map((t) => t.style.cssText), Array.from({ length: 10 }, (_, i) => `--i: ${i}`));
   assert.deepEqual(tiles.children.map((t) => t.getAttribute('aria-hidden')), Array(10).fill('true'));
+});
+
+test('the Mentat\'s stages after a mission: the map\'s box fades into the picture, and the picture is set off his head', () => {
+  for (const cls of ['cp-win', 'cp-defeat']) {
+    const map = style(`.cp-mentat-stage.${cls} .cp-map`);
+    const layers = split(map.get('--fade') ?? '', ',');
+    assert.ok(layers.length === 2 && layers.every((l) => /^linear-gradient\(/.test(l) && /transparent/.test(l)), `${cls}: the map's edges fade both ways`);
+    for (const prop of ['mask-image', '-webkit-mask-image']) assert.equal(map.get(prop), 'var(--fade)', prop);
+    assert.equal(map.get('mask-composite'), 'intersect', 'both fades at once');
+    const stage = style(`.cp-mentat-stage.${cls}`);
+    const sizes = split(stage.get('background-size'), ','), at = split(stage.get('background-position'), ',');
+    assert.equal(sizes.length, 3, 'two scrims and the picture');
+    assert.match(sizes[2], /max\(100%, \d+vw\)/, 'the picture enlarged beyond the window');
+    assert.match(at[2], /^100% /, 'and set to the right');
+  }
+});
+
+test('the score screen\'s art stays inside the engraved frame, each subject in its own place, the numbers burnished over', () => {
+  const art = style('.cp-score-art');
+  assert.equal(art.get('overflow'), 'hidden', 'clipped (not a clip-path: that would isolate the blend modes)');
+  assert.ok(!art.has('z-index') && !art.has('clip-path') && !art.has('mask-image') && !art.has('filter'), 'no stacking context on the art box');
+  const frame = parseFloat(style('.cp-score::before').get('inset')) + parseFloat(style('.cp-score::before').get('border'));
+  assert.ok(parseFloat(art.get('inset')) >= frame, `the art (inset ${art.get('inset')}) inside the frame line (${frame}px)`);
+  const places = SCORE_SUBJECTS.map((subject) => {
+    const own = style(`.cp-score-art[data-subject="${subject}"]`);
+    assert.ok(own.get('--art-size') && own.get('--art-at'), `${subject} has its own size and place`);
+    return `${own.get('--art-size')} ${own.get('--art-at')}`;
+  });
+  assert.equal(new Set(places).size, SCORE_SUBJECTS.length, 'no two subjects share a placement');
+  const span = style('.cp-score-art span');
+  assert.equal(span.get('background-size'), 'var(--art-size)');
+  assert.equal(span.get('mask-image'), 'var(--art-fade)', 'faded toward the card');
+  // the burnish is a solid field over the whole card (a radial fade would leave the number column bare)
+  const burnish = style('.cp-score-card::before');
+  assert.match(burnish.get('background'), /^rgba\(236,196,104,var\(--burnish\)\)$/);
+  assert.ok(parseFloat(burnish.get('inset').split(' ')[1]) < 0, 'it reaches past the numbers at the right');
+  // narrower than a wide screen: drawn whole and faint behind the card
+  const narrow = style('.cp-score-art', /max-width: 1719px/);
+  assert.equal(narrow.get('--art-size'), 'contain');
+});
+
+test('a short window: the score card compact, no sideways scroll, room kept under Continue', () => {
+  const short = /max-height: 560px/;
+  const score = style('.cp-score', short);
+  assert.match(score.get('overflow'), /^hidden /, 'no sideways scroll');
+  assert.ok(parseFloat(score.get('padding-bottom')) >= 44 + 20, 'the last row can clear the 44 px button');
+  assert.equal(style('.cp-score-art', short).get('display'), 'none');
+  assert.match(style('.cp-score-head b', short).get('font-size'), /min\(32px/);
 });

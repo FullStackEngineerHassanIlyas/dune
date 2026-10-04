@@ -6,7 +6,7 @@
 //    on a ledge in front (our own composition; the Sega shows one still picture after every won mission).
 //  - defeat-<house>: the same base at dusk, burning: black smoke columns, fires, wrecks, a fallen banner and
 //    enemy tanks dark on the ridge beyond.
-//  - line-<subject>: line art of a Combat Tank, a Trooper or an Ornithopter for the score screen's gold backdrop
+//  - line-<subject>: line art of a Combat Tank, a Soldier or an Ornithopter for the score screen's gold backdrop
 //    (research.md §5): the model's silhouette and creases outlined from its depth and normals, its shading
 //    engraved as hatching whose strokes thicken where it is dark; dark ink on white, which the page multiplies
 //    onto the gold.
@@ -38,11 +38,13 @@ export const RESULT_ART = {
   'defeat-ordos': { kind: 'defeat', house: 'ordos' },
   'defeat-harkonnen': { kind: 'defeat', house: 'harkonnen' },
   'line-tank': { kind: 'line', subject: 'tank' },
-  'line-trooper': { kind: 'line', subject: 'trooper' },
+  'line-soldier': { kind: 'line', subject: 'soldier' },
   'line-ornithopter': { kind: 'line', subject: 'ornithopter' },
 };
 
 const ENEMY = { atreides: 'harkonnen', ordos: 'atreides', harkonnen: 'ordos' };
+/** Each house's own heavy unit, drawn up with its tanks after a victory. */
+const SPECIAL = { atreides: 'sonicTank', ordos: 'deviator', harkonnen: 'devastator' };
 
 function seeded(seed) {
   let s = seed >>> 0;
@@ -208,13 +210,31 @@ function paintGround(w, h, rocks, dunes, mountains = []) {
 
 /** A structure or unit placer over one map: each model type gets one InstancedModel. */
 function placer(scene, terrain, hf) {
-  const models = new Map();
-  // a wreck is drawn by a model of its own whose lamps and glowing parts are out
-  const get = (id, wreck = false) => {
-    const key = wreck ? `${id}:wreck` : id;
+  const models = new Map(), own = [];
+  // A wreck is drawn by a model of its own: its lamps and glowing parts out, every other part burnt to char (one
+  // dull near-black, so no clean barrel or bright wheel survives). A tinted model takes `tint` over its painted
+  // and metal parts (the Carryalls in the house colour).
+  const get = (id, { wreck = false, tint = null } = {}) => {
+    const key = wreck ? `${id}:wreck` : tint != null ? `${id}:${tint}` : id;
     if (!models.has(key)) {
-      const m = new InstancedModel(modelDef(id), scene, { capacity: 4 });
-      if (wreck) m.def.parts.forEach((p, i) => { if (p.material === MAT.LIGHT || p.material === MAT.HOUSE_LIGHT) m.meshes[i].visible = false; });
+      const m = new InstancedModel(modelDef(id), scene, { capacity: 12 });   // never grown: a grown model takes back the shared materials
+      m.def.parts.forEach((p, i) => {
+        const mesh = m.meshes[i];
+        if (wreck && (p.material === MAT.LIGHT || p.material === MAT.HOUSE_LIGHT)) { mesh.visible = false; return; }
+        if (wreck) {
+          const char = new THREE.MeshStandardMaterial({ vertexColors: true, color: p.material === MAT.TREAD ? 0x2a2622 : 0x1f1b18, roughness: 1, metalness: 0, map: mesh.material.map ?? null });
+          mesh.material = char;
+          own.push(char);
+        } else if (tint != null && (p.material === MAT.PAINT || p.material === MAT.METAL)) {
+          // the shared material's grime pass kept: its shader does not depend on the colour
+          const base = mesh.material, c = base.clone();
+          c.onBeforeCompile = base.onBeforeCompile;
+          c.customProgramCacheKey = base.customProgramCacheKey;
+          c.color.set(tint);
+          mesh.material = c;
+          own.push(c);
+        }
+      });
       models.set(key, m);
     }
     return models.get(key);
@@ -235,25 +255,28 @@ function placer(scene, terrain, hf) {
       return hd;
     },
     /** A unit standing at (x, z) facing `heading`, `lift` above the ground. */
-    unit(id, x, z, heading, house, { lift = 0, params = {}, tilt = null, color = null, scale = 1, wreck = false } = {}) {
-      const m = get(id, wreck), hd = m.add();
+    unit(id, x, z, heading, house, { lift = 0, params = {}, tilt = null, color = null, scale = 1, wreck = false, tint = null } = {}) {
+      const m = get(id, { wreck, tint }), hd = m.add();
       const n = hf.normalAt ? hf.normalAt(x, z) : null;
       poseMatrix(hd.matrix, x, hf.heightAt(x, z) + lift, z, heading, Math.abs(lift) > 0.5 ? null : n);
       if (tilt) hd.matrix.multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...tilt)));
       if (scale !== 1) hd.matrix.scale(new THREE.Vector3(scale, scale, scale));
-      hd.color.set(color ?? HOUSES[house].color);
+      hd.color.set(wreck ? 0xffffff : color ?? HOUSES[house].color);   // the char is the wreck's only colour
       Object.assign(hd.params, params);
       return hd;
     },
     update() { for (const m of models.values()) m.update(); },
+    dispose() { for (const m of models.values()) m.dispose(); for (const c of own) c.dispose(); },
   };
 }
 
 /**
  * A house banner: a tall swallow-tailed cloth in the house colour hanging from a crossbar on a pole, gold-trimmed,
- * a gold lozenge on it (a plain heraldic device, not the house's crest), stirred by the wind.
+ * a gold lozenge on it (a plain heraldic device, not the house's crest), stirred by the wind. `burnt`: after the
+ * battle, the cloth dulled and smoke-dark, its trim tarnished, the swallowtail burnt away to a ragged, scorched
+ * edge and holes burnt through it.
  */
-function banner(house, { height = 1.5, width = 0.6, ripple = 1 } = {}) {
+function banner(house, { height = 1.5, width = 0.6, ripple = 1, burnt = false } = {}) {
   const group = new THREE.Group();
   const iron = new THREE.MeshStandardMaterial({ color: 0x2e2824, metalness: 0.75, roughness: 0.38 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xd8a640, metalness: 0.95, roughness: 0.28 });
@@ -269,7 +292,9 @@ function banner(house, { height = 1.5, width = 0.6, ripple = 1 } = {}) {
   const W = 192, H = 448, c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  const col = `#${HOUSES[house].color.toString(16).padStart(6, '0')}`;
+  const house3 = new THREE.Color(HOUSES[house].color);
+  if (burnt) house3.lerp(new THREE.Color(0x1c1612), 0.5);
+  const col = `#${house3.getHexString()}`, trim = burnt ? '#7a5e2c' : '#e2b043', trimLit = burnt ? '#86672f' : '#e8bb52';
   g.beginPath();
   g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, H); g.lineTo(W / 2, H * 0.84); g.lineTo(0, H); g.closePath();
   g.save(); g.clip();
@@ -277,14 +302,47 @@ function banner(house, { height = 1.5, width = 0.6, ripple = 1 } = {}) {
   shade.addColorStop(0, 'rgba(255,255,255,0.12)'); shade.addColorStop(0.5, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,0.45)');
   g.fillStyle = col; g.fillRect(0, 0, W, H);
   g.fillStyle = shade; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#e2b043'; g.lineWidth = 14; g.stroke();
+  g.strokeStyle = trim; g.lineWidth = 14; g.stroke();
   g.strokeStyle = '#6a4a12'; g.lineWidth = 3; g.stroke();
-  g.fillStyle = '#e2b043'; g.fillRect(0, 34, W, 12);
+  g.fillStyle = trim; g.fillRect(0, 34, W, 12);
   g.beginPath(); g.moveTo(W / 2, 130); g.lineTo(W / 2 + 48, 210); g.lineTo(W / 2, 290); g.lineTo(W / 2 - 48, 210); g.closePath();
-  g.fillStyle = '#e8bb52'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#6a4a12'; g.stroke();
+  g.fillStyle = trimLit; g.fill(); g.lineWidth = 4; g.strokeStyle = '#6a4a12'; g.stroke();
   g.beginPath(); g.moveTo(W / 2, 162); g.lineTo(W / 2 + 28, 210); g.lineTo(W / 2, 258); g.lineTo(W / 2 - 28, 210); g.closePath();
   g.fillStyle = col; g.fill();
+  if (burnt) {
+    // smoke-dark from the foot up, and soot in drifts
+    const soot = g.createLinearGradient(0, H * 0.3, 0, H);
+    soot.addColorStop(0, 'rgba(14,9,6,0)'); soot.addColorStop(1, 'rgba(14,9,6,0.85)');
+    g.fillStyle = soot; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 14; i++) {
+      const x = rnd(0, W), y = rnd(H * 0.2, H), r = rnd(10, 34);
+      const blot = g.createRadialGradient(x, y, 0, x, y, r);
+      blot.addColorStop(0, 'rgba(10,6,4,0.55)'); blot.addColorStop(1, 'rgba(10,6,4,0)');
+      g.fillStyle = blot; g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }
   g.restore();
+  if (burnt) {
+    // the foot burnt away to a ragged line, and holes burnt through; every burnt edge charred, a last ember on it
+    const edge = [];
+    for (let x = -4; x <= W + 4; x += 8) edge.push([x, H * 0.62 + Math.sin(x * 0.07) * 18 + rnd(-14, 14)]);
+    const holes = [[W * 0.28, H * 0.44, 15], [W * 0.7, H * 0.53, 11], [W * 0.56, H * 0.3, 7]].map(([x, y, r]) => Array.from({ length: 9 }, (_, i) => {
+      const a = (i / 9) * Math.PI * 2, rr = r * rnd(0.6, 1.3);
+      return [x + Math.cos(a) * rr, y + Math.sin(a) * rr];
+    }));
+    const trace = (pts, close) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); if (close) g.closePath(); };
+    const below = () => { trace(edge, false); g.lineTo(W + 4, H + 4); g.lineTo(-4, H + 4); g.closePath(); };
+    g.lineJoin = 'round';
+    for (const [w, c] of [[16, 'rgba(12,7,4,0.9)'], [5, 'rgba(255,110,30,0.55)']]) {
+      g.strokeStyle = c; g.lineWidth = w;
+      trace(edge, false); g.stroke();
+      for (const h of holes) { trace(h, true); g.stroke(); }
+    }
+    g.globalCompositeOperation = 'destination-out';
+    below(); g.fill();
+    for (const h of holes) { trace(h, true); g.fill(); }
+    g.globalCompositeOperation = 'source-over';
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -297,11 +355,26 @@ function banner(house, { height = 1.5, width = 0.6, ripple = 1 } = {}) {
     pos.setX(i, x + Math.sin(k * 3.2) * 0.05 * k * ripple);
   }
   geo.computeVertexNormals();
-  const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.8, metalness: 0, alphaTest: 0.5 }));
+  const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: burnt ? 0.95 : 0.8, metalness: 0, alphaTest: 0.5, envMapIntensity: burnt ? 0.3 : 1 }));
   cloth.position.set(0, height - 0.07 - clothH / 2, 0.02);
   for (const m of [pole, bar, cloth, knob]) m.castShadow = true;
   group.add(pole, bar, knob, ...ends, cloth);
+  group.userData.cloth = cloth;
   return group;
+}
+
+/** Lays whatever of a placed banner's cloth would pass under the ground on the ground instead (a fallen banner). */
+function drape(flag, hf) {
+  const cloth = flag.userData.cloth;
+  flag.updateMatrixWorld(true);
+  const inv = cloth.matrixWorld.clone().invert(), v = new THREE.Vector3(), pos = cloth.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(cloth.matrixWorld);
+    const floor = hf.heightAt(v.x, v.z) + 0.015;
+    if (v.y < floor) { v.y = floor + (v.y - floor) * 0.04; v.applyMatrix4(inv); pos.setXYZ(i, v.x, v.y, v.z); }
+  }
+  pos.needsUpdate = true;
+  cloth.geometry.computeVertexNormals();
 }
 
 /** The base both scenes stand on: a rock plateau in the middle of a 96 x 72 map, the house's buildings on it. */
@@ -422,25 +495,35 @@ async function victory(house, renderer, { width, height, ss }) {
   place.unit('quad', 44.6, 41.6, -0.5, house);
   place.unit('trike', 43.2, 42.4, -0.4, house);
   place.unit('mcv', 61.0, 42.6, 2.4, house);
-  const armour = [['siegeTank', 0.3, 10.5, 0.5, -0.3], ['combatTank', 0.52, 8.8, 0.45, -0.15], ['combatTank', 0.78, 10.2, 0.5, 0.1], ['missileTank', 0.62, 13.4, 0.55, 0.2]];
+  // the house's own heavy unit at the head of the line
+  const armour = [['siegeTank', 0.3, 10.5, 0.5, -0.3], ['combatTank', 0.52, 8.8, 0.45, -0.15], ['combatTank', 0.78, 10.2, 0.5, 0.1], [SPECIAL[house], 0.62, 13.4, 0.55, 0.2]];
   for (const [id, u, d, turn, turret] of armour) { const p = spot(u, d); place.unit(id, p.x, p.z, face(p.x, p.z, turn), house, { params: { turret } }); }
+  // the squad gathered round the banner, not in a line: two at the pole turned to it, the rest in a loose ring,
+  // some striding up, some turned to the camera or to each other
   const trooperId = house === 'harkonnen' ? 'trooper' : 'soldier';
-  const squad = [[-0.62, 8.9, 0.6], [-0.56, 8.3, 0.3], [-0.45, 8.55, -0.2], [-0.39, 9.6, 0.9], [-0.33, 8.75, -0.5], [-0.7, 9.5, 0.1], [-0.26, 9.4, 0.4]];
-  for (const [u, d, turn] of squad) { const p = spot(u, d); place.unit(trooperId, p.x, p.z, face(p.x, p.z, turn), house, { scale: 1.35 }); }
-  const pole = spot(-0.5, 9.2);
+  const pole = spot(-0.5, 9.0);
+  const squad = [[-0.56, 8.75, 'pole', 0.1, 0], [-0.43, 8.85, 'pole', -0.2, 0.3], [-0.64, 9.55, 'cam', 0.5, 0], [-0.36, 9.7, 'pole', 0.4, -0.35],
+    [-0.5, 7.4, 'cam', -0.35, 0.4], [-0.71, 8.6, 'cam', 0.9, 0], [-0.3, 7.8, 'cam', -0.8, -0.3]];
+  for (const [u, d, look, turn, stride] of squad) {
+    const p = spot(u, d);
+    const heading = look === 'pole' ? Math.atan2(pole.z - p.z, pole.x - p.x) + turn : face(p.x, p.z, turn);
+    place.unit(trooperId, p.x, p.z, heading, house, { scale: 1.35, params: { legL: stride, legR: -stride * 0.8 } });
+  }
   const flag = banner(house, { height: 1.5, width: 0.62 });
   flag.position.set(pole.x, hf.heightAt(pole.x, pole.z), pole.z);
   flag.rotation.y = across + 0.5;
   scene.add(flag);
-  // the Frigate coming down over the Starport; a V of Carryalls crossing the sky toward it, the arrowhead to the right
+  // the Frigate coming down over the Starport; a V of Carryalls in the house colour crossing the sky toward it,
+  // the arrowhead to the right, the whole V inside the frame
   place.unit('frigate', 58.6, 37.4, Math.PI - 0.45, house, { lift: 3.7, tilt: [0.05, 0, -0.04], scale: 1.3 });
+  const hull = new THREE.Color(HOUSES[house].color).lerp(new THREE.Color(0xffffff), 0.15).getHex();
   for (const b of [0, -1, 1, -2, 2, -3, 3]) {
-    const p = spot(-0.58 - Math.abs(b) * 0.095, 30 + b * 0.8);
-    place.unit('carryall', p.x, p.z, across, house, { lift: 6.1 + b * 0.55, tilt: [0.06, 0, 0.03] });
+    const p = spot(-0.44 - Math.abs(b) * 0.088, 30 + b * 0.8);
+    place.unit('carryall', p.x, p.z, across, house, { lift: 6.1 + b * 0.55, tilt: [0.06, 0, 0.03], tint: hull });
   }
   // an enemy tank burnt out on the near ground, the last of the battle
   const near = spot(0.02, 6.6);
-  place.unit('combatTank', near.x, near.z, face(near.x, near.z, 2.2), ENEMY[house], { lift: -0.06, tilt: [0.22, 0, -0.16], color: 0x2c2622, params: { turret: 1.9 }, wreck: true });
+  place.unit('combatTank', near.x, near.z, face(near.x, near.z, 2.2), ENEMY[house], { lift: -0.08, tilt: [0.22, 0, -0.16], params: { turret: 1.9 }, wreck: true });
   place.update();
   terrain.update(0);
 
@@ -457,7 +540,11 @@ async function victory(house, renderer, { width, height, ss }) {
     if (Math.random() < 0.7) { const a = rnd(0, Math.PI * 2), v = rnd(0.8, 1.6); fx.smoke.spawn(P.dust, 58.5 + Math.cos(a) * 0.8, hf.heightAt(58.5, 37.5) + 0.2, 37.5 + Math.sin(a) * 0.8, Math.cos(a) * v, rnd(0.05, 0.3), Math.sin(a) * v, rnd(1.6, 2.6)); }
     if (Math.random() < 0.6) fx.glow.spawn(P.thrust, rnd(58.4, 60.2), hf.heightAt(59, 37) + 3.0, rnd(36.6, 37.6), 0, rnd(-2.2, -1.4), 0, rnd(0.12, 0.2), 1.2);
     if (Math.random() < 0.35) fx.smoke.spawn(P.grey, near.x + rnd(-0.08, 0.08), wy, near.z + rnd(-0.08, 0.08), 0, rnd(0.45, 0.7), 0, rnd(4, 6), 0.55);
+    if (Math.random() < 0.12) fx.glow.spawn(P.ember, near.x + rnd(-0.15, 0.15), wy - 0.05, near.z + rnd(-0.15, 0.15), rnd(-0.1, 0.1), rnd(0.2, 0.6), rnd(-0.1, 0.1), rnd(0.6, 1.4));
   });
+  const smoulder = new THREE.PointLight(0xff6a20, 1.2, 1.6, 2);
+  smoulder.position.set(near.x, wy + 0.05, near.z);
+  scene.add(smoulder);
 
   const composer = compose(renderer, scene, camera, { width, height, ss, bloom: [0.5, 0.6, 0.9],
     finish: { uVignette: 0.42, uGrain: 0.03, uLift: [0.025, 0.02, 0.03], uGain: [1.0, 0.98, 0.95], uSaturation: 1.1, uContrast: 1.08, uFloor: 0.38 } });
@@ -465,7 +552,7 @@ async function victory(house, renderer, { width, height, ss }) {
   const out = downsample(renderer.domElement, width, height);
   composer.dispose();
   fx.glow.dispose(); fx.smoke.dispose();
-  for (const m of place.models.values()) m.dispose();
+  place.dispose();
   disposeScene(scene);
   return out;
 }
@@ -492,21 +579,23 @@ async function defeat(house, renderer, { width, height, ss }) {
   }
   // burnt-out tanks where the victory's stood, the banner fallen, the enemy's tanks rolling in on the right
   const { camera, spot, face, across } = cardShot(hf, width, height);
-  const wreck = 0x2a2522;
   const wrecks = [['siegeTank', 0.3, 10.5, 1.1, -0.9, [-0.08, 0, 0.12]], ['combatTank', 0.55, 8.8, -0.6, 1.1, [0.1, 0, 0.08]], ['harvester', -0.05, 12.5, 1.6, 0, [0.16, 0, 0]]];
   for (const [id, u, d, turn, turret, tilt] of wrecks) {
     const p = spot(u, d);
-    place.unit(id, p.x, p.z, face(p.x, p.z, turn), house, { tilt, color: id === 'harvester' ? 0x3a3028 : wreck, params: { turret }, wreck: true });
+    place.unit(id, p.x, p.z, face(p.x, p.z, turn), house, { lift: -0.06, tilt, params: { turret }, wreck: true });
     if (id !== 'harvester') fires.push([p.x, hf.heightAt(p.x, p.z) + 0.25, p.z, 0.7]);
   }
   const enemy = ENEMY[house];
   const advance = [['combatTank', 0.92, 14], ['siegeTank', 0.75, 17.5], ['combatTank', 1.02, 19], ['missileTank', 0.6, 21], ['combatTank', 0.88, 23]];
   for (const [id, u, d] of advance) { const p = spot(u, d); place.unit(id, p.x, p.z, face(p.x, p.z, 0.9), enemy, { params: { turret: -0.5 } }); }
-  const pole = spot(-0.44, 6.1);
-  const flag = banner(house, { height: 1.4, width: 0.55, ripple: 0.3 });
-  flag.position.set(pole.x, hf.heightAt(pole.x, pole.z) - 0.05, pole.z);
-  flag.rotation.set(0.12, across + 0.4, -0.42);
+  // the banner fallen back across the ground in the shade, burnt, smaller and further off than the victory's
+  const pole = spot(-0.4, 8.6);
+  const flag = banner(house, { height: 1.15, width: 0.44, ripple: 0.35, burnt: true });
+  flag.position.set(pole.x, hf.heightAt(pole.x, pole.z) - 0.04, pole.z);
+  flag.rotation.order = 'YXZ';
+  flag.rotation.set(-1.2, across + 0.35, 0.1);
   scene.add(flag);
+  drape(flag, hf);
   place.update();
   terrain.update(0);
 
@@ -538,18 +627,23 @@ async function defeat(house, renderer, { width, height, ss }) {
   const out = downsample(renderer.domElement, width, height);
   composer.dispose();
   fx.glow.dispose(); fx.smoke.dispose();
-  for (const m of place.models.values()) m.dispose();
+  place.dispose();
   disposeScene(scene);
   return out;
 }
 
 // ---- line art ----
+// Each subject's pose and camera. The Soldier advances side-on, rifle levelled and legs apart in his stride (he reads
+// as a man better than the Trooper, whose pauldrons make a second head in profile); the Ornithopter flies level,
+// seen three-quarters from above; `mirror` would flip a drawing left to right. All three face left, into the screen.
 const LINE_SUBJECTS = {
-  tank: { id: 'combatTank', heading: Math.PI / 2 + 0.55, params: { turret: -0.35 }, cam: [1.25, 0.62, 1.2], look: [0.02, 0.17, 0], fov: 28, scale: 1 },
-  trooper: { id: 'trooper', heading: Math.PI / 2 + 0.45, params: { legL: 0.32, legR: -0.28 }, cam: [0.6, 0.2, 0.68], look: [-0.02, 0.125, 0], fov: 26, scale: 1 },
-  ornithopter: { id: 'ornithopter', heading: Math.PI / 2 + 0.85, params: { flap: 0.32, flapR: -0.32 }, cam: [1.0, 0.8, 1.1], look: [0.0, 0.1, 0], fov: 30, scale: 1 },
+  tank: { id: 'combatTank', heading: Math.PI / 2 + 0.55, params: { turret: -0.35 }, cam: [1.25, 0.62, 1.2], look: [0.02, 0.17, 0], fov: 28 },
+  soldier: { id: 'soldier', heading: -0.3, params: { legL: 0.42, legR: -0.36 }, cam: [0.1, 0.25, -0.8], look: [0, 0.13, 0], fov: 22 },
+  ornithopter: { id: 'ornithopter', heading: Math.PI - 0.62, params: { flap: 0.1, flapR: -0.1 }, cam: [0.55, 1.05, 1.3], look: [0.0, 0.14, 0.02], fov: 31 },
 };
 
+// The model drawn once into a float target: its view normal (octahedral, so no direction is lost), the light on
+// the face, and its view depth (0 where there is no model).
 const NormalDepthShader = {
   vertexShader: /* glsl */ `
     #include <common>
@@ -566,62 +660,96 @@ const NormalDepthShader = {
       gl_Position = projectionMatrix * mv;
     }`,
   fragmentShader: /* glsl */ `
-    uniform vec3 uLight; uniform float uNear, uFar;
+    uniform vec3 uLight;
     varying vec3 vN; varying float vDepth; varying vec3 vWorldN;
+    vec2 oct(vec3 n) {
+      n /= abs(n.x) + abs(n.y) + abs(n.z);
+      vec2 s = vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+      return n.z >= 0.0 ? n.xy : (1.0 - abs(n.yx)) * s;
+    }
     void main() {
-      vec3 n = normalize(vN);
-      if (!gl_FrontFacing) n = -n;
+      vec3 n = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0);
       vec3 wn = normalize(vWorldN) * (gl_FrontFacing ? 1.0 : -1.0);
-      float lit = 0.28 + 0.72 * clamp(dot(wn, normalize(uLight)), 0.0, 1.0) + 0.12 * clamp(wn.y, 0.0, 1.0);
-      gl_FragColor = vec4(n.xy * 0.5 + 0.5, clamp(lit, 0.0, 1.0), (vDepth - uNear) / (uFar - uNear));
+      // the light comes from the viewer's upper left (uLight is in view space), so the faces turned to us are mostly
+      // lit and only those turned away are shaded, the way an engraver lights a plate; tops catch a little more
+      float lit = 0.25 + 0.75 * clamp(dot(n, normalize(uLight)), 0.0, 1.0) + 0.1 * clamp(wn.y, 0.0, 1.0);
+      gl_FragColor = vec4(oct(n), clamp(lit, 0.0, 1.0), vDepth);
     }`,
 };
 
+// The ink: r the outlines (the silhouette heavier, overlaps and folds finer), g the hatching.
 const EngraveShader = {
-  uniforms: { tND: { value: null }, uRes: { value: new THREE.Vector2() }, uPeriod: { value: 7 }, uEdge: { value: 1 }, uSS: { value: 2 } },
+  uniforms: { tND: { value: null }, uRes: { value: new THREE.Vector2() }, uPeriod: { value: 7 }, uSS: { value: 2 }, uJump: { value: 0.012 }, uFold: { value: 0.86 } },
   vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tND; uniform vec2 uRes; uniform float uPeriod, uEdge, uSS;
+    uniform sampler2D tND; uniform vec2 uRes; uniform float uPeriod, uSS, uJump, uFold;
     varying vec2 vUv;
     vec4 at(vec2 o) { return texture2D(tND, vUv + o / uRes); }
+    vec3 unoct(vec2 e) {
+      vec3 n = vec3(e, 1.0 - abs(e.x) - abs(e.y));
+      if (n.z < 0.0) n.xy = (1.0 - abs(n.yx)) * vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+      return normalize(n);
+    }
     float stroke(float coord, float width) {
       float d = abs(fract(coord) - 0.5) * uPeriod;   // distance to the stroke's centre line, in pixels
       float aa = 0.7 * uSS;
-      return (1.0 - smoothstep(width * 0.5 - aa, width * 0.5 + aa, d)) * clamp(width / (2.0 * aa), 0.0, 1.0);   // no stroke where it has no width
+      return (1.0 - smoothstep(width * 0.5 - aa, width * 0.5 + aa, d)) * clamp(width / (2.0 * aa), 0.0, 1.0);   // a stroke too thin to draw fades
     }
     void main() {
       vec4 c = at(vec2(0.0));
       float inside = step(0.0001, c.a);
-      // the silhouette, drawn heavier, from where the model ends; overlaps and creases, finer, from depth and normals
-      float sil = 0.0, crease = 0.0;
+      vec3 nc = unoct(c.rg);
+      float sil = 0.0, fold = 0.0;
       for (int i = 0; i < 12; i++) {
         float a = float(i) * 0.5235988;
         vec2 dir = vec2(cos(a), sin(a));
-        vec4 s = at(dir * 2.2 * uSS);
-        sil = max(sil, abs(inside - step(0.0001, s.a)));
+        sil = max(sil, abs(inside - step(0.0001, at(dir * 2.2 * uSS).a)));
+        if (inside < 0.5) continue;
+        // a fold: the face turns sharply (the world normal jumps), whether lit or not
         vec4 t = at(dir * 1.1 * uSS);
-        if (inside > 0.5 && t.a > 0.0001) {
-          crease = max(crease, smoothstep(0.01, 0.025, abs(t.a - c.a)));
-          crease = max(crease, smoothstep(0.25, 0.45, length(t.rg - c.rg)));
+        if (t.a > 0.0001) fold = max(fold, smoothstep(uFold, uFold - 0.12, dot(unoct(t.rg), nc)));
+        // an overlap: the depth jumps. 1/depth is flat across a plane on screen, so its second difference is
+        // zero on every face and large only where one part passes in front of another
+        if (i < 6) {
+          vec4 p = at(dir * 1.3 * uSS), q = at(-dir * 1.3 * uSS);
+          if (p.a > 0.0001 && q.a > 0.0001) {
+            float w = 1.0 / c.a;
+            fold = max(fold, smoothstep(uJump, uJump * 2.2, abs(1.0 / p.a + 1.0 / q.a - 2.0 * w) / w));
+          }
         }
       }
-      // tone: the light on the face. Strokes run one way on faces turned up, another on those turned left or right,
-      // thicken as the face darkens and cross in the deep shade; the lit faces stay bare
+      // tone: the light on the face. Strokes run one way on faces turned up, another on those turned left or
+      // right; a fine stroke on the lit faces, thicker as the face darkens, crossed in the shade
       float tone = 1.0 - c.b;
-      vec2 n = c.rg * 2.0 - 1.0;
-      vec2 dir = n.y > 0.5 ? vec2(0.0, 1.0) : (n.x < 0.0 ? vec2(0.866, 0.5) : vec2(-0.866, 0.5));
+      vec2 dir = nc.y > 0.5 ? vec2(0.0, 1.0) : (nc.x < 0.0 ? vec2(0.866, 0.5) : vec2(-0.866, 0.5));
       vec2 cross_ = vec2(-dir.y, dir.x);
       vec2 p = gl_FragCoord.xy / uPeriod;
-      float h1 = stroke(dot(p, dir), uPeriod * clamp((tone - 0.18) * 0.75, 0.0, 0.5));
-      float h2 = stroke(dot(p, cross_) + 0.5, uPeriod * clamp((tone - 0.55) * 0.8, 0.0, 0.4));
-      float hatch = max(h1, h2) * inside;
-      float ink = max(max(sil, crease * 0.9) * uEdge, hatch);
+      float h1 = stroke(dot(p, dir), uPeriod * clamp(0.07 + (tone - 0.16) * 0.9, 0.07, 0.48));
+      float h2 = stroke(dot(p, cross_) + 0.5, uPeriod * clamp((tone - 0.5) * 1.0, 0.0, 0.4));
+      gl_FragColor = vec4(max(sil, fold * 0.9), max(h1, h2 * 0.95) * inside, 0.0, 1.0);
+    }`,
+};
+
+// The print: outlines with too little ink round them (specks from slivers of the model) are wiped off, the
+// hatching laid under, dark ink on white; `uMirror` flips it left to right.
+const PrintShader = {
+  uniforms: { tInk: { value: null }, uRes: { value: new THREE.Vector2() }, uSS: { value: 2 }, uMirror: { value: 0 } },
+  vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tInk; uniform vec2 uRes; uniform float uSS, uMirror;
+    varying vec2 vUv;
+    void main() {
+      vec2 uv = vec2(uMirror > 0.5 ? 1.0 - vUv.x : vUv.x, vUv.y);
+      vec4 c = texture2D(tInk, uv);
+      float cover = 0.0;
+      for (int y = -3; y <= 3; y++) for (int x = -3; x <= 3; x++) cover += step(0.5, texture2D(tInk, uv + vec2(float(x), float(y)) * 2.0 * uSS / uRes).r);
+      float ink = max(c.r * smoothstep(3.5, 7.0, cover), c.g);
       gl_FragColor = vec4(vec3(1.0 - ink), 1.0);
     }`,
 };
 
-async function lineArt(subject, renderer, { width, height, ss }) {
-  const s = LINE_SUBJECTS[subject];
+async function lineArt(subject, renderer, { width, height, ss, pose = null }) {
+  const s = { ...LINE_SUBJECTS[subject], ...(pose ?? {}) };
   const scene = new THREE.Scene();
   const model = new InstancedModel(modelDef(s.id), scene, { capacity: 1, castShadow: false });
   const hd = model.add();
@@ -631,44 +759,44 @@ async function lineArt(subject, renderer, { width, height, ss }) {
   const camera = new THREE.PerspectiveCamera(s.fov, width / height, 0.05, 20);
   camera.position.set(...s.cam);
   camera.lookAt(...s.look);
-  const near = 0.05, far = 6;
   const nd = new THREE.ShaderMaterial({ vertexShader: NormalDepthShader.vertexShader, fragmentShader: NormalDepthShader.fragmentShader, side: THREE.DoubleSide,
-    uniforms: { uLight: { value: new THREE.Vector3(-0.6, 0.75, 0.45) }, uNear: { value: near }, uFar: { value: far } } });
+    uniforms: { uLight: { value: new THREE.Vector3(s.mirror ? 0.55 : -0.55, 0.62, 0.56) } } });   // from the left once printed
   scene.overrideMaterial = nd;
   const W = width * ss, H = height * ss;
   const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType, samples: 0 });
-  renderer.setRenderTarget(rt);
-  renderer.setClearColor(0x000000, 0);
-  renderer.clear();
-  const tm = renderer.toneMapping;
+  const inkRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: 0 });
+  const tm = renderer.toneMapping, outputSpace = renderer.outputColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
-  // the alpha channel carries depth: write it for the model only
-  renderer.render(scene, camera);
-  renderer.setRenderTarget(null);
-  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ ...EngraveShader, uniforms: THREE.UniformsUtils.clone(EngraveShader.uniforms), depthTest: false, depthWrite: false }));
-  quad.material.uniforms.tND.value = rt.texture;
-  quad.material.uniforms.uRes.value.set(W, H);
-  quad.material.uniforms.uPeriod.value = 8 * ss;
-  quad.material.uniforms.uSS.value = ss;
-  const post = new THREE.Scene();
-  post.add(quad);
-  const outputSpace = renderer.outputColorSpace;
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-  renderer.render(post, new THREE.Camera());
+  renderer.setClearColor(0x000000, 0);
+  renderer.setRenderTarget(rt);
+  renderer.clear();
+  renderer.render(scene, camera);
+  const pass = (shader, target, uniforms) => {
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ ...shader, uniforms: THREE.UniformsUtils.clone(shader.uniforms), depthTest: false, depthWrite: false }));
+    Object.assign(quad.material.uniforms, Object.fromEntries(Object.entries(uniforms).map(([k, v]) => [k, { value: v }])));
+    const post = new THREE.Scene();
+    post.add(quad);
+    renderer.setRenderTarget(target);
+    renderer.render(post, new THREE.Camera());
+    quad.geometry.dispose(); quad.material.dispose();
+  };
+  pass(EngraveShader, inkRT, { tND: rt.texture, uRes: new THREE.Vector2(W, H), uPeriod: 8 * ss, uSS: ss });
+  pass(PrintShader, null, { tInk: inkRT.texture, uRes: new THREE.Vector2(W, H), uSS: ss, uMirror: s.mirror ? 1 : 0 });
+  renderer.setRenderTarget(null);
   renderer.outputColorSpace = outputSpace;
   renderer.toneMapping = tm;
   const out = downsample(renderer.domElement, width, height);
-  rt.dispose();
-  quad.geometry.dispose(); quad.material.dispose(); nd.dispose();
+  rt.dispose(); inkRT.dispose(); nd.dispose();
   model.dispose();
   return out;
 }
 
 /**
  * Renders one picture of RESULT_ART into a 2D canvas of width x height (supersampled `ss` times).
- * { name, width = 1920, height = 1080, ss = 2 }
+ * { name, width = 1920, height = 1080, ss = 2, pose }: `pose` overrides a line-art subject's pose and camera (previews).
  */
-export async function renderResultArt({ name, width = 1920, height = 1080, ss = 2 }) {
+export async function renderResultArt({ name, width = 1920, height = 1080, ss = 2, pose = null }) {
   const job = RESULT_ART[name];
   if (!job) throw new Error(`no such picture: ${name}`);
   const renderer = makeRenderer(width, height, ss);
@@ -676,7 +804,7 @@ export async function renderResultArt({ name, width = 1920, height = 1080, ss = 
     return await withSeed(name.length * 7919 + name.charCodeAt(0), () => {
       if (job.kind === 'victory') return victory(job.house, renderer, { width, height, ss });
       if (job.kind === 'defeat') return defeat(job.house, renderer, { width, height, ss });
-      return lineArt(job.subject, renderer, { width, height, ss });
+      return lineArt(job.subject, renderer, { width, height, ss, pose });
     });
   } finally {
     renderer.dispose();
