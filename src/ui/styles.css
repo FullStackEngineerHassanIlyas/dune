@@ -131,6 +131,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 .sel-hp i { position: absolute; left: 0; top: 0; bottom: 0; }
 .sel-hp span { position: absolute; inset: 0; font: bold 10px Consolas, monospace; line-height: 12px; text-align: center; color: #fff; text-shadow: 0 1px 1px #000; }
 .sel-details { font-size: 12px; color: #d8c29a; line-height: 1.35; }
+.sel-facts { max-width: 290px; margin-top: 3px; font-size: 12px; line-height: 1.35; color: #e6d6b2; }
+.sel-fact b { margin-right: 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #c9a063; }
+.sel-fact.good b { color: #8de486; }
+.sel-fact.bad b { color: #ff7d66; }
 .sel-buttons { display: grid; grid-template-columns: repeat(2, auto); gap: 4px; }
 .sel-buttons button { padding: 4px 10px; font: bold 12px "Trebuchet MS", sans-serif; color: #f5d48a; background: linear-gradient(#4a3520, #2a1d10); border: 1px solid #8e6843; border-radius: 2px; cursor: pointer; text-align: left; }
 .sel-buttons button:hover:not(:disabled) { border-color: #ffd24a; }
