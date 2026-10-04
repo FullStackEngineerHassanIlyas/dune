@@ -26,9 +26,11 @@ import { BackdropClock, DURATIONS, HOLD_AT, fadeAt, captionAt, soundLevelAt, HAZ
 import { SoundEngine } from '../audio/engine.js';
 import { FixedLoop } from '../core/loop.js';
 import { DT } from '../data/tuning.js';
+import { modelDef, unitModelId, structureModelId } from '../render/models/index.js';
 
 const SOUND_SHARE = 0.3;      // the battle behind the menu plays at this share of the Options volume
 const PRESIM_BUDGET_MS = 6;   // simulation run ahead per frame while the planet is on screen
+const FINISH_BUDGET_MS = 6;   // and the battle's models, programs and textures readied per frame after it (finishSlice)
 const FOCUS_RIGHT = 0.25;     // wide screens: the fight sits this share of the half-width right of centre, clear of the menu
 const ZOOM_FADE = 0.6;        // seconds the last frame before a seam stays on the overlay, zooming on as it fades
 const VEIL = { near: 32, far: 60 };   // camera distances (tiles) between which the dust veil lifts off the map's edges
@@ -36,6 +38,14 @@ const DUST = 0.8;             // how strongly the dust in the air shows, deep in
 const PLANET_SIDE = new Set(['planet', 'dive', 'emerge']);   // drawn in space; the battle and the rise draw the battle
 const CAPTION = 'The planet Arrakis, known as Dune.';
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** The models a battle's views draw its units and buildings with (render/models: built once a page, then shared). */
+function modelIds(world) {
+  const ids = new Set();
+  for (const u of world.units.values()) if (u.move !== 'worm') ids.add(unitModelId(u.typeId));
+  for (const s of world.structures.values()) { ids.add(structureModelId(s.typeId, s.w, s.h)); if (s.type.isWall) ids.add('wallArm'); }
+  return [...ids];
+}
 
 export class MenuBackdrop {
   constructor({ settings, seed = 1, hold = null }) {
@@ -247,7 +257,7 @@ export class MenuBackdrop {
       do { n.director.run(DT, (e) => n.stage.onEvent(e)); n.ticksLeft--; } while (n.ticksLeft > 0 && performance.now() < until);
       return;
     }
-    if (!n.ready) this.finish(n);
+    if (!n.ready) this.finishSlice(n);
   }
 
   build() {
@@ -263,12 +273,70 @@ export class MenuBackdrop {
   /**
    * Every view exists and every material is compiled for the composer's target (before the old battle's programs are
    * released), and one frame is drawn off screen from where the battle will open, so its textures are uploaded and the
-   * shadow map's programs linked now, not on the seam's frame; the old battle goes.
+   * shadow map's programs linked now, not on the seam's frame; the old battle goes. All at once (ensureReady); the
+   * planet's frames do it in slices (finishSlice).
    */
   finish(n) {
     n.stage.prime(performance.now());
     this.r3d.compile();
     this.r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
+    this.disposeRetired();
+    n.ready = true;
+  }
+
+  /**
+   * finish(), a slice a frame, so no frame stalls on it (the page's first battle has every model to build, every program
+   * to compile and every texture to upload: half a second at once, a freeze on the opening's planet when the player was
+   * quick at its gate): the models its units and buildings need, a few a frame, then its views; each object's programs
+   * compiled in the driver's own time (compileAsync, KHR_parallel_shader_compile) and waited for before the next new
+   * one; the off-screen frame drawn a part of the battle at a time, so each part's textures and shadow programs go up on
+   * a frame of their own, then whole. A later battle finds nearly all of it there and is done in a frame or two.
+   */
+  finishSlice(n) {
+    const f = (n.finishing ??= { step: 'models', list: null, compiling: false });
+    if (f.compiling) return;
+    const r3d = this.r3d, until = performance.now() + FINISH_BUDGET_MS;
+    if (f.step === 'models') {
+      f.list ??= modelIds(n.director.world);
+      while (f.list.length && performance.now() < until) modelDef(f.list.pop());
+      if (f.list.length) return;
+      n.stage.prime(performance.now());
+      f.step = 'compile';
+      f.list = [];
+      r3d.scene.traverse((o) => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) f.list.push(o); });
+      return;
+    }
+    if (f.step === 'compile') {
+      const r = r3d.renderer, previous = r.getRenderTarget();
+      r.setRenderTarget(r3d.composer.readBuffer);   // the variant the battle is drawn with (Renderer3D.compile)
+      try {
+        while (f.list.length && performance.now() < until) {
+          const programs = r.info.programs.length;
+          const ready = r.compileAsync(f.list.pop(), r3d.camera, r3d.scene);
+          if (r.info.programs.length === programs) continue;
+          f.compiling = true;   // a new program: the next object waits for it
+          ready.then(() => { f.compiling = false; });
+          break;
+        }
+      } finally { r.setRenderTarget(previous); }
+      if (f.list.length) return;
+      f.step = 'warm';
+      f.list = n.stage.root.children.filter((part) => part.visible);
+      return;
+    }
+    const parts = n.stage.root.children;
+    if (f.list.length) {
+      const shown = parts.map((part) => part.visible);
+      try {
+        do {
+          const part = f.list.pop();
+          for (const p of parts) p.visible = p === part;
+          r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
+        } while (f.list.length && performance.now() < until);
+      } finally { parts.forEach((p, i) => { p.visible = shown[i]; }); }
+      return;
+    }
+    r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
     this.disposeRetired();
     n.ready = true;
   }
