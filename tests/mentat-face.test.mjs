@@ -377,6 +377,11 @@ test('reduced motion: the mouth alone moves; brows, lids, corners and head keep 
   });
   assert.ok(mouthMoved > 60, 'the mouth speaks');
   assert.ok(still, 'nothing else moves');
+  // what does not move is out of the picture (a warp at rest would only repaint the painting), as are unseen shapes
+  for (const part of ['brow-left', 'brow-right', 'corner-left', 'corner-right', 'lid-left', 'lid-right']) {
+    assert.equal(stage.svg.querySelector(`.cpmf-${part}`).getAttribute('display'), 'none', part);
+  }
+  for (const v of VISEMES.slice(1)) assert.equal(sprite(stage, v).getAttribute('display'), face.pose[POSE.alpha + VISEMES.indexOf(v)] >= 0.5 / 255 ? 'inline' : 'none', v);
   assert.equal(stage.svg.querySelector('.cpm-blink').style.visibility, '', 'the CSS (still under reduced motion) keeps its lids');
 });
 
@@ -430,7 +435,7 @@ test('the frame loop allocates nothing: no heap growth over 10k frames, no eleme
   assert.ok(grew >= 0 && grew < 24 * 1024, `the young heap grew ${grew} bytes over 10k frames`);
   // the counting fake: nothing made, every value written one of the strings made at the start
   const doc = stage.doc, created = doc.created, sets = doc.sets;
-  const allowed = new Set(Object.values(tables()).flatMap((q) => q.s));
+  const allowed = new Set([...Object.values(tables()).flatMap((q) => q.s), 'inline', 'none']);
   let foreign = 0;
   doc.watch = (v) => { if (!allowed.has(v)) foreign++; };
   loop(10000);

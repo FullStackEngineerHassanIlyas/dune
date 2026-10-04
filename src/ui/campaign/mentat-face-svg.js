@@ -27,6 +27,7 @@ class Quant {
     this.min = min; this.inv = 1 / step;
     this.n = Math.round((max - min) / step) + 1;
     this.s = Array.from({ length: this.n }, (_, i) => text(fmt(min + i * step)));
+    this.zero = this.index(0);   // the index of "no change"
   }
 
   index(v) {
@@ -49,8 +50,33 @@ export function tables() {
   });
 }
 
+/**
+ * A vector sprite drawn once into a bitmap (in a browser): an SVG image, filters and all, would be drawn again every
+ * frame its transform changes (the jaw scales the mouth every frame). Resolves true once `img` shows the bitmap.
+ */
+function rasterize(img, src, box, perUnit, urls) {
+  if (typeof Image !== 'function' || typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return Promise.resolve(false);
+  if (!/^data:image\/svg\+xml|\.svg(\?|#|$)/.test(src)) return Promise.resolve(false);
+  const im = new Image();
+  im.src = src;
+  return im.decode().then(() => new Promise((resolve) => {
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(box[2] * perUnit); c.height = Math.ceil(box[3] * perUnit);
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    c.toBlob((b) => {
+      if (!b) { resolve(false); return; }
+      const u = URL.createObjectURL(b);
+      urls.push(u);
+      img.setAttribute('href', u);
+      resolve(true);
+    }, 'image/png');
+  })).catch(() => false);
+}
+
 // the write slots (one per attribute the frame may change)
 const W_HEAD_TY = 0, W_HEAD_ROT = 1, W_BROWS = 2, W_CORNERS = 8, W_JAW = 10, W_MOUTH = 11, W_LIDS = 15, W_ALPHA = 21, W_COUNT = 28;
+// the display slots: a part out of the picture while it would only repaint the painting (a warp at rest, a sprite at 0)
+const D_BROWS = 0, D_CORNERS = 2, D_JAW = 4, D_LIDS = 5, D_ALPHA = 7, D_COUNT = 14;
 
 /**
  * Builds the face into `svg` (the portrait's <svg>, as portraits.js makes it: a `.cpm-sway` group holding the head
@@ -115,7 +141,7 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
       inner = make('g', { transform: `translate(${fmt(-roll[0])} ${fmt(-roll[1])})` }, rot);
     }
     if (p.src) image(p.src, p.box, inner); else image(rig.head.src, rig.head.box, inner);
-    return { ty, tx, rot };
+    return { g, ty, tx, rot, warp: !p.src };
   };
 
   const brow = (side) => {
@@ -133,7 +159,9 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
   const mTy = make('g', {}, mAt), mSkew = make('g', {}, mTy), mSx = make('g', {}, mSkew), mSy = make('g', {}, mSx);
   const mBack = make('g', { transform: `translate(${fmt(-cx)} ${fmt(-hy)})` }, mSy);
   const names = visemes ?? ['rest', 'MBP', 'FV', 'A', 'E', 'O', 'L'];
-  const sprites = names.map((v) => (m.sprites[v] ? image(m.sprites[v], m.box, mBack, { opacity: 0, class: `cpmf-v-${v}` }) : null));
+  const sprites = names.map((v) => (m.sprites[v] ? image(m.sprites[v], m.box, mBack, { opacity: 0, display: 'none', class: `cpmf-v-${v}` }) : null));
+  const urls = [];
+  const ready = Promise.all(sprites.map((el, i) => (el ? rasterize(el, m.sprites[names[i]], m.box, m.raster ?? 5, urls) : false)));
 
   // the lids: the closed eyes, shown down to an edge that falls from the eye's top to the lids' foot
   const lid = (side) => {
@@ -143,7 +171,7 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
     const s1 = make('stop', { offset: 0, 'stop-color': '#000' }, grad);
     const mask = make('mask', { id, maskUnits: 'userSpaceOnUse', ...boxAttrs(e.box) }, defs);
     make('rect', { ...boxAttrs(e.box), fill: `url(#${id}-f)` }, mask);
-    const img = image(rig.lids.src, rig.lids.box, root, { mask: `url(#${id})`, opacity: 0, class: `cpmf-lid-${side}` });
+    const img = image(rig.lids.src, rig.lids.box, root, { mask: `url(#${id})`, opacity: 0, display: 'none', class: `cpmf-lid-${side}` });
     // [eye top, lids box foot, box y, box height]
     return { s0, s1, img, g: new Float64Array([e.open[0], e.box[1] + e.box[3], e.box[1], e.box[3]]) };
   };
@@ -153,6 +181,7 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
   // put(): the attribute `attr` of `el` to the table's string for arr[k], when it changed. Numbers are read from
   // arrays here, never passed as arguments: a call that is not inlined would box each one (an allocation a frame).
   const last = new Int32Array(W_COUNT).fill(-1);
+  const shown = new Int8Array(D_COUNT).fill(-1);
   const lidv = new Float64Array(3);
   let written = 0;
   const put = (slot, el, attr, q, arr, k) => {
@@ -160,6 +189,12 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
     i = i >= 0 ? (i < q.n ? i : q.n - 1) : 0;
     if (last[slot] !== i) { last[slot] = i; el.setAttribute(attr, q.s[i]); written++; }
   };
+  // display(): `el` in (on) or out of the picture, when that changed
+  const display = (slot, el, on) => {
+    const v = on ? 1 : 0;
+    if (shown[slot] !== v) { shown[slot] = v; el.setAttribute('display', on ? 'inline' : 'none'); written++; }
+  };
+  const moved1 = (slot, q) => last[slot] !== q.zero;
   const putLid = (slot, l, pose, k) => {
     const g = l.g, c = pose[k], kk = c < 0 ? 0 : c > 1 ? 1 : c;
     const edge = g[0] + kk * (g[1] - g[0]);
@@ -175,6 +210,8 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
   let active = false;
   return {
     root, defs, head, sprites,
+    /** Resolves once the vector sprites are bitmaps (in a browser; at once elsewhere). */
+    ready,
     /** Attribute writes made so far (a test's measure of a frame's work). */
     get written() { return written; },
     /** Shows the pose (only the attributes whose quantised value changed). */
@@ -192,14 +229,27 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
       if (corners) {
         put(W_CORNERS, corners[0].ty, 'transform', T.ty, pose, POSE.cornerLy);
         put(W_CORNERS + 1, corners[1].ty, 'transform', T.ty, pose, POSE.cornerRy);
+        display(D_CORNERS, corners[0].g, !corners[0].warp || moved1(W_CORNERS, T.ty));
+        display(D_CORNERS + 1, corners[1].g, !corners[1].warp || moved1(W_CORNERS + 1, T.ty));
       }
-      if (jaw) put(W_JAW, jaw.ty, 'transform', T.ty, pose, POSE.jawY);
+      if (brows) {
+        display(D_BROWS, brows[0].g, !brows[0].warp || moved1(W_BROWS, T.ty) || moved1(W_BROWS + 1, T.tx) || moved1(W_BROWS + 2, T.rot));
+        display(D_BROWS + 1, brows[1].g, !brows[1].warp || moved1(W_BROWS + 3, T.ty) || moved1(W_BROWS + 4, T.tx) || moved1(W_BROWS + 5, T.rot));
+      }
+      if (jaw) { put(W_JAW, jaw.ty, 'transform', T.ty, pose, POSE.jawY); display(D_JAW, jaw.g, !jaw.warp || moved1(W_JAW, T.ty)); }
       put(W_MOUTH, mTy, 'transform', T.ty, pose, POSE.mouthY);
       put(W_MOUTH + 1, mSkew, 'transform', T.skew, pose, POSE.mouthSkew);
       put(W_MOUTH + 2, mSx, 'transform', T.sx, pose, POSE.mouthSx);
       put(W_MOUTH + 3, mSy, 'transform', T.sy, pose, POSE.mouthSy);
-      if (lids) { putLid(W_LIDS, lids[0], pose, POSE.lidL); putLid(W_LIDS + 3, lids[1], pose, POSE.lidR); }
-      for (let i = 0; i < sprites.length; i++) if (sprites[i]) put(W_ALPHA + i, sprites[i], 'opacity', T.unit, pose, POSE.alpha + i);
+      if (lids) {
+        putLid(W_LIDS, lids[0], pose, POSE.lidL); putLid(W_LIDS + 3, lids[1], pose, POSE.lidR);
+        display(D_LIDS, lids[0].img, last[W_LIDS + 2] > 0); display(D_LIDS + 1, lids[1].img, last[W_LIDS + 5] > 0);
+      }
+      for (let i = 0; i < sprites.length; i++) {
+        if (!sprites[i]) continue;
+        put(W_ALPHA + i, sprites[i], 'opacity', T.unit, pose, POSE.alpha + i);
+        display(D_ALPHA + i, sprites[i], last[W_ALPHA + i] > 0);
+      }
     },
     /** On: the face shows over the painting and (ownBlinks) the portrait's own CSS blink is hidden for ours. Off: the painting alone. */
     setActive(on, ownBlinks = true) {
@@ -207,12 +257,13 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
       active = on;
       root.setAttribute('display', on ? 'inline' : 'none');
       if (blink?.style) blink.style.visibility = on && ownBlinks ? 'hidden' : '';
-      if (!on) last.fill(-1);
+      if (!on) { last.fill(-1); shown.fill(-1); }
     },
     get active() { return active; },
     /** Takes the face out and puts the portrait's head group back as it was. */
     restore() {
       if (blink?.style) blink.style.visibility = '';
+      for (const u of urls.splice(0)) URL.revokeObjectURL(u);
       for (const n of Array.from(content.childNodes)) if (n !== root) sway.insertBefore(n, head);
       head.parentNode?.removeChild(head);
       defs.parentNode?.removeChild(defs);
