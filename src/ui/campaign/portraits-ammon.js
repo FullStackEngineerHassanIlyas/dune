@@ -9,9 +9,9 @@ import { headGLSL, hairGLSL, faceColourGLSL, faceFeatures } from './portraits-he
 
 // world: centimetres, origin at the notch at the base of the throat
 const CAM = [0, 18, 172];
-const FRAME = frameOf({ cam: CAM, top: 34.5, height: 53 });
+const FRAME = frameOf({ cam: CAM, top: 33.8, height: 53 });
 const HEAD_R = pose({ yaw: 11, pitch: -3, roll: 2 });
-const HEAD_POS = [0.2, 18.2, -3.4];
+const HEAD_POS = [0.2, 17.4, -3.4];
 const HEAD_INV = transpose(HEAD_R);
 const toWorld = (q) => add(HEAD_POS, mvec(HEAD_R, q));
 const toHead = (p) => mvec(HEAD_INV, sub(p, HEAD_POS));
@@ -25,7 +25,7 @@ const PIVOT = project(FRAME, [0, 1.0, -1.5]).map((v) => Math.round(v));
 const PARAMS = {
   cranium: { c: [0, 2.7, -1.1], r: [7.0, 8.6, 9.5], side: 6.45 },
   forehead: { c: [0, 3.7, 3.3], r: [5.6, 5.4, 5.6] },
-  zygo: { c: [4.6, -0.8, 5.1], r: [1.75, 1.0, 2.0], k: 2.3, arch: [5.75, -0.8, 0.4] },
+  zygo: { c: [4.55, -0.8, 5.0], r: [1.7, 1.05, 2.0], k: 2.6, arch: [5.75, -0.8, 0.4] },
   maxilla: { c: [0, -4.8, 5.9], r: [3.2, 2.6, 3.4] },
   cheek: { c: [3.2, -4.4, 3.9], r: [2.1, 2.7, 2.5], k: 1.7 },
   lower: { c: [0, -7.3, 3.3], r: [4.1, 3.6, 5.2] },
@@ -40,18 +40,18 @@ const PARAMS = {
 };
 // his own forms: hollows under the cheekbones, a long philtrum, a crease of disdain at the mouth's corner
 const EXTRA = `
-    d += 0.13 * blob(s, vec3(3.7, -4.9, 5.0), vec3(1.7, 1.9, 1.5));
+    d += 0.08 * blob(s, vec3(3.7, -4.9, 5.0), vec3(1.7, 1.9, 1.5));
     d += 0.05 * smoothstep(5.0, 7.0, q.z) * groove(s.xy, vec2(2.35, -6.2), vec2(2.9, -7.4), 0.2);`;
 const HEAD = headGLSL(PARAMS, EXTRA);
 const HAIR = hairGLSL({
   line: [[0, 5.5], [0.17, 6.25], [0.45, 5.9], [0.66, 4.3], [0.95, 3.1], [1.22, 1.7], [1.38, -0.8], [1.5, -0.8], [1.6, 2.1], [1.95, 1.9], [2.2, -2.6], [3.1, -5.8]],
   thick: { side: 0.42, top: 0.7, front: 0.5, back: 0.35, edge: 0.18 },
-  locks: [22, 0.05], fine: [90, 0.022], lift: 0, wobble: 0.8,
+  locks: [30, 0.03], fine: [96, 0.02], lift: 0, wobble: 0.8,
   colours: { root: [0.025, 0.015, 0.008], body: [0.1, 0.058, 0.03], sheen: [0.36, 0.27, 0.18] },
 });
 const BROWS = { y: 2.0, arch: 0.62, thick: [0.42, 0.18], tilt: -0.05, colour: [0.04, 0.025, 0.015] };
 const FACE = faceColourGLSL({
-  skin: [0.58, 0.39, 0.28], flush: [0.62, 0.32, 0.25], lips: [0.48, 0.25, 0.22], iris: [[0.08, 0.14, 0.07], [0.32, 0.42, 0.22]],
+  skin: [0.6, 0.4, 0.29], flush: [0.64, 0.33, 0.25], lips: [0.48, 0.25, 0.22], iris: [[0.08, 0.14, 0.07], [0.32, 0.42, 0.22]],
   whites: [0.5, 0.47, 0.44], brows: BROWS, age: 0.35, stubble: 0.12,
   nose: PARAMS.nose, ear: PARAMS.ear, mouth: PARAMS.mouth, eye: PARAMS.eye,
 });
@@ -67,7 +67,7 @@ const HAND = (() => {
   out = norm(sub(out, mul(along, dot(out, along))));
   const side = norm(cross(along, out));
   const M = [[side[0], along[0], out[0]], [side[1], along[1], out[1]], [side[2], along[2], out[2]]];
-  return posedHand({ at: add(at, mul(out, 1.3)), M, size: 0.95, spread: 1.0, mirror: true,
+  return posedHand({ at: add(at, mul(out, 1.3)), M, size: 0.95, spread: -1.0, mirror: true,
     curls: [[8, 12, 8], [6, 10, 8], [8, 12, 8], [12, 14, 10]], thumb: { out: 14, down: 18, curl: [8, 10] } });
 })();
 const WRIST = add(HAND.palm.c, mvec(HAND.palm.M, [0, -10.0, -0.6]));
@@ -84,7 +84,7 @@ ${handGLSL('handR', HAND)}
 
 // ---- light: the ice hall's cold light from above on his right, a faint warm lamp far on the left, pale teal behind ----
 const vec3 KEY_DIR = vec3(0.6, 0.62, 0.5);
-const vec3 KEY_COL = vec3(1.4, 1.48, 1.58);
+const vec3 KEY_COL = vec3(1.5, 1.5, 1.55);
 const float KEY_SOFT = 3.0;
 const vec3 FILL_DIR = vec3(-0.85, 0.05, 0.5);
 const vec3 FILL_COL = vec3(0.1, 0.075, 0.05);
@@ -181,15 +181,16 @@ vec2 mapBody(vec3 p) {
 vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
   surf = vec4(0.55, 0.25, 0.0, 0.0);
   vec3 q = HEAD_INV * (p - HEAD_POS);
-  if (mat < 1.5) { surf = vec4(0.5, 0.32, 1.0, 0.0); return skinAlbedo(q); }
+  if (mat < 1.5) { surf = vec4(0.55, 0.22, 1.0, 0.0); return skinAlbedo(q); }
   if (mat < 2.5) return eyeAlbedo(q, surf);
   if (mat < 3.5) { surf = vec4(0.22, 0.85, 0.0, 0.0); return hairColour(q); }
-  float weave = 0.9 + 0.2 * vnoise(p * vec3(9.0, 3.0, 9.0));
-  if (mat < 20.5) { surf = vec4(0.55, 0.28, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
-  if (mat < 21.5) { surf = vec4(0.5, 0.3, 0.0, 0.0); return vec3(0.03, 0.15, 0.15) * weave; }
-  if (mat < 22.5) { surf = vec4(0.42, 0.4, 0.0, 0.0); return vec3(0.04, 0.2, 0.19) * weave; }
-  if (mat < 23.5) { surf = vec4(0.55, 0.28, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
-  if (mat < 25.5) { surf = vec4(0.5, 0.32, 1.0, 0.0); return vec3(0.56, 0.39, 0.31) * (0.94 + 0.12 * fbm(p * 2.0)); }
+  // the cloth: a fine weave, and the dye a little uneven over larger patches
+  float weave = 0.9 + 0.12 * vnoise(p * vec3(9.0, 3.0, 9.0)) + 0.22 * (vnoise(p * vec3(0.6, 0.25, 0.6)) - 0.5);
+  if (mat < 20.5) { surf = vec4(0.84, 0.08, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
+  if (mat < 21.5) { surf = vec4(0.7, 0.14, 0.0, 0.0); return vec3(0.025, 0.12, 0.12) * weave; }
+  if (mat < 22.5) { surf = vec4(0.62, 0.2, 0.0, 0.0); return vec3(0.035, 0.17, 0.16) * weave; }
+  if (mat < 23.5) { surf = vec4(0.84, 0.08, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
+  if (mat < 25.5) { surf = vec4(0.55, 0.22, 1.0, 0.0); return vec3(0.58, 0.39, 0.29) * (0.94 + 0.12 * fbm(p * 2.0)); }
   if (mat < 26.5) { surf = vec4(0.25, 1.0, 0.0, 1.0); return vec3(0.82, 0.68, 0.4); }
   surf = vec4(0.06, 1.2, 0.0, 0.0);
   return vec3(0.03, 0.4, 0.16);

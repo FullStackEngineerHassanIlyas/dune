@@ -19,6 +19,7 @@ import { openPage } from '../../../scripts/cdp.mjs';
 import { MENTATS } from '../../../src/ui/campaign/portraits-mentats.js';
 import { chamber } from '../../../src/ui/campaign/portraits-chambers.js';
 import { fragmentShader, VERTEX_SHADER, VIEW_W, VIEW_H, LAYERS } from '../../../src/ui/campaign/portraits-sdf.js';
+import { FINISH } from '../../../src/ui/campaign/portraits-finish.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
@@ -79,10 +80,51 @@ window.renderPass = async ({ frag, vert, w, h, frame, cam, pass, closed = 0 }) =
   return cv;
 };
 const shrink = (src, w, h) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const c = cv.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(src, 0, 0, w, h); return cv; };
+/** The painter's finish (portraits-finish.js): an anisotropic Kuwahara filter, on the GPU, in place. */
 const finish = (cv, paint) => {
   if (!paint) return cv;
-  const c = cv.getContext('2d', { willReadFrequently: true }), d = c.getImageData(0, 0, cv.width, cv.height);
-  c.putImageData(new ImageData(painterly(d.data, cv.width, cv.height, paint.r, paint.mix), cv.width, cv.height), 0, 0);
+  gl.getExtension('EXT_color_buffer_float');
+  const w = cv.width, h = cv.height;
+  const tex = (fmt, data) => {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (data) { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, data); }
+    else gl.texStorage2D(gl.TEXTURE_2D, 1, fmt, w, h);
+    return t;
+  };
+  const fbs = [];
+  const run = (frag, inputs, out, uni = {}, read = false) => {
+    const p = program(frag, FINISH_VERT);
+    gl.useProgram(p);
+    const fb = gl.createFramebuffer(); fbs.push(fb);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, out, 0);
+    Object.entries(inputs).forEach(([name, t], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(gl.getUniformLocation(p, name), i); });
+    for (const [name, v] of Object.entries(uni)) {
+      const loc = gl.getUniformLocation(p, name);
+      if (Array.isArray(v)) gl.uniform2i(loc, v[0], v[1]); else gl.uniform1f(loc, v);
+    }
+    gl.viewport(0, 0, w, h);
+    gl.enable(gl.SCISSOR_TEST);
+    const T = 256, px = read ? new Uint8Array(w * h * 4) : null, tile = read ? new Uint8Array(T * T * 4) : null;
+    for (let y = 0; y < h; y += T) for (let x = 0; x < w; x += T) {
+      const tw = Math.min(T, w - x), th = Math.min(T, h - y);
+      gl.scissor(x, y, tw, th); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (read) { gl.readPixels(x, y, tw, th, gl.RGBA, gl.UNSIGNED_BYTE, tile); for (let r = 0; r < th; r++) px.set(tile.subarray(r * tw * 4, (r + 1) * tw * 4), ((y + r) * w + x) * 4); }
+    }
+    gl.disable(gl.SCISSOR_TEST);
+    return px;
+  };
+  const src = tex(0, cv), sst = tex(gl.RGBA16F), tmp = tex(gl.RGBA16F), sst2 = tex(gl.RGBA16F), out = tex(gl.RGBA8);
+  run(FINISH_SST, { uSrc: src }, sst);
+  run(FINISH_BLUR, { uSrc: sst }, tmp, { uDir: [1, 0], uSigma: paint.sigma });
+  run(FINISH_BLUR, { uSrc: tmp }, sst2, { uDir: [0, 1], uSigma: paint.sigma });
+  const px = run(FINISH_AKF, { uSrc: src, uTensor: sst2 }, out, { uRadius: paint.radius, uQ: paint.q, uAlpha: paint.alpha }, true);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  fbs.forEach((f) => gl.deleteFramebuffer(f)); [src, sst, tmp, sst2, out].forEach((t) => gl.deleteTexture(t));
+  const err = gl.getError();
+  if (err) throw new Error('GL error in the finish ' + err);
+  cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(px.buffer), w, h), 0, 0);
   return cv;
 };
 /** The body melts into the stage toward the frame's sides and bottom edge (no hard cut where the frame ends). */
@@ -179,7 +221,7 @@ window.bakeMentat = async (job) => {
   return out;
 };`;
 
-const finishSrc = (await readFile(path.join(root, 'src/ui/campaign/portraits-finish.js'), 'utf8')).replace(/^export /gm, '');
+const finishSrc = (await readFile(path.join(root, 'src/ui/campaign/portraits-finish.js'), 'utf8')).replace(/^export const (\w+)/gm, 'window.$1');
 const only = args.only ? [args.only] : Object.keys(MENTATS);
 const preview = args.preview ? path.resolve(args.preview) : null;
 const scale = preview ? Number(args.scale || 1.6) : SCALE;
@@ -201,7 +243,7 @@ async function gpuChrome() {
 const chrome = await gpuChrome();
 try {
   const page = await openPage(chrome, 'about:blank');
-  await page.eval(`${finishSrc}\nwindow.painterly = painterly;`);
+  await page.eval(finishSrc);
   await page.eval(PAGE);
   if (preview) await mkdir(preview, { recursive: true });
   const boxes = {}, seams = {};
@@ -210,7 +252,7 @@ try {
     const job = {
       frag: fragmentShader(m.scene).replace('out vec4 fragColor;', `out vec4 fragColor;\n${[...(args.defines || '').split(',').filter(Boolean), ...(args.turn ? [`TURN ${(Number(args.turn) * Math.PI / 180).toFixed(4)}`] : [])].map((d) => `#define ${d}`).join('\n')}`), vert: VERTEX_SHADER, frame: m.frame, eyeBoxes: [m.features.eyeL, m.features.eyeR], neckId: 25,
       scale, sup: args.sup ? Number(args.sup) : SUPER, backScale: preview ? scale : BACK_SCALE, preview: !!preview, quality: QUALITY,
-      paint: args.raw ? null : { r: Math.max(1, Math.round(2.2 * scale)), mix: 0.8 }, back: chamber(house), crop, passes: args.passes ? args.passes.split(',') : null,
+      paint: args.raw ? null : { ...FINISH, radius: FINISH.radius * (scale / SCALE) * (Number(args.stroke) || 1) }, back: chamber(house), crop, passes: args.passes ? args.passes.split(',') : null,
     };
     const r = await page.eval(`window.bakeMentat(${JSON.stringify(job)})`);
     if (preview) {

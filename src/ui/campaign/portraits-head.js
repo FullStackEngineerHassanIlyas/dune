@@ -97,7 +97,7 @@ float noseShape(vec3 q, vec3 s) {
   nz = smin(nz, tp, 0.9);
   // the wings, set apart from the cheek by their crease, swelling back from the tip
   float ala = sdEllipsoid(s - ${g3(nose.ala)}, ${g3(nose.alaR)});
-  nz = smin(nz, ala, 0.55);
+  nz = smin(nz, ala, 0.7);
   // the columella under the tip, down into the lip
   nz = smin(nz, sdCapsule(q, ${g3([0, tip[1] - 0.55, tip[2] - 0.75])}, ${g3([0, tip[1] - 1.0, tip[2] - 1.75])}, 0.28), 0.4);
   // the nostrils, opening downward
@@ -235,7 +235,11 @@ vec3 skinAlbedo(vec3 q) {
   vec3 s = vec3(abs(q.x), q.y, q.z);
   vec3 c = ${g3(skin)};
   vec3 fl = ${g3(flush)};
-  c = zone(c, fl, 0.5 * blob(s, vec3(4.0, -2.8, 7.0), vec3(2.6, 2.2, 2.4)));
+  // a painter's skin: a warmer, yellower forehead, red in the cheeks, nose and ears, cool round the mouth and jaw,
+  // a violet shadow in the sockets
+  c = zone(c, c * vec3(1.06, 1.02, 0.86), 0.6 * blob(q, vec3(0.0, 4.0, 7.0), vec3(5.0, 2.6, 3.0)));
+  c = zone(c, fl, 0.62 * blob(s, vec3(4.0, -2.8, 7.0), vec3(2.6, 2.2, 2.4)));
+  c = zone(c, c * vec3(0.86, 0.8, 0.95), 0.4 * blob(s, ${g3([eye.c[0] - 0.4, eye.c[1] + 0.5, eye.c[2] + 0.6])}, vec3(1.8, 1.0, 1.0)));
   c = zone(c, fl, 0.5 * blob(q, ${g3([0, nose.tip[1], nose.tip[2] - 0.2])}, vec3(1.6, 1.4, 1.4)));
   c = zone(c, fl * 0.95, 0.6 * blob(s, ${g3(ear.c)}, vec3(1.4, 3.4, 2.3)));
   // the thin skin under the eyes, a little cooler; the jaw and chin, a little greyer

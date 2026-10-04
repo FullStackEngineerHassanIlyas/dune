@@ -9,9 +9,10 @@ mood only; nothing is traced or copied (CLAUDE.md lessons: our own art, facts on
 
 - **Before**: `portraits.js` drew each Mentat as ~40 flat SVG shapes (one gradient per part, outlined
   features, a cartoon look).
-- **After**: each Mentat is a painting with real form, shown as four baked WebP layers stacked in the same
-  SVG frame the briefing already sizes (`viewBox 0 0 400 500`, `preserveAspectRatio xMidYMax meet`, class
-  `cp-mentat-art`; `mentatSvg(house)` keeps its name and contract, so `stage.js`/`index.js` are untouched):
+- **After**: each Mentat is a 3D figure of our own (since Review fixes; first a 2.5D painting), shown as four
+  baked WebP layers stacked in the frame the briefing already sizes (400 x 500, fitted whole and standing on
+  the bottom edge, class `cp-mentat-art`; first an SVG, now HTML images in a container-query frame;
+  `mentatSvg(house)` keeps its name and contract, so `stage.js`/`index.js` are untouched):
   - `<house>-back.webp` — the house's chamber behind him, soft-focus, fading out at the sides and top:
     Caladan (a stone hall, an arched window on a blue-green sea, a warm lamp), Giedi Prime (a foundry hall,
     a furnace grate, iron pillars, embers), the Ordos (an ice hall, frosted pillars, a cold light, snow).
@@ -30,7 +31,7 @@ mood only; nothing is traced or copied (CLAUDE.md lessons: our own art, facts on
   stone, a ringed hand laid on his chest. One light rig for all three (warm or cold key light from the upper
   left, as the Sega screens; the chamber's light as a rim from behind on his right), so they read as a set.
 
-## How the paintings are made (and why)
+## How the paintings were first made (round 1–3; replaced, see Review fixes)
 
 Hand-placed soft shading (round 1–2) topped out at "airbrushed vector": the faces had no believable form.
 So each Mentat is now built the way a 2.5D game artist works:
@@ -101,8 +102,9 @@ grey sculpt renders `art-portraits/clay-*.png`.
 ## Measured
 
 - Files: 12 WebP, about 370 KB together (largest 60 KB; every one under 300 KB).
-- The idle motion costs nothing measurable: on the briefing (WebGL map running) the average frame was
-  17.2 ms with it and 19.4 ms with every portrait animation switched off (noise; p95 16.8 ms, 60 fps).
+- (Corrected in Review fixes: the SVG idle motion was not free. It forced about 60 style recalculations and
+  layouts a second and repainted the four images every frame. The layers are now HTML images moved by
+  transform and opacity only.)
 - The blink, breath and turn run (their transforms change between samples); the four images load (non-zero
   boxes); no console errors on any screen shot.
 
@@ -116,20 +118,79 @@ grey sculpt renders `art-portraits/clay-*.png`.
 
 ## How to test
 
-- `node --test tests/portraits.test.mjs` — the frame contract, the four layers per house (files exist,
-  each < 300 KB, all < 2 MB, boxes inside the frame, lids on the head), the idle classes and the
-  reduced-motion rule, the paintings deterministic and well formed (unique ids, no NaN), the light (a dome lit
-  from the upper left, its cast shadow), the outline fill and the painter's finish.
-- Bake again after changing a painting:
-  `flock /tmp/dune-heavy.lock flock /tmp/dune-chrome.lock node assets/campaign/portraits/bake.mjs`
-  (`--preview <dir>` writes composed PNGs instead; `--only <house>` bakes one).
+- `node --test tests/portraits.test.mjs`: the frame contract (fills its box, 400 x 500 frame fitted whole and
+  standing on the bottom edge), the four layers per house (files exist, each < 300 KB, all < 2 MB, boxes in the
+  frame, lids on the head), the face map (mouth, brows, eyes on the head and in order, the blink covering both
+  eyes), compositor-only keyframes (transform and opacity, literal values) and the reduced-motion rule, the
+  **neck seam**: the bake's decoded masks (hash-checked against the WebP files) show that the swaying head
+  hides the body's neck root at rest, at both turn extremes and at the top of the breath. Also the scenes
+  (every part present, deterministic), the camera, the hand rig and the finish passes.
+- Bake again after changing a figure (about 1.5 min on the iGPU):
+  `flock /tmp/dune-chrome.lock node assets/campaign/portraits/bake.mjs`
+  (`--preview <dir> [--only house] [--crop x,y,w,h --scale 6] [--defines CLAY,NO_HAIR]` writes PNGs instead).
 - Look: `?scene=menu&intro=0&screen=campaign-briefing&house=<atreides|harkonnen|ordos>&mission=1`.
 
 ## For the README
 
-> **Mentat portraits.** Cyril, Radnor and Ammon are our own paintings: each is drawn in layered SVG
-> (colour), modelled as a height field (form) and lit like a sculpture (key light, cast shadows, skin
-> scattering, rim light), then finished with a painterly filter and baked to WebP layers by
+> **Mentat portraits.** Cyril, Radnor and Ammon are our own 3D figures, sculpted in signed distance fields
+> (skull, jaw, nose, lips, ears, hair on the skull, hands posed joint by joint) and raymarched on the GPU at
+> bake time with a dramatic key light, soft shadows, skin scattering, a rim light and ambient occlusion, then
+> given a painterly finish (an anisotropic Kuwahara filter) and baked to WebP layers by
 > `assets/campaign/portraits/bake.mjs`. On the briefing he breathes, turns his head a little and blinks
-> (still under reduced motion), before his house's chamber: Caladan's sea window, the Harkonnen foundry,
-> the Ordos ice hall.
+> (compositor-only; still under reduced motion), before his house's chamber: Caladan's sea window, the
+> Harkonnen foundry, the Ordos ice hall.
+
+## Review fixes
+
+The review (7 findings) said the faces read as CG masks with Cyril and Ammon sharing one face, Radnor's neck
+showed a box seam, the hands and bodies were off-model, the idle motion was not free, the portrait read as a
+rectangular card, the closed lids looked pasted on, and the tests guarded structure only. The 2.5D relief
+(flat outlines inflated into a height field) could not fix the first three, so the figures were rebuilt in 3D.
+
+**Method.** `portraits-sdf.js` (GLSL kit, camera, hand rig, renderer) and `portraits-head.js` (a head blocked in
+like a sculptor's: cranium with flat temples, frontal bone, cheekbones and arches, upper and lower jaw, the soft
+cheek, sockets under the brow ridge, eyeballs with lids that close by turning a plane, a crease over each lid,
+nose with bridge, tip, wings, nostrils and its crease, lips round the teeth with the nasolabial fold, ears; hair
+as a shell on the skull with a hairline traced round the head, combed in ridges; the face's colour zones, brows
+hair by hair, lash lines, age lines, stubble). Each Mentat file sets his own numbers and forms; the bake
+raymarches body, head and closed-eyed head in GPU Chrome, then the anisotropic Kuwahara finish
+(`portraits-finish.js`, three GPU passes) turns smooth CG shading into strokes that follow the forms.
+
+| Finding | Fix |
+| --- | --- |
+| Radnor's box neck (important) | Necks are real columns with cords, in the head layer; the body keeps only a thinner stub inside it, hidden by the collar. A test decodes the baked masks and checks the head covers the stub at rest, at both turn extremes and at the top of the breath (≤ 0.1 % of stub pixels may show, 2 px edge slack). |
+| Masks; Cyril and Ammon one face (important) | Three different skulls and faces from one anatomy: **Cyril** a lean counsellor past his first youth, swept-back blond hair greying at the temples, blue eyes, nasolabial lines; **Radnor** a domed bald skull, heavy brow ridge with thick brows pulled down to the nose, deep-set hooded eyes, fleshy hooked nose, jowls, a smirk lifting one corner, head lowered and turned to the map, lit from below by the furnace; **Ammon** a narrow long face, aquiline nose, high flat cheekbones, slicked dark hair from a widow's peak, chin lifted, a thin half smile. Noses have bridge, wings and cast shadows; ears and turned jaws come from the geometry; irises are smaller under shadowing lids. Light: a hard key from the map side (soft shadows), a dim warm or cold fill, a rim from behind, a dark shadow side. |
+| Hands and bodies off-model (important) | Hands posed joint by joint (palm with tendons and knuckles, three bones per finger, thumb, wrist into a sleeve): Cyril's left hand over the book's cover, fingers together, thumb under; Radnor's fingers laced and opaque, forearms in wide sleeves; Ammon's right hand flat on his heart. Bodies have the trapezius slope, deltoids under the cloth, a chest, folds hanging from the shoulders; Radnor's collar is a low roll with lapels. |
+| Idle motion not free (minor) | `portraits.js` now stacks HTML `<img>` layers in a container-query frame (same contract: fills `.cp-mentat-art`, frame fitted whole, bottom-centred) and animates transform and opacity only, with literal keyframe values and `will-change`. Measured (review's `perf.mjs`, 1920x1080, map running): style recalcs only (≈60/s, 0.07–0.09 s per 4 s), no layout from the portrait, TaskDuration 0.34–0.67 s running vs 0.33–0.53 s paused, average frame 16.6–17.1 ms vs 16.7–16.9 ms. Reduced motion (emulated): 0 running animations, lids hidden. |
+| Rectangular card (minor) | The chamber fades radially into the stage (no bright pillar or window at the frame's edges) and the body fades out toward the sides and the bottom edge in the bake. |
+| Pasted lids (minor) | The closed eyes are the same head rendered with the lids down (same light, same finish), cut round each eye with a soft mask sized from the eye's box: crease and lash line, no halo. |
+| Tests structure only (minor) | Seam coverage test (above), the face map test, the compositor-only motion test, scene and rig tests. |
+
+**Rounds** (scratch shots `shots/art-portraits-f2…f7-*`): f2 first full bake (faces read, but plastic and the
+neck stub showed: seam test caught it, stub made thinner); f3 the anisotropic Kuwahara finish (strokes along the
+forms); f4 matte cloth with uneven dye, Cyril's gold piping, the collar's own material; f5–f6 painterly skin
+zones (yellow forehead, red cheeks, cool jaw, violet sockets), warm translucent cast shadows on skin, Radnor
+heavier brows and smirk, finer slick hair for Ammon; f7 Cyril aged a little (deeper folds, grey temples).
+Checked on the real GPU at 1920x1080 and 1366x768 for all three houses, a 420x860 window, the join and
+defeat stages, and the blink forced on with the head at its turn extreme: no console errors.
+
+**Where the face's moving parts sit** (for the agent animating mouth and expressions). The generated
+`src/ui/campaign/portraits-layers.js` has `features` per Mentat in frame units (400 x 500); here they are as
+pixel boxes `x, y, w, h` inside the baked layers (2.4 px per frame unit; left and right as seen). The eyes'
+boxes include both lids; the closed lids live in `<house>-lids.webp`.
+
+| Mentat (head layer) | Mouth (head px) | Brows L / R (head px) | Eyes L / R (head px) | Eyes L / R (lids px) |
+| --- | --- | --- | --- | --- |
+| Cyril (`atreides-head.webp`) | 158, 393, 121, 74 | 110, 215, 115, 51 / 250, 226, 89, 43 | 127, 250, 73, 57 / 260, 257, 72, 56 | 18, 19, 73, 57 / 151, 26, 72, 56 |
+| Radnor (`harkonnen-head.webp`) | 157, 445, 156, 84 | 117, 229, 136, 86 / 279, 249, 114, 68 | 134, 270, 87, 65 / 294, 282, 86, 65 | 19, 20, 87, 65 / 179, 32, 86, 65 |
+| Ammon (`ordos-head.webp`) | 155, 386, 121, 61 | 76, 191, 119, 45 / 224, 190, 101, 39 | 99, 228, 75, 57 / 241, 223, 74, 57 | 18, 24, 75, 57 / 160, 19, 74, 57 |
+
+The head layer is separable: it turns about `pivot` (frame units) and can take extra layers on top inside
+`.cpm-sway` (the lids already sit there). For new mouth shapes or brow poses the cleanest path is to bake
+them as further head variants: `headGLSL` takes `mouth.open`, `mouth.smirk`, `eye.up` (and the brows' `tilt`
+and `arch` in `faceColourGLSL`), and the bake's lids pass shows how a variant is cut out with a soft mask.
+
+**Not fixed / limits.** The faces are now three distinct, lit sculptures with a painted finish, but they still
+read as stylised 3D renders rather than hand-painted illustration; a further step would be hand-placed
+highlight and colour strokes on top of the bake. The finish and the raymarch run only at bake time (the game
+loads 348 KB of WebP).

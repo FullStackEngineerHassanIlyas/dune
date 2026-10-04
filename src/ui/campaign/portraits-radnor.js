@@ -23,24 +23,24 @@ const CORDS = [1, -1].map((k) => [toWorld([4.8 * k, -4.8, -2.8]), [1.4 * k, 0.4,
 const PIVOT = project(FRAME, [0, 1.0, -1.0]).map((v) => Math.round(v));
 
 const PARAMS = {
-  cranium: { c: [0, 2.9, -1.0], r: [7.65, 8.9, 9.7], side: 7.05 },
+  cranium: { c: [0, 2.6, -1.0], r: [7.65, 8.55, 9.7], side: 7.05 },
   forehead: { c: [0, 3.5, 3.4], r: [6.3, 5.7, 5.8] },
   zygo: { c: [5.0, -0.9, 5.0], r: [1.85, 1.3, 2.3] },
   maxilla: { c: [0, -4.8, 6.0], r: [3.9, 2.9, 3.6] },
-  cheek: { c: [3.9, -4.4, 4.7], r: [2.9, 3.3, 3.1], k: 2.3 },
+  cheek: { c: [3.8, -4.4, 4.6], r: [2.6, 3.0, 2.8], k: 2.0 },
   lower: { c: [0, -7.3, 3.6], r: [5.3, 3.9, 5.4] },
   jaw: { condyle: [5.4, -2.2, -0.9], gonion: [5.0, -7.7, -0.4], mental: [2.1, -9.9, 6.7], r: 1.2, k: 2.6 },
   chin: { c: [0, -9.75, 7.3], r: [2.3, 1.85, 1.6] },
-  eye: { c: EYE, r: 1.2, up: 0.2, dn: -0.36, tilt: -0.05, thick: 0.32, closedUp: -0.4, gaze: [gazeOf(EYE), gazeOf([-EYE[0], EYE[1], EYE[2]])] },
-  socket: { d: [0.1, 0.5, 1.25], r: [2.05, 1.45, 1.35], k: 1.0 },
-  brow: { a: [0.6, 1.5, 8.75], b: [5.0, 1.55, 6.9], r: 1.0, k: 1.5 },
-  nose: { radix: [0, 0.75, 8.35], tip: [0, -3.85, 11.1], bridge: [0.62, 0.86], tipR: [0.98, 0.9, 0.92], ala: [1.6, -4.15, 9.35], alaR: [0.82, 0.72, 0.98], width: 1.12, hump: 0.55 },
-  mouth: { c: [0, -6.7, 8.8], w: 2.65, upper: 0.42, lower: 0.64, bend: 0.22, smirk: 0.6, fold: 1.7 },
+  eye: { c: EYE, r: 1.2, up: 0.3, dn: -0.36, tilt: -0.05, thick: 0.32, closedUp: -0.4, gaze: [gazeOf(EYE), gazeOf([-EYE[0], EYE[1], EYE[2]])] },
+  socket: { d: [0.1, 0.5, 1.1], r: [2.05, 1.45, 1.5], k: 1.0 },
+  brow: { a: [0.6, 1.45, 8.85], b: [5.0, 1.55, 6.95], r: 1.12, k: 1.5 },
+  nose: { radix: [0, 0.75, 8.35], tip: [0, -3.85, 11.1], bridge: [0.62, 0.86], tipR: [0.98, 0.9, 0.92], ala: [1.5, -4.1, 9.3], alaR: [0.74, 0.64, 0.92], width: 1.12, hump: 0.4 },
+  mouth: { c: [0, -6.7, 8.8], w: 2.65, upper: 0.42, lower: 0.64, bend: 0.22, smirk: 0.85, fold: 1.7 },
   ear: { c: [7.35, -1.5, -1.4], h: 3.35, w: 1.85 },
 };
 // his own forms: jowls hanging over the jaw, the fat under the chin, the furrows between the brows
 const EXTRA = `
-    d = smin(d, sdEllipsoid(s - vec3(4.3, -8.3, 3.7), vec3(2.0, 2.3, 2.6)), 2.0);
+    d = smin(d, sdEllipsoid(s - vec3(4.3, -8.3, 3.7), vec3(1.8, 2.1, 2.3)), 2.0);
     d = smin(d, sdEllipsoid(q - vec3(0.0, -10.7, 4.4), vec3(4.3, 2.1, 3.7)), 2.4);
     d += 0.07 * smoothstep(5.0, 7.0, q.z) * groove(s.xy, vec2(0.42, 0.9), vec2(0.62, 2.9), 0.16);
     d -= 0.1 * blob(s, vec3(1.3, 2.2, 8.4), vec3(1.0, 0.6, 0.8));`;
@@ -48,7 +48,7 @@ const EXTRA = `
 const EXTRA_ALL = `
   d += 0.055 * sin(q.y * 5.2 + 0.4 * sin(q.x * 0.6)) * smoothstep(2.6, 3.6, q.y) * (1.0 - smoothstep(6.4, 7.6, q.y)) * smoothstep(5.0, 8.0, q.z) * (1.0 - smoothstep(3.5, 5.5, abs(q.x)));`;
 const HEAD = headGLSL(PARAMS, EXTRA, EXTRA_ALL);
-const BROWS = { y: 1.75, arch: 0.18, thick: [0.75, 0.42], tilt: 0.42, colour: [0.035, 0.025, 0.02] };
+const BROWS = { y: 1.75, arch: 0.18, thick: [0.92, 0.5], tilt: 0.48, colour: [0.03, 0.02, 0.016] };
 const FACE = faceColourGLSL({
   skin: [0.6, 0.43, 0.35], flush: [0.66, 0.3, 0.25], lips: [0.46, 0.22, 0.2], iris: [[0.12, 0.1, 0.05], [0.42, 0.34, 0.14]],
   whites: [0.48, 0.42, 0.34], brows: BROWS, age: 1, stubble: 0.35,
@@ -84,11 +84,11 @@ ${handGLSL('handL', HAND_L)}
 ${handGLSL('handR', HAND_R)}
 
 // ---- light: the furnace on his right, a little below; cold grey from above; red fire behind ----
-const vec3 KEY_DIR = vec3(0.7, -0.1, 0.7);
+const vec3 KEY_DIR = vec3(0.62, -0.26, 0.74);
 const vec3 KEY_COL = vec3(1.75, 0.9, 0.45);
 const float KEY_SOFT = 3.2;
-const vec3 FILL_DIR = vec3(-0.3, 0.85, 0.4);
-const vec3 FILL_COL = vec3(0.11, 0.115, 0.14);
+const vec3 FILL_DIR = vec3(-0.72, 0.35, 0.6);
+const vec3 FILL_COL = vec3(0.1, 0.105, 0.135);
 const vec3 RIM_DIR = vec3(-0.66, 0.2, -0.72);
 const vec3 RIM_COL = vec3(1.5, 0.36, 0.12);
 const vec3 SKY_COL = vec3(0.015, 0.014, 0.016);
@@ -178,20 +178,21 @@ vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
   surf = vec4(0.55, 0.25, 0.0, 0.0);
   vec3 q = HEAD_INV * (p - HEAD_POS);
   if (mat < 1.5) {
-    surf = vec4(0.45, 0.4, 1.0, 0.0);
+    surf = vec4(0.48, 0.3, 1.0, 0.0);
     vec3 c = skinAlbedo(q);
     // the scalp: age spots, a sheen
     c = mix(c, c * vec3(0.8, 0.68, 0.6), smoothstep(0.66, 0.8, vnoise(q * 1.1 + 3.0)) * smoothstep(5.0, 8.0, q.y) * 0.5);
     return c;
   }
   if (mat < 2.5) return eyeAlbedo(q, surf);
-  float weave = 0.9 + 0.2 * vnoise(p * vec3(9.0, 3.0, 9.0));
-  if (mat < 20.5) { surf = vec4(0.62, 0.22, 0.0, 0.0); return vec3(0.1, 0.03, 0.022) * weave; }
-  if (mat < 21.5) { surf = vec4(0.7, 0.15, 0.0, 0.0); return vec3(0.02, 0.016, 0.016) * weave; }
-  if (mat < 22.5) { surf = vec4(0.55, 0.3, 0.0, 0.0); return vec3(0.17, 0.05, 0.03) * (0.85 + 0.3 * vnoise(p * 2.0)); }
-  if (mat < 23.5) { surf = vec4(0.62, 0.22, 0.0, 0.0); return vec3(0.12, 0.037, 0.026) * weave; }
-  surf = vec4(0.45, 0.35, 1.0, 0.0);
-  return vec3(0.54, 0.37, 0.3) * (0.94 + 0.12 * fbm(p * 2.0));
+  // the cloth: a fine weave, and the dye a little uneven over larger patches
+  float weave = 0.9 + 0.12 * vnoise(p * vec3(9.0, 3.0, 9.0)) + 0.22 * (vnoise(p * vec3(0.6, 0.25, 0.6)) - 0.5);
+  if (mat < 20.5) { surf = vec4(0.86, 0.07, 0.0, 0.0); return vec3(0.085, 0.026, 0.02) * weave; }
+  if (mat < 21.5) { surf = vec4(0.88, 0.06, 0.0, 0.0); return vec3(0.02, 0.016, 0.016) * weave; }
+  if (mat < 22.5) { surf = vec4(0.78, 0.12, 0.0, 0.0); return vec3(0.11, 0.022, 0.018) * (0.85 + 0.3 * vnoise(p * 2.0)); }
+  if (mat < 23.5) { surf = vec4(0.86, 0.07, 0.0, 0.0); return vec3(0.085, 0.026, 0.02) * weave; }
+  surf = vec4(0.55, 0.22, 1.0, 0.0);
+  return vec3(0.5, 0.34, 0.28) * (0.94 + 0.12 * fbm(p * 2.0));
 }
 vec3 grade(vec3 c, vec3 p) { return c; }
 `;

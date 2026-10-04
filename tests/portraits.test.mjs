@@ -13,7 +13,7 @@ const { mentatSvg, mentatFiles, PACE, LAYERS } = await import('../src/ui/campaig
 const { PORTRAITS } = await import('../src/ui/campaign/portraits-layers.js');
 const { MENTATS } = await import('../src/ui/campaign/portraits-mentats.js');
 const { fragmentShader, frameOf, project, posedHand } = await import('../src/ui/campaign/portraits-sdf.js');
-const { painterly } = await import('../src/ui/campaign/portraits-finish.js');
+const { FINISH, FINISH_SST, FINISH_BLUR, FINISH_AKF } = await import('../src/ui/campaign/portraits-finish.js');
 
 const NAMES = { atreides: ['Cyril', 'Atreides'], harkonnen: ['Radnor', 'Harkonnen'], ordos: ['Ammon', 'Ordos'] };
 const DIR = new URL('../assets/campaign/portraits/', import.meta.url);
@@ -172,11 +172,11 @@ test('a posed hand has a palm, four fingers of three bones and a thumb, and curl
   for (const [a, b, ra, rb] of fist.bones) for (const v of [...a, ...b, ra, rb]) assert.ok(Number.isFinite(v));
 });
 
-test('the painter\'s finish breaks gradients into strokes but keeps a hard edge', () => {
-  const px = new Uint8ClampedArray(8 * 8 * 4);
-  for (let i = 0; i < 64; i++) { px[i * 4] = i % 8 < 4 ? 20 : 220; px[i * 4 + 3] = 255; }
-  const out = painterly(px, 8, 8, 2, 1);
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map((x) => out[(4 * 8 + x) * 4]), [20, 20, 20, 20, 220, 220, 220, 220]);
-  const clear = new Uint8ClampedArray(4 * 4 * 4);
-  assert.ok(painterly(clear, 4, 4, 2, 1).every((v) => v === 0), 'nothing where nothing was');
+test('the painter\'s finish: three GPU passes with the inputs the bake gives them', () => {
+  for (const [src, names] of [[FINISH_SST, ['uSrc']], [FINISH_BLUR, ['uSrc', 'uDir', 'uSigma']], [FINISH_AKF, ['uSrc', 'uTensor', 'uRadius', 'uQ', 'uAlpha']]]) {
+    assert.match(src, /^#version 300 es/);
+    for (const n of names) assert.match(src, new RegExp(`uniform [\\w ,]*\\b${n}\\b`), n);
+  }
+  assert.match(FINISH_AKF, /o = vec4\([^;]*self\.a\);/, 'the alpha stays as it was (the seams depend on it)');
+  assert.ok(FINISH.radius > 0 && FINISH.q > 0 && FINISH.alpha > 0 && FINISH.sigma > 0);
 });

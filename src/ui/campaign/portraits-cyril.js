@@ -28,18 +28,19 @@ const PIVOT = project(FRAME, [0, 1.0, -1.5]).map((v) => Math.round(v));
 const HAIR = hairGLSL({
   line: [[0, 6.6], [0.42, 6.0], [0.62, 4.6], [0.95, 3.0], [1.22, 1.6], [1.38, -1.2], [1.5, -1.2], [1.6, 2.2], [1.95, 2.0], [2.2, -2.6], [3.1, -5.6]],
   thick: { side: 0.55, top: 1.2, front: 1.35, back: 0.5, edge: 0.15 },
-  locks: [17, 0.2], fine: [64, 0.045], lift: 0, wobble: 1.3,
-  colours: { root: [0.2, 0.11, 0.035], body: [0.62, 0.43, 0.16], sheen: [0.88, 0.7, 0.36] },
+  locks: [21, 0.15], fine: [72, 0.04], lift: 0, wobble: 1.3,
+  colours: { root: [0.2, 0.12, 0.05], body: [0.6, 0.45, 0.22], sheen: [0.86, 0.74, 0.5] },
 });
 
 const BROWS = { y: 1.95, arch: 0.42, thick: [0.62, 0.3], colour: [0.15, 0.085, 0.035] };
 const FACE = faceColourGLSL({
   skin: [0.66, 0.43, 0.32], flush: [0.72, 0.34, 0.26], lips: [0.56, 0.25, 0.21], iris: [[0.08, 0.2, 0.46], [0.3, 0.52, 0.78]],
-  brows: BROWS, age: 0.6,
+  brows: BROWS, age: 1,
 });
 
 const HEAD = headGLSL({
   eye: { gaze: [gazeOf(EYE), gazeOf([-EYE[0], EYE[1], EYE[2]])] },
+  mouth: { fold: 1.35 },
 });
 
 // the hand that holds the book to his chest: his left, the back of it to us, fingers spread over the cover toward
@@ -54,7 +55,7 @@ const HAND = (() => {
   const out = bookN;
   const thumbSide = norm([along[1] * out[2] - along[2] * out[1], along[2] * out[0] - along[0] * out[2], along[0] * out[1] - along[1] * out[0]]);
   const M = [[thumbSide[0], along[0], out[0]], [thumbSide[1], along[1], out[1]], [thumbSide[2], along[2], out[2]]];
-  return posedHand({ at: coverAt(4.0, -7.2, 1.3), M, size: 0.98, spread: 0,
+  return posedHand({ at: coverAt(4.0, -7.2, 1.3), M, size: 0.98, spread: -1.2,
     curls: [[6, 10, 8], [4, 8, 8], [5, 9, 8], [9, 12, 10]], thumb: { out: 22, down: 26, curl: [10, 16] } });
 })();
 
@@ -169,7 +170,7 @@ vec2 mapBody(vec3 p) {
   if (stub < r.x) r = vec2(stub, 25.0);
   float inner;
   float col = collarShell(p, inner);
-  if (col < r.x) r = vec2(col, inner < 0.0 ? 28.0 : 20.0);
+  if (col < r.x) r = vec2(col, inner < 0.0 ? 28.0 : 30.0);
   // the pendant on its chain
   vec3 pd = p - vec3(0.4, -11.2, 6.4);
   float disc = sdRoundBox(pd, vec3(1.75, 1.75, 0.22), 0.2);
@@ -196,18 +197,35 @@ vec2 mapBody(vec3 p) {
 }
 
 // ---- colour ----
+// the gold piping along the cloak's opening and round the collar's edge
+float cloakTrim(vec3 p, bool collar) {
+  float openW = 4.0 + max(-p.y - 2.0, 0.0) * 0.32;
+  float e = abs(abs(p.x + 0.4 * sin(p.y * 0.2)) - openW) * step(p.y, -2.5);
+  vec3 c = p - vec3(0.0, 0.0, -5.4);
+  float ang = atan(c.x, -c.z);
+  float top = 13.0 - 6.0 * smoothstep(0.6, 2.4, abs(ang));
+  float rr = 8.3 + max(c.y + 1.0, 0.0) * 0.48;
+  float ce = min(top - c.y, (2.15 - abs(ang)) * rr) + (c.y < -3.5 ? 9.0 : 0.0);
+  return collar ? 1.0 - step(0.6, ce) : 1.0 - step(0.55, e + (p.y > -2.5 ? 9.0 : 0.0));
+}
 ${FACE}
 vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
   surf = vec4(0.55, 0.25, 0.0, 0.0);
-  if (mat < 1.5) { surf = vec4(0.5, 0.32, 1.0, 0.0); return skinAlbedo(HEAD_INV * (p - HEAD_POS)); }
+  if (mat < 1.5) { surf = vec4(0.55, 0.22, 1.0, 0.0); return skinAlbedo(HEAD_INV * (p - HEAD_POS)); }
   if (mat < 2.5) return eyeAlbedo(HEAD_INV * (p - HEAD_POS), surf);
   if (mat < 3.5) { surf = vec4(0.35, 0.55, 0.0, 0.0); vec3 hq = HEAD_INV * (p - HEAD_POS); return mix(hairColour(hq), vec3(0.5, 0.47, 0.42), 0.45 * smoothstep(4.6, 6.4, abs(hq.x)) * smoothstep(5.5, 1.0, hq.y)); }
-  float weave = 0.9 + 0.2 * vnoise(p * vec3(9.0, 3.0, 9.0));
-  if (mat < 20.5) { surf = vec4(0.62, 0.22, 0.0, 0.0); return vec3(0.02, 0.03, 0.095) * weave; }
-  if (mat < 21.5) { surf = vec4(0.7, 0.15, 0.0, 0.0); return vec3(0.03, 0.045, 0.12) * weave; }
+  // the cloth: a fine weave, and the dye a little uneven over larger patches
+  float weave = 0.9 + 0.12 * vnoise(p * vec3(9.0, 3.0, 9.0)) + 0.22 * (vnoise(p * vec3(0.6, 0.25, 0.6)) - 0.5);
+  if (mat < 20.5) {
+    surf = vec4(0.86, 0.07, 0.0, 0.0);
+    float tr = cloakTrim(p, false);
+    if (tr > 0.5) { surf = vec4(0.38, 0.85, 0.0, 1.0); return vec3(0.8, 0.58, 0.24) * (0.9 + 0.2 * vnoise(p * 6.0)); }
+    return vec3(0.02, 0.03, 0.095) * weave;
+  }
+  if (mat < 21.5) { surf = vec4(0.88, 0.06, 0.0, 0.0); return vec3(0.03, 0.045, 0.12) * weave; }
   if (mat < 22.5) { surf = vec4(0.28, 1.0, 0.0, 1.0); return vec3(0.85, 0.6, 0.24); }
   if (mat < 23.5) { surf = vec4(0.08, 1.2, 0.0, 0.0); return vec3(0.04, 0.16, 0.55); }
-  if (mat < 25.5) { surf = vec4(0.5, 0.3, 1.0, 0.0); return vec3(0.68, 0.42, 0.31) * (0.94 + 0.12 * fbm(p * 2.0)); }
+  if (mat < 25.5) { surf = vec4(0.55, 0.22, 1.0, 0.0); return vec3(0.64, 0.41, 0.31) * (0.94 + 0.12 * fbm(p * 2.0)); }
   if (mat < 26.5) {
     vec3 b = BOOK_INV * (p - BOOK_C);
     surf = vec4(0.45, 0.4, 0.0, 0.0);
@@ -218,8 +236,13 @@ vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
     return mix(leather, vec3(0.8, 0.56, 0.2), trim);
   }
   if (mat < 27.5) { surf = vec4(0.8, 0.05, 0.0, 0.0); return vec3(0.62, 0.55, 0.42) * (0.9 + 0.1 * sin(p.z * 60.0)); }
-  if (mat < 28.5) { surf = vec4(0.4, 0.45, 0.0, 0.0); return vec3(0.04, 0.065, 0.18) * weave; }
-  surf = vec4(0.62, 0.2, 0.0, 0.0);
+  if (mat < 28.5) { surf = vec4(0.7, 0.16, 0.0, 0.0); return vec3(0.035, 0.06, 0.17) * weave; }
+  if (mat > 29.5) {
+    surf = vec4(0.86, 0.07, 0.0, 0.0);
+    if (cloakTrim(p, true) > 0.5) { surf = vec4(0.38, 0.85, 0.0, 1.0); return vec3(0.8, 0.58, 0.24) * (0.9 + 0.2 * vnoise(p * 6.0)); }
+    return vec3(0.02, 0.03, 0.095) * weave;
+  }
+  surf = vec4(0.86, 0.07, 0.0, 0.0);
   return vec3(0.02, 0.03, 0.095) * weave;
 }
 vec3 grade(vec3 c, vec3 p) { return c; }
@@ -230,6 +253,6 @@ export const CYRIL = {
   /** The lids layer: where the closed eyes differ from the open ones (frame units). */
   eyes: [toWorld(EYE), toWorld([-EYE[0], EYE[1], EYE[2]])].map((p) => project(FRAME, p)),
   /** Where his mouth, brows and eyes fall in the frame (for animating them). */
-  features: faceFeatures({}, BROWS, (q) => project(FRAME, toWorld(q))),
+  features: faceFeatures({ mouth: { fold: 1.35 } }, BROWS, (q) => project(FRAME, toWorld(q))),
   scene: SCENE,
 };

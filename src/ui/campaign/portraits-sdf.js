@@ -72,7 +72,7 @@ export function posedHand({ at, M, size = 1, curls, spread = 6, thumb = { out: 4
   // knuckles: index (toward the thumb, +x) to little finger
   const knuckles = [[2.75, 9.2, 0.15], [0.92, 9.5, 0.25], [-0.92, 9.3, 0.15], [-2.7, 8.7, 0.0]];
   const lens = lengths ?? [[3.9, 2.3, 1.85], [4.3, 2.6, 1.95], [4.1, 2.5, 1.9], [3.2, 1.95, 1.7]];
-  const radii = [[0.9, 0.82, 0.72, 0.6], [0.94, 0.86, 0.76, 0.62], [0.9, 0.82, 0.72, 0.6], [0.8, 0.72, 0.64, 0.54]];
+  const radii = [[0.92, 0.86, 0.78, 0.68], [0.95, 0.9, 0.8, 0.7], [0.92, 0.86, 0.78, 0.68], [0.84, 0.78, 0.7, 0.6]];
   for (let k = 0; k < 4; k++) {
     const fan = (1.5 - k) * spread;
     let dir = [Math.sin((fan * Math.PI) / 180), Math.cos((fan * Math.PI) / 180), 0];
@@ -123,7 +123,7 @@ export function handGLSL(name, hand, { k = 0.5 } = {}) {
     // the tendons on the back of the hand, from the wrist fanning out to the knuckles
     ...[2.2, 0.75, -0.8, -2.3].map((x) => `  d = smin(d, sdCapsule(q, vec3(${f(x * 0.35)}, ${f(-palm.half[1] * 0.75)}, 0.78), vec3(${f(x)}, ${f(palm.half[1] * 0.8)}, 0.88), 0.15), 0.35);`),
     '  float fg = 1e5;',
-    ...bones.map(([a, b, ra, rb]) => `  fg = smin(fg, sdRoundCone(p, ${g3(a)}, ${g3(b)}, ${f(ra)}, ${f(rb)}), 0.25);`),
+    ...bones.map(([a, b, ra, rb]) => `  fg = smin(fg, sdRoundCone(p, ${g3(a)}, ${g3(b)}, ${f(ra)}, ${f(rb)}), 0.5);`),
     `  return smin(d, fg, ${f(k)});`, '}'];
   return lines.filter(Boolean).join('\n');
 }
@@ -280,7 +280,8 @@ vec3 lightIt(vec3 p, vec3 n, vec3 rd, vec3 alb, vec4 surf, float occ) {
   // under the skin), so the terminator turns warm gradually; the cast shadow's edge warms the same way
   vec3 wrap = vec3(0.04) + skin * vec3(0.45, 0.2, 0.13);
   vec3 dif = clamp((vec3(ndl) + wrap) / (1.0 + wrap), 0.0, 1.0);
-  vec3 shc = mix(vec3(sh), pow(vec3(sh), vec3(0.75, 1.0, 1.2)), skin);
+  // light bled through the skin keeps a cast shadow warm and never quite black
+  vec3 shc = mix(vec3(sh), 0.12 * vec3(1.0, 0.45, 0.3) + 0.88 * pow(vec3(sh), vec3(0.6, 0.95, 1.15)), skin);
   vec3 key = KEY_COL * dif * shc;
   vec3 F = normalize(FILL_DIR);
   float fdl = clamp(dot(n, F) * 0.5 + 0.5, 0.0, 1.0);
