@@ -224,7 +224,7 @@ function structureAbilities(id, t) {
   if (id === 'refinery') out.push('Comes with a free Harvester');
   if (id === 'repair') out.push(`Repairs a vehicle for ${pct(UNIT_REPAIR_COST)} of its price`);
   if (id === 'starport') out.push(`A Frigate brings orders in ${STARPORT.delivery} s; prices change every minute`);
-  if (t.isConcrete) out.push('Buildings on bare rock lose up to half their health');
+  if (t.isConcrete) out.push('Off concrete, a new building loses up to half its health');
   if (t.isWall) out.push('Units shoot walls only when ordered to');
   if (t.weapon) out.push('Half rate of fire on low power');
   if (t.unique) out.push('One per house');
