@@ -1,5 +1,5 @@
 // Web Audio sound engine (spec §6, §9): one AudioContext opened by the first click or key press (browser
-// autoplay rules), every synthesized effect and its variations turned into AudioBuffers once — rendered
+// autoplay rules) — or at once in the menu shell's frame, which may play — every synthesized effect and its variations turned into AudioBuffers once — rendered
 // ahead by a worker thread from the moment the engine exists (or in the main thread's idle time, or at
 // the first click, where there is no worker), so neither the frame rate nor the first click waits. A
 // sound whose samples have not arrived yet is skipped rather than waited for. play(id, {x, z})
@@ -92,7 +92,12 @@ export class VoiceLimiter {
 }
 
 export class SoundEngine {
-  constructor({ enabled = true, volume = 0.8, win = globalThis.window, random = Math.random, originals = storedEffects } = {}) {
+  /**
+   * early: open the context now, not at the first gesture — a battle in the menu shell's frame, which the player's
+   * gestures on the menu let play at once (allow="autoplay"), so a mission starts with its sound; where the browser
+   * still holds the context, the first gesture lets it run as usual.
+   */
+  constructor({ enabled = true, volume = 0.8, win = globalThis.window, random = Math.random, originals = storedEffects, early = false } = {}) {
     this.win = win ?? {};
     this.available = typeof (this.win.AudioContext ?? this.win.webkitAudioContext) === 'function';
     this.enabled = this.available;   // `enabled: false` only starts muted: M can still turn sound on
@@ -128,6 +133,7 @@ export class SoundEngine {
       this.win.addEventListener('pointerdown', this.onGesture);
       this.win.addEventListener('keydown', this.onGesture);
       this.renderAhead();
+      if (early) this.unlock();   // after renderAhead: a worker at work keeps the rendering off this thread
     }
   }
 

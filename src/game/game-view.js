@@ -64,7 +64,7 @@ export class GameView {
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
     this.rig.lookAt(focus.x, focus.z, true);
-    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
+    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume, early: inShell() });   // the shell's frame may play at once
     this.stage = new BattleStage({
       world, scene: r3d.scene, quality: r3d.quality, viewer: house, sound: this.sound, rig: this.rig,
       onShake: (amount) => { this.rig.shake = Math.max(this.rig.shake, amount); },
