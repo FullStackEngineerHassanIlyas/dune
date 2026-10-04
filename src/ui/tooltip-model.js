@@ -1,7 +1,7 @@
 // What a build icon's tooltip says (C&C 3 style): name and role; the price this house pays now and the build time at
 // the line's present speed (extra factories, low power); for structures power, storage, size and what they lead to;
 // for units hit points, speed, class, weapon, sight, the classes they beat and lose to (data/effectiveness.js,
-// worked out from the game's numbers) and their special abilities; for upgrades what the level opens; requirements
+// measured in real battles) and their special abilities; for upgrades what the level opens; requirements
 // still missing; Starport wares and the Palace weapon too. On the Sega ladder (campaign) its prices, levels and
 // unlocks (sim/tech.js). Pure: it reads the world and never changes it. Built only while the pointer rests on an icon;
 // what never changes for a type is worked out once and kept.

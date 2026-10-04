@@ -70,7 +70,7 @@ test('a unit: hit points, speed, class, sight, weapon, strong and weak, abilitie
   assert.deepEqual(t.stats.map((s) => [s.label, s.value]), [['Hit points', '200'], ['Class', 'Tracked'], ['Sight', '4 tiles'], ['Speed', '0.8 sand · 1.1 rock']]);
   assert.deepEqual([t.weapon.name, t.weapon.text], ['Cannon', '25 damage · range 4 · reload 2.0 s']);
   assert.deepEqual(t.weapon.tags, ['Always hits', 'Fires on the move']);
-  assert.ok(t.strong.includes('Infantry') && t.strong.includes('Tanks'), `${t.strong}`);
+  assert.ok(t.strong.includes('Infantry') && t.strong.includes('Light vehicles'), `${t.strong}`);   // as the battles came out (effectiveness.js)
   assert.ok(t.weak.includes('Aircraft'), `${t.weak}`);
   assert.ok(t.abilities.includes('Crushes infantry'));
   world.spawnStructure('heavyFactory', 'atreides', 30, 30);

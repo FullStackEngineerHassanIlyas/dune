@@ -48,6 +48,7 @@ export class Sidebar {
       const strip = { el: node, list: node.querySelector('.sb-list'), slots: node.querySelector('.sb-slots'), offset: 0, key: null, buttons: new Map() };
       this.strips[node.dataset.strip] = strip;
       for (const a of node.querySelectorAll('.sb-arrow')) a.addEventListener('click', () => this.scroll(strip, Number(a.dataset.dir)));
+      strip.slots.addEventListener('scroll', () => { if (strip.slots.scrollTop) strip.slots.scrollTop = 0; });   // the strip moves by its offset alone: focus must not scroll the box under it
       node.addEventListener('wheel', (e) => { e.preventDefault(); this.scroll(strip, Math.sign(e.deltaY)); }, { passive: false });
     }
     for (const b of el.querySelectorAll('.sb-tool')) b.addEventListener('click', () => this.onTool(b.dataset.tool));
@@ -81,11 +82,14 @@ export class Sidebar {
     this.tooltip.frame(model.power);   // prices, stock and clocks change under the pointer
   }
 
-  /** The pointer resting on an icon, or the keyboard reaching it, opens its tooltip. */
-  hoverable(b) {
+  /** The pointer resting on an icon, or the keyboard reaching it, opens its tooltip; a strip scrolls to a focused icon. */
+  hoverable(b, strip = null) {
     b.addEventListener('pointerenter', () => this.tooltip.hover(b));
     b.addEventListener('pointerleave', () => this.tooltip.leave(b));
-    b.addEventListener('focus', () => { if (b.matches(':focus-visible')) this.tooltip.hover(b, true); });
+    b.addEventListener('focus', () => {
+      if (strip) this.reveal(strip, b);
+      if (b.matches(':focus-visible')) this.tooltip.hover(b, true);
+    });
     b.addEventListener('blur', () => this.tooltip.leave(b));
   }
 
@@ -129,7 +133,7 @@ export class Sidebar {
     b.append(img, b.stateEl, b.countEl);
     b.addEventListener('click', (e) => this.leftClick(b.item, e.shiftKey));
     b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.onCommand(b.item.cancel ?? { type: 'hold', typeId: b.item.typeId }); });
-    this.hoverable(b);
+    this.hoverable(b, strip);
     strip.buttons.set(item.typeId, b);
     return b;
   }
@@ -154,11 +158,22 @@ export class Sidebar {
     if (this.weaponState.textContent !== label) this.weaponState.textContent = label;
   }
 
+  /** How many icons the strip shows at once. */
+  visible(strip) { return Math.max(1, Math.floor((strip.slots.clientHeight + 4) / SLOT)); }
+
   scroll(strip, dir) {
-    const visible = Math.max(1, Math.floor((strip.slots.clientHeight + 4) / SLOT));
-    const max = Math.max(0, strip.buttons.size - visible);
+    const max = Math.max(0, strip.buttons.size - this.visible(strip));
     strip.offset = Math.max(0, Math.min(max, strip.offset + dir));
+    strip.slots.scrollTop = 0;
     strip.list.style.transform = `translateY(${-strip.offset * SLOT}px)`;
     this.tooltip?.track();   // the icon under the card slides: the card follows
+  }
+
+  /** Scrolls the strip just far enough to show icon `b` (Tab reaching one out of view). */
+  reveal(strip, b) {
+    const i = [...strip.buttons.values()].indexOf(b), visible = this.visible(strip);
+    if (i < 0) return;
+    if (i < strip.offset) this.scroll(strip, i - strip.offset);
+    else if (i >= strip.offset + visible) this.scroll(strip, i - visible + 1 - strip.offset);
   }
 }
