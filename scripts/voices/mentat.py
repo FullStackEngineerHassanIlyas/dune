@@ -215,9 +215,11 @@ def align(ph, refs):
 # ——— the model, with its durations ———
 DURATIONS_NODE = '/encoder/Cast_output_0'   # the frames per token, after rounding and the clip at 1
 # Kokoro's sound runs ahead of its own frame counts: a sentence's first sound rises (-30 dB) 40-100 ms before the
-# frame its first phoneme is given, and a word after a comma 40-75 ms (scratch onset probe, six sentences, median
-# about 70 ms). Every phoneme's time is moved this much earlier, so the words and the mouth sit on the sound.
-AUDIO_LEAD = 0.07
+# frame its first phoneme is given, and a word after a comma 40-75 ms (a probe of six sentences, median about
+# 70 ms); with 70 ms taken off, the sentences of the first 31 clips still started a median 30 ms after their sound
+# (104 sentences, p90 64 ms). Every phoneme's time is moved 100 ms earlier: the words and the mouth sit on the
+# sound, a mouth a frame early rather than late (a face lagging its voice shows sooner than one leading it).
+AUDIO_LEAD = 0.1
 
 
 def durations_model(models):
@@ -306,17 +308,20 @@ def speak(voice, spec, lines):
                 trailing = words[wi][4].strip() if k == len(said) - 1 else ''
                 tokens.append((t, wi, over, trailing))
         audio, ph, _ = voice.sentence(spec, tokens)
-        a, b = speech_bounds(audio)
+        a, last = speech_bounds(audio)
         a = max(0, a - (lead_in if g == 0 else int(0.04 * RATE)))
-        b = min(len(audio), b + int(0.08 * RATE))
+        b = min(len(audio), last + int(0.08 * RATE))
         cut = audio[a:b].copy()
         n = min(len(cut) // 4, int(0.012 * RATE))
         cut[:n] *= np.linspace(0, 1, n)
         cut[-n:] *= np.linspace(1, 0, n)
         shift = at - a / RATE
+        # Kokoro holds a sentence's last phonemes past the sound (the last word ended a median 105 ms, at most 340
+        # ms, after it fell under -30 dB): nothing is said after the speech's last loud sample
+        said = at + (last - a) / RATE
         for c, o, t0, t1 in ph:
-            t0, t1 = max(t0 + shift, at), min(t1 + shift, at + len(cut) / RATE)
-            phones.append((c, tokens[o][1] if o is not None else None, t0, max(t0, t1)))
+            t0 = min(max(t0 + shift, at), said)
+            phones.append((c, tokens[o][1] if o is not None else None, t0, max(t0, min(t1 + shift, said))))
         spans.append((at, at + len(cut) / RATE, group[0], group[-1]))
         parts.append(cut)
         at += len(cut) / RATE
@@ -427,14 +432,15 @@ def envelope(x, hz=ENV_HZ):
 # ——— the expression of each sentence: the Mentat and the words ———
 CUES = {
     'angry': r"\b(kill\w*|crush\w*|burn\w*|weep|corpses?|punish\w*|vanish|fools?|obituary|waste|hates?|wipe|kneel|begged|dead|blood|"
-             r"bleed|trampled|failure|failed|pathetic|disappoint\w*|tear|smash\w*)\b",
+             r"bleed|trampled|failure|failed|pathetic|disappoint\w*|tear|smash\w*|leave nothing|nothing standing|no mercy|suffer\w*|breathing)\b",
     'warning': r"\b(beware|careful|watch\w*|danger\w*|worms?|hunt\w*|raid\w*|guard\w*|do not|never|keep (an eye|our|your)|"
-               r"will not leave|out of its|strike where|close|ambush\w*|sky)\b",
-    'pleased': r"\b(well done|excellent|fine victory|good work|impressed|proud|thank\w*|honour|satisfied|pleasure|enjoy\w*|"
-               r"remarkable|elegant|splendid|well|victory|full|ours)\b",
+               r"will not leave|out of its|strike where|close|ambush\w*|sky|mind the)\b",
+    'pleased': r"\b(well done|excellent|fine victory|good work|impressed|proud|thank\w*|satisfied|pleasure|enjoy\w*|"
+               r"remarkable|elegant|splendid|victory)\b",
     'sad': r"\b(not met|despair|disgrace|fault|lost|no joy|sorrow|regret|could not|fell|failed)\b",
     'sly': r"\b(profit\w*|prices?|buy|sell\w*|sold|deals?|share|cheap\w*|credits|contract\w*|quietly|undermine|rent|acquire\w*|"
-           r"insurance|business|bankrupt|toy|clever|fortune|spend\w*|bargain|investment|on sale|we keep him|written|interest\w*)\b",
+           r"insurance|business|bankrupt|toy|clever|fortune|spend\w*|bargain|investment|on sale|we keep him|written|interest\w*|"
+           r"bought|balance|ledgers?|margins?|accountants?|coin)\b",
     'grave': r"\b(emperor\w*|sardaukar|death hand|decree|treachery|trial|destroy|must fall|cannot share|war|both bases|the last|"
              r"palace|devastator\w*|everything)\b",
 }
@@ -556,6 +562,22 @@ def write_manifest(out, clips):
     os.replace(tmp, os.path.join(out, 'manifest.json'))
 
 
+def retag(out, clips):
+    """The expressions of every track on disk chosen again from its text (CUES, DEFAULT, ORDER), the timings kept."""
+    for clip in clips:
+        path = os.path.join(out, clip['id'] + '.json')
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            track = json.load(f)
+        words = display_words(clip['lines'])
+        for s in track['sentences']:
+            s[4] = expression(clip['house'], clip['kind'], ' '.join(words[i][3] + words[i][4].strip() for i in range(s[2], s[3] + 1)))
+        with open(path, 'w') as f:
+            json.dump(track, f, ensure_ascii=False, separators=(',', ':'))
+            f.write('\n')
+
+
 def candidate(spec, text):
     """'bm_george*0.7+am_michael*0.3:0.88:0.96' -> the spec with that voice, Kokoro speed and tape factor."""
     voice, speed, tape = (text.split(':') + ['', ''])[:3]
@@ -574,7 +596,11 @@ def main():
     ap.add_argument('--out', default=OUT)
     ap.add_argument('--audition', default='', help='render the clips in --voices into this directory instead')
     ap.add_argument('--voices', default='', help="candidates for --audition: 'blend:speed:tape', comma-separated")
+    ap.add_argument('--retag', action='store_true', help="only choose the sentences' expressions of the tracks on disk again (no model)")
     args = ap.parse_args()
+    if args.retag:
+        retag(args.out, [c for c in all_clips() if c['house'] in args.houses.split(',')])
+        return
     voice = Voice(args.models, int(os.environ.get('VOICE_THREADS', '2')))
     clips = all_clips()
     only = set(filter(None, args.only.split(',')))
