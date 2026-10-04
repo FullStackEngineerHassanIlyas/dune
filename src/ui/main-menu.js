@@ -91,7 +91,7 @@ export class MainMenu {
         controlsTable(this.settings.scheme), h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', onclick: back }, 'Back')));
     } else {
       body = h('div', { class: 'dm-panel page-credits' }, h('h2', {}, 'Credits'),
-        h('p', {}, 'Dune II 3D is a non-commercial fan remake. Every model, texture, sound and line of text in it is newly made.'),
+        h('p', {}, 'Dune II 3D is a non-commercial fan remake. Every model, texture, sound and line of text in it is newly made, apart from the Sega passwords and rank names.'),
         h('p', {}, 'Dune II: The Battle for Arrakis was made by Westwood Studios in 1992; its code, art and audio belong to Electronic Arts. This remake follows its Sega Mega Drive release, Dune: The Battle for Arrakis. The Dune name belongs to Herbert Properties.'),
         h('p', {}, 'Built with three.js. The announcer voices were rendered with the Kokoro-82M text-to-speech model (Apache-2.0).'),
         h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', onclick: back }, 'Back')));

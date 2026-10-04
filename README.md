@@ -4,7 +4,8 @@ A browser remaster of Westwood's 1992 RTS as released on the Sega Mega Drive, *D
 Arrakis*, built with Three.js and played with a Command & Conquer style mouse interface. The intro and the
 campaign follow the Sega release; the skirmish keeps the additions the original should have had (the PC
 game's House of IX, up to three opponents, modern controls). Every model, texture, sound, melody and line
-of text is made from scratch in code; no original game files are included.
+of text is made for it (apart from the Sega passwords, rank names and a few score-screen captions, kept so
+players' passwords and ranks read as they remember them); no original game files are included.
 
     npm install     # dev dependency only: three (Node tests + vendoring)
     npm start       # http://localhost:8080 — the main menu (PORT=8090 npm start if 8080 is taken)
@@ -40,8 +41,8 @@ allow sound after one), then stars drift past, our own credit lines show, Arraki
 and the camera stops on the planet, the Atreides, Harkonnen and Ordos ships fly in one by one and sink into it,
 and the title appears before the menu fades in over the same picture. The music's opening cue is started by
 that key and the pictures are timed to it. Any key or click skips to the title. It plays once per visit; turn
-it off in Options (Intro) or with `?intro=0`; `?intro=1` forces it (automated browsers skip it otherwise),
-`?introAt=<seconds>` holds it at a moment for screenshots. With reduced motion (or the background paused) a
+it off in Options (Intro) or with `?scene=menu&intro=0`; `?scene=menu&intro=1` forces it (automated browsers skip it
+otherwise), `?scene=menu&introAt=<seconds>` holds it at a moment for screenshots. With reduced motion (or the background paused) a
 short still version plays. The campaign's ending turns the planet into the victor's colour and rolls the
 credits: see it on its own with `?scene=ending&house=ordos` (`&at=<seconds>` to hold).
 

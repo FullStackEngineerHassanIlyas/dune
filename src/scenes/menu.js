@@ -109,11 +109,11 @@ export async function start({ search }) {
     frame = null;
     Object.assign(settings, loadSettings(params));   // what the battle's own options changed
     app.classList.add('in-menu');
-    // the campaign's results and defeat screens hold the backdrop still and hand it back themselves
-    if (screen !== 'campaign-results' && screen !== 'campaign-defeat') {
-      backdrop.setPaused?.(!settings.menuMotion);
-      backdrop.start();
-    }
+    // the campaign's results and defeat screens hold the backdrop still, but its GPU context must be back for
+    // what follows them (the ending draws the planet on it): start it paused there, a still frame and no loop
+    const hold = screen === 'campaign-results' || screen === 'campaign-defeat';
+    backdrop.setPaused?.(hold || !settings.menuMotion);
+    backdrop.start();
     music.enter();
     menu.show(screen);
     window.focus();

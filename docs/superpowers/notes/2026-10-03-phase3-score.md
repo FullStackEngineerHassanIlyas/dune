@@ -177,7 +177,7 @@ Nothing runs while the context is suspended, muted or at music volume 0 (unchang
 
 ## Files to audition (rendered at 48 kHz, scratch only, never committed)
 
-`/tmp/claude-1000/-home-hassan-games-Dune/4a2127ac-cad7-477b-b1e2-a8fc90205fa5/scratchpad/score/wav/`:
+Render them with `node src/audio/music/render-wav.mjs all full <dir>`:
 
 1. `opening-then-title.wav` — the boot as heard: the opening, the title following on its last sample (70 s).
    Listen for: does 0 s hit hard enough; does the rise feel like approaching a planet; do the drums at 16 s, the
