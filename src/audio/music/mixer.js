@@ -18,8 +18,34 @@ const HP_HZ = 40;          // the high-pass under the music
 const WARM_BLOCKS = 64;    // blocks of 128 a VGM player is run through before its first real track (about 0.17 s of audio)
 // The player's Sega tracks against this game's FM tracks: from vgm-deck.js at its native scale the rip measures
 // -34 to -37 dB RMS (peaks 0.05-0.15) where ours sit at -19 to -21 dB; +14 dB brings them alongside, below the
-// ceiling's knee, and keeps the original's own balance between its tracks (one gain for all of them).
+// ceiling's knee. Its own balance left some far under the FM tracks they replace (Radnor's Scheme 7 dB, Chosen
+// Destiny 5.6 dB), so each Sega track also has a gain of its own (vgmLevel), sent with its data.
 export const VGM_GAIN = 5;
+export const VGM_LOUDNESS = -19;   // LUFS each Sega track is brought to (the FM tracks sit at about -18)
+/**
+ * The Sega rip's tracks by their Music Test names (sega-tracks.js) as measured through vgm-deck.js at VGM_GAIN,
+ * 48 kHz, over their first pass (at most 150 s): [integrated EBU R128 loudness in LUFS, sample peak]. A rip is the
+ * game's own register writes, so any rip of these tracks measures the same.
+ */
+export const SEGA_LEVELS = {
+  'Opening': [-21.1, 0.593], 'Cyril\'s Council': [-19.9, 0.536], 'Ammon\'s Advice': [-20.7, 0.489], 'Radnor\'s Scheme': [-25.3, 0.195],
+  'The Lego Tune': [-16.3, 1.286], 'Turbulence': [-20.1, 0.826], 'Spice Trip': [-17.3, 1.222], 'Command Post': [-18.9, 0.845],
+  'Trenching': [-18.2, 0.52], 'Starport': [-23.2, 0.421], 'Evasive Action': [-20.2, 0.45], 'Chosen Destiny': [-23.7, 0.616],
+  'Conquest': [-18.5, 0.408], 'Slitherin': [-19, 0.828], 'Harkonnen Rules': [-19.1, 0.492], 'Atreides Dirge': [-21.1, 0.308],
+  'Ordos Dirge': [-21.2, 0.3], 'Harkonnen Dirge': [-20.4, 0.518], 'Finale': [-19, 0.432], 'Credit Roll': [-17.3, 0.81],
+};
+
+/**
+ * The gain on top of VGM_GAIN that brings a Sega track (by title) to VGM_LOUDNESS, 1 for any other. A lift stops
+ * where the track's loudest sample would pass full scale: the ceiling rounds it by 0.4 dB at most (Chosen Destiny's
+ * one transient, in a single 10 ms of its minute; the loudest in-game tunes went 2 dB into it before).
+ */
+export function vgmLevel(title) {
+  const m = SEGA_LEVELS[title];
+  if (!m) return 1;
+  const [lufs, peak] = m, g = 10 ** ((VGM_LOUDNESS - lufs) / 20);
+  return g > 1 ? Math.min(g, Math.max(1, 1 / peak)) : g;
+}
 
 export class MusicMixer {
   /**
@@ -34,6 +60,7 @@ export class MusicMixer {
     this.onEvent = onEvent;
     this.VgmDeck = VgmDeck;
     this.vgms = new Map();       // id → the player's VGM file (plain bytes), as registered
+    this.vgmGains = new Map();   // id → its own gain on top of VGM_GAIN (vgmLevel), as registered
     this.warm = false;           // the VGM player's code has been run through once (warmUp)
     this.compiled = new Map();
     this.prepared = new Map();   // patches prepared once, shared by every deck
@@ -65,7 +92,7 @@ export class MusicMixer {
     const Player = this.VgmDeck ?? globalThis.duneVgmDeck;
     try {
       if (typeof Player !== 'function') throw new Error('no VGM player');
-      const d = new Player(id, this.vgms.get(id), { sampleRate: this.rate, passes: passes ?? 0, gain: VGM_GAIN });
+      const d = new Player(id, this.vgms.get(id), { sampleRate: this.rate, passes: passes ?? 0, gain: VGM_GAIN * (this.vgmGains.get(id) ?? 1) });
       d.vgm = true;
       return d;
     } catch (err) {
@@ -80,12 +107,13 @@ export class MusicMixer {
     else if (m.cmd === 'stop') this.stop(m.fade ?? 0.5);
     else if (m.cmd === 'hold') this.held = !!m.on;
     else if (m.cmd === 'vgm') {
-      // a VGM's plain bytes under an id (sent again after a synth restart); no data forgets it. `warm`: the page
-      // says no one is listening (the context not yet running), so the player may be warmed up now
+      // a VGM's plain bytes under an id (sent again after a synth restart), and its own `gain`; no data forgets it.
+      // `warm`: the page says no one is listening (the context not yet running), so the player may be warmed up now
       if (m.data) {
         this.vgms.set(m.id, m.data instanceof Uint8Array ? m.data : new Uint8Array(m.data));
+        this.vgmGains.set(m.id, m.gain > 0 ? m.gain : 1);
         if (m.warm && !this.warm && !this.decks.length) this.warmUp(m.id);
-      } else this.vgms.delete(m.id);
+      } else { this.vgms.delete(m.id); this.vgmGains.delete(m.id); }
     }
   }
 

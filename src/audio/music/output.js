@@ -7,9 +7,12 @@
 // first one is to play, and the commands behind it wait in order. `audio` is anything with an AudioContext `ctx`
 // (null until a gesture opens it, or made suspended at page load) and a `master` node: the battle's SoundEngine,
 // or the menu's own.
-import { BLOCK } from './mixer.js';
+import { BLOCK, vgmLevel } from './mixer.js';
+import { segaTrack } from './sega-tracks.js';
 
 export const VGM_TYPE = 'audio/x-vgm';
+/** A VGM file's own gain for the mixer: the Sega track its tag (else its file name) names, evened out; 1 for any other. */
+export const vgmGain = (file) => vgmLevel(segaTrack(file?.meta?.title, file?.name)?.title);
 const vgmIds = new WeakMap();
 let vgmCount = 0;
 /** The mixer's id for one of the player's VGM files: its key in the store, else one given here once. */
@@ -196,7 +199,7 @@ export class MusicOutput {
     const id = vgmId(file);
     if (!this.vgmSent.has(id)) {
       this.vgmSent.add(id);
-      this.send({ cmd: 'vgm', id, data: file.data });
+      this.send({ cmd: 'vgm', id, data: file.data, gain: vgmGain(file) });
     }
     return id;
   }
