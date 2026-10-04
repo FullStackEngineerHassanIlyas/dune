@@ -50,3 +50,16 @@ test('battle music mode and intro settings keep to their values and have Options
   const keys = OPTION_ROWS.map((r) => r.key);
   assert.ok(keys.includes('musicMode') && keys.includes('intro'));
 });
+
+test('the sidebar charges the Palace bar at the campaign\'s Sega pace', async () => {
+  const { sidebarModel } = await import('../src/ui/sidebar-model.js');
+  const { palaceRecharge } = await import('../src/sim/palace.js');
+  const world = flatWorld(32, 32);
+  world.rules.tech = 'sega';
+  const s = world.spawnStructure('palace', 'harkonnen', 4, 4);
+  const full = palaceRecharge(world, 'harkonnen');
+  s.readyAt = world.time + full / 2;
+  const special = sidebarModel(world, 'harkonnen').special;
+  assert.ok(full > 420, 'the Sega Death Hand takes longer than the skirmish one');
+  assert.ok(Math.abs(special.progress - 0.5) < 0.01, `half charged reads half: ${special.progress}`);
+});

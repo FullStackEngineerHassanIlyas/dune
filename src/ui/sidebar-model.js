@@ -7,7 +7,7 @@ import { STARPORT, PALACE } from '../data/tuning.js';
 import { buildOptions, lineOfItem, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, upgradeUnlocks, itemCost } from '../sim/tech.js';
 import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
-import { palaceOf, palaceWeapon } from '../sim/palace.js';
+import { palaceOf, palaceWeapon, palaceRecharge } from '../sim/palace.js';
 import { itemSeconds } from '../sim/production.js';
 
 const UNIT_LINES = ['infantry', 'heavy', 'air'];
@@ -32,7 +32,7 @@ function itemState(l, typeId, line, upgrade = false) {
 
 /** The Palace weapon (spec §4.7): what it is, how far it has charged, whether it needs a target. */
 function specialOf(world, houseId) {
-  const s = palaceOf(world, houseId), weapon = palaceWeapon(houseId), full = PALACE.recharge[weapon];
+  const s = palaceOf(world, houseId), weapon = palaceWeapon(houseId), full = palaceRecharge(world, houseId);   // the Sega pace in a campaign
   if (!s || !full) return null;
   const left = Math.max(0, s.readyAt - world.time);
   return { weapon, icon: `palace:${weapon}`, name: PALACE.names[weapon], ready: left === 0, progress: 1 - left / full, seconds: Math.ceil(left), aim: weapon !== 'saboteur' };

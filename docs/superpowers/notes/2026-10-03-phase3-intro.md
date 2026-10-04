@@ -129,7 +129,7 @@ The report-only review proved ten findings; all are fixed except the stray notes
   Checked with the campaign's lockup (a scratch merge) and the base one. The Sega keeps the title where it is: if the
   lead wants that, the campaign's title screen would put its lockup over the planet and the glide becomes a crossfade.
 - **The ending hands back tan** (minor): the colour draws back over the tail, and a skip settles it.
-- **No stall at 24 s** (minor). Real GPU, 1600 × 900, Medium, three runs (load average 6-10): no frame over 90 ms
+- **No stall at 24 s** (minor). Real GPU, 1600 × 900, Medium, three runs (load average 6-10): no frame over 90 ms Since the final review the backdrop readies its first battle a slice a frame (finishSlice), so a quick key at the gate no longer leaves a 0.3-0.8 s frame at 23.5 s.
   between the gesture and the hand-over, against 300 ms at 17.86 s, 150 ms at 18.35 s and 667 ms at 23.66 s for the
   code before, in one run under the same load. Low: none either. Every stretch runs at 54-60 fps on both (Medium's
   arrival 49). Left: the first frame after the gesture (100-150 ms, still black) and one frame at the hand-over

@@ -58,7 +58,8 @@ files, read in their browser and kept there.
   MP3 playlists keeps hearing them now that 'sega' is the default.
 - **VGM loudness:** the rip through `vgm-deck.js` at its native scale measured −34 to −37 dB RMS (peaks 0.05–0.15)
   against our FM tracks' −19 to −21 dB; one `VGM_GAIN` of 5 (+14 dB) for every track brings them to −20 to −23 dB,
-  peaks ≤ 0.74 (under the ceiling's 0.8 knee), and keeps the original's balance between tracks.
+  peaks ≤ 0.74 (under the ceiling's 0.8 knee), and keeps the original's balance between tracks. Since the final review each Sega track also has its own gain (mixer.js SEGA_LEVELS / vgmLevel)
+  bringing it to about -19 LUFS.
 - **The VGM player is loaded lazily** into the worklet (a blob module importing `vgm-deck.js`), so the FM-only
   worklet stays small and loads fast for the intro, and this branch works before the vgm stream's files exist.
   A missing player only turns each VGM into an `error` → the conductor leaves that file out and moves on (to the
