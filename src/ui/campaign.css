@@ -76,51 +76,127 @@
 .cp-region-words p { margin: 0; font: 15px/1.45 "Trebuchet MS", sans-serif; color: #f2d7a0; text-shadow: 0 1px 3px #000; }
 .cp-region .cp-flat svg { max-height: 78vh; }
 
-/* the victory card */
-.cp-victory { overflow: hidden; background: #000; }
-.cp-victory-pic, .cp-victory-pic svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.cp-victory-pic svg { animation: cp-in .8s ease both, cp-drift 9s ease-out both; }
+/* The screens after a mission (results.js). Their pictures are rendered from the game's own models
+   (results/results-render.js → assets/campaign/results/): the house's base at the golden hour for the victory, the
+   same base burning at dusk for the defeat, and engraved line art of a tank, a soldier or an ornithopter for the
+   score screen. Text over a picture always sits on a scrim: the card's plaque #f2d58a on its dark band is 9:1, the
+   score screen's #2a1606 on the gold 8:1, the password's words on their dark panel 15:1. */
+.cp-card { overflow: hidden; background: #0b0806; }
+.cp-card-pic { position: absolute; inset: 0; background: #2a1a0c center 58% / cover no-repeat; animation: cp-in .8s ease both, cp-drift 9s ease-out both; }
+.cp-victory .cp-card-pic { background-image: url(../../assets/campaign/results/victory-atreides.webp); }
+.cp-victory[data-house="ordos"] .cp-card-pic { background-image: url(../../assets/campaign/results/victory-ordos.webp); }
+.cp-victory[data-house="harkonnen"] .cp-card-pic { background-image: url(../../assets/campaign/results/victory-harkonnen.webp); }
+.cp-defeat .cp-card-pic { background-image: url(../../assets/campaign/results/defeat-atreides.webp); }
+.cp-defeat[data-house="ordos"] .cp-card-pic { background-image: url(../../assets/campaign/results/defeat-ordos.webp); }
+.cp-defeat[data-house="harkonnen"] .cp-card-pic { background-image: url(../../assets/campaign/results/defeat-harkonnen.webp); }
 @keyframes cp-drift { from { transform: scale(1.06); } }
-/* the words sit above the flag's knob at any width (the art is fitted by slicing, so it grows with the width) */
-.cp-victory-words { position: absolute; left: 0; right: 0; top: 5vh; text-align: center; }
-.cp-victory-title { position: relative; margin: 0; font: 400 clamp(64px, 10vw, 160px)/1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .22em; margin-right: -.22em;
-  text-transform: uppercase; color: #fff0b0; -webkit-text-stroke: 5px #fff0b0; text-shadow: 0 5px 0 #2a0400, 0 12px 22px rgba(0,0,0,.45); animation: cp-rise .9s cubic-bezier(.2,.8,.2,1) both; }
-.cp-victory-title::after { content: attr(data-text); position: absolute; left: 0; right: 0; top: 0; -webkit-text-stroke: 0; text-shadow: none; pointer-events: none;
-  background: linear-gradient(#ff8a70, #d42a1a 35%, #8a0400 55%, #c41c10 75%, #6a0000); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.cp-victory-words p { display: inline-block; margin: 8px 0 0; padding: 5px 48px 4px; font: bold clamp(14px, 1.4vw, 20px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase;
-  color: #2a1606; text-shadow: 0 1px 0 rgba(255,250,220,.6); background: linear-gradient(90deg, transparent, rgba(250,236,190,.8) 48px, rgba(250,236,190,.8) calc(100% - 48px), transparent); }
+/* a dark band behind the title at the top and a floor of shade under the button */
+.cp-card-shade { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(10,6,2,.5) 0%, rgba(10,6,2,.18) 22%, transparent 38%), linear-gradient(0deg, rgba(0,0,0,.55) 0%, transparent 20%); }
+.cp-card-words { position: absolute; left: 0; right: 0; top: 4.5vh; text-align: center; }
+.cp-card-title { position: relative; margin: 0; font: 400 clamp(64px, 9.4vw, 150px)/1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .22em; margin-right: -.22em;
+  text-transform: uppercase; color: #f6e2a0; -webkit-text-stroke: 4px #f6e2a0; text-shadow: 0 4px 0 #2a0400, 0 10px 26px rgba(0,0,0,.55); animation: cp-rise .9s cubic-bezier(.2,.8,.2,1) both; }
+.cp-card-title::after { content: attr(data-text); position: absolute; left: 0; right: 0; top: 0; -webkit-text-stroke: 0; text-shadow: none; pointer-events: none;
+  background: linear-gradient(#ff9a7c, #d42a1a 35%, #8a0400 55%, #c41c10 75%, #6a0000); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* the defeat's letters burn: embers at the top, char at the foot, edged dark */
+.cp-defeat .cp-card-title { color: #2a0c04; -webkit-text-stroke-color: #2a0c04; text-shadow: 0 0 22px rgba(255,110,30,.45), 0 10px 26px rgba(0,0,0,.6); }
+.cp-defeat .cp-card-title::after { background-image: linear-gradient(#ffe2a8, #ff9a3a 30%, #c8380a 60%, #4a0c02); }   /* the image only: the shorthand would undo the text clip */
+.cp-card-words p { display: inline-flex; align-items: center; gap: 14px; margin: 10px 0 0; padding: 6px 40px 5px; font: bold clamp(14px, 1.35vw, 20px) "Trebuchet MS", sans-serif; letter-spacing: .22em;
+  text-transform: uppercase; color: #f2d58a; text-shadow: 0 1px 2px #000;
+  background: linear-gradient(90deg, transparent, rgba(14,9,4,.78) 40px, rgba(14,9,4,.78) calc(100% - 40px), transparent); }
+.cp-card-words p::before, .cp-card-words p::after { content: ''; width: 7px; height: 7px; flex: none; background: #e2b043; transform: rotate(45deg); box-shadow: 0 0 6px rgba(226,176,67,.6); }
 @keyframes cp-rise { from { opacity: 0; transform: translateY(24px) scale(.96); } }
 
-/* the score screen: gold, a tank drawn faintly behind, the numbers in dark brown */
-.cp-score { display: grid; place-items: center; padding: 76px 4vw 96px; color: #2a1606; background: linear-gradient(160deg, #f6d27a, #e2b043 40%, #c48a2c 100%); overflow: hidden; }
-.cp-score-art { position: absolute; right: -4vw; bottom: 2vh; width: min(70vw, 980px); color: #9a6a18; opacity: .38; pointer-events: none; }
-.cp-score-art svg { display: block; width: 100%; height: auto; }
-.cp-score-card { position: relative; width: min(920px, 100%); }
-.cp-score-head { display: flex; justify-content: space-between; gap: 20px; font: bold clamp(26px, 3vw, 44px) "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .06em; text-transform: uppercase; }
-.cp-score-head span { margin-right: .4em; }
-.cp-rank { margin: 14px 0 22px; text-align: center; font: bold clamp(14px, 1.3vw, 18px) "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
-.cp-rank strong { display: block; margin-top: 6px; font: 400 clamp(30px, 3.6vw, 52px)/1.1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .06em; color: #6a0000; text-transform: uppercase; }
-.cp-score-row { margin-top: 16px; }
-.cp-score-label { margin-bottom: 6px; font: bold clamp(13px, 1.2vw, 16px) "Trebuchet MS", sans-serif; letter-spacing: .18em; text-transform: uppercase; }
-.cp-score-bar { display: grid; grid-template-columns: 86px 1fr 96px; gap: 12px; align-items: center; margin: 4px 0; }
-.cp-who { font: bold 13px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
-.cp-track { position: relative; height: 18px; background: rgba(42,22,6,.22); border: 2px solid #2a1606; border-radius: 2px; overflow: hidden; }
-.cp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
-.cp-fill.you { background: linear-gradient(#ff6a4a, #c41c10 55%, #7a0800); }
-.cp-fill.enemy { background: linear-gradient(#7aa8ff, #2050c8 55%, #0c2a78); }
-.cp-num { font: bold 17px Consolas, "Courier New", monospace; text-align: right; }
-.cp-score .dm-btn.primary { box-shadow: 0 0 0 2px #2a1606; }
+/* the score screen: a plate of hammered gold in an engraved frame, line art cut into it on the right, the numbers
+   in dark brown pressed into the metal (a pale edge under every line) */
+.cp-score { display: grid; place-items: center; padding: 76px 4vw 96px; color: #2a1606; overflow: hidden; isolation: isolate;
+  background:
+    radial-gradient(ellipse 70% 60% at 46% 40%, rgba(255,247,206,.5), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .22 0 0 0 0 .04 0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(160deg, #f6d47c, #e4b046 38%, #c38c2e 78%, #a8731f); }
+.cp-score::before { content: ''; position: absolute; inset: 14px; z-index: -1; pointer-events: none; border: 2px solid rgba(74,44,8,.5); border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(255,244,200,.55), inset 0 1px 0 rgba(255,244,200,.55), inset 0 0 0 6px rgba(74,44,8,.08), inset 0 0 0 7px rgba(74,44,8,.35); }
+.cp-score::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; box-shadow: inset 0 0 160px rgba(70,38,4,.5); }
+/* The art is clipped inside the engraved frame (overflow, not a clip-path or a mask: no stacking context of its
+   own, which would leave the blend modes nothing to blend with). Each subject has its own place and size, its mass
+   right of and below the card on a wide screen (the soldier tall in the right margin, the tank low in the corner,
+   the ornithopter climbing out of it), and the card's burnished field covers whatever reaches under the numbers. */
+.cp-score-art { position: absolute; inset: 16px; overflow: hidden; pointer-events: none;
+  --art-size: auto 82%; --art-at: right -4vw bottom -2vh; --art-fade: linear-gradient(90deg, transparent 30%, #000 60%); }
+.cp-score-art span { position: absolute; inset: 0; background-repeat: no-repeat; background-size: var(--art-size); background-position: var(--art-at);
+  -webkit-mask-image: var(--art-fade); mask-image: var(--art-fade); }
+.cp-score-art[data-subject="tank"] span { background-image: url(../../assets/campaign/results/line-tank.webp); }
+.cp-score-art[data-subject="soldier"] span { background-image: url(../../assets/campaign/results/line-soldier.webp); }
+.cp-score-art[data-subject="ornithopter"] span { background-image: url(../../assets/campaign/results/line-ornithopter.webp); }
+.cp-score-art[data-subject="tank"] { --art-size: auto 42%; --art-at: right -4vw bottom 1vh; }
+.cp-score-art[data-subject="soldier"] { --art-size: auto 60%; --art-at: right -18vw bottom 3vh; }
+.cp-score-art[data-subject="ornithopter"] { --art-size: auto 48%; --art-at: right -5.5vw bottom 1.5vh; }
+.cp-score-art .cp-etch { mix-blend-mode: multiply; opacity: .36; }
+.cp-score-art .cp-etch-lit { mix-blend-mode: screen; filter: invert(1); opacity: .24; transform: translate(1px, 2px); }   /* the groove's lit lower edge */
+/* the plate is burnished where the words are: a field of bright gold over the whole card, numbers included, fading
+   softly past its edges, so no line of the art crosses a bar or a number at strength */
+.cp-score-card { position: relative; z-index: 1; width: min(920px, 100%); text-shadow: 0 1px 0 rgba(255,244,200,.55); --burnish: .88; }
+.cp-score-card::before { content: ''; position: absolute; inset: -14px -24px; z-index: -1; pointer-events: none; border-radius: 30px;
+  background: rgba(236,196,104,var(--burnish)); box-shadow: 0 0 46px 34px rgba(236,196,104,var(--burnish)); }
+.cp-score-head { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; padding-bottom: 10px; border-bottom: 2px solid rgba(42,22,6,.6);
+  box-shadow: 0 1px 0 rgba(255,244,200,.6); text-transform: uppercase; }
+.cp-score-head span { margin-right: .7em; font: bold clamp(13px, 1.15vw, 16px) "Trebuchet MS", sans-serif; letter-spacing: .32em; }
+.cp-score-head b { font: 400 clamp(36px, 4vw, 62px)/1 "Times New Roman", "Liberation Serif", Georgia, serif; letter-spacing: .04em; font-variant-numeric: lining-nums tabular-nums; }
+.cp-rank { margin: 16px 0 18px; text-align: center; font: bold clamp(13px, 1.2vw, 17px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase; }
+.cp-rank strong { display: flex; align-items: center; justify-content: center; gap: .5em; margin-top: 6px; font: 400 clamp(30px, 3.6vw, 54px)/1.1 "Times New Roman", "Liberation Serif", Georgia, serif;
+  letter-spacing: .06em; color: #6a0000; text-transform: uppercase; }
+.cp-rank strong::before, .cp-rank strong::after { content: ''; flex: 0 1 90px; height: 2px; background: linear-gradient(90deg, transparent, #6a3a08); box-shadow: 0 1px 0 rgba(255,244,200,.55); }
+.cp-rank strong::after { transform: scaleX(-1); }
+.cp-score-row { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(42,22,6,.28); box-shadow: inset 0 1px 0 rgba(255,244,200,.4); }
+.cp-score-label { margin-bottom: 6px; font: bold clamp(13px, 1.15vw, 16px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase; }
+.cp-score-bar { display: grid; grid-template-columns: 86px 1fr 96px; gap: 12px; align-items: center; margin: 5px 0; }
+.cp-who { font: bold 13px "Trebuchet MS", sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+/* the bars run in channels cut into the plate; their fills are lit enamel marked off in segments */
+.cp-track { position: relative; height: 20px; background: rgba(42,22,6,.34); border: 1px solid #2a1606; border-radius: 2px; overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.5), 0 1px 0 rgba(255,244,200,.65); }
+.cp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.25), 1px 0 0 rgba(0,0,0,.4); }
+.cp-fill.you { background: repeating-linear-gradient(90deg, transparent 0 11px, rgba(40,0,0,.28) 11px 13px), linear-gradient(#ff7a5a, #d42614 50%, #7a0800); }
+.cp-fill.enemy { background: repeating-linear-gradient(90deg, transparent 0 11px, rgba(0,8,40,.3) 11px 13px), linear-gradient(#8ab4ff, #2458d4 50%, #0c2a78); }
+.cp-num { font: bold 18px Consolas, "Courier New", monospace; text-align: right; font-variant-numeric: tabular-nums; }
+.cp-score .dm-btn.primary { box-shadow: 0 0 0 2px #2a1606, 0 4px 10px rgba(60,30,0,.35); }
 
-/* the password for the next mission */
-.cp-password-reveal { display: grid; place-items: center; padding: 76px 4vw 96px; }
-.cp-reveal-card { max-width: 900px; text-align: center; }
-.cp-reveal-card > p { margin: 0 0 18px; font: bold clamp(15px, 1.5vw, 21px)/1.5 "Trebuchet MS", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.cp-reveal-card > p.cp-reveal-note { margin-top: 22px; font: 13px/1.45 "Trebuchet MS", sans-serif; letter-spacing: 0; text-transform: none; color: #c9b18a; }
+/* the password for the next mission: the night over the house's base behind a dark framed panel, the word in
+   gold plates turned over one after another */
+.cp-password-reveal { display: grid; place-items: center; padding: 76px 4vw 96px; overflow: hidden; background: #050403; isolation: isolate; }
+.cp-password-reveal::before { content: ''; position: absolute; inset: -24px; z-index: -2; background: url(../../assets/campaign/results/victory-atreides.webp) center 58% / cover no-repeat;
+  filter: blur(1.5px) brightness(.42) saturate(.55) hue-rotate(-8deg); }
+.cp-password-reveal[data-house="ordos"]::before { background-image: url(../../assets/campaign/results/victory-ordos.webp); }
+.cp-password-reveal[data-house="harkonnen"]::before { background-image: url(../../assets/campaign/results/victory-harkonnen.webp); }
+/* night falls: a cool wash over the warm picture, darkest at the edges */
+.cp-password-reveal::after { content: ''; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(6,8,18,0) 30%, rgba(3,4,9,.92) 100%), linear-gradient(rgba(8,12,34,.55), rgba(20,28,64,.25) 45%, rgba(4,4,8,.4)); }
+.cp-reveal-card { max-width: 900px; padding: clamp(20px, 3vw, 40px) clamp(16px, 3.4vw, 52px); text-align: center; background: rgba(12,8,4,.74); border: 1px solid rgba(226,176,67,.6);
+  box-shadow: 0 0 0 5px rgba(12,8,4,.55), 0 0 0 6px rgba(226,176,67,.28), 0 26px 60px rgba(0,0,0,.6); }
+.cp-reveal-card > p { margin: 0 0 20px; font: bold clamp(15px, 1.5vw, 21px)/1.5 "Trebuchet MS", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #f6f0e2; }
+.cp-reveal-card > p.cp-reveal-note { margin: 22px 0 0; font: 13px/1.45 "Trebuchet MS", sans-serif; letter-spacing: 0; text-transform: none; color: #d4bf96; }
 .cp-reveal-card > p.cp-reveal-note[data-unsaved] { display: inline-block; padding: 8px 12px; color: #ffd6a0; background: rgba(154,74,52,.25); border: 1px solid #9a4a34; border-radius: 3px; }
 /* one row at any width: on a narrow window the tiles narrow rather than leave a letter on a row of its own */
-.cp-tiles { display: flex; justify-content: center; gap: 6px; }
-.cp-tiles span { display: grid; place-items: center; flex: 0 1 clamp(30px, 4.6vw, 62px); aspect-ratio: .82; font: bold clamp(20px, 3vw, 40px) Consolas, "Courier New", monospace; color: #1c1004;
-  background: linear-gradient(#fff0a8, #e2b043 45%, #9a6a18); border: 2px solid #3c2604; border-radius: 3px; box-shadow: 0 3px 0 #2a1706; }
+.cp-tiles { display: flex; justify-content: center; gap: 6px; perspective: 600px; }
+.cp-tiles span { display: grid; place-items: center; flex: 0 1 clamp(30px, 4.6vw, 62px); aspect-ratio: .82; font: bold clamp(20px, 3vw, 40px) Consolas, "Courier New", monospace; color: #241404;
+  text-shadow: 0 1px 0 rgba(255,246,210,.75); background: linear-gradient(#fff3b4, #eabb4e 42%, #c48a2c 70%, #9a6a18); border: 1px solid #3c2604; border-radius: 3px;
+  box-shadow: inset 0 1px 0 #fff8d8, inset 0 -2px 0 rgba(90,56,10,.55), 0 3px 0 #2a1706, 0 8px 16px rgba(0,0,0,.5);
+  animation: cp-tile .46s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 45ms + 200ms); }
+@keyframes cp-tile { from { opacity: 0; transform: translateY(10px) rotateX(75deg); } }
+
+/* the Mentat's stage after a mission takes its picture as a backdrop, deep in shade so his words and the map lead.
+   The picture is enlarged and set to the right (the base, the Frigate, the tanks), so the squad and the banner are
+   off to the left and not behind his head; the map's own dark box fades into it at its edges instead of cutting it. */
+.cp-mentat-stage.cp-win, .cp-mentat-stage.cp-defeat { background-color: #050403; background-repeat: no-repeat;
+  background-position: 0 0, 0 0, 100% 60%; background-size: auto, auto, auto max(100%, 84vw); }
+.cp-mentat-stage.cp-win .cp-map, .cp-mentat-stage.cp-defeat .cp-map {
+  --fade: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent), linear-gradient(transparent, #000 20%, #000 80%, transparent);
+  -webkit-mask-image: var(--fade); -webkit-mask-composite: source-in; mask-image: var(--fade); mask-composite: intersect; }
+.cp-mentat-stage.cp-win { background-image: linear-gradient(90deg, rgba(5,4,3,.92), rgba(5,4,3,.62) 40%, rgba(5,4,3,.72)), linear-gradient(rgba(5,4,3,.8), rgba(5,4,3,.2) 34%, rgba(5,4,3,.85)), url(../../assets/campaign/results/victory-atreides.webp); }
+.cp-mentat-stage.cp-win[data-house="ordos"] { background-image: linear-gradient(90deg, rgba(5,4,3,.92), rgba(5,4,3,.62) 40%, rgba(5,4,3,.72)), linear-gradient(rgba(5,4,3,.8), rgba(5,4,3,.2) 34%, rgba(5,4,3,.85)), url(../../assets/campaign/results/victory-ordos.webp); }
+.cp-mentat-stage.cp-win[data-house="harkonnen"] { background-image: linear-gradient(90deg, rgba(5,4,3,.92), rgba(5,4,3,.62) 40%, rgba(5,4,3,.72)), linear-gradient(rgba(5,4,3,.8), rgba(5,4,3,.2) 34%, rgba(5,4,3,.85)), url(../../assets/campaign/results/victory-harkonnen.webp); }
+.cp-mentat-stage.cp-defeat { background-image: linear-gradient(90deg, rgba(5,4,3,.84), rgba(5,4,3,.38) 40%, rgba(5,4,3,.5)), linear-gradient(rgba(5,4,3,.82), rgba(5,4,3,.1) 34%, rgba(5,4,3,.8)), url(../../assets/campaign/results/defeat-atreides.webp); }
+.cp-mentat-stage.cp-defeat[data-house="ordos"] { background-image: linear-gradient(90deg, rgba(5,4,3,.84), rgba(5,4,3,.38) 40%, rgba(5,4,3,.5)), linear-gradient(rgba(5,4,3,.82), rgba(5,4,3,.1) 34%, rgba(5,4,3,.8)), url(../../assets/campaign/results/defeat-ordos.webp); }
+.cp-mentat-stage.cp-defeat[data-house="harkonnen"] { background-image: linear-gradient(90deg, rgba(5,4,3,.84), rgba(5,4,3,.38) 40%, rgba(5,4,3,.5)), linear-gradient(rgba(5,4,3,.82), rgba(5,4,3,.1) 34%, rgba(5,4,3,.8)), url(../../assets/campaign/results/defeat-harkonnen.webp); }
 
 /* the hub and the password entry: menu panels */
 .cp-hub { width: min(520px, calc(100vw - 32px)); }
@@ -162,15 +238,38 @@
   .cp-keys { grid-template-columns: repeat(7, 1fr); }
   .cp-key[data-act="end"], .cp-key[data-act="delete"] { grid-column: span 1; }
   .cp-region-words { max-width: calc(100vw - 32px); bottom: 76px; left: 16px; }
-  .cp-victory-words { top: 76px; }   /* below the Full screen button */
-  .cp-victory-title { font-size: min(64px, 13vw); }
-  .cp-victory-words p { padding-left: 24px; padding-right: 24px; }
+  .cp-card-words { top: 76px; }   /* below the Full screen button */
+  .cp-card-title { font-size: min(64px, 13vw); -webkit-text-stroke-width: 3px; }
+  .cp-card-words p { padding-left: 20px; padding-right: 20px; letter-spacing: .12em; }
+  .cp-card-words p::before, .cp-card-words p::after { display: none; }   /* the line wraps: no room for the diamonds */
+  .cp-card-pic { background-position: 26% 58%; }   /* a tall window keeps the banner and its squad */
+  .cp-score::before { inset: 8px; }
+  .cp-score-art { inset: 10px; }
+  .cp-reveal-card { padding-left: 12px; padding-right: 12px; }
 }
+/* below a wide screen there is no margin beside the card for the art: it is drawn whole, large and faint behind the
+   card instead (the Sega's way), the burnish thinner so it reads through, every line kept light under the numbers */
+@media (max-width: 1719px) {
+  .cp-score-art, .cp-score-art[data-subject] { --art-size: contain; --art-at: 62% 70%; --art-fade: linear-gradient(#000, #000); }
+  .cp-score-art .cp-etch { opacity: .3; }
+  .cp-score-art .cp-etch-lit { opacity: .18; }
+  .cp-score-card { --burnish: .62; }
+}
+/* a short window: the card made compact enough to clear Continue, no sideways scroll, the art left out */
 @media (max-height: 560px) {
   .cp-mentat { height: 46vh; }
-  .cp-score { place-items: start center; overflow: auto; }
+  .cp-score { place-items: start center; overflow: hidden auto; padding-top: 60px; padding-bottom: 80px; }
+  .cp-score-art { display: none; }
+  .cp-score-head { padding-bottom: 6px; }
+  .cp-score-head b { font-size: min(32px, 6vh); }
+  .cp-rank { margin: 8px 0 6px; }
+  .cp-rank strong { margin-top: 2px; font-size: min(28px, 5.4vh); }
+  .cp-score-row { margin-top: 6px; padding-top: 5px; }
+  .cp-score-label { margin-bottom: 2px; }
+  .cp-score-bar { margin: 2px 0; }
+  .cp-track { height: 15px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cp-flat, .cp-flat svg, .cp-victory-pic svg, .cp-victory-title { animation: none !important; }
+  .cp-flat, .cp-flat svg, .cp-card-pic, .cp-card-title, .cp-tiles span { animation: none !important; }
   .cp-house { transition: none; }
 }

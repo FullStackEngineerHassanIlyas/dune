@@ -1,55 +1,10 @@
-// The campaign screens' pictures, all our own SVG (markup strings for innerHTML): the victory card (research.md §5
-// describes the Sega's: a still picture after every won mission; ours is a house banner planted on a dune with
-// three troopers cheering and a frigate lifting off), the line art behind the score screen, and the flat map of
-// Arrakis drawn when the 3D territory map (src/render/atlas) is missing or fails: one cell per region, each in its
-// owner's colour, the player's land growing from its corner mission by mission.
+// The flat map of Arrakis, our own SVG (a markup string for innerHTML), drawn when the 3D territory map
+// (src/render/atlas) is missing or fails: one cell per region, each in its owner's colour, the player's land growing
+// from its corner mission by mission. (The pictures of the screens after a mission are rendered from the game's own
+// models: src/ui/campaign/results-render.js, assets/campaign/results/.)
 import { HOUSES } from '../../data/houses.js';
 
 const hex = (id) => `#${(HOUSES[id]?.color ?? 0xa8834a).toString(16).padStart(6, '0')}`;
-
-/** A trooper on the skyline, arm and rifle raised. */
-const trooper = (x, y, s, flip) => `<g transform="translate(${x} ${y}) scale(${flip ? -s : s} ${s})" fill="#24140a" stroke="#24140a" stroke-linecap="round">
-  <circle cx="0" cy="-58" r="8"/><path d="M-9 -62 Q0 -74 9 -62Z"/><path d="M-9 -48 L9 -48 L11 -14 L-11 -14Z"/>
-  <path d="M-7 -14 L-11 14 M7 -14 L11 14" stroke-width="7" fill="none"/><path d="M8 -44 L22 -76" stroke-width="6" fill="none"/>
-  <path d="M18 -70 L30 -104" stroke-width="4" fill="none"/><path d="M-8 -44 L-20 -24" stroke-width="6" fill="none"/></g>`;
-
-/** The victory card's picture (16:9). */
-export function victorySvg(house) {
-  const c = hex(house);
-  return `<svg class="cp-victory-art" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <defs>
-    <linearGradient id="v-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fcfb2"/><stop offset=".55" stop-color="#e8e2a4"/><stop offset="1" stop-color="#f4c47a"/></linearGradient>
-    <radialGradient id="v-sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fffbe0"/><stop offset=".6" stop-color="#fff2b0" stop-opacity=".8"/><stop offset="1" stop-color="#fff2b0" stop-opacity="0"/></radialGradient>
-    <linearGradient id="v-flag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#0a0604"/></linearGradient>
-  </defs>
-  <rect width="800" height="450" fill="url(#v-sky)"/>
-  <circle cx="250" cy="250" r="120" fill="url(#v-sun)"/>
-  <g transform="translate(560 96) rotate(-8)">
-    <path d="M-120 10 C-90 -14 60 -18 110 -6 C124 -2 124 12 110 16 C60 26 -90 26 -120 10Z" fill="#5d6470"/>
-    <path d="M-100 4 L90 -2 M-60 -10 L-50 18 M0 -14 L6 20 M50 -12 L56 18" stroke="#3a3f48" stroke-width="3"/>
-    <rect x="-130" y="14" width="40" height="14" rx="5" fill="#40454e"/><rect x="80" y="12" width="40" height="14" rx="5" fill="#40454e"/>
-    <ellipse cx="-110" cy="38" rx="12" ry="22" fill="#fff4c0" opacity=".7"/><ellipse cx="100" cy="36" rx="12" ry="22" fill="#fff4c0" opacity=".7"/>
-  </g>
-  <path d="M0 300 C120 270 220 286 330 268 C450 248 560 276 800 252 L800 450 L0 450Z" fill="#e1aa6a"/>
-  <path d="M0 340 C140 312 260 332 420 304 C560 282 680 312 800 296 L800 450 L0 450Z" fill="#c88a48"/>
-  <path d="M0 400 C110 372 230 330 360 322 C480 316 600 350 800 362 L800 450 L0 450Z" fill="#8e5a2a"/>
-  <path d="M360 322 L360 150" stroke="#24140a" stroke-width="6"/><circle cx="360" cy="146" r="7" fill="#e2b043" stroke="#24140a" stroke-width="2"/>
-  <path d="M363 156 C410 146 440 172 492 160 L492 236 C440 248 410 222 363 232Z" fill="url(#v-flag)" stroke="#24140a" stroke-width="3"/>
-  <circle cx="428" cy="195" r="20" fill="none" stroke="#f4e2a0" stroke-width="5"/><circle cx="428" cy="195" r="8" fill="#f4e2a0"/>
-  ${trooper(300, 336, 1.25, false)}${trooper(424, 330, 1.35, true)}${trooper(470, 346, 1.15, false)}
-  <path d="M0 450 L0 420 C160 402 300 418 420 412 C560 404 680 420 800 410 L800 450Z" fill="#5c3616"/>
-</svg>`;
-}
-
-/** Line art of a combat tank, drawn behind the score screen in a darker shade of its gold. */
-export function tankSvg() {
-  return `<svg class="cp-score-art" viewBox="0 0 400 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
-  <path d="M40 150 L360 150 L340 196 L60 196Z"/>
-  ${[86, 136, 186, 236, 286, 330].map((x) => `<circle cx="${x}" cy="176" r="16"/><circle cx="${x}" cy="176" r="5"/>`).join('')}
-  <path d="M60 150 L80 112 L320 112 L344 150"/><path d="M120 112 L140 70 L260 70 L282 112"/>
-  <path d="M260 88 L392 72 L394 90 L262 104"/><path d="M160 70 L164 52 L200 52 L204 70"/><path d="M94 132 L306 132"/>
-  <path d="M30 206 L370 206" stroke-dasharray="10 12"/></svg>`;
-}
 
 // The flat map: a lattice of 7 x 5 points jittered by a fixed seed gives 24 cells that share their edges.
 const COLS = 6, ROWS = 4, W = 600, H = 380;
