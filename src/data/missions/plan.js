@@ -14,6 +14,14 @@ export const ROLES = {
   sardaukar: { inf1: 'trooper', inf3: 'troopers', light: 'trike', quad: 'quad', tank: 'combatTank', missile: 'missileTank', siege: 'siegeTank', special: 'siegeTank' },
 };
 
+/** Missions 1-2 against the Harkonnen: their foot soldier is the Heavy Trooper, worth about two of the others' Light
+ *  Infantry, so a squad role is one Trooper; and their light vehicle — a Quad, which the Sega ladder opens at mission 3 —
+ *  is a Trooper too. The three houses' openings then cost about the same to face. */
+const EARLY_ROLES = { harkonnen: { inf3: 'trooper', light: 'trooper' } };
+
+/** The unit a role stands for in house `house`'s forces in mission `n`. */
+export const roleOf = (house, n, role) => (n <= 2 ? EARLY_ROLES[house]?.[role] : null) ?? ROLES[house][role] ?? role;
+
 /** The PC reinforcement lists' "Launcher" slot: the Ordos get Troopers, then the Deviator, then a Siege Tank. */
 export function launcher(house, n) {
   if (house !== 'ordos') return ROLES[house].missile;
@@ -55,6 +63,7 @@ export const PLAN = {
     size: 32, worms: 'off', objective: { kind: 'quota', quota: 1000 }, spiceFields: 3, blooms: 1, arrangement: 'patrols',
     credits: 0, ai: { difficulty: 'easy', passive: true },
     patrols: [{ units: ['inf1', 'inf1', 'inf3'], order: 'ambush' }, { units: ['light', 'inf1', 'inf3'], order: 'areaGuard' }, { units: ['inf1', 'inf1'], order: 'hunt' }],
+    patrolsBy: { harkonnen: [{ units: ['inf1', 'inf1'], order: 'ambush' }, { units: ['inf1', 'inf1'], order: 'areaGuard' }, { units: ['inf1', 'inf1'], order: 'areaGuard' }] },   // Heavy Troopers outrange the start force: none hunts
   },
   2: {
     size: 32, worms: 'off', objective: { kind: 'quotaOrDestroy', quota: 2700 }, spiceFields: 3, blooms: 1, arrangement: 'one32',

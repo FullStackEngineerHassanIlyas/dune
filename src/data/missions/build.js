@@ -8,7 +8,7 @@ import { STARPORT } from '../tuning.js';
 import { SEGA_STARPORT } from '../sega-tech.js';
 import { segaUpgrades } from '../../sim/tech.js';
 import { siteSpiceSpot } from '../../sim/mapgen.js';
-import { PLAN, ROLES, ARRANGEMENTS, OWN_REINFORCEMENTS, FOE_REINFORCEMENTS, STARPORT_STOCK, launcher, infantryBuildings } from './plan.js';
+import { PLAN, ARRANGEMENTS, OWN_REINFORCEMENTS, FOE_REINFORCEMENTS, STARPORT_STOCK, launcher, infantryBuildings, roleOf } from './plan.js';
 import { layoutBase, musterTiles, symmetry, nearestSide, headingOf } from './layout.js';
 
 const ROLE_ORDER = ['special', 'siege', 'missile', 'tank', 'quad', 'light', 'inf3', 'inf1'];
@@ -21,7 +21,7 @@ const name = (id) => HOUSES[id].name;
 const expand = (counts) => Object.entries(counts).flatMap(([type, k]) => Array(k).fill(type));
 
 function roleUnits(house, n, roles) {
-  return roles.map((r) => (r === 'launcher' ? launcher(house, n) : ROLES[house][r] ?? r));
+  return roles.map((r) => (r === 'launcher' ? launcher(house, n) : roleOf(house, n, r)));
 }
 
 function titleOf(n, plan, bases) {
@@ -43,7 +43,7 @@ function buildBase(house, n, spec, site, { foe, size, sites, taken }) {
   const tiles = musterTiles(site, lay.rects, roles.length, { front, taken });
   let hunters = spec.hunt ?? 0;
   const units = roles.map((role, k) => {
-    const type = ROLES[house][role];
+    const type = roleOf(house, n, role);
     const order = (role === 'light' || role === 'quad') && hunters > 0 ? (hunters--, 'hunt') : onFoot(type) ? 'guard' : 'areaGuard';
     return { type, x: tiles[k].x, y: tiles[k].y, heading: headingOf(front), order };
   });
@@ -99,7 +99,7 @@ export function buildMission(data, n) {
     h.units.push(...base.units);
   });
   posts.forEach((post, k) => {
-    const patrol = plan.patrols[k], foe = m.enemies[0];
+    const foe = m.enemies[0], patrol = (plan.patrolsBy?.[foe] ?? plan.patrols)[k];
     const types = roleUnits(foe, n, patrol.units);
     const tiles = musterTiles(post, [], types.length, { front: dir(post, player), taken, reach: 0 });
     entry(foe).units.push(...types.map((type, j) => ({ type, x: tiles[j].x, y: tiles[j].y, heading: headingOf(dir(post, player)), order: patrol.order })));
