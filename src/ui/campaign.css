@@ -112,8 +112,9 @@
 .cp-reveal-card > p { margin: 0 0 18px; font: bold clamp(15px, 1.5vw, 21px)/1.5 "Trebuchet MS", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .cp-reveal-card > p.cp-reveal-note { margin-top: 22px; font: 13px/1.45 "Trebuchet MS", sans-serif; letter-spacing: 0; text-transform: none; color: #c9b18a; }
 .cp-reveal-card > p.cp-reveal-note[data-unsaved] { display: inline-block; padding: 8px 12px; color: #ffd6a0; background: rgba(154,74,52,.25); border: 1px solid #9a4a34; border-radius: 3px; }
-.cp-tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.cp-tiles span { display: grid; place-items: center; width: clamp(30px, 4.6vw, 62px); aspect-ratio: .82; font: bold clamp(20px, 3vw, 40px) Consolas, "Courier New", monospace; color: #1c1004;
+/* one row at any width: on a narrow window the tiles narrow rather than leave a letter on a row of its own */
+.cp-tiles { display: flex; justify-content: center; gap: 6px; }
+.cp-tiles span { display: grid; place-items: center; flex: 0 1 clamp(30px, 4.6vw, 62px); aspect-ratio: .82; font: bold clamp(20px, 3vw, 40px) Consolas, "Courier New", monospace; color: #1c1004;
   background: linear-gradient(#fff0a8, #e2b043 45%, #9a6a18); border: 2px solid #3c2604; border-radius: 3px; box-shadow: 0 3px 0 #2a1706; }
 
 /* the hub and the password entry: menu panels */
