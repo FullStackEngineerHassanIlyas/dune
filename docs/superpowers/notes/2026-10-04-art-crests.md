@@ -106,7 +106,7 @@ Scratch dir: `/tmp/claude-1000/-home-hassan-games-Dune/4a2127ac-cad7-477b-b1e2-a
 
 - `node --test tests/crests.test.mjs` (9 tests: every house, both variants, well-formed art, every `url(#id)` and
   `href="#id"` resolved, unique ids, colours per house, caching, markup budget, data URL escaping, geometry).
-- The full suite: `flock /tmp/dune-npmtest.lock npm test` (1354/1354 at b4c9404).
+- The full suite: `flock /tmp/dune-npmtest.lock npm test` (1354/1354 at cc45421, the last code commit).
 - Look: `?scene=menu&intro=0&screen=campaign-house` at 1920x1080 and 1366x768; hover each card (the glow and lift
   stay smooth).
 
