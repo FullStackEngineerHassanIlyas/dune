@@ -1,7 +1,8 @@
 // Computer opponent (spec §4.10): one brain per AI house, thinking once a second. It sees the whole map,
 // as the original's AI does, but acts only through world.issue, exactly like a player. Economy first:
 // deploy the MCV, stay ahead on power, follow the house's build order, keep two harvesters per refinery
-// and add silos when storage runs full; no building goes up on the apron of a Refinery or Repair Facility
+// and add silos when storage runs full (where no factory sells a Harvester — the Sega ladder before mission 4 — keep a
+// Refinery's price in hand and buy one when the last Harvester is gone); no building goes up on the apron of a Refinery or Repair Facility
 // (harvesters waiting and backing out in a narrow way in would lock horns). Then an army, rally points, base defence and attack waves. A
 // charged Palace fires at once — the Death Hand and the Fremen at the richest enemy spot (the Death Hand
 // only where its own army and base are clear of the blast), the Saboteur into the most valuable enemy
@@ -12,7 +13,9 @@
 import { STRUCTURES } from '../data/structures.js';
 import { G } from '../data/terrain.js';
 import { computePower, builtStorage } from './economy.js';
-import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, offered, unitUpgrade, UNIT_ORDER } from './tech.js';
+import { canBuild, buildOptions, lineOfItem, upgradeId, upgradeLevel, upgradeCost, offered, unitUpgrade, factoryOf, itemCost, UNIT_ORDER } from './tech.js';
+import { segaLevelTech } from '../data/sega-tech.js';
+import { isWorm, WORM } from './worm.js';
 import { UNITS, MOVE } from '../data/units.js';
 import { DEFERRED } from '../data/phase.js';
 import { isArmed, distanceTo } from './combat.js';
@@ -89,7 +92,49 @@ function survey(world, house) {
   for (const u of world.units.values()) if (u.house === house.id) units.push(u);
   const yard = mine.find((s) => s.typeId === 'constructionYard') ?? null;
   const anchor = yard ?? mine[0] ?? null;
-  return { mine, units, count, yard, home: anchor ? { x: anchor.x + 1, y: anchor.y + 1 } : null };
+  const harvesters = units.filter((u) => u.typeId === 'harvester').length;   // one a Carryall is still bringing counts
+  const keep = noHarvesterForSale(world, house) ? itemCost(house, 'refinery') : 0;
+  const b = house.brain;
+  if (harvesters) b.noHarvesterSince = null; else b.noHarvesterSince ??= world.time;
+  const recover = keep > 0 && !harvesters && (world.time - b.noHarvesterSince >= WORM_WAIT || !hungryWorm(world));
+  return { mine, units, count, yard, home: anchor ? { x: anchor.x + 1, y: anchor.y + 1 } : null, harvesters, keep, recover,
+    spare: keep ? house.credits - owed(house) - keep : house.credits };
+}
+
+const WORM_WAIT = 120;   // seconds a house with no Harvester waits for a hungry worm to go before it buys the next anyway
+
+/** A worm on the map that has not had its fill: a new Harvester now would likely feed it (the AI sees everything). */
+const hungryWorm = (world) => [...world.units.values()].some((u) => isWorm(u) && u.worm && u.worm.state !== 'leave' && u.worm.meals < WORM.meals);
+
+/**
+ * No factory sells this house a Harvester in this mission (the Sega ladder opens it at mission 4): a new Refinery, whose
+ * own Harvester comes by Carryall, is the only way to get one back when the worm has eaten the last. Such a house keeps
+ * a Refinery's price in hand (view.keep), and with no Harvester left the Refinery comes before anything else — once the
+ * hungry worm has gone, or after WORM_WAIT.
+ */
+function noHarvesterForSale(world, house) {
+  if (canBuild(world, house.id, 'harvester') || house.techRules !== 'sega') return false;
+  const at = factoryOf(house, 'harvester'), level = unitUpgrade(house, 'harvester');
+  return upgradeLevel(house, at) < level && segaLevelTech(at, level, house.id) > house.techLevel;
+}
+
+/** What the items under way still owe (production pays as it goes) and the queued ones will cost. */
+function owed(house) {
+  let n = 0;
+  for (const l of Object.values(house.lines)) {
+    if (l.current?.state === 'building') n += Math.max(0, l.current.cost - l.current.paid);
+    for (const t of l.queue) n += itemCost(house, t);
+  }
+  return n;
+}
+
+/** May the house start an item: with `need` credits in hand (production pays as it goes) — or, while it keeps a
+ *  Refinery's price back, only out of what is spare once the items under way are paid for; the item takes `cost` of it. */
+function affords(house, view, need, cost = need) {
+  if (!view.keep) return house.credits >= need;
+  if (view.spare < Math.max(need, cost)) return false;
+  view.spare -= cost;
+  return true;
 }
 
 function think(world, house) {
@@ -216,11 +261,12 @@ function buildBase(world, house, view) {
   if (item) return;
   const next = nextStructure(world, house, view);
   if (next) {
-    if (house.credits >= Math.min(STRUCTURES[next].cost, 150)) issue(world, house, { type: 'build', typeId: next });
+    const cost = STRUCTURES[next].cost, need = Math.min(cost, 150);
+    if (view.recover && next === 'refinery' ? house.credits >= need : affords(house, view, need, cost)) issue(world, house, { type: 'build', typeId: next });   // the kept money is for this Refinery
     return;
   }
-  const yardUp = upgradeId('constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
-  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && house.credits >= upgradeCost(house, 'constructionYard') + tuning(house).reserve) issue(world, house, { type: 'build', typeId: yardUp });
+  const yardUp = upgradeId('constructionYard'), upCost = upgradeCost(house, 'constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
+  if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && affords(house, view, upCost + tuning(house).reserve, upCost)) issue(world, house, { type: 'build', typeId: yardUp });
 }
 
 const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
@@ -278,6 +324,7 @@ export function keepsWaysIn(world, houseId, typeId) {
 function nextStructure(world, house, view) {
   const b = house.brain, id = house.id;
   const can = (t) => canBuild(world, id, t) && world.time - (b.noRoom[t] ?? -1e9) >= NO_ROOM_RETRY;
+  if (view.recover && can('refinery')) return 'refinery';   // the last Harvester is gone and none is for sale: a Refinery brings one
   const power = computePower(world, id);
   if (power.produced < power.used + 20 && can('windtrap')) return 'windtrap';
   const t = wantedStructure(world, house, view, can);
@@ -355,9 +402,9 @@ function buildArmy(world, house, view) {
   const options = buildOptions(world, house.id);
   for (const line of ['heavy', 'infantry', 'air']) {
     const l = house.lines[line];
-    if (l.current || l.queue.length || house.credits < d.reserve) continue;
+    if (l.current || l.queue.length) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
-    if (pool.length) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });
+    if (pool.length && affords(house, view, d.reserve)) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });   // the reserve covers any unit of the missions that keep money back
   }
 }
 
@@ -371,7 +418,7 @@ function buyUpgrades(world, house, view) {
     if (!view.count[type] || !canBuild(world, house.id, id)) continue;
     const l = house.lines[lineOfItem(id)];
     if (l.current?.typeId === id || l.queue.includes(id)) continue;   // already under way
-    if (house.credits < upgradeCost(house, type) + d.reserve) return;
+    if (!affords(house, view, upgradeCost(house, type) + d.reserve, upgradeCost(house, type))) return;
     issue(world, house, { type: 'build', typeId: id });
     return;
   }
