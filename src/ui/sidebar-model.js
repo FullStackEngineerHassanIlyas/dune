@@ -1,6 +1,7 @@
 // Pure view-model of the C&C sidebar (spec §4.4, §5.6): credits and storage, the power bar's level,
 // radar availability, the Palace weapon with its charge and the two build strips — structures and factory upgrades, then the units of every line — with each
-// icon's state, progress and queue count. It reads the world and never changes it.
+// icon's state, progress and queue count, and `describe(item)` for an icon's tooltip (tooltip-model.js), which the
+// sidebar calls only while the pointer rests on one. It reads the world and never changes it.
 import { STRUCTURES } from '../data/structures.js';
 import { UNITS } from '../data/units.js';
 import { STARPORT, PALACE } from '../data/tuning.js';
@@ -9,6 +10,9 @@ import { computePower, builtStorage, radarOnline } from '../sim/economy.js';
 import { starportOf } from '../sim/starport.js';
 import { palaceOf, palaceWeapon, palaceRecharge } from '../sim/palace.js';
 import { itemSeconds } from '../sim/production.js';
+import { tooltipModel, clock } from './tooltip-model.js';
+
+export { clock };
 
 const UNIT_LINES = ['infantry', 'heavy', 'air'];
 
@@ -36,6 +40,16 @@ function specialOf(world, houseId) {
   if (!s || !full) return null;
   const left = Math.max(0, s.readyAt - world.time);
   return { weapon, icon: `palace:${weapon}`, name: PALACE.names[weapon], ready: left === 0, progress: 1 - left / full, seconds: Math.ceil(left), aim: weapon !== 'saboteur' };
+}
+
+/** item → its tooltip (tooltip-model.js), one function per world and house so a frame allocates none. */
+const describers = new WeakMap();
+function describer(world, houseId) {
+  let byHouse = describers.get(world);
+  if (!byHouse) describers.set(world, (byHouse = new Map()));
+  let fn = byHouse.get(houseId);
+  if (!fn) byHouse.set(houseId, (fn = (item) => tooltipModel(world, houseId, item)));
+  return fn;
 }
 
 export function sidebarModel(world, houseId) {
@@ -76,6 +90,7 @@ export function sidebarModel(world, houseId) {
     special: specialOf(world, houseId),
     structures: [...options.structure.map(entry('structure')), ...options.upgrades.map(upgrade)],
     units: [...UNIT_LINES.flatMap((line) => options[line].map(entry(line))), ...(open ? Object.keys(m.stock).map(ware) : [])],
+    describe: describer(world, houseId),
   };
 }
 
@@ -86,8 +101,6 @@ export function rollCredits(shown, target, dt) {
   return Math.abs(diff) <= step ? target : shown + Math.sign(diff) * step;
 }
 
-export const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
 /**
  * The number in an icon's corner: how many more are on order beyond the one in work; every one of an item only on
  * order. Never on an upgrade: there is only ever one, and its icon wears its level in that corner.
@@ -96,10 +109,3 @@ export const badgeOf = (item) => (!item.typeId?.startsWith('upgrade:') && item.c
 
 /** How far round an icon's clock has come: the item in work, or the one an upgrade set aside; a full face otherwise. */
 export const wipeOf = (item) => (item.state === 'building' || item.state === 'hold' || (item.state === 'queued' && item.progress > 0) ? item.progress.toFixed(3) : '1');
-
-/** The line under an icon's name in its tooltip. */
-export function tipText(item) {
-  if (item.weapon) return item.ready ? `Ready — ${item.aim ? 'click, then pick a target' : 'click to send it out'}` : `Charging — ready in ${clock(item.seconds)}`;
-  if (item.state === 'ready') return 'Ready — click to place';
-  return [`Cost ${item.cost} · ${item.seconds} s`, item.note].filter(Boolean).join(' · ');
-}
