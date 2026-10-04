@@ -330,7 +330,7 @@ function keepCarryall(world, house, view) {
 }
 
 export const ARMY_WEIGHTS = { sonicTank: 3, devastator: 2, deviator: 2, ornithopter: 3, combatTank: 6, siegeTank: 3, missileTank: 3, quad: 2, trike: 2, raider: 2, infantry: 2, troopers: 2, soldier: 1, trooper: 1 };
-const FACTORIES = ['barracks', 'wor', 'heavyFactory'];
+const FACTORIES = ['barracks', 'wor', 'heavyFactory', 'hiTech'];   // a Hi-Tech's Ornithopters wait at the rally point too, not hunt the whole map on their own (its Carryalls fly their own errands)
 
 function weightedPick(rng, pool) {
   let r = rng.next() * pool.reduce((n, t) => n + ARMY_WEIGHTS[t], 0);
