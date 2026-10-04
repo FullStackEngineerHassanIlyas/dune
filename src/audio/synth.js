@@ -461,11 +461,11 @@ export const RECIPES = {
     [chest(d, 700, 350, 0.03, 0.05, 1.5), 0.8],
     [grit(d, 4000, 0.12, 3200, 0.8), 0.6, 0.02],
   ], -19),
-  bulletHit: (d) => out([   // a bullet on armour: a dull, hard knock, and in one variation in three a ricochet whining off
+  bulletHit: (d) => out([   // a bullet on armour: a dull, hard knock, and in one variation in four a ricochet whining off
     [crack(d, 1400, 0.001, 2), 0.35],
     [thump(d.u(260, 340), 140, 0.004, 0.012, 2), 0.7],
     [decay(biquad(noise(0.06, d.s()), 'bp', d.u(700, 1000), 1.1), 0.0005, 0.01), 0.7],
-    d.n === 2
+    d.n === 3
       ? [shape(biquad(glide(0.22, (t) => 2600 - 5200 * t, 'saw'), 'bp', 2000, 1.2), [[0, 0], [0.01, 1], [0.08, 0.5], [0.22, 0]]), 0.22, 0.004]
       : [metal(d, d.u(700, 900), 0.008, PLATE), 0.12, 0.001],   // a short low knock of steel, not a ping
   ], -25),
@@ -732,7 +732,7 @@ function loop(a, seconds, lufs) {
 }
 
 /** How many seeded variations each sound has; the engine picks one at random per play. */
-export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, hitStructure: 2, sandHit: 3, bulletHit: 3, bulletSoft: 2, bulletChip: 2, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
+export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, hitStructure: 2, sandHit: 3, bulletHit: 4, bulletSoft: 2, bulletChip: 2, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
 export const variants = (id) => VARIANTS[id] ?? 1;
 
 /** Variation v of sound `id`: the same samples every time. */
