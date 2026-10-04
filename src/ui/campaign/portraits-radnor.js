@@ -38,11 +38,11 @@ export const RADNOR = {
   finish: { r: 1.1, mix: 0.65 },
   outlines: { head: [HEAD, EAR_L, EAR_R], body: [ROBE, NECK, ROLL_L, ROLL_R, SLEEVE_L, SLEEVE_R, BACK_L, BACK_R, THUMB_L, THUMB_R] },
   rig: {
-    key: { dir: [-0.74, -0.5, 0.45], color: [0.9, 0.98, 0.86], i: 1.7, wrap: 0.08 },
+    key: { dir: [-0.74, -0.5, 0.45], color: [0.9, 0.98, 0.86], i: 1.5, wrap: 0.1 },
     fill: { dir: [0.3, 0.8, 0.5], color: [0.9, 0.3, 0.12], i: 0.22 },
-    rim: { dir: [1, 0.1, -0.1], color: [1, 0.42, 0.14], i: 1.9, power: 2.2 },
+    rim: { dir: [0.78, 0.05, -0.6], color: [1, 0.42, 0.14], i: 2.1, power: 2 },
     sky: [0.06, 0.055, 0.06], ground: [0.13, 0.045, 0.025], skinAmb: [1.9, 1.15, 0.85],
-    sss: [0.45, 0.08, 0.03], ao: { r: 10, k: 0.26 }, shadow: { len: 80, soft: 3, bias: 0.5, blur: 1.6, depth: 0.78 }, spec: { power: 28, i: 0.6 }, exposure: 1,
+    sss: [0.45, 0.08, 0.03], ao: { r: 10, k: 0.26 }, shadow: { len: 80, soft: 3.4, bias: 0.5, blur: 2, depth: 0.7 }, spec: { power: 28, i: 0.35 }, exposure: 1,
   },
 };
 
@@ -57,14 +57,15 @@ function back(c) {
   for (let y = 30; y < 500; y += 26) rivets.push(E(32, y, 2.2, 2.2, '#6a2a1a'), E(56, y + 13, 2.2, 2.2, '#6a2a1a'), E(352, y, 2.2, 2.2, '#8a3a20'), E(376, y + 13, 2.2, 2.2, '#8a3a20'));
   const wall = c.lin('wall', [[0, '#1c0a08'], [0.6, '#120504'], [1, '#050101']], [0, 0, 0, 1]);
   const furnace = c.rad('furnace', [[0, '#ffd27a'], [0.25, '#ff7a2a'], [0.6, '#b0200e', 0.7], [1, '#3a0404', 0]], { cx: 0.5, cy: 0.5, r: 0.5 });
-  const sides = c.lin('vigx', [[0, '#fff', 0], [0.12, '#fff', 0.3], [0.26, '#fff', 0.85], [0.36, '#fff'], [0.68, '#fff'], [0.8, '#fff', 0.8], [0.92, '#fff', 0.25], [1, '#fff', 0]]);
+  const sides = c.lin('vigx', [[0, '#fff', 0], [0.1, '#fff', 0.35], [0.22, '#fff', 0.88], [0.3, '#fff'], [0.74, '#fff'], [0.84, '#fff', 0.85], [0.94, '#fff', 0.3], [1, '#fff', 0]]);
   const top = c.lin('vigy', [[0, '#fff', 0], [0.12, '#fff', 0.25], [0.3, '#fff', 0.8], [0.44, '#fff']], [0, 0, 0, 1]);
   const mask = c.def('backmask', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${sides}"/></mask>`);
   const maskTop = c.def('backmasktop', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${top}"/></mask>`);
   const grate = [];
   for (let k = -5; k <= 5; k++) grate.push(`M${300 + k * 12} 70 V230`);
   for (let k = 0; k < 7; k++) grate.push(`M236 ${82 + k * 22} H364`);
-  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${c.blur(1.6)}">
+  const lift = c.def('lift', (id) => `<filter id="${id}" filterUnits="userSpaceOnUse" x="0" y="0" width="400" height="500" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope="1.38" intercept=".012"/><feFuncG type="linear" slope="1.38" intercept=".012"/><feFuncB type="linear" slope="1.38" intercept=".012"/></feComponentTransfer></filter>`);
+  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${lift}"><g filter="${c.blur(1.6)}">
     <rect width="400" height="500" fill="${wall}"/>
     ${soft(c, 50, E(300, 420, 220, 170, '#c02a10', 'opacity=".45"'))}
     ${soft(c, 30, E(300, 150, 90, 90, '#a8200c', 'opacity=".5"'))}
@@ -86,7 +87,7 @@ function back(c) {
     ${soft(c, 40, E(200, 300, 220, 200, '#2a0604', 'opacity=".45"'))}
   </g>
   ${soft(c, 34, E(206, 320, 150, 210, '#000', 'opacity=".45"'))}
-  </g></g>`;
+  </g></g></g>`;
 }
 
 // ---- the head ----
@@ -155,14 +156,19 @@ function headForms({ blink = false } = {}) {
     { t: 'bump', cx: 244, cy: 197, rx: 21, ry: 15, h: 12, op: 'sub' },
     { t: 'dome', cx: 178, cy: 200, rx: 18, ry: 11, h: 8.5 },
     { t: 'dome', cx: 244, cy: 199, rx: 15.5, ry: 10.5, h: 8 },
-    { t: 'ridge', bz: blink ? L.closed : L.top, w: 4.2, h: 2.8 },
-    { t: 'ridge', bz: blink ? Rr.closed : Rr.top, w: 4, h: 2.6 },
-    { t: 'ridge', bz: L.bottom, w: 2.6, h: 1 },
-    { t: 'ridge', bz: Rr.bottom, w: 2.6, h: 0.9 },
+    ...(blink ? [
+      { t: 'ridge', bz: L.closed, w: 1.6, h: -0.7 },
+      { t: 'ridge', bz: Rr.closed, w: 1.6, h: -0.7 },
+    ] : [
+      { t: 'ridge', bz: L.top, w: 4.2, h: 2.8 },
+      { t: 'ridge', bz: Rr.top, w: 4, h: 2.6 },
+      { t: 'ridge', bz: L.bottom, w: 2.6, h: 1 },
+      { t: 'ridge', bz: Rr.bottom, w: 2.6, h: 0.9 },
+    ]),
     { t: 'ridge', pts: [[160, 212], [178, 218], [196, 213]], w: 4, h: 1.6 },
     { t: 'ridge', pts: [[230, 214], [246, 219], [262, 211]], w: 4, h: 1.5 },
     { t: 'ridge', pts: [[212, 190], [214, 205], [216, 220]], w: 6.5, h: 5 },
-    { t: 'ridge', pts: [[215, 214], [217, 230], [220, 242]], w: 10, h: 8 },
+    { t: 'ridge', pts: [[215, 214], [217, 230], [220, 242]], w: 12, h: 8 },
     { t: 'bump', cx: 220, cy: 244, rx: 11, ry: 9, h: 6.5 },
     { t: 'bump', cx: 200, cy: 251, rx: 9, ry: 7, h: 5.5 },
     { t: 'bump', cx: 241, cy: 249, rx: 8, ry: 7, h: 4.5 },

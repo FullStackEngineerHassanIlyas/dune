@@ -34,11 +34,11 @@ export const AMMON = {
   finish: { r: 1.1, mix: 0.65 },
   outlines: { head: [FACE, HAIR, HAIR_BACK, EAR], body: [ROBE, NECK, LAPEL_L, LAPEL_R, TEAL, SASH, SLEEVE, HAND, THUMB] },
   rig: {
-    key: { dir: [-0.74, -0.48, 0.48], color: [0.92, 0.96, 1], i: 1.75, wrap: 0.1 },
+    key: { dir: [-0.74, -0.48, 0.48], color: [0.92, 0.96, 1], i: 1.5, wrap: 0.13 },
     fill: { dir: [0.6, 0.2, 0.78], color: [0.4, 0.7, 0.62], i: 0.14 },
-    rim: { dir: [1, -0.25, -0.1], color: [0.62, 0.95, 1], i: 1.6, power: 2.3 },
-    sky: [0.09, 0.12, 0.15], ground: [0.04, 0.06, 0.06], skinAmb: [2.2, 1.25, 0.82],
-    sss: [0.34, 0.07, 0.03], ao: { r: 9, k: 0.22 }, shadow: { len: 70, soft: 3, bias: 0.5, blur: 1.6, depth: 0.74 }, spec: { power: 34, i: 0.55 }, exposure: 1,
+    rim: { dir: [0.78, -0.2, -0.6], color: [0.62, 0.95, 1], i: 1.8, power: 2 },
+    sky: [0.13, 0.16, 0.19], ground: [0.05, 0.065, 0.065], skinAmb: [2.3, 1.35, 0.95],
+    sss: [0.34, 0.07, 0.03], ao: { r: 9, k: 0.22 }, shadow: { len: 70, soft: 3.4, bias: 0.5, blur: 2, depth: 0.62 }, spec: { power: 34, i: 0.55 }, exposure: 1,
   },
 };
 
@@ -57,11 +57,12 @@ function back(c) {
   const wall = c.lin('wall', [[0, '#1c3442'], [0.5, '#122430'], [1, '#08121a']], [0, 0, 0, 1]);
   const ice = c.lin('ice', [[0, '#9fd0e0'], [0.35, '#e8f8ff'], [0.6, '#7fb0c6'], [1, '#2a5468']]);
   const light = c.rad('coldlight', [[0, '#f4fcff'], [0.4, '#bfe6f4', 0.8], [1, '#5a9ab4', 0]], { cx: 0.5, cy: 0.5, r: 0.5 });
-  const sides = c.lin('vigx', [[0, '#fff', 0], [0.12, '#fff', 0.3], [0.26, '#fff', 0.85], [0.36, '#fff'], [0.68, '#fff'], [0.8, '#fff', 0.8], [0.92, '#fff', 0.25], [1, '#fff', 0]]);
+  const sides = c.lin('vigx', [[0, '#fff', 0], [0.1, '#fff', 0.35], [0.22, '#fff', 0.88], [0.3, '#fff'], [0.74, '#fff'], [0.84, '#fff', 0.85], [0.94, '#fff', 0.3], [1, '#fff', 0]]);
   const top = c.lin('vigy', [[0, '#fff', 0], [0.12, '#fff', 0.25], [0.3, '#fff', 0.8], [0.44, '#fff']], [0, 0, 0, 1]);
   const mask = c.def('backmask', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${sides}"/></mask>`);
   const maskTop = c.def('backmasktop', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${top}"/></mask>`);
-  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${c.blur(1.6)}">
+  const lift = c.def('lift', (id) => `<filter id="${id}" filterUnits="userSpaceOnUse" x="0" y="0" width="400" height="500" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope="1.38" intercept=".012"/><feFuncG type="linear" slope="1.38" intercept=".012"/><feFuncB type="linear" slope="1.38" intercept=".012"/></feComponentTransfer></filter>`);
+  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${lift}"><g filter="${c.blur(1.6)}">
     <rect width="400" height="500" fill="${wall}"/>
     ${soft(c, 40, E(210, 160, 170, 150, '#4a8aa4', 'opacity=".4"'))}
     <path d="M110 420 L110 170 C110 96 156 50 210 50 C264 50 310 96 310 170 L310 420Z" fill="#0c1a22"/>
@@ -77,7 +78,7 @@ function back(c) {
     ${soft(c, 40, E(200, 330, 220, 200, '#0c1c26', 'opacity=".5"'))}
   </g>
   ${soft(c, 34, E(206, 320, 150, 210, '#000', 'opacity=".42"'))}
-  </g></g>`;
+  </g></g></g>`;
 }
 
 // ---- the head ----
@@ -133,6 +134,7 @@ function headAlbedo(c, { blink = false } = {}) {
     <path d="M196 256 C203 254 209 252 214 253 C218 252 223 252 228 252.5 C231 252.5 234 252 236 250.5 C230 255.5 223 257 215 257 C207 257 201 257 196 256Z" fill="#a8665a"/>
     <path d="M198 257 C204 258.5 210 259.5 216 259.5 C223 259.5 229 258 234 254 C232 261 225 265 215 265 C206 265 201 262 198 257Z" fill="#b8786a"/>
     ${soft(c, 0.7, S('M195 256 C203 257.5 210 258 216 258 C224 258 230 256 237 250', '#4a1e16', 1.5))}
+    ${soft(c, 3.5, S('M157 128 C150 150 148 180 151 210 C154 232 159 246 166 258', '#6e4028', 8), 0.5)}
     ${grainOver(c, faceClip, 0.12, 1.3, 15)}
     ${eyes}
     ${brows}
@@ -143,7 +145,7 @@ function headAlbedo(c, { blink = false } = {}) {
   ${soft(c, 1.4, lk.front.lights, 0.3)}
   ${strands(rng(67), { guides: hairGuides.front, count: 170, w: [0.4, 1], color: brownDark, jitter: 2.5, opacity: [0.3, 0.7] })}
   ${strands(rng(68), { guides: hairGuides.front, count: 150, w: [0.35, 0.9], color: brownLight, jitter: 2.5, opacity: [0.2, 0.55] })}
-  ${strands(rng(69), { guides: [[[158, 134], [154, 150], [154, 166], [156, 180]], [[162, 136], [159, 152], [159, 168], [161, 182]]], count: 22, w: [0.5, 1], color: brownDark, jitter: 1, opacity: [0.4, 0.8] })}
+  ${strands(rng(69), { guides: [[[156, 132], [151, 152], [150, 174], [153, 196]], [[160, 134], [156, 154], [155, 176], [158, 198]], [[164, 136], [161, 156], [160, 176], [162, 194]]], count: 46, w: [0.4, 1], color: brownDark, jitter: 1.2, opacity: [0.25, 0.75] })}
   ${strands(rng(70), { guides: [[[252, 126], [258, 136], [260, 148], [256, 164]], [[256, 128], [263, 140], [265, 152], [261, 168]]], count: 10, w: [0.5, 1.1], color: brown, jitter: 1, opacity: [0.6, 0.95] })}`;
 }
 
@@ -172,12 +174,17 @@ function headForms({ blink = false } = {}) {
     { t: 'bump', cx: 240, cy: 179, rx: 18, ry: 14, h: 10, op: 'sub' },
     { t: 'dome', cx: 182, cy: 182, rx: 16, ry: 10, h: 8 },
     { t: 'dome', cx: 240, cy: 181, rx: 13.5, ry: 9.5, h: 7.5 },
-    { t: 'ridge', bz: blink ? L.closed : L.top, w: 3.2, h: 2.2 },
-    { t: 'ridge', bz: blink ? Rr.closed : Rr.top, w: 3, h: 2.1 },
-    { t: 'ridge', bz: L.bottom, w: 2.2, h: 0.9 },
-    { t: 'ridge', bz: Rr.bottom, w: 2.2, h: 0.8 },
+    ...(blink ? [
+      { t: 'ridge', bz: L.closed, w: 1.6, h: -0.7 },
+      { t: 'ridge', bz: Rr.closed, w: 1.6, h: -0.7 },
+    ] : [
+      { t: 'ridge', bz: L.top, w: 3.2, h: 2.2 },
+      { t: 'ridge', bz: Rr.top, w: 3, h: 2.1 },
+      { t: 'ridge', bz: L.bottom, w: 2.2, h: 0.9 },
+      { t: 'ridge', bz: Rr.bottom, w: 2.2, h: 0.8 },
+    ]),
     { t: 'ridge', pts: [[212, 168], [214, 186], [216, 202]], w: 4.2, h: 5 },
-    { t: 'ridge', pts: [[215, 198], [217, 212], [220, 224]], w: 6, h: 8 },
+    { t: 'ridge', pts: [[215, 198], [217, 212], [220, 224]], w: 8, h: 7.5 },
     { t: 'bump', cx: 220, cy: 226, rx: 7.5, ry: 6.5, h: 5 },
     { t: 'bump', cx: 207, cy: 230, rx: 5.5, ry: 4.5, h: 3.5 },
     { t: 'bump', cx: 233, cy: 229, rx: 4.5, ry: 4.5, h: 3 },

@@ -200,7 +200,7 @@ export function eye(c, name, { cx, cy, w, open, tilt = 0, iris, irisDark, look =
   const lidGrad = c.lin(`lid-${name}`, [[0, skin[0]], [1, skin[1]]], [0, 0, 0, 1]);
   if (closed) {
     const lidLine = `M${r2(L)} ${r2(yl)} C${r2(L + w * 0.25)} ${r2(cy + open * 0.55)} ${r2(Rx - w * 0.25)} ${r2(cy + open * 0.5)} ${r2(Rx)} ${r2(yr)}`;
-    return `${P(`${top} ${bottom}Z`, lidGrad)}
+    return `${soft(c, 1.3, P(`${top} ${bottom}Z`, lidGrad, `transform="translate(0 ${r2(-open * 0.12)})"`))}
       ${soft(c, 1.5, S(`M${r2(L + 2)} ${r2(cy - open * 0.55)} C${r2(L + w * 0.3)} ${r2(cy - open * 0.9)} ${r2(Rx - w * 0.3)} ${r2(cy - open * 0.95)} ${r2(Rx - 2)} ${r2(cy - open * 0.5)}`, lidShade, 2.2), 0.5)}
       ${soft(c, 0.6, S(lidLine, lash, 1.8))}
       ${S(lidLine, lash, 1.1)}

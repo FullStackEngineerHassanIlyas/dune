@@ -14,6 +14,7 @@ const COLLAR_BACK = 'M128 250 C168 232 240 230 292 244 L266 356 L156 356Z';
 const WING_L = 'M112 390 C98 338 96 280 108 222 C110 212 118 208 126 214 C142 228 156 246 166 266 C172 298 178 326 188 352 C168 366 142 379 112 390Z';
 const WING_R = 'M304 392 C318 340 320 282 306 222 C303 212 294 210 288 216 C274 230 262 248 254 268 C248 300 242 328 234 352 C254 366 278 380 304 392Z';
 const VEE = 'M178 344 C190 368 200 390 210 404 C220 390 232 368 244 344Z';
+const BAND = 'M170 352 C169 336 171 322 175 310 C192 317 224 317 241 310 C245 322 247 336 246 352 C226 346 190 346 170 352Z';
 const BOOK = 'M232 432 L330 396 L366 500 L262 500Z';
 const SPINE = 'M219 440 L232 432 L262 500 L247 500Z';
 const PAGES = 'M230 427 L328 391 L330 396 L232 432Z';
@@ -24,13 +25,13 @@ const EYE_R = { cx: 243, cy: 181.5, w: 26, open: 8, tilt: -0.5, look: -1.6 };
 export const CYRIL = {
   house: 'atreides', name: 'Cyril', pivot: [208, 318], eyes: [[181, 182, 30, 15], [243, 181, 26, 14]],
   finish: { r: 1.1, mix: 0.65 },
-  outlines: { head: [FACE, HAIR, HAIR_BACK, EAR], body: [CLOAK, COLLAR_BACK, NECK, WING_L, WING_R, BOOK, SPINE, PAGES] },
+  outlines: { head: [FACE, HAIR, HAIR_BACK, EAR], body: [CLOAK, COLLAR_BACK, NECK, BAND, WING_L, WING_R, BOOK, SPINE, PAGES] },
   rig: {
-    key: { dir: [-0.76, -0.46, 0.5], color: [1, 0.9, 0.8], i: 1.8, wrap: 0.12 },
+    key: { dir: [-0.76, -0.46, 0.5], color: [1, 0.9, 0.8], i: 1.5, wrap: 0.14 },
     fill: { dir: [0.6, 0.1, 0.8], color: [0.42, 0.6, 0.85], i: 0.14 },
-    rim: { dir: [1, -0.3, -0.1], color: [0.5, 0.85, 1], i: 1.5, power: 2.4 },
-    sky: [0.1, 0.13, 0.19], ground: [0.05, 0.045, 0.05], skinAmb: [2.3, 1.25, 0.8],
-    sss: [0.36, 0.07, 0.03], ao: { r: 9, k: 0.22 }, shadow: { len: 70, soft: 3, bias: 0.5, blur: 1.6, depth: 0.72 }, spec: { power: 34, i: 0.5 }, exposure: 1,
+    rim: { dir: [0.78, -0.22, -0.6], color: [0.5, 0.85, 1], i: 1.7, power: 2 },
+    sky: [0.14, 0.17, 0.23], ground: [0.06, 0.05, 0.055], skinAmb: [2.4, 1.4, 0.95],
+    sss: [0.36, 0.07, 0.03], ao: { r: 9, k: 0.22 }, shadow: { len: 70, soft: 3.4, bias: 0.5, blur: 2, depth: 0.6 }, spec: { power: 34, i: 0.5 }, exposure: 1,
   },
 };
 
@@ -58,11 +59,12 @@ function back(c) {
   const sea = c.lin('sea', [[0, '#3b97a2'], [0.3, '#1f6c7e'], [1, '#0d3444']], [0, 300, 0, 390], true);
   const wall = c.lin('wall', [[0, '#14262c'], [0.55, '#0c1a20'], [1, '#060c10']], [0, 0, 0, 1]);
   const column = c.lin('column', [[0, '#3a2a1c'], [0.35, '#6b4a2c'], [0.6, '#2a2018'], [1, '#0c0d0e']]);
-  const sides = c.lin('vigx', [[0, '#fff', 0], [0.12, '#fff', 0.3], [0.26, '#fff', 0.85], [0.36, '#fff'], [0.68, '#fff'], [0.8, '#fff', 0.8], [0.92, '#fff', 0.25], [1, '#fff', 0]]);
+  const sides = c.lin('vigx', [[0, '#fff', 0], [0.1, '#fff', 0.35], [0.22, '#fff', 0.88], [0.3, '#fff'], [0.74, '#fff'], [0.84, '#fff', 0.85], [0.94, '#fff', 0.3], [1, '#fff', 0]]);
   const top = c.lin('vigy', [[0, '#fff', 0], [0.12, '#fff', 0.25], [0.3, '#fff', 0.8], [0.44, '#fff']], [0, 0, 0, 1]);
   const mask = c.def('backmask', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${sides}"/></mask>`);
   const maskTop = c.def('backmasktop', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${top}"/></mask>`);
-  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${c.blur(1.6)}">
+  const lift = c.def('lift', (id) => `<filter id="${id}" filterUnits="userSpaceOnUse" x="0" y="0" width="400" height="500" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope="1.38" intercept=".012"/><feFuncG type="linear" slope="1.38" intercept=".012"/><feFuncB type="linear" slope="1.38" intercept=".012"/></feComponentTransfer></filter>`);
+  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${lift}"><g filter="${c.blur(1.6)}">
     <rect width="400" height="500" fill="${wall}"/>
     <path d="${stones.join('')}" stroke="#03080a" stroke-width="2" opacity=".55"/>
     <path d="${stones.join('')}" stroke="#2d4a50" stroke-width="1" opacity=".25" transform="translate(1.5 1.5)"/>
@@ -88,7 +90,7 @@ function back(c) {
     ${soft(c, 40, E(200, 340, 230, 210, '#0e2a32', 'opacity=".55"'))}
   </g>
   ${soft(c, 34, E(206, 330, 140, 200, '#000', 'opacity=".42"'))}
-  </g></g>`;
+  </g></g></g>`;
 }
 
 // ---- the head ----
@@ -152,6 +154,7 @@ function headAlbedo(c, { blink = false } = {}) {
     <path d="M196 250.5 C203 252.5 210 253.5 216 253.5 C224 253.5 230.5 252 236.5 249.5 C233.5 257 226 261.5 215 261.5 C205 261.5 199 257 196 250.5Z" fill="#cc7e6e"/>
     ${soft(c, 0.7, S('M193 249.5 C202 251.5 210 252 216 252 C224 252 231 251 239.5 248.5', '#5e261e', 1.6))}
     ${soft(c, 1, `${E(193, 249.5, 2, 1.5, '#6a2e24', 'opacity=".6"')}${E(239.5, 248.5, 2, 1.5, '#6a2e24', 'opacity=".6"')}`)}
+    ${soft(c, 3.5, S('M151 126 C143 146 141 170 143 196 C145 216 149 230 155 244', '#b07458', 7), 0.4)}
     ${grainOver(c, faceClip, 0.12, 1.3, 15)}
     ${eyes}
     ${brows}
@@ -164,7 +167,7 @@ function headAlbedo(c, { blink = false } = {}) {
   ${soft(c, 1.6, lk.front.lights, 0.35)}
   ${strands(rng(63), { guides: hairGuides.front, count: 170, w: [0.4, 1.1], color: blondDark, jitter: 3, opacity: [0.25, 0.6] })}
   ${strands(rng(64), { guides: hairGuides.front, count: 170, w: [0.4, 1], color: blondLight, jitter: 3, opacity: [0.25, 0.6] })}
-  ${strands(rng(71), { guides: [[[152, 134], [149, 150], [149, 166], [151, 182]], [[157, 136], [155, 152], [155, 168], [157, 182]]], count: 26, w: [0.5, 1.1], color: blondDark, jitter: 1, opacity: [0.4, 0.8] })}
+  ${strands(rng(71), { guides: [[[151, 132], [147, 150], [146, 170], [149, 190]], [[156, 134], [153, 152], [152, 172], [155, 190]], [[160, 136], [158, 154], [157, 172], [159, 186]]], count: 44, w: [0.4, 1], color: blondDark, jitter: 1.2, opacity: [0.25, 0.7] })}
   ${strands(rng(72), { guides: [[[236, 110], [250, 118], [258, 130], [256, 150]], [[244, 112], [260, 122], [266, 136], [263, 156]]], count: 16, w: [0.7, 1.5], color: blond, jitter: 1.5, opacity: [0.6, 0.95] })}
   ${strands(rng(73), { guides: [[[176, 58], [208, 48], [244, 52], [270, 70]], [[150, 66], [176, 52], [214, 48], [250, 56]]], count: 14, w: [0.3, 0.7], color: blondLight, jitter: 3, opacity: [0.3, 0.6] })}`;
 }
@@ -197,12 +200,17 @@ function headForms({ blink = false } = {}) {
     { t: 'bump', cx: 243, cy: 180, rx: 19, ry: 15, h: 11, op: 'sub' },
     { t: 'dome', cx: 181, cy: 183, rx: 17.5, ry: 11.5, h: 8.5 },
     { t: 'dome', cx: 243, cy: 182.5, rx: 14.5, ry: 11, h: 8 },
-    { t: 'ridge', bz: blink ? L.closed : L.top, w: 3.2, h: 2 },
-    { t: 'ridge', bz: blink ? Rr.closed : Rr.top, w: 3, h: 1.9 },
-    { t: 'ridge', bz: L.bottom, w: 2.2, h: 0.9 },
-    { t: 'ridge', bz: Rr.bottom, w: 2.2, h: 0.8 },
+    ...(blink ? [
+      { t: 'ridge', bz: L.closed, w: 1.6, h: -0.7 },
+      { t: 'ridge', bz: Rr.closed, w: 1.6, h: -0.7 },
+    ] : [
+      { t: 'ridge', bz: L.top, w: 3.2, h: 2 },
+      { t: 'ridge', bz: Rr.top, w: 3, h: 1.9 },
+      { t: 'ridge', bz: L.bottom, w: 2.2, h: 0.9 },
+      { t: 'ridge', bz: Rr.bottom, w: 2.2, h: 0.8 },
+    ]),
     { t: 'ridge', pts: [[212, 168], [213, 180], [215, 194]], w: 4.5, h: 5 },
-    { t: 'ridge', pts: [[214.5, 190], [216.5, 203], [218.5, 214]], w: 6.5, h: 7 },
+    { t: 'ridge', pts: [[214.5, 190], [216.5, 203], [218.5, 214]], w: 8.5, h: 7 },
     { t: 'bump', cx: 218, cy: 217, rx: 8.5, ry: 7.5, h: 5.5 },
     { t: 'bump', cx: 205, cy: 224, rx: 6.5, ry: 5, h: 4.5 },
     { t: 'bump', cx: 232, cy: 223, rx: 5.5, ry: 5, h: 3.5 },
@@ -255,6 +263,9 @@ function bodyAlbedo(c) {
     <g clip-path="${cloakClip}" style="mix-blend-mode:overlay" opacity=".12"><rect width="400" height="500" filter="${c.streaks(0.008, 0.45, 9)}" transform="rotate(-70 200 430)"/></g>`)}
   <path d="${VEE}" fill="#0b1130"/>
   ${S('M179 345 C191 369 201 390 210 404 C219 390 231 369 243 345', '#c99a3e', 2.6)}
+  <path d="${BAND}" fill="#18235a"/>
+  ${S('M175 310 C192 317 224 317 241 310', '#d4a642', 1.8)}
+  ${S('M172 330 C192 336 224 336 244 330', '#d4a642', 0.8, 'opacity=".7"')}
   <path d="${WING_L}" fill="#28407e"/>
   ${S('M112 390 C98 338 96 280 108 222', '#141e4a', 5)}
   ${S('M110 388 C97 336 95 280 107 223', '#c4d4f4', 1.4)}
@@ -288,7 +299,7 @@ function bodyMat() {
   const skin = 'rgb(50,60,255)', cloth = 'rgb(28,22,0)', gold = 'rgb(250,170,0)';
   const fingers = fingersAt().map(({ d }) => `<path d="${d}" fill="${skin}"/>`).join('');
   return `<path d="${COLLAR_BACK}" fill="${cloth}"/><path d="${NECK}" fill="${skin}"/><path d="${CLOAK}" fill="${cloth}"/>
-    <path d="${VEE}" fill="${cloth}"/><path d="${WING_L}" fill="rgb(55,40,0)"/><path d="${WING_R}" fill="rgb(55,40,0)"/>
+    <path d="${VEE}" fill="${cloth}"/><path d="${BAND}" fill="rgb(60,45,0)"/>${S('M175 310 C192 317 224 317 241 310', 'rgb(250,170,0)', 1.8)}<path d="${WING_L}" fill="rgb(55,40,0)"/><path d="${WING_R}" fill="rgb(55,40,0)"/>
     ${S('M112 390 C98 338 96 280 108 222 M304 392 C318 340 320 282 306 222', 'rgb(120,90,0)', 5)}
     ${S('M114 380 C102 334 100 282 109 232 M300 384 C312 338 314 286 303 232 M179 345 C191 369 201 390 210 404 C219 390 231 369 243 345', gold, 2.4)}
     ${E(210, 410, 17, 17, gold)}${E(210, 410, 8.5, 8.5, 'rgb(255,255,0)')}
@@ -316,6 +327,8 @@ function bodyForms() {
     { t: 'ridge', bz: [[212, 396], [214, 430], [214, 466], [212, 500]], w: 7, h: 3 },
     { t: 'slab', d: VEE, h: 3, r: 2, base: 26, op: 'max' },
     { t: 'slab', d: NECK, h: 24, r: 16, base: 10, op: 'max' },
+    { t: 'slab', d: BAND, h: 9, r: 8, base: 30, op: 'max' },
+    { t: 'ridge', pts: [[175, 310], [192, 317], [224, 317], [241, 310]], w: 1.6, h: 1 },
     { t: 'slab', d: WING_L, h: 9, r: 5, base: 34, op: 'max' },
     { t: 'slab', d: WING_R, h: 9, r: 5, base: 34, op: 'max' },
     { t: 'ridge', bz: [[112, 390], [98, 338], [96, 280], [108, 222]], w: 3, h: 2 },
