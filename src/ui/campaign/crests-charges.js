@@ -18,16 +18,20 @@ const along = (pts, u) => {
 /**
  * Volume for a rounded shape `d`: inside it, a soft shadow along the edge away from the light (its outline moved
  * towards the light) and a highlight along the lit edge (moved away), so a body reads round in any pose. The clip
- * is defined once (`key`) and may be reused, mirrored, with volumeAgain.
+ * and the outline are defined once (`key`; shape()) and may be reused, mirrored, with volumeAgain.
  */
 function volume(m, key, d, w = 9, o = 0.5) {
-  const clip = `<clipPath id="${m.p}-${key}"><path d="${d}"/></clipPath>`;
-  return clip + volumeAgain(m, key, d, w, o);
+  return shape(m, key, d) + volumeAgain(m, key, w, o);
 }
-const volumeAgain = (m, key, d, w = 9, o = 0.5) => `<g clip-path="url(#${m.p}-${key})" fill="none">
-    <path d="${d}" stroke="#000" stroke-width="${f(w)}" opacity="${o}" transform="translate(${f(-w * 0.42)} ${f(-w * 0.5)})" filter="url(#${m.p}-blur)"/>
-    <path d="${d}" stroke="#fff" stroke-width="${f(w * 0.5)}" opacity="${f(o * 0.8)}" transform="translate(${f(w * 0.36)} ${f(w * 0.42)})" filter="url(#${m.p}-blur)"/>
-    <path d="${d}" stroke="#fff" stroke-width="1.6" opacity=".38" transform="translate(-1 -1.2)"/></g>`;
+/** The outline `d` defined once as `key` (for uses) with a clip path of it. */
+const shape = (m, key, d) => `<defs><path id="${m.p}-${key}d" d="${d}"/></defs><clipPath id="${m.p}-${key}"><use href="#${m.p}-${key}d"/></clipPath>`;
+const volumeAgain = (m, key, w = 9, o = 0.5) => {
+  const u = `href="#${m.p}-${key}d"`;
+  return `<g clip-path="url(#${m.p}-${key})" fill="none">
+    <use ${u} stroke="#000" stroke-width="${f(w)}" opacity="${o}" transform="translate(${f(-w * 0.42)} ${f(-w * 0.5)})" filter="url(#${m.p}-blur)"/>
+    <use ${u} stroke="#fff" stroke-width="${f(w * 0.5)}" opacity="${f(o * 0.8)}" transform="translate(${f(w * 0.36)} ${f(w * 0.42)})" filter="url(#${m.p}-blur)"/>
+    <use ${u} stroke="#fff" stroke-width="1.6" opacity=".38" transform="translate(-1 -1.2)"/></g>`;
+};
 
 /** A mirrored copy of a right-hand half outline, closed through the axis. */
 const both = (half) => smooth([...half, ...half.slice(1, -1).reverse().map(([x, y]) => [-x, y])], true);
@@ -98,9 +102,9 @@ export function hawk(m, { detail = true } = {}) {
     ${w}${mirror(w, 0)}
     ${leg}${mirror(leg, 0)}
     <g fill="url(#${m.p}-fmid)">${thighs}${mirror(thighs, 0)}</g>
-    <path d="${body}" fill="url(#${m.p}-flight)"/>
-    ${detail ? `<clipPath id="${m.p}-body"><path d="${body}"/></clipPath><g clip-path="url(#${m.p}-body)" fill="url(#${m.p}-flight)" stroke="${m.detail}" stroke-width=".55">${breast}</g>` : ''}
-    ${volume(m, 'hb', body, 9, 0.45)}
+    ${shape(m, 'hb', body)}<use href="#${m.p}-hbd" fill="url(#${m.p}-flight)"/>
+    ${detail ? `<g clip-path="url(#${m.p}-hb)" fill="url(#${m.p}-flight)" stroke="${m.detail}" stroke-width=".55">${breast}</g>` : ''}
+    ${volumeAgain(m, 'hb', 9, 0.45)}
     <g transform="translate(0 -58) scale(1.14) translate(0 58)">
       <path d="${head}" fill="url(#${m.p}-flight)"/>
       <path d="M-12 -61C-8 -61 -7 -57 -8.5 -52C-9.5 -48 -11 -45 -13 -44C-15 -48 -15 -52 -14.5 -56C-14 -59 -13.5 -61 -12 -61Z" fill="url(#${m.p}-fdark)" stroke-width=".7"/>
@@ -127,7 +131,7 @@ function horn(m, detail) {
       rings += `M${pt(left[i])}Q${pt(add(spine[i], bow))} ${pt(right[i])}`;
     }
   }
-  return { d, markup: `<path d="${d}" fill="url(#${m.p}-horn)"/>${volumeAgain(m, 'rh', d, 10, 0.5)}
+  return { d, markup: `<use href="#${m.p}-rhd" fill="url(#${m.p}-horn)"/>${volumeAgain(m, 'rh', 10, 0.5)}
     ${detail ? `<path d="${rings}" ${line(m.ink, 1.4, 0.85)}/><path d="${rings}" ${line(m.light[0], 0.9, 0.4)} transform="translate(-1.2 -1)"/>` : ''}` };
 }
 
@@ -143,7 +147,7 @@ export function ram(m, { detail = true } = {}) {
   const nostril = `<path d="M4.5 53.5q4.5 -1.5 5.5 4q-2.5 2.5 -5.5 -1Z" fill="${m.ink}"/>`;
   const { d: hornD, markup: h } = horn(m, detail);
   return `<g stroke="${m.ink}" stroke-width="1.2" stroke-linejoin="round">
-    <clipPath id="${m.p}-rh"><path d="${hornD}"/></clipPath>
+    ${shape(m, 'rh', hornD)}
     ${ear}${mirror(ear, 0)}
     <path d="${face}" fill="url(#${m.p}-flight)"/>${volume(m, 'rf', face, 11, 0.5)}
     ${detail ? `<path d="M-9 4Q-12 28 -11 50M9 4Q12 28 11 50M-7 64Q0 70 7 64" ${line(m.detail, 1.1, 0.7)}/>` : '<path d="M-7 64Q0 70 7 64" fill="none"/>'}
@@ -172,11 +176,11 @@ export function serpent(m, { detail = true } = {}) {
   const head = smooth([[-8, -82], [-30, -88], [-48, -86], [-62, -79], [-69, -71], [-66, -64], [-52, -59], [-34, -57], [-14, -60], [-5, -70]], true);
   return `<g stroke="${m.ink}" stroke-width="1.2" stroke-linejoin="round">
     <path d="M-67 -66L-78 -64M-78 -64L-85 -69M-78 -64L-84 -58" fill="none" stroke="${m.accent}" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="${body}" fill="url(#${m.p}-flight)"/>
-    ${detail ? `<path d="${body}" fill="url(#${m.p}-scales)" stroke="none"/>` : ''}
+    ${shape(m, 'sb', body)}<use href="#${m.p}-sbd" fill="url(#${m.p}-flight)"/>
+    ${detail ? `<use href="#${m.p}-sbd" fill="url(#${m.p}-scales)" stroke="none"/>` : ''}
     <path d="${belly}" fill="url(#${m.p}-belly)" stroke-width=".8"/>
     ${detail ? `<path d="${scutes}" ${line(m.ink, 0.9, 0.6)}/><path d="${marks}" fill="url(#${m.p}-fdark)" stroke="${m.belly[1]}" stroke-width="1"/>` : ''}
-    ${volume(m, 'sb', body, 11, 0.55)}
+    ${volumeAgain(m, 'sb', 11, 0.55)}
     <path d="${head}" fill="url(#${m.p}-flight)"/>${volume(m, 'sh', head, 8, 0.45)}
     <path d="M-62 -64L-60 -58.5L-57.5 -63.5ZM-55 -62.5L-53.5 -57.5L-51 -62Z" fill="#fff8e8" stroke-width=".6"/>
     <path d="M-67 -66Q-50 -63 -30 -62" fill="none" stroke-width="1.4"/>
