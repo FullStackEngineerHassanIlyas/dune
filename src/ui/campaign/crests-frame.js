@@ -18,7 +18,9 @@ const even = (colours) => stops(colours.map((c, i) => [Math.round((i / (colours.
 /**
  * Filters: `relief` raises a charge as cast metal (height from its brightness and its outline, so engraved lines
  * read as grooves; diffuse plus specular light from the top left), `soft` a gentler relief for the frame's
- * ornaments and the shield's rim, `drop` a contact shadow, `grain` a fine metal grain, `blur` a soft shadow.
+ * ornaments and the shield's rim, `drop` a contact shadow, `shade` a soft black silhouette (the charge's shadow,
+ * drawn as an offset copy: no filter may wrap the relief, see crestArt), `grain` a fine metal grain, `blur` a soft
+ * shadow, `glow` a halo for burning eyes.
  */
 export function filters(p) {
   return `
@@ -49,13 +51,19 @@ export function filters(p) {
   <filter id="${p}-drop" x="-10%" y="-10%" width="125%" height="125%" color-interpolation-filters="sRGB">
     <feDropShadow dx="3" dy="5" stdDeviation="3.5" flood-color="#000" flood-opacity=".75"/>
   </filter>
+  <filter id="${p}-shade" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+    <feFlood flood-color="#000" flood-opacity=".75"/>
+    <feComposite in2="SourceAlpha" operator="in"/>
+    <feGaussianBlur stdDeviation="3.5"/>
+  </filter>
   <filter id="${p}-grain" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
     <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" result="n"/>
     <feColorMatrix in="n" type="matrix" values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  1.6 0 0 0 -.55" result="g"/>
     <feComposite in="g" in2="SourceAlpha" operator="in" result="gc"/>
     <feBlend in="gc" in2="SourceGraphic" mode="overlay"/>
   </filter>
-  <filter id="${p}-blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>`;
+  <filter id="${p}-blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
+  <filter id="${p}-glow" x="-50%" y="-120%" width="200%" height="340%"><feGaussianBlur stdDeviation="2.2"/></filter>`;
 }
 
 /** Gradients shared by every crest: the moulding's profile, polished gold, the rim, the enamels, the jewels. */
@@ -201,15 +209,18 @@ export function shieldPoints(d = 0, box = SHIELD_BOX) {
 }
 
 /** Engine-turned lines under the enamel: 'rays' (a sunburst), 'rosette' (circles round a ring) or 'rings'. */
-function guilloche(kind, colour) {
-  const [cx, cy] = [C, 190], attrs = `fill="none" stroke="${colour}" stroke-width=".8" opacity="${kind === 'rosette' ? 0.15 : 0.22}"`;
+function guilloche(kind, colour, opacity = kind === 'rosette' ? 0.15 : 0.22) {
+  const [cx, cy] = [C, 190], attrs = `fill="none" stroke="${colour}" stroke-width=".8" opacity="${opacity}"`;
   if (kind === 'rays') {
     let d = '';
     for (let i = 0; i < 96; i++) d += `M${pt(add([cx, cy], mul(turn([1, 0], i * 3.75), 14)))}L${pt(add([cx, cy], mul(turn([1, 0], i * 3.75), 220)))}`;
     return `<path d="${d}" ${attrs}/>`;
   }
+  // the rosette's large circles leave a plain disc at its heart; a small rosette fills it so it does not shine as
+  // a blob
+  const ring = (n, at, r) => Array.from({ length: n }, (_, i) => `<circle cx="${f(cx + Math.cos(i * 2 * Math.PI / n) * at)}" cy="${f(cy + Math.sin(i * 2 * Math.PI / n) * at)}" r="${r}"/>`);
   const circles = kind === 'rosette'
-    ? Array.from({ length: 40 }, (_, i) => `<circle cx="${f(cx + Math.cos(i * Math.PI / 20) * 58)}" cy="${f(cy + Math.sin(i * Math.PI / 20) * 58)}" r="96"/>`)
+    ? [...ring(40, 58, 96), ...ring(24, 34, 36)]
     : Array.from({ length: 30 }, (_, i) => `<circle cx="${cx}" cy="${cy}" r="${10 + i * 7}"/>`);
   return `<g ${attrs}>${circles.join('')}</g>`;
 }
@@ -235,7 +246,7 @@ export function shield(p, s, { rivets = true, engraving = true } = {}) {
   <path d="${fillet}" fill="url(#${p}-goldv)" stroke="${GOLD.ink}" stroke-width=".8"/>
   <g filter="url(#${p}-grain)"><path d="${inner}" fill="url(#${p}-enamel)"/></g>
   <g clip-path="url(#${p}-inner)">
-    ${engraving && s.engine ? guilloche(s.engine, s.diaper) : ''}
+    ${engraving && s.engine ? (s.engrave ? guilloche(s.engine, s.engrave, 0.17) : guilloche(s.engine, s.diaper)) : ''}
     ${s.bordure ? `<path d="${inner}" fill="none" stroke="${s.bordure}" stroke-width="22" opacity=".92"/><path d="${smooth(shieldPoints(24), true, 0.16)}" fill="none" stroke="${GOLD.mid}" stroke-width="1.4"/>` : ''}
     <path d="${inner}" fill="none" stroke="#000" stroke-width="7" opacity=".55" filter="url(#${p}-blur)" transform="translate(1.5 2.5)"/>
   </g>

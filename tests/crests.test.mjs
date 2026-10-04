@@ -1,9 +1,10 @@
-// The house crests (src/ui/campaign/crests.js): every house's crest is a well-formed SVG whose art travels as an
-// image (so its lighting filters are rasterised once), every reference inside resolves, ids are unique, and the
-// markup stays small enough for the house selection to build quickly.
+// The house crests (src/ui/campaign/crests.js): every house's crest is an <svg> carrying its picture as an image
+// (the baked WebP, or the vector art as a data: URL); the vector art is well formed, every reference inside
+// resolves, ids are unique, no filter wraps the relief light, and the markup stays small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { crestSvg, crestArt, svgDataUrl, CREST_HOUSES, CREST_STYLES, VIEWBOX } from '../src/ui/campaign/crests.js';
+import { BAKED } from '../src/ui/campaign/crests-baked.js';
 import { smooth, spiral, tube, sample, shade } from '../src/ui/campaign/crests-geometry.js';
 import { PLAYABLE_HOUSES, SKIRMISH_HOUSES } from '../src/data/houses.js';
 
@@ -13,6 +14,8 @@ const artOf = (markup) => {
   assert.ok(m, 'the crest carries its art as an image');
   return decodeURIComponent(m[1]);
 };
+/** A crest's vector art as it travels in a data: URL (single quotes), whether or not the game shows it baked. */
+const art = (house, opts) => artOf(`<image href="${svgDataUrl(crestArt(house, opts))}"`);
 
 /** Tags open and close in order (self-closing tags aside). */
 function balanced(xml) {
@@ -38,7 +41,7 @@ test('a crest is an <svg> with its class, role and label, the art inside as an i
   for (const house of CREST_HOUSES) {
     const svg = crestSvg(house);
     assert.match(svg, /^<svg class="cp-crest-art" viewBox="0 0 400 400" xmlns="http:\/\/www\.w3\.org\/2000\/svg" role="img" aria-label="[^"]+">/, house);
-    assert.match(svg, /<image href="data:image\/svg\+xml,[^"]+" x="0" y="0" width="400" height="400"\/><\/svg>$/, house);
+    assert.match(svg, /<image href="[^"]+" x="0" y="0" width="400" height="400"\/><\/svg>$/, house);
     const small = crestSvg(house, { variant: 'shield' });
     assert.match(small, /class="cp-crest-art cp-crest-shield" viewBox="76 52 248 310"/, house);
     assert.deepEqual(VIEWBOX.shield, [76, 52, 248, 310]);
@@ -48,15 +51,15 @@ test('a crest is an <svg> with its class, role and label, the art inside as an i
 test('the art is well formed: balanced tags, no NaN, every url(#id) and #id reference defined once', () => {
   for (const house of CREST_HOUSES) {
     for (const opts of [{}, { variant: 'shield' }, { variant: 'shield', detail: true }, { detail: false }]) {
-      const art = artOf(crestSvg(house, opts));
+      const doc = art(house, opts);
       const where = `${house} ${JSON.stringify(opts)}`;
-      assert.ok(art.startsWith("<svg xmlns='http://www.w3.org/2000/svg'"), where);
-      assert.ok(balanced(art), `${where}: tags balance`);
-      assert.doesNotMatch(art, /NaN|undefined|Infinity|null/, where);
-      assert.doesNotMatch(art, /"/, `${where}: no double quote inside the attribute`);
-      const ids = [...art.matchAll(/ id='([^']+)'/g)].map((m) => m[1]);
+      assert.ok(doc.startsWith("<svg xmlns='http://www.w3.org/2000/svg'"), where);
+      assert.ok(balanced(doc), `${where}: tags balance`);
+      assert.doesNotMatch(doc, /NaN|undefined|Infinity|null/, where);
+      assert.doesNotMatch(doc, /"/, `${where}: no double quote inside the attribute`);
+      const ids = [...doc.matchAll(/ id='([^']+)'/g)].map((m) => m[1]);
       assert.equal(new Set(ids).size, ids.length, `${where}: ids are unique`);
-      const refs = [...art.matchAll(/url\(#([^)]+)\)|href='#([^']+)'/g)].map((m) => m[1] ?? m[2]);
+      const refs = [...doc.matchAll(/url\(#([^)]+)\)|href='#([^']+)'/g)].map((m) => m[1] ?? m[2]);
       assert.ok(refs.length > 10, where);
       for (const ref of refs) assert.ok(ids.includes(ref), `${where}: #${ref} is defined`);
     }
@@ -64,15 +67,47 @@ test('the art is well formed: balanced tags, no NaN, every url(#id) and #id refe
 });
 
 test('the framed art has the frame, field, shield and the charge under its relief light; the bare shield only the shield', () => {
-  const uses = (art, part) => new RegExp(`(url\\(#|href='#)cr\\d+at-${part}[)']`).test(art);
-  const framed = artOf(crestSvg('atreides'));
-  for (const part of ['mould', 'corner', 'mid', 'field', 'diaper', 'rim', 'enamel', 'relief', 'drop']) assert.ok(uses(framed, part), part);
-  const bare = artOf(crestSvg('atreides', { variant: 'shield' }));
+  const uses = (doc, part) => new RegExp(`(url\\(#|href='#)cr\\d+at-${part}[)']`).test(doc);
+  const framed = art('atreides');
+  for (const part of ['mould', 'corner', 'mid', 'field', 'diaper', 'rim', 'enamel', 'relief', 'drop', 'shade', 'charge']) assert.ok(uses(framed, part), part);
+  const bare = art('atreides', { variant: 'shield' });
   assert.ok(!uses(bare, 'corner') && !uses(bare, 'diaper'), 'no frame or field round the bare shield');
   assert.ok(uses(bare, 'relief') && uses(bare, 'enamel'));
   // the fine engraving (breast scales, veins, rivets) is for the large crest only, unless asked for
   assert.ok(framed.length > bare.length);
-  assert.ok(artOf(crestSvg('atreides', { variant: 'shield', detail: true })).length > bare.length);
+  assert.ok(art('atreides', { variant: 'shield', detail: true }).length > bare.length);
+});
+
+test('no filter wraps another round the relief light: the charge casts its shadow as a separate blurred copy', () => {
+  // Chrome's GPU raster drew rectangular smears over the crests on HiDPI screens and at large sizes when a drop
+  // shadow filter wrapped the charge's relief filter; the shadow is now a copy of the charge beside it
+  for (const house of CREST_HOUSES) {
+    for (const opts of [{}, { variant: 'shield' }]) {
+      const doc = art(house, opts), stack = [];
+      let reliefs = 0;
+      for (const [, close, name, attrs, self] of doc.matchAll(/<(\/?)([a-zA-Z][\w:-]*)([^>]*?)(\/?)>/g)) {
+        if (close) { stack.pop(); continue; }
+        const filtered = / filter='url\(#[^)]+\)'/.test(attrs);
+        if (/ filter='url\(#[^)]+-relief\)'/.test(attrs)) {
+          reliefs++;
+          assert.ok(!stack.some((f) => f), `${house} ${JSON.stringify(opts)}: the relief group sits under no other filter`);
+        }
+        if (!self) stack.push(filtered);
+      }
+      assert.equal(reliefs, 1, `${house}: one relief pass`);
+      const charge = /<g id='(cr\d+\w\w-charge)'/.exec(doc)?.[1];
+      assert.ok(charge, `${house}: the charge is defined once`);
+      assert.match(doc, new RegExp(`<use href='#${charge}' transform='translate\\(3 5\\)' filter='url\\(#cr\\d+\\w\\w-shade\\)'/>`), `${house}: its shadow`);
+      assert.match(doc, new RegExp(`filter='url\\(#cr\\d+\\w\\w-relief\\)'><use href='#${charge}'/>`), `${house}: its relief`);
+    }
+  }
+});
+
+test('the Harkonnen ram\'s eyes burn over the relief light; the other charges have no glow', () => {
+  const doc = art('harkonnen');
+  const after = doc.slice(doc.indexOf('-relief)\'><use'));
+  assert.match(after, /filter='url\(#cr\d+ha-glow\)'/, 'the glow comes after the relief group');
+  for (const house of CREST_HOUSES.filter((h) => h !== 'harkonnen')) assert.doesNotMatch(art(house), /-glow\)/, house);
 });
 
 test('each house shows its own colours: blue-green enamel for the hawk, a pale field for the serpent, crimson for the ram', () => {
@@ -80,6 +115,7 @@ test('each house shows its own colours: blue-green enamel for the hawk, a pale f
   const [aTop] = CREST_STYLES.atreides.enamel;
   assert.ok(parseInt(aTop.slice(5, 7), 16) > parseInt(aTop.slice(1, 3), 16), 'Atreides enamel is blue-green');
   assert.ok(lum(CREST_STYLES.ordos.enamel[1]) > 200, 'Ordos field is pale');
+  assert.ok(lum(CREST_STYLES.ordos.enamel[0]) < 250, 'but ivory, not a glaring white');
   const [hr, hg] = [1, 3].map((i) => parseInt(CREST_STYLES.harkonnen.enamel[1].slice(i, i + 2), 16));
   assert.ok(hr > 3 * hg, 'Harkonnen field is red');
   assert.ok(CREST_STYLES.harkonnen.bordure, 'and bordered in black');
@@ -94,10 +130,11 @@ test('crests are made once and reused; standalone art gets fresh ids so two can 
   assert.notEqual(prefix(a), prefix(b));
 });
 
-test('the markup stays light: under 140 KB a framed crest, 60 KB a bare shield', () => {
+test('the vector art stays light: under 140 KB a framed crest, 60 KB a bare shield', () => {
   for (const house of CREST_HOUSES) {
-    assert.ok(crestSvg(house).length < 140 * 1024, `${house} framed ${crestSvg(house).length}`);
-    assert.ok(crestSvg(house, { variant: 'shield' }).length < 60 * 1024, `${house} shield`);
+    const framed = svgDataUrl(crestArt(house)).length, bare = svgDataUrl(crestArt(house, { variant: 'shield' })).length;
+    assert.ok(framed < 140 * 1024, `${house} framed ${framed}`);
+    assert.ok(bare < 60 * 1024, `${house} shield ${bare}`);
   }
 });
 

@@ -5,9 +5,11 @@
 // Harkonnen ram dark iron on crimson within a black border. The Emperor's Sardaukar (a lion on purple), the
 // Mercenaries (crossed swords on a coin) and the Fremen (a crysknife in a sandworm's maw) have crests too.
 // Lit from the top left by SVG lighting filters (cast-metal relief, specular highlights) over gradients, and drawn
-// procedurally (crests-charges.js, crests-frame.js). Markup strings for innerHTML.
+// procedurally (crests-charges.js, crests-frame.js). Markup strings for innerHTML. The game shows them baked to
+// WebP pictures (assets/campaign/crests/bake.mjs): Chrome's GPU raster smears these filters on HiDPI screens.
 import { SIZE, filters, gradients, frame, field, shield, shieldPoints, GOLD } from './crests-frame.js';
-import { hawk, ram, serpent, lion, swords, crysknife } from './crests-charges.js';
+import { hawk, ram, ramGlow, serpent, lion, swords, crysknife } from './crests-charges.js';
+import { BAKED } from './crests-baked.js';
 
 /** Rim metals, as gradient stops from the lit top left to the shadowed bottom right. */
 const STEEL = ['#fbfdff', '#bcc6d1', '#66717f', '#dfe5ec', '#8f9aa7', '#2a3038'];
@@ -24,14 +26,14 @@ export const CREST_STYLES = {
     gem: ['#e2f4ff', '#3d8ff0', '#0b2a70'], metal: { ...GOLD_M, eye: '#10233a' },
   },
   ordos: {
-    label: 'The Ordos serpent', charge: serpent, place: 'translate(198 204) scale(1)',
-    field: ['#1f6a34', '#0c3418', '#020a04'], diaper: '#a6f0a0', enamel: ['#ffffff', '#dde6df', '#97a69e'], engine: 'rosette', rim: STEEL,
+    label: 'The Ordos serpent', charge: serpent, place: 'translate(204 190) scale(1.15)',
+    field: ['#1f6a34', '#0c3418', '#020a04'], diaper: '#a6f0a0', enamel: ['#f2f0d8', '#d0dabf', '#7e917c'], engine: 'rosette', engrave: '#2c5a38', rim: STEEL,
     gem: ['#e6ffd8', '#3cc04a', '#0a4a14'],
     metal: { light: ['#b6f08a', '#43a84a', '#11501c'], mid: ['#7fd06a', '#2c8a38', '#0c4416'], dark: ['#2f8a3a', '#145c22', '#062a0c'], ink: '#06200c', detail: '#0a3a14',
       belly: ['#fff8b0', '#f4d43c', '#a07e0c'], eye: ['#fffbd0', '#f4c414', '#8a5a00'], accent: '#d0281c' },
   },
   harkonnen: {
-    label: 'The Harkonnen ram', charge: ram, place: 'translate(200 196) scale(1.02)',
+    label: 'The Harkonnen ram', charge: ram, glow: ramGlow, place: 'translate(200 196) scale(1.02)',
     field: ['#6a1410', '#2c0604', '#080101'], diaper: '#ff8a70', enamel: ['#d8392a', '#86140c', '#2a0403'], engine: 'rings', bordure: '#120404', rim: IRON,
     gem: ['#ffd8cc', '#e0281a', '#5a0400'],
     metal: { light: ['#eef2f6', '#9ba5b1', '#3e454e'], mid: ['#c2c9d2', '#6c7682', '#2a3037'], dark: ['#5d6570', '#2c3138', '#0c0e11'], ink: '#0b0c0f', detail: '#20242a',
@@ -88,21 +90,27 @@ let serial = 0;
  * The crest as a standalone SVG document (empty for a house without one): variant 'framed' (the default) is the
  * full crest in its gold frame; 'shield' the shield and its charge alone, cropped to the shield. detail (default:
  * on for framed, off for the shield) adds the fine engraving (feather veins, breast scales, horn rings, rivets,
- * engine turning), which only blurs below about 96 px. Its ids are unique per call, so it can also go inline.
+ * engine turning), which only blurs below about 96 px. Its ids are unique per call, so it can also go inline;
+ * `prefix` fixes them instead (the bake fingerprints the art with it).
  */
-export function crestArt(house, { variant = 'framed', detail } = {}) {
+export function crestArt(house, { variant = 'framed', detail, prefix } = {}) {
   const s = CREST_STYLES[house];
   if (!s) return '';
-  const p = `cr${++serial}${house.slice(0, 2)}`;
+  const p = prefix ?? `cr${++serial}${house.slice(0, 2)}`;
   const framed = variant !== 'shield';
   const fine = detail ?? framed;
   const m = { ...s.metal, p };
   const [x, y, w, h] = VIEWBOX[framed ? 'framed' : 'shield'];
+  // The charge casts its shadow as a blurred copy of itself beside it, never as a filter wrapped round its relief:
+  // Chrome's GPU raster drew rectangular smears over those nested filters on HiDPI screens and at large sizes.
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" width="${w}" height="${h}">
   <defs>${filters(p)}${gradients(p, s)}${chargeDefs(p, m)}</defs>
   ${framed ? field(p) : ''}
   ${shield(p, s, { rivets: fine, engraving: fine })}
-  <g filter="url(#${p}-drop)"><g filter="url(#${p}-relief)"><g transform="${s.place}">${s.charge(m, { detail: fine })}</g></g></g>
+  <defs><g id="${p}-charge" transform="${s.place}">${s.charge(m, { detail: fine })}</g></defs>
+  <use href="#${p}-charge" transform="translate(3 5)" filter="url(#${p}-shade)"/>
+  <g filter="url(#${p}-relief)"><use href="#${p}-charge"/></g>
+  ${s.glow ? `<g transform="${s.place}">${s.glow(m)}</g>` : ''}
   ${framed ? frame(p) : ''}
 </svg>`;
 }
@@ -117,24 +125,36 @@ export function svgDataUrl(svg) {
   return `data:image/svg+xml,${body}`;
 }
 
+/** The key of a crest's look: house, variant and whether it carries the fine engraving. */
+export const crestKey = (house, { variant = 'framed', detail } = {}) => {
+  const framed = variant !== 'shield';
+  return `${house}/${framed ? 'framed' : 'shield'}/${detail ?? framed}`;
+};
+
+/** Where a baked crest picture is served from (beside the page, as the module is). */
+const bakedUrl = (file) => new URL(`../../../assets/campaign/crests/${file}`, import.meta.url).href;
+
 const made = new Map();
 
 /**
- * SVG markup for a house's crest, for innerHTML (empty for a house without one). The art (crestArt) is drawn
- * inside as an image, so the browser rasterises its lighting filters once and reuses the picture while the
- * crest moves or glows (as inline SVG they would run again on every hover frame); the outer <svg> keeps the
- * class, role and label and fills its box. variant 'framed' (the default) is for the house selection and
- * anything from about 120 px up; 'shield' (4:5) for small places such as a 48 px badge; detail as in crestArt.
+ * SVG markup for a house's crest, for innerHTML (empty for a house without one): an <svg> with the class, role
+ * and label that fills its box, the picture inside as an image. The picture is the crest baked to WebP
+ * (crests-baked.js lists them: every house, framed and shield, with their default engraving): Chrome's GPU raster
+ * draws rectangular smears over the art's lighting filters on HiDPI screens and at large sizes, and a bitmap
+ * also costs nothing to show while the crest moves or glows. Other looks show the vector art (crestArt) as a
+ * data: URL. variant 'framed' (the default) is for the house selection and anything from about 120 px up;
+ * 'shield' (4:5) for small places such as a 48 px badge; detail as in crestArt.
  */
 export function crestSvg(house, { variant = 'framed', detail } = {}) {
   const s = CREST_STYLES[house];
   if (!s) return '';
   const framed = variant !== 'shield';
-  const key = `${house}/${framed ? 'framed' : 'shield'}/${detail ?? framed}`;
+  const key = crestKey(house, { variant, detail });
   if (!made.has(key)) {
     const [x, y, w, h] = VIEWBOX[framed ? 'framed' : 'shield'];
+    const href = BAKED[key] ? bakedUrl(BAKED[key].file) : svgDataUrl(crestArt(house, { variant, detail }));
     made.set(key, `<svg class="cp-crest-art${framed ? '' : ' cp-crest-shield'}" viewBox="${x} ${y} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${s.label}">`
-      + `<image href="${svgDataUrl(crestArt(house, { variant, detail }))}" x="${x}" y="${y}" width="${w}" height="${h}"/></svg>`);
+      + `<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}"/></svg>`);
   }
   return made.get(key);
 }

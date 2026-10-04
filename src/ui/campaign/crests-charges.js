@@ -38,7 +38,8 @@ const both = (half) => smooth([...half, ...half.slice(1, -1).reverse().map(([x, 
 
 /** One wing of the hawk (the right; the left is its mirror), about the hawk's chest at (0,0). */
 function wing(m, detail) {
-  const arm = sample([[12, -24], [31, -48], [49, -77], [63, -104]], 10);
+  // the wing's leading edge bows up towards the head from the shoulder to the wrist
+  const arm = sample([[12, -24], [27, -51], [44, -80], [63, -104]], 10);
   const n = 17, flight = [], veins = [], greater = [], median = [];
   for (let i = n - 1; i >= 0; i--) {
     const u = i / (n - 1), inner = u < 0.5;
@@ -52,47 +53,64 @@ function wing(m, detail) {
     greater.push(`<path d="${feather(gb, deg + 3, L * 0.5, 13, 9, 0.9).d}"/>`);
     if (i % 3 === 0) median.push(`<path d="${feather(add(gb, mul(unit(sub(arm[0], gb)), 2)), deg + 6, L * 0.3, 11, 8, 1).d}"/>`);
   }
-  let lesser = '';
-  if (detail) {
-    for (let i = 2; i < arm.length - 3; i += 2) {
-      const p = arm[i], t = unit(sub(arm[i + 1], arm[i - 1])), nrm = normal(t);
-      lesser += `M${pt(add(p, mul(t, -4)))}Q${pt(add(p, mul(nrm, -6)))} ${pt(add(p, mul(t, 4)))}`;
-    }
+  // the lesser coverts: rows of small rounded feathers over the arm's trailing side
+  const lesser = [];
+  for (let i = 1; i < arm.length - 2; i += detail ? 1 : 2) {
+    const u = i / (arm.length - 1), deg = 80 - 120 * u;
+    lesser.push(`<path d="${feather(add(arm[i], mul(normal(sub(arm[i + 1], arm[i - 1])), -3)), deg, 13 - 4 * u, 6, 5, 1).d}"/>`);
   }
   return `<g fill="url(#${m.p}-fdark)">${flight.join('')}</g>
     ${detail ? `<path d="${veins.join('')}" ${line(m.detail, 0.9, 0.7)}/>` : ''}
     <g fill="url(#${m.p}-fmid)">${greater.join('')}</g>
     <g fill="url(#${m.p}-flight)">${median.join('')}</g>
-    <path d="${tube(arm, (s) => 14 - 7 * s, 1)}" fill="url(#${m.p}-flight)"/>
-    ${detail ? `<path d="${lesser}" ${line(m.detail, 0.8, 0.7)}/>` : ''}`;
+    <g fill="url(#${m.p}-fmid)" stroke-width=".7">${lesser.join('')}</g>
+    <path d="${tube(arm, (s) => 12 - 6 * s + 3 * Math.sin(Math.PI * s), 1)}" fill="url(#${m.p}-flight)"/>`;
 }
 
-/** The Atreides hawk displayed: wings raised, tail fanned and barred, talons out, head in profile to the left. */
+/**
+ * The Atreides hawk displayed: wings raised, tail fanned and barred, legs tucked under with the talons curled, head
+ * in profile to the left.
+ */
 export function hawk(m, { detail = true } = {}) {
   const w = wing(m, detail);
   const tail = [-27, -18, -9, 0, 9, 18, 27].map((a) => feather([0, 52], 90 + a, 58 - Math.abs(a) * 0.3, 8, 8, 0.3).d);
   const bars = detail ? [26, 38, 50].map((r) => `M${pt(add([0, 52], mul(turn([1, 0], 58), r)))}A${r} ${r} 0 0 1 ${pt(add([0, 52], mul(turn([1, 0], 122), r)))}`).join('') : '';
-  const body = both([[0, -46], [12, -42], [23, -26], [28, -2], [25, 26], [16, 50], [8, 62], [0, 66]]);
+  const body = both([[0, -46], [13, -43], [23, -28], [27, -6], [25, 18], [19, 40], [11, 56], [0, 64]]);
+  const halfAt = (y) => (y < -28 ? 13 + (y + 43) * 0.67 : y < -6 ? 23 + (y + 28) * 0.18 : y < 18 ? 27 - (y + 6) * 0.08 : y < 40 ? 25 - (y - 18) * 0.27 : 19 - (y - 40) * 0.5);
+  // the breast: rows of scalloped feathers, small under the throat and larger towards the belly, each row bowed
+  // with the rounded chest
   let breast = '';
   if (detail) {
-    for (let r = 10; r >= 0; r--) {
-      const y = -32 + r * 7.6, half = 24 - Math.abs(r - 4) * 1.6, off = r % 2 ? 3.6 : 0;
-      for (let x = -half + off; x <= half; x += 7.2) breast += `<path d="M${f(x - 3.6)} ${f(y)}C${f(x - 3.6)} ${f(y + 4.5)} ${f(x - 1.5)} ${f(y + 7)} ${f(x)} ${f(y + 8)}C${f(x + 1.5)} ${f(y + 7)} ${f(x + 3.6)} ${f(y + 4.5)} ${f(x + 3.6)} ${f(y)}Z"/>`;
+    const rows = [];
+    for (let r = 0, y = -34; y < 54; r++) { const h = 4.6 + r * 0.55; rows.push([r, y, h]); y += h; }
+    for (const [r, y0, h] of rows.reverse()) {
+      const hw = 2.4 + r * 0.32, half = halfAt(y0 + h * 0.5) - 1, off = r % 2 ? hw : 0;
+      for (let x = -half + off; x <= half; x += hw * 2) {
+        const y = y0 + 2.6 * (1 - (x / half) ** 2);
+        breast += `<path d="M${f(x - hw)} ${f(y)}C${f(x - hw)} ${f(y + h * 0.6)} ${f(x - hw * 0.4)} ${f(y + h * 0.95)} ${f(x)} ${f(y + h * 1.1)}C${f(x + hw * 0.4)} ${f(y + h * 0.95)} ${f(x + hw)} ${f(y + h * 0.6)} ${f(x + hw)} ${f(y)}Z"/>`;
+      }
     }
   }
-  const thigh = smooth([[10, 28], [24, 34], [34, 48], [37, 62], [31, 57], [29, 65], [23, 59], [18, 64], [12, 52]], true);
-  const toe = (ankle, deg, l) => {
+  // the neck: a ruff of pointed hackles from under the head, fanning out over the shoulders
+  const hackles = [];
+  for (const [y, l, k] of [[-50, 15, 1], [-46, 12, 0.5]]) {
+    for (let x = -18 + (k < 1 ? 3 : 0); x <= 18; x += 6) hackles.push(`<path d="${feather([x, y], 90 - x * 2.2, l, 4.2, 4.2, 0.1).d}"/>`);
+  }
+  // the legs tucked under the body: feathered thighs, then the feet gripping, talons curled under
+  const thigh = smooth([[6, 24], [21, 25], [28, 37], [28, 50], [25, 61], [22, 57], [19, 64], [16, 58], [12, 61], [8, 48]], true);
+  const toe = (ankle, deg, l, bend = 1) => {
     const tip = add(ankle, mul([Math.cos(rad(deg)), Math.sin(rad(deg))], l));
-    const mid = add(lerp(ankle, tip, 0.55), mul(normal(sub(tip, ankle)), 2.5));
-    const claw = add(tip, mul(turn(unit(sub(tip, mid)), 75), 7.5));
-    return { toe: `M${pt(ankle)}Q${pt(mid)} ${pt(tip)}`, claw: `M${pt(tip)}Q${pt(add(tip, mul(unit(sub(tip, mid)), 5)))} ${pt(claw)}` };
+    const mid = add(lerp(ankle, tip, 0.55), mul(normal(sub(tip, ankle)), 2.2 * bend));
+    const claw = add(tip, mul(turn(unit(sub(tip, mid)), 80 * bend), 6.5));
+    return { toe: `M${pt(ankle)}Q${pt(mid)} ${pt(tip)}`, claw: `M${pt(tip)}Q${pt(add(tip, mul(unit(sub(tip, mid)), 4.5)))} ${pt(claw)}` };
   };
-  const ankle = [38, 70], toes = [toe(ankle, 20, 19), toe(ankle, 52, 21), toe(ankle, 86, 17), toe(ankle, 200, 11)];
-  const legPath = `M33 60L${pt(ankle)}${toes.map((t) => t.toe).join('')}`;
-  const leg = `<path d="${legPath}" fill="none" stroke="${m.ink}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="${legPath}" fill="none" stroke="${m.light[1]}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="${toes.map((t) => t.claw).join('')}" fill="none" stroke="${m.ink}" stroke-width="3.2" stroke-linecap="round"/>`;
+  const ankle = [18, 71], toes = [toe(ankle, 42, 14), toe(ankle, 76, 16), toe(ankle, 108, 14, -1), toe(ankle, 150, 9, -1)];
+  const legPath = `M18 60L${pt(ankle)}${toes.map((t) => t.toe).join('')}`;
+  const leg = `<path d="${legPath}" fill="none" stroke="${m.ink}" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${legPath}" fill="none" stroke="${m.light[1]}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${toes.map((t) => t.claw).join('')}" fill="none" stroke="${m.ink}" stroke-width="3" stroke-linecap="round"/>`;
   const thighs = `<path d="${thigh}"/>`;
+  const plumes = detail ? `<path d="M12 34Q15 46 13 58M17 33Q21 46 19 60M22 38Q24 48 22 58" ${line(m.detail, 0.8, 0.6)}/>` : '';
   const head = smooth([[13, -50], [16, -60], [12, -70], [2, -76], [-9, -75], [-17, -69], [-21, -64], [-21, -57], [-17, -52], [-12, -46], [-8, -40], [0, -42], [8, -44]], true);
   const beak = smooth([[-20, -66], [-26, -66.5], [-31, -63], [-34, -57], [-34.5, -51], [-32.5, -47], [-31, -51], [-28, -54.5], [-24, -56.5], [-20, -57.5]], true);
   const jaw = smooth([[-20, -57.5], [-26, -55.5], [-29, -52.5], [-25, -51.5], [-19, -52.5]], true);
@@ -100,11 +118,12 @@ export function hawk(m, { detail = true } = {}) {
     <g fill="url(#${m.p}-fdark)">${tail.map((d) => `<path d="${d}"/>`).join('')}</g>
     ${detail ? `<path d="${bars}" ${line(m.detail, 1.6, 0.6)}/>` : ''}
     ${w}${mirror(w, 0)}
-    ${leg}${mirror(leg, 0)}
-    <g fill="url(#${m.p}-fmid)">${thighs}${mirror(thighs, 0)}</g>
     ${shape(m, 'hb', body)}<use href="#${m.p}-hbd" fill="url(#${m.p}-flight)"/>
     ${detail ? `<g clip-path="url(#${m.p}-hb)" fill="url(#${m.p}-flight)" stroke="${m.detail}" stroke-width=".55">${breast}</g>` : ''}
     ${volumeAgain(m, 'hb', 9, 0.45)}
+    ${leg}${mirror(leg, 0)}
+    <g fill="url(#${m.p}-fmid)">${thighs}${mirror(thighs, 0)}</g>${plumes}${plumes ? mirror(plumes, 0) : ''}
+    <g fill="url(#${m.p}-fmid)" stroke-width=".7">${hackles.join('')}</g>
     <g transform="translate(0 -58) scale(1.14) translate(0 58)">
       <path d="${head}" fill="url(#${m.p}-flight)"/>
       <path d="M-12 -61C-8 -61 -7 -57 -8.5 -52C-9.5 -48 -11 -45 -13 -44C-15 -48 -15 -52 -14.5 -56C-14 -59 -13.5 -61 -12 -61Z" fill="url(#${m.p}-fdark)" stroke-width=".7"/>
@@ -135,33 +154,66 @@ function horn(m, detail) {
     ${detail ? `<path d="${rings}" ${line(m.ink, 1.4, 0.85)}/><path d="${rings}" ${line(m.light[0], 0.9, 0.4)} transform="translate(-1.2 -1)"/>` : ''}` };
 }
 
-/** The Harkonnen ram's head, full face: horns curled, a dark mask round burning eyes, wool on the brow. */
+/**
+ * The Harkonnen ram's head, full face, in dark iron: horns curled, a short wedge of a face with a Roman-nose ridge,
+ * a heavy ridged brow over narrow slit eyes (their glow is ramGlow, drawn over the relief light), layered locks of
+ * wool on the poll and slit nostrils on a blunt muzzle.
+ */
 export function ram(m, { detail = true } = {}) {
-  const ear = `<path d="${smooth([[24, 4], [40, 8], [60, 20], [56, 27], [38, 24], [25, 14]], true)}" fill="url(#${m.p}-fmid)"/>`;
-  const face = both([[0, -46], [13, -44], [22, -34], [26, -18], [27, -2], [23, 16], [18, 34], [16, 48], [13, 58], [7, 65], [0, 67]]);
-  const mask = `<path d="${smooth([[4, -6], [16, -17], [30, -13], [31, 3], [17, 9], [6, 4]], true)}" fill="url(#${m.p}-fdark)" stroke-width=".8"/>`;
-  const eye = `<path d="M9 -2L17 -9.5L27.5 -7L23 1.5L14 2.5Z" fill="url(#${m.p}-eye)" stroke-width="1.1"/><path d="M15.5 -6.5L20 -6L18.5 -1L15 -1.5Z" fill="#200" stroke="none"/>`;
-  const brow = `<path d="M2.5 -12L30 -19L32 -12L6 -7.5Z" fill="url(#${m.p}-fdark)"/>`;
-  let wool = '';
-  if (detail) for (const [x, y] of [[0, -38], [-10, -32], [10, -32], [-18, -24], [0, -26], [18, -24], [-9, -18], [9, -18], [-5, -40], [5, -40]]) wool += `M${f(x - 4)} ${f(y + 2)}a4.2 4.2 0 1 1 6 3.4`;
-  const nostril = `<path d="M4.5 53.5q4.5 -1.5 5.5 4q-2.5 2.5 -5.5 -1Z" fill="${m.ink}"/>`;
+  const ear = `<path d="${smooth([[24, 2], [40, 6], [58, 17], [55, 24], [38, 21], [25, 12]], true)}" fill="url(#${m.p}-fdark)"/>`;
+  const face = both([[0, -48], [14, -46], [24, -36], [28, -20], [27, -4], [23, 12], [18, 27], [15, 38], [12, 46], [6, 51], [0, 52]]);
+  // the Roman nose: a raised ridge from the brow to the muzzle, broadening as it falls
+  const ridge = both([[0, -22], [4, -18], [6, 2], [8, 24], [10, 36], [6, 41], [0, 42]]);
+  const muzzle = both([[0, 36], [9, 35], [13, 41], [11, 48], [6, 52], [0, 53]]);
+  const nostril = `<path d="M3.5 41.5Q8 41 10.5 45.5Q7.5 44.5 4.5 45Z" fill="${m.ink}" stroke-width=".6"/>`;
+  // the brow: a heavy ridge sloping down to the nose, its creases cut across
+  const brow = `<path d="${smooth([[3, -12], [12, -21], [24, -25], [32, -20], [30, -14], [18, -13], [7, -6]], true)}" fill="url(#${m.p}-fdark)"/>`;
+  const creases = detail ? '<path d="M9 -14.5L13 -19.5M15 -15L19 -22M21 -15L25 -23M27 -16L30 -21" fill="none" stroke-width=".9" opacity=".8"/>' : '';
+  const socket = `<path d="M6 -4L15 -11.5L29 -12L26 -5.5L13 -1Z" fill="${m.ink}" stroke="none"/>`;
+  const eye = `<path d="${RAM_EYE}" fill="url(#${m.p}-eye)" stroke-width=".7"/>`;
+  // wool: two rows of heavy curled locks on the poll, hanging over the brow
+  const lockAt = ([x, y], k, flip) => {
+    const pts = [[-6, 0], [-7.5, 6], [-4, 12.5], [1.5, 16], [0, 9.5], [4.5, 6], [6.5, 0], [0, -3]].map(([a, b]) => [x + (flip ? -a : a) * k, y + b * k]);
+    return `<path d="${smooth(pts, true)}"/>`;
+  };
+  const back = [[-17, -46], [-6, -49], [6, -49], [17, -46]].map((q, i) => lockAt(q, 1.05, i < 2)).join('');
+  const front = [[-11, -40], [0, -42], [11, -40]].map((q, i) => lockAt(q, 1.1, i === 0)).join('');
   const { d: hornD, markup: h } = horn(m, detail);
   return `<g stroke="${m.ink}" stroke-width="1.2" stroke-linejoin="round">
     ${shape(m, 'rh', hornD)}
     ${ear}${mirror(ear, 0)}
-    <path d="${face}" fill="url(#${m.p}-flight)"/>${volume(m, 'rf', face, 11, 0.5)}
-    ${detail ? `<path d="M-9 4Q-12 28 -11 50M9 4Q12 28 11 50M-7 64Q0 70 7 64" ${line(m.detail, 1.1, 0.7)}/>` : '<path d="M-7 64Q0 70 7 64" fill="none"/>'}
-    ${h}${mirror(h, 0)}
-    ${mask}${mirror(mask, 0)}${eye}${mirror(eye, 0)}${brow}${mirror(brow, 0)}
+    <path d="${face}" fill="url(#${m.p}-fmid)"/>${volume(m, 'rf', face, 11, 0.55)}
+    <path d="${ridge}" fill="url(#${m.p}-flight)" stroke="none" opacity=".9"/>
+    <path d="M0 -18V38" ${line(m.light[0], 1.4, 0.45)}/>
+    ${detail ? `<path d="M-25 2Q-21 16 -12 33M25 2Q21 16 12 33M-9 -2Q-8 16 -10 34M9 -2Q8 16 10 34" ${line(m.ink, 0.9, 0.5)}/>` : ''}
+    <path d="${muzzle}" fill="url(#${m.p}-fdark)" stroke-width="1"/>
     ${nostril}${mirror(nostril, 0)}
-    ${detail ? `<path d="${wool}" ${line(m.ink, 1.5, 0.75)}/>` : ''}
+    <path d="M-5 49.5Q0 48 5 49.5" fill="none" stroke-width="1"/>
+    ${h}${mirror(h, 0)}
+    ${socket}${mirror(socket, 0)}${eye}${mirror(eye, 0)}
+    ${brow}${mirror(brow, 0)}${creases}${creases ? mirror(creases, 0) : ''}
+    <g fill="url(#${m.p}-fdark)">${back}</g><g fill="url(#${m.p}-fmid)">${front}</g>
+    ${detail ? `<path d="M-14 -40Q-12 -34 -9 -31M-3 -42Q-1 -36 2 -33M8 -40Q10 -34 13 -31M-20 -45Q-19 -40 -16 -38M14 -47Q17 -42 20 -41" ${line(m.ink, 0.9, 0.6)}/>` : ''}
   </g>`;
+}
+
+/** The ram's slit eye (the right), shared by the charge and its glow. */
+const RAM_EYE = 'M8 -4.5L16 -9.5L27 -10L23.5 -6.5L13 -3Z';
+
+/** The ram's eyes burning: drawn over the relief light, a bright slit in a soft red-orange halo. */
+export function ramGlow(m) {
+  const one = `<path d="${RAM_EYE}" fill="#ff7a1a" opacity=".55" stroke="#ff3a00" stroke-width="3" stroke-linejoin="round" filter="url(#${m.p}-glow)"/>
+    <path d="${RAM_EYE}" fill="url(#${m.p}-eye)"/><path d="M12 -5.6L17.5 -8.4L23.5 -8.6" fill="none" stroke="#fff6c8" stroke-width="1.1" stroke-linecap="round" opacity=".9"/>`;
+  return `${one}${mirror(one, 0)}`;
 }
 
 /** The Ordos serpent rearing: a scaled tapering body in an S over its coiled tail, a viper's head to the left. */
 export function serpent(m, { detail = true } = {}) {
-  const spine = sample([[-16, -70], [12, -72], [38, -58], [46, -32], [24, -8], [-14, 8], [-42, 30], [-38, 60], [-10, 78], [26, 78], [52, 58], [54, 32], [36, 20], [18, 32], [20, 50], [34, 50]], 10);
-  const width = (s) => (s < 0.05 ? 19 + s * 120 : s < 0.32 ? 25 + (s - 0.05) * 34 : 34 * (1 - (s - 0.32) / 0.68) ** 0.9 + 2.5);
+  // the S fills the heater shield: the neck arched high to the right, the body across to the left, the tail
+  // coiled where the shield narrows
+  const spine = sample([[-16, -72], [14, -74], [42, -60], [52, -34], [30, -8], [-10, 8], [-40, 28], [-40, 54], [-18, 70], [10, 72], [34, 58], [40, 36], [26, 24], [12, 32], [14, 48], [28, 48]], 10);
+  // a slim neck behind the head, the body swelling to its middle and tapering to a fine tail
+  const width = (s) => (s < 0.08 ? 20 - s * 60 : s < 0.38 ? 15.2 + ((s - 0.08) / 0.3) * 20.8 : 36 * (1 - (s - 0.38) / 0.62) ** 1.1 + 2.5);
   const { left, right, s } = edges(spine, width);
   const body = tube(spine, width, 2);
   const belly = smooth([...right.filter((_, i) => i % 2 === 0), ...spine.map((p, i) => lerp(right[i], p, 0.45)).filter((_, i) => i % 2 === 0).reverse()], true);
@@ -191,31 +243,41 @@ export function serpent(m, { detail = true } = {}) {
   </g>`;
 }
 
-/** The Emperor's lion, full face (Sardaukar): a mane of flame-like locks round a broad face. */
+/**
+ * The Emperor's lion, full face (Sardaukar): a heavy mane of swept locks in three rows, longer towards the chin,
+ * round a stern face: brows drawn down, a broad nose, the muzzle closed with its corners turned down.
+ */
 export function lion(m, { detail = true } = {}) {
+  // a lock of the mane from radius r0 to r1 at angle a (clockwise from up), its tip swept down the sides
   const lock = (r0, r1, w, a) => {
-    const l = turn([-w * 0.6, -(r0 + r1) / 2], a), rr = turn([w * 0.7, -(r0 + r1) / 2 + 2], a), tip = turn([w * 0.5, -r1], a);
-    return `<path d="M${pt(turn([-w * 0.5, -r0], a))}Q${pt(l)} ${pt(tip)}Q${pt(rr)} ${pt(turn([w * 0.5, -r0], a))}Z"/>`;
+    const sw = 17 * Math.sin(rad(a)), mid = (r0 + r1) / 2;
+    return `<path d="M${pt(turn([-w * 0.5, -r0], a))}Q${pt(turn([-w * 0.75 + sw * 0.3, -mid], a))} ${pt(turn([sw, -r1], a))}Q${pt(turn([w * 0.65 + sw * 0.5, -mid + 2], a))} ${pt(turn([w * 0.5, -r0], a))}Z"/>`;
   };
-  const outer = Array.from({ length: 16 }, (_, i) => lock(40, 86, 26, i * 22.5 + 11)).join('');
-  const inner = Array.from({ length: 16 }, (_, i) => lock(34, 68, 22, i * 22.5)).join('');
-  const face = both([[0, -42], [18, -40], [32, -28], [38, -8], [36, 14], [26, 34], [12, 46], [0, 48]]);
-  const eye = `<path d="M8 -10L22 -14L26 -8L13 -4Z" fill="url(#${m.p}-eye)" stroke-width="1"/><circle cx="17.5" cy="-9" r="2.6" fill="${m.ink}" stroke="none"/>
-    <path d="M5 -18L26 -20L28 -15L8 -13Z" fill="url(#${m.p}-fdark)"/>`;
+  const reach = (a, r) => r + 12 * (1 - Math.cos(rad(a))) / 2;
+  const row = (n, r0, r1, w, off) => Array.from({ length: n }, (_, i) => { const a = (i + off) * (360 / n); return lock(r0, reach(a, r1), w, a); }).join('');
+  const face = both([[0, -42], [17, -40], [30, -29], [36, -10], [35, 12], [27, 32], [14, 45], [0, 48]]);
+  const eye = `<path d="M8 -6L21 -12.5L26 -8L13 -2.5Z" fill="url(#${m.p}-eye)" stroke-width="1"/><circle cx="18" cy="-7.5" r="2.4" fill="${m.ink}" stroke="none"/>
+    <path d="M3 -11L15 -20.5L29 -20L30 -14L17 -13L7 -6Z" fill="url(#${m.p}-fdark)"/>`;
+  const pad = `<path d="M0 21C-3 18 -12 18 -16 24C-19 30 -12 35 -4 33C-2 32.5 -1 31.5 0 30Z" fill="url(#${m.p}-fmid)" stroke-width=".9"/>`;
   return `<g stroke="${m.ink}" stroke-width="1.1" stroke-linejoin="round">
-    <g fill="url(#${m.p}-fdark)">${outer}</g><g fill="url(#${m.p}-fmid)">${inner}</g>
-    <path d="${face}" fill="url(#${m.p}-flight)"/>${volume(m, 'lf', face, 9, 0.4)}
+    <g fill="url(#${m.p}-fdark)">${row(18, 40, 84, 30, 0.5)}</g><g fill="url(#${m.p}-fmid)">${row(18, 36, 70, 26, 0)}</g>
+    <g fill="url(#${m.p}-flight)">${row(16, 33, 52, 18, 0.5)}</g>
+    <path d="${face}" fill="url(#${m.p}-flight)"/>${volume(m, 'lf', face, 9, 0.45)}
+    ${detail ? `<path d="M0 -36V-4M-3 -34Q-6 -22 -5 -8M3 -34Q6 -22 5 -8" ${line(m.ink, 1, 0.6)}/>` : ''}
     ${eye}${mirror(eye, 0)}
-    <path d="M-10 14L10 14L6 22L0 25L-6 22Z" fill="${m.ink}"/>
-    <path d="M0 25V31M-14 30Q-7 38 0 31Q7 38 14 30" fill="none" stroke-width="1.6"/>
-    ${detail ? `<path d="M0 -36V8M-12 -30Q-6 -26 0 -30Q6 -26 12 -30M-20 20q-6 4 -10 2M20 20q6 4 10 2M-21 26q-6 4 -10 3M21 26q6 4 10 3" ${line(m.ink, 1, 0.7)}/>` : ''}
+    ${pad}${mirror(pad, 0)}
+    <path d="M-11 12L11 12L7 20L0 23L-7 20Z" fill="${m.ink}"/>
+    <path d="M0 23V30M-12 36Q-6 32.5 0 33Q6 32.5 12 36" fill="none" stroke-width="1.6"/>
+    <path d="M-9 37Q0 43 9 37Q6 45 0 46Q-6 45 -9 37Z" fill="url(#${m.p}-fmid)" stroke-width=".9"/>
+    ${detail ? `<path d="M-21 25q-6 3 -11 1M21 25q6 3 11 1M-21 30q-6 4 -11 3M21 30q6 4 11 3" ${line(m.ink, 1, 0.7)}/>` : ''}
   </g>`;
 }
 
 /** Crossed swords over a coin (the Mercenaries). */
 export function swords(m, { detail = true } = {}) {
+  const b = detail ? 4 : 6.5;   // the blades broader on the small shield, so they still read at badge size
   const sword = `<g>
-    <path d="M-4 -80L0 -94L4 -80L4 38L-4 38Z" fill="url(#${m.p}-blade)"/>
+    <path d="M${-b} -80L0 ${-80 - 3.5 * b}L${b} -80L${b} 38L${-b} 38Z" fill="url(#${m.p}-blade)"/>
     ${detail ? `<path d="M0 -86V34" ${line(m.detail, 0.8, 0.6)}/>` : ''}
     <path d="M-24 38Q0 30 24 38L22 46Q0 41 -22 46Z" fill="url(#${m.p}-flight)"/>
     <rect x="-4" y="46" width="8" height="22" rx="2" fill="url(#${m.p}-fdark)"/>
