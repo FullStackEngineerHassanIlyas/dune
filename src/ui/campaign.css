@@ -27,6 +27,11 @@
 .cp-lines { min-height: 3.1em; padding: 6px 0 4px; font: bold clamp(16px, 1.55vw, 23px)/1.5 "Trebuchet MS", "Segoe UI", sans-serif; letter-spacing: .05em;
   text-transform: uppercase; color: #f6f0e2; text-shadow: 0 2px 0 #000, 0 0 8px rgba(0,0,0,.8); cursor: pointer; }
 .cp-line { min-height: 1.5em; white-space: pre-wrap; }
+/* the words and, unseen in their place, every pair of them whole: the box is as tall as the tallest pair from the
+   first letter, so the map below stays put when a line wraps on a narrow window */
+.cp-say, .cp-room { display: grid; }
+.cp-say > *, .cp-room > * { grid-area: 1 / 1; }
+.cp-room { visibility: hidden; pointer-events: none; }
 .cp-mentat { grid-area: mentat; align-self: end; justify-self: start; margin: 0; width: 100%; height: min(66vh, 600px); pointer-events: none; }
 .cp-mentat-art { display: block; width: 100%; height: 100%; filter: drop-shadow(0 0 30px rgba(0,0,0,.9)); }
 .cp-mapbox { grid-area: map; position: relative; min-height: 0; display: grid; }
