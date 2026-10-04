@@ -11,7 +11,7 @@ import { UNITS } from '../data/units.js';
 import { DT, buildSeconds, structureSeconds, UPGRADE_SECONDS, AIR } from '../data/tuning.js';
 import { LINE_FACTORIES, lineOfItem, canBuild, upgradeTarget, upgradeLevel, upgradeResult, upgradeCost, itemCost, factoryOf } from './tech.js';
 import { placeStructure } from './placement.js';
-import { spend, addCredits } from './economy.js';
+import { spend, refund } from './economy.js';
 import { exitTile } from './spawn.js';
 import { orderMove } from './orders.js';
 
@@ -48,7 +48,7 @@ function takeNext(house, l) {
 /** The item set aside is gone from the queue (cancelled, or its factory lost): refund what it paid. */
 function dropOrphan(world, house, l) {
   if (!l.aside || l.queue.includes(l.aside.typeId)) return;
-  addCredits(world, house, l.aside.paid);
+  refund(house, l.aside.paid);
   world.events.push('productionCancelled', { house: house.id, typeId: l.aside.typeId });
   l.aside = null;
 }
@@ -114,7 +114,7 @@ export function orderHold(world, houseId, typeId) {
   const l = house.lines[line];
   if (l.current?.typeId === typeId) {
     if (l.current.state === 'building') { l.current.state = 'hold'; eva(world, house, 'onHold', 'Production on hold.'); return; }
-    addCredits(world, house, l.current.paid);   // second press, or a ready structure: cancel with a refund (up to the storage)
+    refund(house, l.current.paid);   // second press, or a ready structure: cancel with a refund of all it paid
     l.current = null;
     eva(world, house, 'cancelled', 'Cancelled.');
     world.events.push('productionCancelled', { house: houseId, typeId });
@@ -220,7 +220,7 @@ export function revalidateProduction(world) {
     for (const line of LINES) {
       const l = house.lines[line];
       if (l.current && !canBuild(world, house.id, l.current.typeId, { implied: false })) {   // losing power does not cancel work in hand   // a READY structure too: its yard may be gone
-        addCredits(world, house, l.current.paid);
+        refund(house, l.current.paid);
         world.events.push('productionCancelled', { house: house.id, typeId: l.current.typeId });
         l.current = null;
       }

@@ -34,6 +34,14 @@ export function addCredits(world, house, amount) {
   return added;
 }
 
+/** Money given back (a sale, a cancelled or lost order) is cash, not stored spice: it all comes back, storage or not,
+ *  so a base that lost its Refinery and Silos can still sell and rebuild. Only harvested spice is held by storage. */
+export function refund(house, amount) {
+  if (!(amount > 0)) return 0;
+  house.credits += amount;
+  return amount;
+}
+
 export function spend(house, amount) {
   if (amount <= 0) return true;
   if (house.credits + 1e-9 < amount) return false;

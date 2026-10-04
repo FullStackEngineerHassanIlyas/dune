@@ -15,7 +15,7 @@ import { tryDeploy } from './deploy.js';
 import { updatePower, revokeStartBuffer } from './economy.js';
 import { updateProduction, revalidateProduction } from './production.js';
 import { updateRepairs } from './structure-actions.js';
-import { initHarvester, updateHarvester, updateRefineries, spawnFreeHarvester } from './harvest.js';
+import { initHarvester, updateHarvester, updateRefineries, spawnFreeHarvester, ensureHarvesters, HARVESTER_CHECK } from './harvest.js';
 import { updateFog } from './fog.js';
 import { updateCombat, updateProjectiles, killUnit, retaliate } from './combat.js';
 import { aftermathOfUnit, aftermathOfStructure } from './aftermath.js';
@@ -178,6 +178,7 @@ export class World {
     if (this.tick % 20 === 10) updateAI(this);
     if (this.tick % 5 === 0) updateVictory(this);
     if (this.mission && this.tick % 5 === 0) this.mission.update(this);
+    if (this.tick % Math.round(HARVESTER_CHECK / DT) === 150) ensureHarvesters(this);
     this.tick++;
     this.time = this.tick * DT;
   }

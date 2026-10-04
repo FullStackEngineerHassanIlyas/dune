@@ -10,7 +10,11 @@ import { run, runUntil } from './helpers.mjs';
 
 const ends = (world) => world.events.drain().filter((e) => e.type === 'gameOver');
 /** No harvesting: the credits are only what the test sets. */
-const noHarvest = (world) => { for (const u of [...world.units.values()]) if (u.typeId === 'harvester') world.removeUnit(u); };
+// no income: the Harvesters go, and the Refineries too (a Refinery without a Harvester gets one flown in, as in the original)
+const noHarvest = (world) => {
+  for (const u of [...world.units.values()]) if (u.typeId === 'harvester') world.removeUnit(u);
+  for (const s of [...world.structures.values()]) if (s.typeId === 'refinery' && s.house === 'atreides') world.removeStructure(s, 'sold');
+};
 
 test('destroy: the enemy base gone wins — but not before the minimum time, and only once', () => {
   const { world } = setup();

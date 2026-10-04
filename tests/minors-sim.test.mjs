@@ -18,7 +18,7 @@ test('the starting allowance ends as soon as built storage passes it', () => {
   assert.equal(h.startBuffer, 0, '3005 stored: it ends now, not at the next payment');
   world.issue('atreides', { type: 'sell', structureId: last.id });
   world.step();
-  assert.equal(h.credits, 2005);
+  assert.equal(h.credits, 2005 + 75, 'the spice above the 2005 left is lost; the sale comes back in full');
 });
 
 test('every structure but the Wind Trap and slabs needs a Wind Trap', () => {

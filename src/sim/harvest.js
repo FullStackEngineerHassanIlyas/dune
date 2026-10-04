@@ -518,6 +518,29 @@ export function orderDocked(world, houseId, cmd) {
   }
 }
 
+/** Seconds between the checks for a house left without a Harvester (the original looked every 900 ticks: 15 s). */
+export const HARVESTER_CHECK = 15;
+
+/**
+ * The original's House_EnsureHarvesterAvailable (research mechanics-campaign.md §5, structures.md Refinery): a house
+ * that has a Refinery but no Harvester anywhere — in the field, docked, in a bay, carried, being built — gets one
+ * flown in free, so a worm or a raid can never leave a base without one for good. Real games only (air delivery on).
+ */
+export function ensureHarvesters(world) {
+  if (!world.rules.airDelivery) return;
+  for (const house of world.houses.values()) {
+    if (house.defeated) continue;
+    let refinery = null;
+    for (const s of world.structures.values()) if (s.house === house.id && s.typeId === 'refinery') { refinery = s; break; }
+    if (!refinery) continue;
+    let has = false;
+    for (const u of world.units.values()) if (u.house === house.id && u.typeId === 'harvester') { has = true; break; }
+    const heavy = house.lines?.heavy;
+    if (has || heavy?.current?.typeId === 'harvester' || heavy?.queue?.includes('harvester')) continue;
+    spawnFreeHarvester(world, refinery);
+  }
+}
+
 export function spawnFreeHarvester(world, ref) {
   const map = world.map;
   const dock = dockTile(world, ref);
