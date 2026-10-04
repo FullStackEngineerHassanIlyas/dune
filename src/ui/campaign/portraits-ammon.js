@@ -1,316 +1,207 @@
-// Ammon, Mentat of House Ordos, painted (research.md §4): slim, a narrow face with high cheekbones, swept-back
-// dark-brown hair tied at the nape, a dark green robe over a teal collar, a sash across the chest, a pendant, a hand at
-// his chest with a ring; mercantile and cold: one brow raised, a closed, satisfied smile. A cold white key light
-// from the upper left; the ice of the Ordos hall behind him rims his right side in pale cyan.
-import { canvas, rng, P, E, S, soft, inside, grainOver, strands, locks, pick, eye, eyeGlints, lidCurves, capsule, svgDoc } from './portraits-paint.js';
+// Ammon, Mentat of House Ordos (research.md §4), sculpted in 3D: slim, a narrow long face with high cheekbones and
+// hollow cheeks, a thin aquiline nose, narrow cool eyes under arched brows, a thin mouth with the ghost of a smile,
+// dark-brown hair slicked flat and back from a widow's peak. His chin is lifted a little: he looks down his nose at
+// you. A dark green robe open over a teal tunic with a standing collar, an oval pendant with a green stone, his right
+// hand laid on his heart. The cold light of the Ordos ice hall falls from above on his right; the ice behind rims
+// him in pale teal.
+import { pose, transpose, mvec, add, sub, mul, norm, cross, dot, frameOf, project, posedHand, handGLSL, g3, gm3 } from './portraits-sdf.js';
+import { headGLSL, hairGLSL, faceColourGLSL, faceFeatures } from './portraits-head.js';
 
-const FACE = 'M156 128 C148 146 146 166 148 186 C150 208 154 230 162 250 C170 272 184 290 200 300 C206 304 214 305 220 302 C232 294 244 276 252 256 C258 236 262 212 262 190 C263 166 260 142 252 124 C236 110 196 106 172 112 C164 116 158 121 156 128Z';
-const HAIR = 'M156 134 C146 120 138 104 138 88 C140 70 160 60 186 57 C214 54 240 58 256 70 C268 80 274 94 272 110 C270 122 266 130 260 136 C252 120 236 112 214 110 C192 108 172 112 162 120 C159 124 157 129 156 134Z';
-const HAIR_BACK = 'M156 112 C138 104 126 118 124 146 C122 176 124 204 130 228 C134 240 142 246 150 242 C148 226 146 208 146 190 C146 164 150 142 158 124Z';
-const EAR = 'M156 180 C145 170 133 174 132 190 C131 206 137 220 146 228 C151 232 156 229 158 223Z';
-const NECK = 'M178 252 C180 284 178 314 172 350 L242 350 C238 314 236 286 240 254Z';
-const ROBE = 'M0 500 L0 446 C22 410 66 388 120 376 C142 370 156 358 164 346 L252 346 C260 358 276 370 300 376 C352 388 386 412 400 446 L400 500Z';
-const LAPEL_L = 'M146 350 C158 378 178 400 204 422 L212 406 C196 386 182 368 170 348Z';
-const LAPEL_R = 'M270 350 C258 378 240 400 220 422 L212 406 C228 386 240 368 248 348Z';
-const TEAL = 'M164 354 C162 332 166 312 174 298 C194 307 222 307 242 298 C250 312 254 332 252 354 C232 346 186 346 164 354Z';
-const SASH = 'M88 388 L124 374 L322 500 L280 500Z';
-const DIAMOND = 'M212 384 L227 405 L212 428 L197 405Z';
-const GEM = 'M212 391 L221 405 L212 420 L203 405Z';
-const SLEEVE = 'M80 500 C90 470 114 452 146 446 L166 498 L158 500Z';
-const HAND = 'M146 472 C152 452 172 430 202 414 C210 412 218 416 222 424 L228 452 C206 472 184 488 164 498 C152 494 146 484 146 472Z';
+// world: centimetres, origin at the notch at the base of the throat
+const CAM = [0, 18, 172];
+const FRAME = frameOf({ cam: CAM, top: 34.5, height: 53 });
+const HEAD_R = pose({ yaw: 11, pitch: -3, roll: 2 });
+const HEAD_POS = [0.2, 18.2, -3.4];
+const HEAD_INV = transpose(HEAD_R);
+const toWorld = (q) => add(HEAD_POS, mvec(HEAD_R, q));
+const toHead = (p) => mvec(HEAD_INV, sub(p, HEAD_POS));
+const EYE = [3.1, 0.3, 6.5];
+const gazeOf = (eyeHead) => norm(sub(toHead(CAM), eyeHead));
+const NECK_TOP = toWorld([0, -6.3, -2.6]);
+const NECK_BASE = [0, -1.5, -4.4];
+const CORDS = [1, -1].map((k) => [toWorld([4.2 * k, -4.6, -2.7]), [1.0 * k, 0.4, -1.0]]);
+const PIVOT = project(FRAME, [0, 1.0, -1.5]).map((v) => Math.round(v));
 
-const EYE_L = { cx: 182, cy: 181, w: 29, open: 7.2, tilt: 0.8, look: -1.6, lookY: 0 };
-const EYE_R = { cx: 240, cy: 180, w: 25, open: 6.8, tilt: -0.9, look: -1.8, lookY: 0 };
-
-/** The hand laid on his chest: four fingers from the knuckles toward his heart, side by side. */
-const curled = () => [[206, 420, 246, 396, 12.4], [212, 431, 256, 405, 12.8], [218, 442, 256, 420, 12], [223, 452, 252, 436, 10.4]].map(([ax, ay, bx, by, w], k) => {
-  const a = [ax, ay], b = [bx, by];
-  return { k, a, b, d: capsule(a, b, w, { w1: w * 0.84, bend: -2.5 }) };
+const PARAMS = {
+  cranium: { c: [0, 2.7, -1.1], r: [7.0, 8.6, 9.5], side: 6.45 },
+  forehead: { c: [0, 3.7, 3.3], r: [5.6, 5.4, 5.6] },
+  zygo: { c: [4.6, -0.8, 5.1], r: [1.75, 1.0, 2.0], k: 2.3, arch: [5.75, -0.8, 0.4] },
+  maxilla: { c: [0, -4.8, 5.9], r: [3.2, 2.6, 3.4] },
+  cheek: { c: [3.2, -4.4, 3.9], r: [2.1, 2.7, 2.5], k: 1.7 },
+  lower: { c: [0, -7.3, 3.3], r: [4.1, 3.6, 5.2] },
+  jaw: { condyle: [4.6, -2.4, -1.0], gonion: [4.0, -7.7, -0.3], mental: [1.45, -10.3, 6.8], r: 0.85, k: 2.6 },
+  chin: { c: [0, -10.15, 7.45], r: [1.55, 1.85, 1.4] },
+  eye: { c: EYE, r: 1.18, up: 0.33, dn: -0.4, tilt: 0.12, thick: 0.25, closedUp: -0.38, gaze: [gazeOf(EYE), gazeOf([-EYE[0], EYE[1], EYE[2]])] },
+  socket: { d: [0.1, 0.4, 1.35], r: [1.9, 1.3, 1.25] },
+  brow: { a: [0.7, 1.8, 8.5], b: [4.6, 1.95, 6.85], r: 0.62 },
+  nose: { radix: [0, 1.15, 8.4], tip: [0, -3.75, 11.05], bridge: [0.44, 0.6], tipR: [0.7, 0.7, 0.72], ala: [1.12, -4.05, 9.4], alaR: [0.58, 0.55, 0.8], width: 1.45, hump: 0.65 },
+  mouth: { c: [0, -6.55, 8.6], w: 2.2, upper: 0.4, lower: 0.5, bend: 0.22, smirk: 0.18, fold: 0.9 },
+  ear: { c: [6.75, -1.0, -1.4], h: 3.0, w: 1.6 },
+};
+// his own forms: hollows under the cheekbones, a long philtrum, a crease of disdain at the mouth's corner
+const EXTRA = `
+    d += 0.13 * blob(s, vec3(3.7, -4.9, 5.0), vec3(1.7, 1.9, 1.5));
+    d += 0.05 * smoothstep(5.0, 7.0, q.z) * groove(s.xy, vec2(2.35, -6.2), vec2(2.9, -7.4), 0.2);`;
+const HEAD = headGLSL(PARAMS, EXTRA);
+const HAIR = hairGLSL({
+  line: [[0, 5.5], [0.17, 6.25], [0.45, 5.9], [0.66, 4.3], [0.95, 3.1], [1.22, 1.7], [1.38, -0.8], [1.5, -0.8], [1.6, 2.1], [1.95, 1.9], [2.2, -2.6], [3.1, -5.8]],
+  thick: { side: 0.42, top: 0.7, front: 0.5, back: 0.35, edge: 0.18 },
+  locks: [22, 0.05], fine: [90, 0.022], lift: 0, wobble: 0.8,
+  colours: { root: [0.025, 0.015, 0.008], body: [0.1, 0.058, 0.03], sheen: [0.36, 0.27, 0.18] },
 });
-const THUMB = capsule([172, 440], [190, 404], 14, { w1: 11.5, bend: 3 });
+const BROWS = { y: 2.0, arch: 0.62, thick: [0.42, 0.18], tilt: -0.05, colour: [0.04, 0.025, 0.015] };
+const FACE = faceColourGLSL({
+  skin: [0.58, 0.39, 0.28], flush: [0.62, 0.32, 0.25], lips: [0.48, 0.25, 0.22], iris: [[0.08, 0.14, 0.07], [0.32, 0.42, 0.22]],
+  whites: [0.5, 0.47, 0.44], brows: BROWS, age: 0.35, stubble: 0.12,
+  nose: PARAMS.nose, ear: PARAMS.ear, mouth: PARAMS.mouth, eye: PARAMS.eye,
+});
+
+// the right hand laid on his heart: across his chest from the lower left, the back of it to us, the fingers together
+// and pointing up toward his left shoulder, the thumb tucked along the index finger
+const CHEST = (x, y) => [x, y, 7.4 - 0.004 * x * x - 0.006 * (y + 10) * (y + 10)];
+const HAND = (() => {
+  const at = CHEST(-3.2, -16.6);
+  const tip = CHEST(7.0, -8.6);
+  const along = norm(sub(tip, at));
+  let out = norm([-0.12, -0.1, 1]);
+  out = norm(sub(out, mul(along, dot(out, along))));
+  const side = norm(cross(along, out));
+  const M = [[side[0], along[0], out[0]], [side[1], along[1], out[1]], [side[2], along[2], out[2]]];
+  return posedHand({ at: add(at, mul(out, 1.3)), M, size: 0.95, spread: 1.0, mirror: true,
+    curls: [[8, 12, 8], [6, 10, 8], [8, 12, 8], [12, 14, 10]], thumb: { out: 14, down: 18, curl: [8, 10] } });
+})();
+const WRIST = add(HAND.palm.c, mvec(HAND.palm.M, [0, -10.0, -0.6]));
+
+const SCENE = `
+const float TMIN = 115.0, TMAX = 240.0;
+const vec3 HEAD_POS = ${g3(HEAD_POS)};
+const mat3 HEAD_INV = ${gm3(HEAD_INV)};
+const vec3 NECK_TOP = ${g3(NECK_TOP)};
+const vec3 NECK_BASE = ${g3(NECK_BASE)};
+${HEAD}
+${HAIR}
+${handGLSL('handR', HAND)}
+
+// ---- light: the ice hall's cold light from above on his right, a faint warm lamp far on the left, pale teal behind ----
+const vec3 KEY_DIR = vec3(0.6, 0.62, 0.5);
+const vec3 KEY_COL = vec3(1.4, 1.48, 1.58);
+const float KEY_SOFT = 3.0;
+const vec3 FILL_DIR = vec3(-0.85, 0.05, 0.5);
+const vec3 FILL_COL = vec3(0.1, 0.075, 0.05);
+const vec3 RIM_DIR = vec3(-0.62, 0.3, -0.72);
+const vec3 RIM_COL = vec3(0.45, 1.15, 1.1);
+const vec3 SKY_COL = vec3(0.02, 0.03, 0.036);
+const vec3 GROUND_COL = vec3(0.02, 0.05, 0.045);
+const vec3 SKIN_AMB = vec3(1.2, 1.0, 0.95);
+const float AO_REACH = 1.6, AO_K = 0.45, EXPOSURE = 0.95;
+
+${FACE}
+
+vec2 mapHead(vec3 p) {
+  float hbd = length(p - (HEAD_POS + vec3(0.0, -5.0, 0.0)));
+  if (hbd > 22.0) return vec2(gShadow ? 1e5 : hbd - 20.0, 1.0);
+  vec3 q = HEAD_INV * (p - HEAD_POS);
+  vec2 r = headLocal(q);
+  // a slim neck, the cords standing out a little
+  float neck = sdRoundCone(p, NECK_BASE + vec3(0.0, -6.0, 0.0), NECK_TOP, 4.6, 4.1);
+  neck = smin(neck, sdCapsule(p, ${g3(CORDS[0][0])}, ${g3(CORDS[0][1])}, 0.8), 1.2);
+  neck = smin(neck, sdCapsule(p, ${g3(CORDS[1][0])}, ${g3(CORDS[1][1])}, 0.8), 1.2);
+  r.x = smin(r.x, neck, 1.3);
+#ifndef NO_HAIR
+  if (skullQ(q) < 3.0) {
+    float h = hairShape(q);
+    if (h < r.x) r = vec2(h, 3.0);
+  }
+#endif
+  return r;
+}
+
+// ---- the body: narrow shoulders, the robe open over the tunic, the standing collar, the pendant, the hand ----
+float torso(vec3 p) {
+  vec3 s = vec3(abs(p.x), p.y, p.z);
+  float d = sdEllipsoid(p - vec3(0.0, -15.0, -4.4), vec3(13.2, 14.0, 9.2));
+  d = smin(d, sdCapsule(s, vec3(4.2, -1.6, -5.0), vec3(15.0, -5.2, -4.4), 3.3), 4.4);
+  d = smin(d, sdEllipsoid(s - vec3(16.0, -9.0, -4.0), vec3(4.6, 6.0, 5.2)), 3.0);
+  d = smin(d, sdCapsule(s, vec3(17.0, -9.0, -4.0), vec3(17.6, -36.0, -3.0), 4.3), 2.5);
+  return d;
+}
+float folds(vec3 p, float amp) {
+  float n = vnoise(p * 0.07) + 0.5 * vnoise(p * 0.15);
+  float hang = sin(p.x * 0.7 + 2.0 * n + 0.5 * sin(p.y * 0.12));
+  float down = smoothstep(-4.0, -26.0, p.y);
+  return amp * hang * (0.3 + 0.7 * down);
+}
+vec2 mapBody(vec3 p) {
+  float bb = sdBox(p - vec3(0.0, -14.0, 1.0), vec3(28.0, 34.0, 17.0));
+  if (bb > 1.0) return vec2(gShadow ? 1e5 : bb, 20.0);
+  float base = torso(p);
+  // the teal tunic, close over the chest
+  vec2 r = vec2(base - 0.8, 21.0);
+  // the robe over it, open in a long V
+  float robe = base - 1.9 - folds(p, 0.8);
+  float openW = 3.0 + max(-p.y - 1.0, 0.0) * 0.3;
+  robe = smax(robe, openW - abs(p.x), 0.8);
+  // the robe's edges turned back as narrow lapels
+  vec3 sx = vec3(abs(p.x), p.y, p.z);
+  float lap = sdRoundCone(sx, vec3(5.6, -1.0, 1.0), vec3(3.4, -12.0, 7.6), 1.1, 0.9);
+  lap = smin(lap, sdRoundCone(sx, vec3(3.4, -12.0, 7.6), vec3(3.9, -28.0, 7.2), 0.9, 0.9), 1.0);
+  robe = smin(robe, lap, 1.2);
+  if (robe < r.x) r = vec2(robe, 20.0);
+  // the tunic's standing collar, a stiff band round the neck, open a little at the throat
+  vec3 nb = p - vec3(0.0, 0.6, -4.2);
+  float rad = length(nb.xz * vec2(1.0, 1.06));
+  float band = sdRoundBox(vec3(rad - 5.5, nb.y - 0.4 * max(nb.z, 0.0) * 0.0, 0.0), vec3(0.45, 2.5, 1.0), 0.4);
+  band = smax(band, (0.9 - abs(nb.x)) * step(0.0, nb.z), 0.3);
+  if (band < r.x) r = vec2(band, 22.0);
+  // the neck's root, kept a little inside the head layer's neck so the swaying head always covers it
+  float stub = sdRoundCone(p, NECK_BASE + vec3(0.0, -6.0, 0.0), NECK_TOP, 3.8, 3.3);
+  if (stub < r.x) r = vec2(stub, 25.0);
+  // the pendant: a pale gold oval with a green stone, on a fine chain
+  vec3 pd = p - vec3(0.3, -9.6, 7.0);
+  float disc = sdEllipsoid(pd, vec3(1.2, 1.7, 0.35));
+  disc = smin(disc, sdTorus((pd * vec3(1.0, 0.72, 1.0)).xzy, vec2(1.15, 0.2)), 0.2);
+  if (disc < r.x) r = vec2(disc, 26.0);
+  float gem = sdEllipsoid(pd - vec3(0.0, 0.0, 0.32), vec3(0.6, 0.9, 0.38));
+  if (gem < r.x) r = vec2(gem, 27.0);
+  vec3 cx = vec3(abs(p.x - 0.3), p.y, p.z);
+  float chain = min(sdCapsule(cx, vec3(4.6, 0.6, -0.4), vec3(2.6, -4.6, 4.8), 0.12), sdCapsule(cx, vec3(2.6, -4.6, 4.8), vec3(0.2, -7.9, 6.9), 0.12));
+  if (chain < r.x) r = vec2(chain, 26.0);
+  // the hand and its sleeve, coming up from below on the left
+  float hb = length(p - ${g3(HAND.palm.c)}) - 11.0;
+  float hand = hb > 1.0 ? (gShadow ? 1e5 : hb) : handR(p);
+  if (hand < r.x) r = vec2(hand, 24.0);
+  float sleeve = sdRoundCone(p, vec3(-15.0, -34.0, 2.0), ${g3(WRIST)}, 4.6, 3.5);
+  sleeve -= 0.25 * sin(length(p - vec3(-15.0, -34.0, 2.0)) * 1.2 + vnoise(p * 0.2) * 2.0);
+  sleeve = smax(sleeve, -sdCapsule(p, ${g3(WRIST)}, ${g3(add(WRIST, mvec(HAND.palm.M, [0, -3, 0])))}, 2.6), 0.4);
+  if (sleeve * 0.8 < r.x) r = vec2(sleeve * 0.8, 23.0);
+  return r;
+}
+
+// ---- colour ----
+vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
+  surf = vec4(0.55, 0.25, 0.0, 0.0);
+  vec3 q = HEAD_INV * (p - HEAD_POS);
+  if (mat < 1.5) { surf = vec4(0.5, 0.32, 1.0, 0.0); return skinAlbedo(q); }
+  if (mat < 2.5) return eyeAlbedo(q, surf);
+  if (mat < 3.5) { surf = vec4(0.22, 0.85, 0.0, 0.0); return hairColour(q); }
+  float weave = 0.9 + 0.2 * vnoise(p * vec3(9.0, 3.0, 9.0));
+  if (mat < 20.5) { surf = vec4(0.55, 0.28, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
+  if (mat < 21.5) { surf = vec4(0.5, 0.3, 0.0, 0.0); return vec3(0.03, 0.15, 0.15) * weave; }
+  if (mat < 22.5) { surf = vec4(0.42, 0.4, 0.0, 0.0); return vec3(0.04, 0.2, 0.19) * weave; }
+  if (mat < 23.5) { surf = vec4(0.55, 0.28, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
+  if (mat < 25.5) { surf = vec4(0.5, 0.32, 1.0, 0.0); return vec3(0.56, 0.39, 0.31) * (0.94 + 0.12 * fbm(p * 2.0)); }
+  if (mat < 26.5) { surf = vec4(0.25, 1.0, 0.0, 1.0); return vec3(0.82, 0.68, 0.4); }
+  surf = vec4(0.06, 1.2, 0.0, 0.0);
+  return vec3(0.03, 0.4, 0.16);
+}
+vec3 grade(vec3 c, vec3 p) { return c; }
+`;
 
 export const AMMON = {
-  house: 'ordos', name: 'Ammon', pivot: [208, 330], eyes: [[182, 181, 28, 13], [240, 180, 25, 13]],
-  finish: { r: 1.1, mix: 0.65 },
-  outlines: { head: [FACE, HAIR, HAIR_BACK, EAR], body: [ROBE, NECK, LAPEL_L, LAPEL_R, TEAL, SASH, SLEEVE, HAND, THUMB] },
-  rig: {
-    key: { dir: [-0.74, -0.48, 0.48], color: [0.92, 0.96, 1], i: 1.5, wrap: 0.13 },
-    fill: { dir: [0.6, 0.2, 0.78], color: [0.4, 0.7, 0.62], i: 0.14 },
-    rim: { dir: [0.78, -0.2, -0.6], color: [0.62, 0.95, 1], i: 1.8, power: 2 },
-    sky: [0.13, 0.16, 0.19], ground: [0.05, 0.065, 0.065], skinAmb: [2.3, 1.35, 0.95],
-    sss: [0.34, 0.07, 0.03], ao: { r: 9, k: 0.22 }, shadow: { len: 70, soft: 3.4, bias: 0.5, blur: 2, depth: 0.62 }, spec: { power: 34, i: 0.55 }, exposure: 1,
-  },
+  house: 'ordos', name: 'Ammon', pivot: PIVOT, frame: FRAME, head: { pos: HEAD_POS, R: HEAD_R },
+  /** Where his eyes fall in the frame (the blink's layer is cut round them). */
+  eyes: [toWorld(EYE), toWorld([-EYE[0], EYE[1], EYE[2]])].map((p) => project(FRAME, p)),
+  /** Where his mouth, brows and eyes fall in the frame (for animating them). */
+  features: faceFeatures(PARAMS, BROWS, (q) => project(FRAME, toWorld(q))),
+  scene: SCENE,
 };
-
-function back(c) {
-  const R = rng(19);
-  const snow = [];
-  for (let i = 0; i < 90; i++) {
-    const x = R() * 400, y = R() * 500, r = 0.5 + R() * 1.6;
-    snow.push(E(x, y, r, r, '#f4fbff', `opacity="${(0.25 + R() * 0.55).toFixed(2)}"`));
-  }
-  const frost = [];
-  for (let i = 0; i < 60; i++) {
-    const x = (R() < 0.5 ? 20 + R() * 60 : 300 + R() * 70), y = R() * 500;
-    frost.push(`M${x.toFixed(1)} ${y.toFixed(1)}l${((R() - 0.5) * 6).toFixed(1)} ${(8 + R() * 30).toFixed(1)}`);
-  }
-  const wall = c.lin('wall', [[0, '#1c3442'], [0.5, '#122430'], [1, '#08121a']], [0, 0, 0, 1]);
-  const ice = c.lin('ice', [[0, '#9fd0e0'], [0.35, '#e8f8ff'], [0.6, '#7fb0c6'], [1, '#2a5468']]);
-  const light = c.rad('coldlight', [[0, '#f4fcff'], [0.4, '#bfe6f4', 0.8], [1, '#5a9ab4', 0]], { cx: 0.5, cy: 0.5, r: 0.5 });
-  const sides = c.lin('vigx', [[0, '#fff', 0], [0.1, '#fff', 0.35], [0.22, '#fff', 0.88], [0.3, '#fff'], [0.74, '#fff'], [0.84, '#fff', 0.85], [0.94, '#fff', 0.3], [1, '#fff', 0]]);
-  const top = c.lin('vigy', [[0, '#fff', 0], [0.12, '#fff', 0.25], [0.3, '#fff', 0.8], [0.44, '#fff']], [0, 0, 0, 1]);
-  const mask = c.def('backmask', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${sides}"/></mask>`);
-  const maskTop = c.def('backmasktop', (id) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="500"><rect width="400" height="500" fill="${top}"/></mask>`);
-  const lift = c.def('lift', (id) => `<filter id="${id}" filterUnits="userSpaceOnUse" x="0" y="0" width="400" height="500" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope="1.38" intercept=".012"/><feFuncG type="linear" slope="1.38" intercept=".012"/><feFuncB type="linear" slope="1.38" intercept=".012"/></feComponentTransfer></filter>`);
-  return `<g mask="${mask}"><g mask="${maskTop}"><g filter="${lift}"><g filter="${c.blur(1.6)}">
-    <rect width="400" height="500" fill="${wall}"/>
-    ${soft(c, 40, E(210, 160, 170, 150, '#4a8aa4', 'opacity=".4"'))}
-    <path d="M110 420 L110 170 C110 96 156 50 210 50 C264 50 310 96 310 170 L310 420Z" fill="#0c1a22"/>
-    <path d="M124 420 L124 176 C124 108 162 66 210 66 C258 66 296 108 296 176 L296 420Z" fill="${light}"/>
-    ${soft(c, 10, '<path d="M150 420 L170 200 L196 420Z M226 420 L250 190 L270 420Z" fill="#e8f8ff" opacity=".35"/>')}
-    <rect x="16" y="0" width="70" height="500" fill="${ice}" opacity=".8"/>
-    <rect x="318" y="0" width="66" height="500" fill="${ice}" opacity=".7"/>
-    <path d="${frost.join('')}" stroke="#ffffff" stroke-width="1.4" opacity=".45" stroke-linecap="round"/>
-    <path d="M16 0V500M86 0V500M318 0V500M384 0V500" stroke="#0e2430" stroke-width="3" opacity=".7"/>
-    <path d="M6 70 H96 V86 H6Z M308 70 H394 V86 H308Z" fill="#0e1c26"/>
-    ${soft(c, 18, '<path d="M150 120 L270 120 L340 500 L60 500Z" fill="#dff6ff"/>', 0.06)}
-    ${soft(c, 1, snow.join(''))}
-    ${soft(c, 40, E(200, 330, 220, 200, '#0c1c26', 'opacity=".5"'))}
-  </g>
-  ${soft(c, 34, E(206, 320, 150, 210, '#000', 'opacity=".42"'))}
-  </g></g></g>`;
-}
-
-// ---- the head ----
-
-const hairGuides = {
-  front: [
-    [[260, 138], [274, 112], [256, 72], [204, 62]],
-    [[246, 120], [258, 92], [232, 66], [180, 64]],
-    [[228, 112], [238, 86], [206, 66], [160, 74]],
-    [[208, 110], [214, 86], [182, 70], [146, 90]],
-    [[188, 111], [190, 92], [164, 80], [138, 108]],
-    [[170, 116], [168, 100], [148, 92], [134, 126]],
-    [[158, 130], [152, 114], [140, 108], [132, 146]],
-  ],
-  back: [
-    [[180, 60], [150, 64], [132, 98], [130, 150]],
-    [[156, 72], [136, 98], [128, 160], [134, 226]],
-    [[146, 104], [132, 146], [132, 206], [140, 242]],
-    [[156, 122], [148, 162], [148, 214], [150, 244]],
-  ],
-};
-const brown = pick([['#3e2716', 3], ['#4e3220', 4], ['#5e3e26', 3], ['#6e4a2e', 1.5]]);
-const brownDark = pick([['#1e120a', 3], ['#2a1a0e', 4], ['#342012', 2]]);
-const brownLight = pick([['#8a6440', 3], ['#a07a52', 2], ['#7a5636', 2]]);
-const browCol = pick([['#2a1a0e', 3], ['#3a2616', 2], ['#1e120a', 2]]);
-const hairLocks = () => ({
-  front: locks(rng(91), { guides: hairGuides.front, count: 50, w: [6, 12], body: brown, dark: brownDark, light: brownLight, jitter: 2 }),
-  back: locks(rng(92), { guides: hairGuides.back, count: 22, w: [6, 11], body: brown, dark: brownDark, light: brownLight, jitter: 2.5 }),
-});
-const eyeShape = (e) => { const { top, bottom } = lidCurves(e); return `M${top[0]} C${top[1]} ${top[2]} ${top[3]} C${bottom[1]} ${bottom[2]} ${bottom[3]}Z`; };
-
-function headAlbedo(c, { blink = false } = {}) {
-  const faceClip = c.clip('face', FACE);
-  const backClip = c.clip('hairback', HAIR_BACK);
-  const lk = hairLocks();
-  const brows = strands(rng(55), { guides: [[[162, 166], [172, 158], [188, 156], [202, 162]], [[164, 168], [174, 161], [189, 159], [202, 165]], [[167, 170], [176, 164], [189, 162], [201, 167]]], count: 80, w: [0.7, 1.4], color: browCol, jitter: 0.7, trim: 0.25, shape: 'both' })
-    + strands(rng(56), { guides: [[[224, 160], [234, 150], [250, 149], [262, 156]], [[224, 163], [235, 153], [250, 152], [261, 159]], [[225, 165], [236, 156], [249, 155], [260, 161]]], count: 70, w: [0.7, 1.3], color: browCol, jitter: 0.7, trim: 0.25, shape: 'both' });
-  const eyes = `${eye(c, 'l', { ...EYE_L, iris: ['#b8c8a0', '#6a8058', '#3e5236'], irisDark: '#1a2414', skin: ['#d2a27e', '#c49272'], lidShade: 'rgba(90,44,28,.5)', heavy: 1.5, closed: blink, R: rng(45), glints: false })}
-    ${eye(c, 'r', { ...EYE_R, iris: ['#acc096', '#5e7650', '#36482e'], irisDark: '#18200f', skin: ['#cc9c78', '#be8e6e'], lidShade: 'rgba(90,44,28,.55)', heavy: 1.5, closed: blink, R: rng(46), glints: false })}`;
-  return `
-  <path d="${HAIR_BACK}" fill="#3a2414"/>
-  ${inside(backClip, `${lk.back.bodies}${soft(c, 1, lk.back.darks, 0.7)}
-    ${strands(rng(66), { guides: hairGuides.back, count: 110, w: [0.5, 1.1], color: brownLight, jitter: 3, opacity: [0.2, 0.5] })}`)}
-  <path d="${EAR}" fill="#cc9a76"/>
-  ${soft(c, 1.5, '<path d="M151 192 C145 190 140 196 142 204 C144 211 148 215 153 213Z" fill="#94584a" opacity=".8"/>')}
-  ${soft(c, 2, E(143, 220, 6, 8, '#d0806a', 'opacity=".45"'))}
-  <path d="${FACE}" fill="#d4a47e"/>
-  ${inside(faceClip, `
-    ${soft(c, 10, `${E(204, 132, 38, 20, '#dab08a', 'opacity=".6"')}${E(172, 214, 14, 10, '#d48a70', 'opacity=".3"')}${E(252, 212, 9, 11, '#cc8068', 'opacity=".3"')}${E(220, 214, 7, 12, '#d88c72', 'opacity=".3"')}`)}
-    ${soft(c, 9, `${E(210, 282, 24, 16, '#b49a84', 'opacity=".35"')}${E(170, 252, 12, 18, '#b4987e', 'opacity=".3"')}${E(214, 244, 18, 6, '#b49a84', 'opacity=".25"')}`)}
-    ${soft(c, 4, `${E(184, 192, 13, 4, '#9a7470', 'opacity=".3"')}${E(240, 191, 11, 4, '#9a7470', 'opacity=".3"')}`)}
-    ${soft(c, 0.6, `${E(208, 234, 3.4, 1.5, '#2e140c', 'opacity=".9" transform="rotate(12 208 234)"')}${E(226, 234, 3, 1.4, '#2e140c', 'opacity=".9" transform="rotate(-12 226 234)"')}`)}
-    <path d="M196 256 C203 254 209 252 214 253 C218 252 223 252 228 252.5 C231 252.5 234 252 236 250.5 C230 255.5 223 257 215 257 C207 257 201 257 196 256Z" fill="#a8665a"/>
-    <path d="M198 257 C204 258.5 210 259.5 216 259.5 C223 259.5 229 258 234 254 C232 261 225 265 215 265 C206 265 201 262 198 257Z" fill="#b8786a"/>
-    ${soft(c, 0.7, S('M195 256 C203 257.5 210 258 216 258 C224 258 230 256 237 250', '#4a1e16', 1.5))}
-    ${soft(c, 3.5, S('M157 128 C150 150 148 180 151 210 C154 232 159 246 166 258', '#6e4028', 8), 0.5)}
-    ${grainOver(c, faceClip, 0.12, 1.3, 15)}
-    ${eyes}
-    ${brows}
-  `)}
-  <path d="${HAIR}" fill="#3e2716" filter="${c.blur(0.6)}"/>
-  ${lk.front.bodies}
-  ${soft(c, 1.1, lk.front.darks, 0.7)}
-  ${soft(c, 1.4, lk.front.lights, 0.3)}
-  ${strands(rng(67), { guides: hairGuides.front, count: 170, w: [0.4, 1], color: brownDark, jitter: 2.5, opacity: [0.3, 0.7] })}
-  ${strands(rng(68), { guides: hairGuides.front, count: 150, w: [0.35, 0.9], color: brownLight, jitter: 2.5, opacity: [0.2, 0.55] })}
-  ${strands(rng(69), { guides: [[[156, 132], [151, 152], [150, 174], [153, 196]], [[160, 134], [156, 154], [155, 176], [158, 198]], [[164, 136], [161, 156], [160, 176], [162, 194]]], count: 46, w: [0.4, 1], color: brownDark, jitter: 1.2, opacity: [0.25, 0.75] })}
-  ${strands(rng(70), { guides: [[[252, 126], [258, 136], [260, 148], [256, 164]], [[256, 128], [263, 140], [265, 152], [261, 168]]], count: 10, w: [0.5, 1.1], color: brown, jitter: 1, opacity: [0.6, 0.95] })}`;
-}
-
-function headMat() {
-  const skin = 'rgb(55,70,255)', hair = 'rgb(110,90,0)';
-  return `<path d="${HAIR_BACK}" fill="${hair}"/><path d="${EAR}" fill="${skin}"/><path d="${FACE}" fill="${skin}"/>
-    <path d="M196 256 C210 251 228 251 237 250 C232 262 225 265 215 265 C205 265 199 262 196 256Z" fill="rgb(120,110,200)"/>
-    <path d="${eyeShape(EYE_L)}" fill="rgb(255,255,0)"/><path d="${eyeShape(EYE_R)}" fill="rgb(255,255,0)"/>
-    <path d="${HAIR}" fill="${hair}"/>`;
-}
-
-function headForms({ blink = false } = {}) {
-  const lk = hairLocks();
-  const L = lidCurves(EYE_L), Rr = lidCurves(EYE_R);
-  return [
-    { t: 'slab', d: FACE, h: 8, r: 18, cut: false, op: 'max' },
-    { t: 'dome', cx: 192, cy: 166, rx: 74, ry: 104, h: 44, e: 0.5, op: 'max' },
-    { t: 'dome', cx: 206, cy: 236, rx: 56, ry: 74, h: 42, e: 0.6, op: 'smax', k: 16 },
-    { t: 'dome', cx: 196, cy: 156, rx: 78, ry: 102, h: 47, e: 0.5, op: 'smax', k: 6, mask: HAIR, maskOut: `${FACE} ${EAR}`, maskR: 6 },
-    ...lk.back.forms,
-    { t: 'slab', d: EAR, h: 7, r: 3.5, base: 10, op: 'max' },
-    { t: 'bump', cx: 147, cy: 202, rx: 5, ry: 9, h: 4, op: 'sub' },
-    { t: 'bump', cx: 206, cy: 134, rx: 42, ry: 24, h: 4 },
-    { t: 'ridge', pts: [[162, 168], [184, 160], [206, 165], [222, 163], [244, 152], [264, 158]], w: 6.5, h: 4 },
-    { t: 'bump', cx: 182, cy: 180, rx: 21, ry: 14, h: 10, op: 'sub' },
-    { t: 'bump', cx: 240, cy: 179, rx: 18, ry: 14, h: 10, op: 'sub' },
-    { t: 'dome', cx: 182, cy: 182, rx: 16, ry: 10, h: 8 },
-    { t: 'dome', cx: 240, cy: 181, rx: 13.5, ry: 9.5, h: 7.5 },
-    ...(blink ? [
-      { t: 'ridge', bz: L.closed, w: 1.6, h: -0.7 },
-      { t: 'ridge', bz: Rr.closed, w: 1.6, h: -0.7 },
-    ] : [
-      { t: 'ridge', bz: L.top, w: 3.2, h: 2.2 },
-      { t: 'ridge', bz: Rr.top, w: 3, h: 2.1 },
-      { t: 'ridge', bz: L.bottom, w: 2.2, h: 0.9 },
-      { t: 'ridge', bz: Rr.bottom, w: 2.2, h: 0.8 },
-    ]),
-    { t: 'ridge', pts: [[212, 168], [214, 186], [216, 202]], w: 4.2, h: 5 },
-    { t: 'ridge', pts: [[215, 198], [217, 212], [220, 224]], w: 8, h: 7.5 },
-    { t: 'bump', cx: 220, cy: 226, rx: 7.5, ry: 6.5, h: 5 },
-    { t: 'bump', cx: 207, cy: 230, rx: 5.5, ry: 4.5, h: 3.5 },
-    { t: 'bump', cx: 233, cy: 229, rx: 4.5, ry: 4.5, h: 3 },
-    { t: 'bump', cx: 208, cy: 234, rx: 3.4, ry: 2, h: 3, op: 'sub' },
-    { t: 'bump', cx: 226, cy: 234, rx: 3, ry: 1.9, h: 3, op: 'sub' },
-    { t: 'bump', cx: 168, cy: 206, rx: 18, ry: 11, h: 6, rot: -25 },
-    { t: 'bump', cx: 256, cy: 200, rx: 10, ry: 12, h: 3.5 },
-    { t: 'bump', cx: 176, cy: 242, rx: 13, ry: 18, h: 3, op: 'sub' },
-    { t: 'bump', cx: 250, cy: 238, rx: 9, ry: 16, h: 2.5, op: 'sub' },
-    { t: 'bump', cx: 215, cy: 254, rx: 24, ry: 18, h: 5 },
-    { t: 'ridge', pts: [[215, 238], [215, 249]], w: 3, h: -0.5 },
-    { t: 'ridge', pts: [[198, 255.5], [207, 253.5], [215, 253.5], [224, 253], [235, 251]], w: 3, h: 2 },
-    { t: 'bump', cx: 216, cy: 261, rx: 13, ry: 4.5, h: 2.6 },
-    { t: 'ridge', pts: [[195, 256], [205, 257.5], [216, 258], [228, 257], [237, 250]], w: 1.4, h: -2 },
-    { t: 'bump', cx: 215, cy: 270, rx: 11, ry: 3.5, h: 2, op: 'sub' },
-    { t: 'bump', cx: 211, cy: 288, rx: 13, ry: 11, h: 6 },
-    { t: 'ridge', pts: [[160, 244], [176, 274], [196, 294], [212, 302], [232, 292]], w: 5, h: 2.2 },
-    { t: 'ridge', pts: [[205, 236], [199, 245], [196, 254]], w: 4, h: -0.9 },
-    { t: 'ridge', pts: [[231, 235], [235, 243], [237, 250]], w: 4, h: -0.9 },
-    { t: 'bump', cx: 156, cy: 150, rx: 9, ry: 18, h: 3, op: 'sub' },
-    { t: 'bump', cx: 256, cy: 146, rx: 7, ry: 16, h: 3, op: 'sub' },
-    { t: 'slab', d: HAIR, h: 3, r: 8 },
-    ...lk.front.forms,
-  ];
-}
-
-function headOverlay(c) {
-  const g = (e) => eyeGlints({ ix: e.cx + e.look, iy: e.cy + e.lookY + e.open * 0.05, rI: e.open * 0.76 });
-  return `${soft(c, 0.3, g(EYE_L) + g(EYE_R))}`;
-}
-
-// ---- the body ----
-
-function bodyAlbedo(c) {
-  const robeClip = c.clip('robe', ROBE);
-  const sashClip = c.clip('sash', SASH);
-  const R = rng(29);
-  const stitches = [];
-  for (let t = 0.05; t < 1; t += 0.035) stitches.push(`M${(88 + 194 * t).toFixed(1)} ${(388 + 112 * t).toFixed(1)}l4 2.4`, `M${(124 + 198 * t).toFixed(1)} ${(374 + 126 * t).toFixed(1)}l4 2.4`);
-  const fingers = curled().map((f) => {
-    const [ax, ay] = f.a, [bx, by] = f.b, dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
-    const crease = (t) => `M${(ax + dx * t - uy * 4).toFixed(1)} ${(ay + dy * t + ux * 4).toFixed(1)}l${(uy * 8).toFixed(1)} ${(-ux * 8).toFixed(1)}`;
-    return `${P(f.d, f.k % 2 ? '#c89470' : '#d09c78')}${soft(c, 0.8, S(crease(0.42) + crease(0.72), '#8a5238', 1), 0.55)}${soft(c, 0.6, E(bx - ux * 3.5, by - uy * 3.5, 3.6, 3, '#ead0c0', `opacity=".7" transform="rotate(${(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1)} ${(bx - ux * 3.5).toFixed(1)} ${(by - uy * 3.5).toFixed(1)})"`))}`;
-  }).join('');
-  return `
-  <path d="${NECK}" fill="#cc9a76"/>
-  ${inside(c.clip('neck', NECK), `${soft(c, 8, E(210, 304, 30, 24, '#c08a6c', 'opacity=".5"'))}${grainOver(c, c.clip('neck', NECK), 0.1, 1.1, 8)}`)}
-  <path d="${ROBE}" fill="#1c4424"/>
-  ${inside(robeClip, `${soft(c, 22, `${E(70, 430, 80, 40, '#245430', 'opacity=".6"')}${E(340, 480, 90, 50, '#0c2412', 'opacity=".6"')}`)}
-    ${grainOver(c, robeClip, 0.22, 0.75, 4)}
-    <g clip-path="${robeClip}" style="mix-blend-mode:overlay" opacity=".12"><rect width="400" height="500" filter="${c.streaks(0.008, 0.45, 9)}" transform="rotate(-70 200 430)"/></g>`)}
-  <path d="${TEAL}" fill="#22948a"/>
-  ${inside(c.clip('teal', TEAL), grainOver(c, c.clip('teal', TEAL), 0.2, 1, 23))}
-  ${S('M174 298 C194 307 222 307 242 298', '#8aeee2', 1.3, 'opacity=".85"')}
-  <path d="${LAPEL_L}" fill="#22502c"/><path d="${LAPEL_R}" fill="#1c4626"/>
-  ${S('M146 350 C158 378 178 400 204 422 M270 350 C258 378 240 400 220 422', '#c9a44a', 1.5)}
-  <path d="${SASH}" fill="#7e6c32"/>
-  ${inside(sashClip, `${grainOver(c, sashClip, 0.28, 1, 21)}<path d="${stitches.join('')}" stroke="#d8c070" stroke-width=".9" opacity=".7"/>`)}
-  ${S('M88 388 L280 500 M124 374 L322 500', '#4a3e14', 1.6)}
-  ${S('M196 330 L212 384 M228 330 L212 384', '#c9a44a', 1.2)}
-  <path d="${DIAMOND}" fill="#c8a040"/>
-  <path d="${GEM}" fill="#2aa84a"/>
-  ${E(209, 400, 2.5, 4, '#9af0aa', 'opacity=".7"')}
-  <path d="${SLEEVE}" fill="#173a1f"/>
-  ${S('M146 446 L166 498', '#c9a44a', 1.4)}
-  <path d="${HAND}" fill="#c99672"/>
-  ${soft(c, 1.2, S('M196 424 L214 452 M188 432 L204 460', '#a8704e', 1.2), 0.4)}
-  <path d="${THUMB}" fill="#cf9c78"/>
-  ${soft(c, 0.6, E(188, 408, 4.2, 3.4, '#ead0c0', 'opacity=".7"'))}
-  ${fingers}
-  ${E(226, 438, 3.4, 3, '#2aa84a')}${E(226, 438, 4.2, 3.8, 'none', 'stroke="#c8a040" stroke-width="1.4"')}`;
-}
-
-function bodyMat() {
-  const skin = 'rgb(55,60,255)', cloth = 'rgb(30,25,0)', gold = 'rgb(250,170,0)';
-  return `<path d="${NECK}" fill="${skin}"/><path d="${ROBE}" fill="${cloth}"/>
-    <path d="${TEAL}" fill="rgb(90,80,0)"/><path d="${LAPEL_L}" fill="${cloth}"/><path d="${LAPEL_R}" fill="${cloth}"/>
-    <path d="${SASH}" fill="rgb(50,40,0)"/><path d="${DIAMOND}" fill="${gold}"/><path d="${GEM}" fill="rgb(255,255,0)"/>
-    <path d="${SLEEVE}" fill="${cloth}"/><path d="${HAND}" fill="${skin}"/>
-    ${curled().map((f) => `<path d="${f.d}" fill="${skin}"/>`).join('')}<path d="${THUMB}" fill="${skin}"/>
-    ${E(226, 438, 4.2, 3.8, 'rgb(255,255,0)')}`;
-}
-
-function bodyForms() {
-  return [
-    { t: 'slab', d: ROBE, h: 34, r: 30, op: 'max' },
-    { t: 'bump', cx: 210, cy: 450, rx: 170, ry: 110, h: 5 },
-    { t: 'bump', cx: 60, cy: 420, rx: 70, ry: 40, h: 8 },
-    { t: 'bump', cx: 352, cy: 420, rx: 60, ry: 40, h: 8 },
-    { t: 'ridge', bz: [[250, 390], [266, 430], [282, 466], [290, 500]], w: 7, h: -4 },
-    { t: 'ridge', bz: [[70, 410], [60, 440], [52, 470], [46, 500]], w: 7, h: 3.5 },
-    { t: 'ridge', bz: [[340, 400], [352, 440], [362, 470], [366, 500]], w: 7, h: 3.5 },
-    { t: 'slab', d: NECK, h: 24, r: 16, base: 10, op: 'max' },
-    { t: 'slab', d: TEAL, h: 10, r: 7, base: 30, op: 'max' },
-    { t: 'slab', d: LAPEL_L, h: 4, r: 3, base: 34, op: 'max' },
-    { t: 'slab', d: LAPEL_R, h: 4, r: 3, base: 34, op: 'max' },
-    { t: 'slab', d: SASH, h: 3, r: 2.5, base: 0 },
-    { t: 'slab', d: DIAMOND, h: 3, r: 1.5, base: 0 },
-    { t: 'dome', cx: 212, cy: 405, rx: 9, ry: 14, h: 2.5 },
-    { t: 'slab', d: SLEEVE, h: 8, r: 8, base: 42, op: 'max' },
-    { t: 'slab', d: HAND, h: 7, r: 10, base: 46, op: 'max' },
-    ...curled().map((f) => ({ t: 'slab', d: f.d, h: 6, r: f.k === 3 ? 5 : 6, base: 48 + f.k * 0.3, op: 'max' })),
-    ...curled().map((f) => ({ t: 'bump', cx: f.a[0], cy: f.a[1], rx: 6, ry: 6, h: 1.8 })),
-    { t: 'slab', d: THUMB, h: 6, r: 6.5, base: 49, op: 'max' },
-    { t: 'dome', cx: 226, cy: 438, rx: 4.2, ry: 3.8, h: 2.5 },
-    { t: 'noise', mask: `${ROBE} ${SLEEVE}`, h: 0.35, cell: 1.8, stretch: [0.5, 1.8], seed: 9 },
-    { t: 'noise', mask: SASH, h: 0.35, cell: 1.3, stretch: [2, 0.5], seed: 10 },
-  ];
-}
-
-function lidsMaskDoc(c) {
-  return `<g filter="${c.blur(2.5)}">${AMMON.eyes.map(([x, y, rx, ry]) => E(x, y - 2, rx, ry, '#fff')).join('')}</g>`;
-}
-
-/** One layer of the painting for the lit bake: its colour (albedo), material and overlay as SVG, and its forms. */
-export function ammonLayer(layer, { blink = false } = {}) {
-  if (layer === 'head') {
-    const a = canvas('ammon-ha'), m = canvas('ammon-hm'), o = canvas('ammon-ho');
-    return { albedo: svgDoc(a, headAlbedo(a, { blink })), mat: svgDoc(m, headMat()), overlay: blink ? null : svgDoc(o, headOverlay(o)), forms: headForms({ blink }) };
-  }
-  const a = canvas('ammon-ba'), m = canvas('ammon-bm');
-  return { albedo: svgDoc(a, bodyAlbedo(a)), mat: svgDoc(m, bodyMat()), overlay: null, forms: bodyForms() };
-}
-
-/** The painted (unlit) parts as SVG documents: the icy hall behind him, and the mask of the blink. */
-export function paintAmmon(part) {
-  const c = canvas(`ammon-${part}`);
-  return svgDoc(c, part === 'back' ? back(c) : lidsMaskDoc(c));
-}
