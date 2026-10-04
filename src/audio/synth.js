@@ -434,14 +434,25 @@ export const RECIPES = {
   },
 
   // ——— impacts ———
-  hit: (d) => {   // a shell striking armour: a crack, a burst, and the hull ringing like a struck plate
-    const p = d.u(0.85, 1.15);
+  hit: (d) => {   // a shell striking armour: a hard crack, a heavy punch into thick steel and a short, deep, damped clang; sparks
+    const p = d.u(0.88, 1.12);
     return out([
-      [crack(d, 1600, 0.003, 3), 0.9],
-      [blast(d, 3500, 600, 0.03, 0.07), 0.7],
-      [thump(180, 80, 0.012, 0.045), 0.4],
-      [metal(d, 520 * p, 0.07, PLATE), 0.6],
-      [grit(d, 3000, 0.05, 4500, 1), 0.25],   // sparks
+      [crack(d, 1200, 0.0025, 3), 0.7],
+      [thump(150 * p, 60, 0.012, 0.06, 2.4), 0.85],
+      [chest(d, 900 * p, 320, 0.03, 0.05, 2), 0.7],
+      [blast(d, 2600, 400, 0.025, 0.06), 0.55],
+      [metal(d, 190 * p, 0.035, PLATE), 0.35],   // thick steel: a low clang, gone almost at once (a thin plate rang like tin)
+      [grit(d, 2500, 0.04, 3800, 1), 0.15],
+    ], -18);
+  },
+  hitStructure: (d) => {   // a shell bursting on a building: a crack, a heavy concussion and concrete raining down
+    const p = d.u(0.9, 1.1);
+    return out([
+      [crack(d, 1100, 0.003, 3), 0.7],
+      [thump(120 * p, 50, 0.015, 0.07, 2.4), 0.85],
+      [chest(d, 800 * p, 300, 0.03, 0.06, 2), 0.75],
+      [blast(d, 3000, 400, 0.03, 0.07), 0.6],
+      [grit(d, 3200, 0.12, 2400, 0.9), 0.5, 0.02],
     ], -18);
   },
   sandHit: (d) => out([   // a shell burying itself in sand: a dull whump and a spray of sand pattering down
@@ -450,11 +461,24 @@ export const RECIPES = {
     [chest(d, 700, 350, 0.03, 0.05, 1.5), 0.8],
     [grit(d, 4000, 0.12, 3200, 0.8), 0.6, 0.02],
   ], -19),
-  bulletHit: (d) => out([   // a bullet striking home: a dull smack, and in one variation in three a metallic ping
-    [crack(d, 2200, 0.0015, 2), 0.6],
-    [decay(biquad(noise(0.08, d.s()), 'bp', d.u(500, 800), 1.4), 0.0005, 0.014), 1],
-    [d.n === 2 ? metal(d, d.u(2600, 3400), 0.03, BAR) : grit(d, 5000, 0.03, 3000, 1), d.n === 2 ? 0.45 : 0.25, 0.001],
+  bulletHit: (d) => out([   // a bullet on armour: a dull, hard knock, and in one variation in three a ricochet whining off
+    [crack(d, 1400, 0.001, 2), 0.35],
+    [thump(d.u(260, 340), 140, 0.004, 0.012, 2), 0.7],
+    [decay(biquad(noise(0.06, d.s()), 'bp', d.u(700, 1000), 1.1), 0.0005, 0.01), 0.7],
+    d.n === 2
+      ? [shape(biquad(glide(0.22, (t) => 2600 - 5200 * t, 'saw'), 'bp', 2000, 1.2), [[0, 0], [0.01, 1], [0.08, 0.5], [0.22, 0]]), 0.22, 0.004]
+      : [metal(d, d.u(700, 900), 0.008, PLATE), 0.12, 0.001],   // a short low knock of steel, not a ping
   ], -25),
+  bulletSoft: (d) => out([   // a bullet finding a man: a soft, dull thwack with no ring at all
+    [thump(d.u(150, 190), 90, 0.004, 0.018, 1.4), 0.8],
+    [decay(biquad(noise(0.05, d.s()), 'lp', d.u(900, 1300), 0.7), 0.0008, 0.012), 0.8],
+  ], -27),
+  bulletChip: (d) => out([   // a bullet chipping concrete: a sharp tick, a puff of grit and a few crumbs falling
+    [crack(d, 1300, 0.0012, 2), 0.4],
+    [thump(d.u(220, 280), 120, 0.003, 0.01, 1.6), 0.5],
+    [decay(biquad(noise(0.06, d.s()), 'bp', d.u(850, 1200), 1), 0.0005, 0.012), 0.7],
+    [grit(d, 2000, 0.04, 1800, 1), 0.3, 0.004],
+  ], -26),
   explosionSmall: (d) => {   // a vehicle or rocket going up: crack, fireball, a deep thump, rumble and grit falling
     const p = d.u(0.9, 1.1);
     return out([
@@ -708,7 +732,7 @@ function loop(a, seconds, lufs) {
 }
 
 /** How many seeded variations each sound has; the engine picks one at random per play. */
-export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, sandHit: 3, bulletHit: 3, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
+export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, hitStructure: 2, sandHit: 3, bulletHit: 3, bulletSoft: 2, bulletChip: 2, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
 export const variants = (id) => VARIANTS[id] ?? 1;
 
 /** Variation v of sound `id`: the same samples every time. */

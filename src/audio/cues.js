@@ -11,7 +11,10 @@ import { STRUCTURES } from '../data/structures.js';
 const WEAPON = { rifle: 'rifle', pistol: 'rifle', trooperRocket: 'rifle', mg: 'mg', cannon: 'cannon', turretGun: 'cannon', heavyCannon: 'heavyCannon', plasma: 'heavyCannon', sonic: 'sonic' };
 const EXPLOSION = { small: 'explosionSmall', medium: 'explosionMedium', large: 'explosionLarge' };
 const LAUNCH = { rocket: 'rocket', gas: 'rocket', deathHand: 'launchHeavy' };   // shots that whoosh away
-const IMPACT = { rocket: () => 'explosionSmall', gas: () => 'gas', shell: (hit) => (hit ? 'hit' : 'sandHit'), bullet: (hit) => (hit ? 'bulletHit' : null) };
+// what a shot sounds like where it lands: armour (vehicles, aircraft, a worm's hide) knocks dull and deep; a man takes a
+// soft thwack; a building chips and crumbles; sand swallows it
+const SHELL_ON = { structure: 'hitStructure', foot: 'sandHit' }, BULLET_ON = { foot: 'bulletSoft', structure: 'bulletChip' };
+const IMPACT = { rocket: () => 'explosionSmall', gas: () => 'gas', shell: (hit, on) => (hit ? SHELL_ON[on] ?? 'hit' : 'sandHit'), bullet: (hit, on) => (hit ? BULLET_ON[on] ?? 'bulletHit' : null) };
 const ERRORS = new Set(['insufficientFunds', 'cannotPlace', 'busy', 'cannotDeploy', 'soldOut', 'frigateFull', 'notReady']);
 
 export function cueFor(e, me, seen) {
@@ -19,7 +22,7 @@ export function cueFor(e, me, seen) {
   const mine = e.house === me;
   switch (e.type) {
     case 'fired': return at(LAUNCH[e.projectile] ?? WEAPON[e.weapon] ?? 'rifle', e.x, e.y);
-    case 'impact': return at(IMPACT[e.projectile]?.(e.hit) ?? null, e.x, e.y);
+    case 'impact': return at(IMPACT[e.projectile]?.(e.hit, e.target) ?? null, e.x, e.y);
     case 'explosion': return at(EXPLOSION[e.size] ?? 'explosionSmall', e.x, e.y);
     case 'deathHandBlast': return at('explosionHuge', e.x, e.y);
     case 'unitDestroyed':

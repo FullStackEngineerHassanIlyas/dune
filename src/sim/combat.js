@@ -13,6 +13,7 @@ import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SEC
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
 import { friendly } from './alliance.js';
+import { onFoot } from '../data/units.js';
 
 const SCAN_TICKS = 4;   // targets are looked for five times a second
 
@@ -170,7 +171,8 @@ function impact(world, p) {
   if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
   const ground = !p.airburst && !(p.toAlt > 0), tx = Math.floor(p.x), ty = Math.floor(p.y), at = map.inBounds(tx, ty) ? map.idx(tx, ty) : -1;
   if (!victim && ground && at >= 0) victim = world.units.get(map.unit[at]) ?? world.structures.get(map.structure[at]) ?? wormAt(world, p.x, p.y);   // a shot at an aircraft that is gone bursts in the air
-  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim, alt: p.airburst || (victim && victim.kind === 'unit' && !victim.isGround) ? p.toAlt : 0 });
+  const target = !victim ? null : victim.kind === 'structure' ? 'structure' : !victim.isGround ? 'air' : onFoot(victim.move) ? 'foot' : 'vehicle';   // what the shot sounds on
+  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim, target, alt: p.airburst || (victim && victim.kind === 'unit' && !victim.isGround) ? p.toAlt : 0 });
   const by = { house: p.house, id: p.sourceId, kind: p.sourceKind };
   if (victim) damage(world, victim, p.damage, by);
   if (ground && at >= 0 && map.bloom[at]) world.onBloomHit?.(at, by);
