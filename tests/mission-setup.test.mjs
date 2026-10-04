@@ -80,7 +80,7 @@ test('the mission\'s Starport sells what the def stocks and nothing else', () =>
   assert.ok(Object.keys(plain.world.houses.get('atreides').starport.stock).length > 2, 'without a stock list the market is the usual one');
 });
 
-test('computer units take their standing orders; the player\'s stand idle', () => {
+test('computer units take their standing orders; the player\'s stand guard where they were set down', () => {
   const def = tinyDef();
   def.houses = [{ ...def.houses[0], units: [
     { type: 'combatTank', x: 20, y: 12, order: 'guard' }, { type: 'quad', x: 18, y: 12, order: 'areaGuard' },
@@ -92,7 +92,20 @@ test('computer units take their standing orders; the player\'s stand idle', () =
   assert.deepEqual([of('troopers').order.type, of('troopers').order.radius, of('troopers').order.leash], ['guard', 0, 0]);
   assert.deepEqual([of('trike').order.type, !!of('trike').garrison], ['idle', false]);
   assert.equal(of('harvester').order.type, 'harvest', 'a harvester harvests whatever it was told');
-  for (const u of world.units.values()) if (u.house === 'atreides' && u.typeId !== 'harvester') assert.equal(u.order.type, 'idle');
+  for (const u of world.units.values()) {
+    if (u.house !== 'atreides' || u.typeId === 'harvester') continue;
+    assert.deepEqual([u.order.type, u.order.x, u.order.y, u.order.radius, !!u.garrison], ['guard', u.tx, u.ty, undefined, false], `the player's ${u.typeId}: a plain guard, the player's to command`);
+  }
+  assert.equal(world.mission.debug().posts, 3, 'the mission keeps only the computer\'s posts');
+});
+
+test('the player\'s start force takes on a raider that comes for the base nearby', () => {
+  const { world } = setupMission(tinyDef());
+  const quad = [...world.units.values()].find((u) => u.house === 'atreides' && u.typeId === 'quad');
+  const raider = world.spawnUnit('trike', 'harkonnen', quad.tx + 4, quad.ty - 3);   // five tiles off: out of the Quad's reach (3), near the base
+  world.issue('harkonnen', { type: 'attack', ids: [raider.id], targetKind: 'structure', targetId: [...world.structures.values()].find((s) => s.house === 'atreides' && s.typeId === 'windtrap').id });
+  run(world, 1);
+  assert.ok(quad.target?.id === raider.id || quad.order.target?.id === raider.id, 'the Quad goes for it');
 });
 
 test('every computer house is allied with every other, and none with the player', () => {
