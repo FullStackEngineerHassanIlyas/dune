@@ -133,7 +133,7 @@ class WallClock {
 // ---- the opening ---------------------------------------------------------------------------------------------------------
 const ZERO = Object.freeze({ x: 0, y: 0, z: 0 });
 const SETTLE = 0.8;   // seconds the ending's planet takes back to the title's shot (centre, distance and colour) when it ends early
-const GATE_WAIT = 3000;   // ms the gate's prompt waits at most for the player's own music to be read
+const GATE_WAIT = 8000;   // ms a key at the gate waits at most for the player's own music to be read (as the menu's music does)
 const AUDIO_WAIT = 1600;   // ms the picture waits at black for the music to become audible (contract C6: it says within 1.5 s)
 
 class Opening {

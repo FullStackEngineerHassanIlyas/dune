@@ -30,6 +30,7 @@ export const DEFAULT_VOLUME = 0.5;
 export const DUCK = 0.6;            // the music under an announcer line: about -4.4 dB
 export const PLAYLISTS = SLOTS;     // the moments the player's own files can take over (one list: sega-tracks.js)
 const PLAYLIST_WAIT = 3000;         // ms to wait for the player's playlists before playing the game's own music
+const MENU_LIST_WAIT = 8000;        // the menu waits longer: at page load the first read can be slow, and the intro's cue must be the player's
 const INTRO_LIST_WAIT = 400;        // ms past the intro's gesture the cue waits for them at most
 const INTRO_AUDIBLE_WAIT = 1500;    // ms intro() waits to hear the cue before it says there is none
 const INTRO_LATE = 3000;            // ms past the intro's gesture a cue not yet heard is given up (too far out of step)
@@ -100,7 +101,7 @@ export class Conductor {
    * audio: { ctx, master } (null ctx until a gesture opens it); pools: role → FM track ids (POOLS, contract C7);
    * themes: { briefing, victory, defeat }, house → its own track id; slots: those of the player's files it reads.
    */
-  constructor({ audio, settings, win = globalThis.window, rng = Math.random, importer, pools = POOLS, tracks = TRACKS, themes = THEMES, slots = SLOTS, house = null, entrances = ENTRANCES }) {
+  constructor({ audio, settings, win = globalThis.window, rng = Math.random, importer, pools = POOLS, tracks = TRACKS, themes = THEMES, slots = SLOTS, house = null, entrances = ENTRANCES, listWait = PLAYLIST_WAIT }) {
     this.settings = settings;
     this.importer = importer;
     this.pools = pools;
@@ -116,6 +117,7 @@ export class Conductor {
     this.failed = new Set();   // the player's files that would not play (this session, until the lists change)
     this.loaded = false;
     this.got = new Set();   // the slots whose list has been read
+    this.listWait = listWait;   // ms the first read may take before the game's own music plays
     this.wanted = null;      // the mood asked for
     this.override = null;    // a one-off entrance for the next start (a skipped intro)
     this.playing = null;     // the mood started
@@ -148,7 +150,7 @@ export class Conductor {
    * plays. A mood playing whose music changed starts again from it (or from the FM, the list emptied).
    */
   reloadPlaylists() {
-    const read = ++this.reads, wait = new Promise((resolve) => this.win?.setTimeout?.(resolve, PLAYLIST_WAIT));
+    const read = ++this.reads, wait = new Promise((resolve) => this.win?.setTimeout?.(resolve, this.listWait));
     const apply = (lists) => {
       if (read !== this.reads || !lists) return;   // a later read is on its way, or this one failed
       let changed = false;
@@ -642,7 +644,7 @@ export class MenuMusic {
     this.track = track && tracks[track] ? track : null;
     this.conductor = new Conductor({
       audio: this.audio, settings, win, rng, tracks, themes, slots: MENU_SLOTS, pools: this.track ? { ...pools, menu: [this.track] } : pools,
-      importer: this.track ? async () => ({}) : importer, entrances: MENU_ENTRANCES,
+      importer: this.track ? async () => ({}) : importer, entrances: MENU_ENTRANCES, listWait: MENU_LIST_WAIT,
     });
     this.conductor.want('menu');
     this.primed = false;
