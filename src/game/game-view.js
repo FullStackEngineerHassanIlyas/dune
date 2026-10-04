@@ -250,6 +250,7 @@ export class GameView {
         this.flyover = new Flyover(this.r3d.scene, { house: this.house, heightAt: this.heightAt });
         this.flyover.start(this.rig);
         this.handoff = 'flyover';
+        this.music.end(true);   // the house's victory theme over the Carryalls, as the Sega game plays it
       } else this.handOff(now);
     }
     if (this.flyover?.update(live)) { this.flyover.dispose(); this.flyover = null; this.handOff(now); }
