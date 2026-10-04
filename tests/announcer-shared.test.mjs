@@ -4,7 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
-import { WebVoiceOutput, announcerSet, savedAnnouncer, lineForEvent } from '../src/audio/voice.js';
+import { WebVoiceOutput, announcerSet, savedAnnouncer, lineForEvent, originalLine } from '../src/audio/voice.js';
+import { voiceLine } from '../src/formats/dune2-sounds.js';
 import { PLAYABLE_HOUSES } from '../src/data/houses.js';
 import { DEFAULTS, sanitize, loadSettings } from '../src/core/settings.js';
 import { readParams } from '../src/core/params.js';
@@ -32,6 +33,7 @@ function fakeBrowser() {
   };
   return { fetchFn, fetched, made, sound: { ctx, master: new Node(), running: true, muted: false } };
 }
+const voiceLength = (m, names) => voiceLine(names.map((n) => m.get(n))).length;
 const at = (fetched) => fetched.filter((u) => !u.endsWith('manifest.json')).map((u) => u.split('/assets/voice/')[1]);
 
 test('the Announcer setting: one voice by default, each house as the option; saved, and the URL overrides it', () => {
@@ -141,4 +143,48 @@ test('with the player\'s original clips, the original lines still win whichever 
     await out.load('wormsign');   // a line the clips cannot make keeps the pre-rendered voice the option chose
     assert.deepEqual(at(b.fetched), [`${announcer === 'one' ? 'announcer' : 'harkonnen'}/wormsign.ogg`]);
   }
+});
+
+test('"One voice" with the player\'s original clips: every house hears the Harkonnen announcer (Klepacki\'s), naming its own house', async () => {
+  const words = ['ACONST', 'AATRE', 'AUNIT', 'ADEPLOY', 'HCONST', 'HATRE', 'HUNIT', 'ZAFFIRM'];   // no HDEPLOY: that line keeps the house's own
+  const m = new Map(words.map((n, i) => [n, { rate: 11025, pcm: Uint8Array.from({ length: 1000 + 10 * i }, (_, k) => 128 + Math.round(40 * Math.sin(k / 4))) }]));
+  const has = (n) => m.has(n);
+  assert.deepEqual(originalLine('constructionComplete', 'atreides', 'one', has), ['HCONST']);
+  assert.deepEqual(originalLine('constructionComplete', 'atreides', 'house', has), ['ACONST']);
+  assert.deepEqual(originalLine('unitReady', 'atreides', 'one', has), ['AATRE', 'AUNIT', 'ADEPLOY'], 'a word missing in that voice: the house\'s own, whole');
+  assert.deepEqual(originalLine('unitReady', 'atreides', 'one', (n) => has(n) || n === 'HDEPLOY'), ['HATRE', 'HUNIT', 'HDEPLOY'], 'Atreides named, in the one voice');
+  assert.deepEqual(originalLine('affirmative', 'ordos', 'one', has), ['ZAFFIRM'], 'the units\' replies are shared anyway');
+  assert.equal(originalLine('constructionComplete', 'ordos', 'one', () => false), null);
+  const b = fakeBrowser();
+  const out = new WebVoiceOutput(b.sound, 'atreides', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn, originals: async () => m });
+  await out.ready;
+  assert.equal(out.announcer, 'one');
+  assert.deepEqual(out.original.constructionComplete, ['HCONST']);
+  await out.load('constructionComplete');
+  assert.equal(out.status('constructionComplete'), 'ready');
+  out.setAnnouncer('house');   // mid-battle: the house's own clips from the next line on
+  assert.deepEqual(out.original.constructionComplete, ['ACONST']);
+  assert.equal(out.status('constructionComplete'), 'loading');
+  await out.load('constructionComplete');
+  assert.deepEqual(b.made.map((x) => x.length).slice(-1), [voiceLength(m, ['ACONST'])]);
+  assert.deepEqual(at(b.fetched), [], 'no pre-rendered line fetched');
+});
+
+test('switching the announcer lets go only of the lines whose voice changed, and decodes the commonest again at once', async () => {
+  const b = fakeBrowser();
+  const out = new WebVoiceOutput(b.sound, 'ordos', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn, originals: null });
+  await out.ready;
+  const unit = Object.keys(out.lines).find((id) => id.startsWith('unit.'));
+  await out.warm();
+  await out.load(unit);
+  await out.load('wormsign');
+  const fetched = b.fetched.length;
+  out.setAnnouncer('house');
+  assert.equal(out.status(unit), 'ready', 'a unit\'s reply is the same file in either mode: kept');
+  assert.equal(out.status('wormsign'), 'loading', 'in the old voice: let go');
+  for (let i = 0; i < 40; i++) await settle();   // the background decodes, one after another
+  const again = at(b.fetched.slice(fetched));
+  assert.ok(again.includes('ordos/constructionComplete.ogg') && again.includes('ordos/unitReady.ogg'), 'the commonest lines decoded again in the new voice');
+  assert.ok(!again.includes('ordos/wormsign.ogg') && !again.some((f) => !f.startsWith('ordos/')), 'only those, only the new voice');
+  assert.equal(out.status('constructionComplete'), 'ready');
 });

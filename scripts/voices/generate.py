@@ -50,12 +50,13 @@ FIELD_RADIO = ['highpass=f=320:p=2', 'lowpass=f=3600:p=2', 'equalizer=f=1700:t=q
                'acompressor=threshold=-20dB:ratio=6:attack=2:release=60:makeup=3']
 SETS = {
     'announcer': {   # every house's, as on the Mega Drive: deeper than the Harkonnen set, and clean where that one is gritty
-        # (its grit is that house's character): am_fenrir, the Harkonnen voice, weighted with am_onyx and slowed like a
-        # tape to 88 % (median pitch ~122 Hz against the Harkonnen set's ~143 Hz), then presence at 2.6 and 4.5 kHz so
-        # the deep voice stays clear, no clipper; notes docs/superpowers/notes/2026-10-04-art-announcer.md
-        'voice': [('am_fenrir', 0.7), ('am_onyx', 0.3)], 'lang': 'en-us', 'speed': 1.0, 'role': 'announcer',
-        'chain': slower(0.88) + ['highpass=f=75:p=1', 'lowpass=f=10500:p=1', 'equalizer=f=300:t=q:w=1:g=-3', 'equalizer=f=2600:t=q:w=1:g=5',
-                                 'equalizer=f=4500:t=q:w=1.2:g=2.5', 'acompressor=threshold=-24dB:ratio=3.5:attack=4:release=90:makeup=3', CONSOLE_ROOM],
+        # (its grit is that house's character): am_fenrir, the Harkonnen voice, weighted with am_onyx, spoken a little quick
+        # and slowed like a tape to 83 % (about 4.4 semitones under the Harkonnen set: median F0 of every voiced frame of
+        # all 63 lines), then presence at 2.6 and 4.5 kHz so the deep voice stays clear, no clipper;
+        # notes docs/superpowers/notes/2026-10-04-art-announcer.md
+        'voice': [('am_fenrir', 0.6), ('am_onyx', 0.4)], 'lang': 'en-us', 'speed': 1.08, 'role': 'announcer',
+        'chain': slower(0.83) + ['highpass=f=75:p=1', 'lowpass=f=10500:p=1', 'equalizer=f=300:t=q:w=1:g=-3', 'equalizer=f=2600:t=q:w=1:g=6.5',
+                                 'equalizer=f=4500:t=q:w=1.2:g=3.5', 'acompressor=threshold=-24dB:ratio=3.5:attack=4:release=90:makeup=3', CONSOLE_ROOM],
     },
     'atreides': {   # calm and clear
         'voice': 'af_heart', 'lang': 'en-us', 'speed': 0.94, 'role': 'announcer',
@@ -291,7 +292,7 @@ def write_manifest(out, lines):
             manifest['sets'][name] = entry
     if SHARED_SET not in manifest['sets']:
         del manifest['shared']   # not rendered: every house keeps its own
-    tmp =os.path.join(out, 'manifest.json.tmp')
+    tmp = os.path.join(out, 'manifest.json.tmp')
     with open(tmp, 'w') as f:
         json.dump(manifest, f, indent=1, ensure_ascii=False)
         f.write('\n')

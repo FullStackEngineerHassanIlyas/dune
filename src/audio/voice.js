@@ -11,7 +11,7 @@
 // come from the player's own Dune II clips instead, strung together from its word clips as it did
 // (src/formats/dune2-sounds.js); any line they cannot make keeps its pre-rendered voice.
 import { HOUSES } from '../data/houses.js';
-import { ORIGINAL_LINES, RATE, resolveLine, voiceLine } from '../formats/dune2-sounds.js';
+import { HOUSE_LETTER, LINE_WORDS, ORIGINAL_LINES, RATE, resolveLine, voiceLine } from '../formats/dune2-sounds.js';
 import { parseUnitLine } from '../data/unit-voices.js';
 import { DEFAULTS, loadSettings } from '../core/settings.js';
 import { readParams } from '../core/params.js';
@@ -272,6 +272,22 @@ export function announcerSet(m, house, mode = DEFAULTS.announcer) {
   return [...order, m?.houses?.atreides ?? 'atreides'].find((name) => name && m?.sets?.[name]) ?? null;
 }
 
+/** Whose original clips speak for every house under "One voice": Frank Klepacki's, the PC game's Harkonnen voice, credited for the Mega Drive's one announcer. */
+export const ONE_VOICE = 'harkonnen';
+
+/**
+ * The player's original clip names for line `id` (resolveLine), as the Announcer option `mode` wants them: under 'house'
+ * the house's own announcer; under 'one' the ONE_VOICE announcer's words, still naming the player's own house ("Atreides
+ * unit deployed"), and the house's own where those clips are missing. Null: the clips cannot make it.
+ */
+export function originalLine(id, house, mode, has) {
+  const from = HOUSE_LETTER[house], to = HOUSE_LETTER[ONE_VOICE];
+  if (mode === 'house' || !LINE_WORDS[id] || !from || from === to) return resolveLine(id, house, has);
+  const swap = (name) => to + name.slice(from.length);   // an announcer clip's name is its voice's letter and the word
+  const names = resolveLine(id, house, (name) => has(swap(name)));
+  return names ? names.map(swap) : resolveLine(id, house, has);
+}
+
 /** The Announcer option as saved (src/core/settings.js; ?announcer= overrides it), or the default where it cannot be read. */
 export function savedAnnouncer() {
   try { return loadSettings(readParams()).announcer; } catch { return DEFAULTS.announcer; }
@@ -322,17 +338,25 @@ export class WebVoiceOutput {
 
   /** Lines from these clips (name → { rate, pcm }) where they can make them; null: none. Lines already decoded are let go. */
   useOriginals(clips) {
-    const lines = {};
-    if (clips?.size) for (const id of ORIGINAL_LINES) { const names = resolveLine(id, this.house, (n) => clips.has(n)); if (names) lines[id] = names; }
-    const any = Object.keys(lines).length > 0;
-    if (!any && !this.original) return;
-    this.original = any ? lines : null;
-    this.clips = any ? clips : null;
+    const lines = this.originalLines(clips);
+    if (!lines && !this.original) return;
+    this.original = lines;
+    this.clips = lines ? clips : null;
     this.generation++;
     this.buffers.clear();
     this.made.clear();
     this.missing.clear();
   }
+
+  /** id → the clip names these clips make it from, in the voice the Announcer option chose (originalLine); null: none. */
+  originalLines(clips) {
+    const lines = {};
+    if (clips?.size) for (const id of ORIGINAL_LINES) { const names = originalLine(id, this.house, this.announcer, (n) => clips.has(n)); if (names) lines[id] = names; }
+    return Object.keys(lines).length ? lines : null;
+  }
+
+  /** Where line `id` comes from now: the original clip names or the pre-rendered file; null: nowhere. */
+  sourceOf(id) { return this.original?.[id]?.join('+') ?? this.lines?.[id]?.file ?? null; }
 
   /** The announcer (announcerSet), the old shared replies, and every unit group's lines as unit.<group>.<kind>.<n>. */
   useManifest(m) {
@@ -348,15 +372,19 @@ export class WebVoiceOutput {
     return m;
   }
 
-  /** The Announcer option changed ('one' or 'house'): the next line comes in that voice; lines decoded in the old one are let go. */
+  /**
+   * The Announcer option changed ('one' or 'house'): the next line comes in that voice. Only the lines whose source
+   * changed are let go (the units' replies stay decoded), and the commonest of those are decoded again at once.
+   */
   setAnnouncer(mode) {
     if (mode === this.announcer) return;
+    const before = new Map([...this.buffers.keys(), ...this.missing].map((id) => [id, this.sourceOf(id)]));
     this.announcer = mode;
-    if (!this.manifest) return;
-    this.useManifest(this.manifest);
-    this.generation++;
-    this.buffers.clear();
-    this.missing.clear();
+    if (this.manifest) this.useManifest(this.manifest);
+    if (this.clips) this.original = this.originalLines(this.clips);
+    const changed = new Set();
+    for (const [id, was] of before) if (this.sourceOf(id) !== was) { this.buffers.delete(id); this.missing.delete(id); changed.add(id); }
+    if (this.warmed) this.prefetch(WARM.filter((id) => changed.has(id)));
   }
 
   get live() { return (!!this.lines || !!this.original) && !!this.sound?.running && !this.sound.muted; }
@@ -384,11 +412,12 @@ export class WebVoiceOutput {
       }
     }
     this.loading.add(id);
-    return this.fetchFn(new URL(this.lines[id].file, this.base).href)
+    const file = this.lines[id].file, current = () => gen === this.generation && this.sourceOf(id) === file;   // not a voice let go meanwhile
+    return this.fetchFn(new URL(file, this.base).href)
       .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.arrayBuffer(); })
       .then((bytes) => new Promise((resolve, reject) => { const p = ctx.decodeAudioData(bytes, resolve, reject); p?.catch?.(reject); }))
-      .then((buffer) => { if (gen === this.generation) this.buffers.set(id, buffer); })
-      .catch(() => { if (gen === this.generation) this.missing.add(id); })
+      .then((buffer) => { if (current()) this.buffers.set(id, buffer); })
+      .catch(() => { if (current()) this.missing.add(id); })
       .finally(() => { this.loading.delete(id); });
   }
 
