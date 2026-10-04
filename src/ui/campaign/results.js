@@ -2,24 +2,42 @@
 // stage, in index.js) his win lines while the map takes the new land, then the score screen — SCORE and TIME,
 // "You have attained the rank of …", and Spice harvested, Units destroyed and Structures destroyed (not in
 // mission 1), each with a red bar for the player and a blue one for the enemy filling step by step — and last the
-// password for the next mission.
+// password for the next mission. The pictures are rendered from the game's own models (results-render.js) into
+// assets/campaign/results/; campaign.css puts them in place by house, and by subject on the score screen: line art
+// of a Combat Tank, a Trooper or an Ornithopter engraved into the gold, as the Sega draws one of the three there.
+// defeatCard is the same card for a lost mission: the base burning (index.js shows the Mentat's lose lines).
 import { h } from '../dom.js';
 import { HOUSES } from '../../data/houses.js';
 import { formatTime } from '../../campaign/score.js';
-import { victorySvg, tankSvg } from './art.js';
 
 const name = (house) => HOUSES[house]?.name ?? house;
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
+/** The line art behind a mission's score screen: tank, trooper, ornithopter in turn. */
+export const SCORE_SUBJECTS = ['tank', 'trooper', 'ornithopter'];
+export const scoreSubject = (mission) => SCORE_SUBJECTS[(Math.max(1, mission | 0) - 1) % SCORE_SUBJECTS.length];
+
+/** A full-screen picture card: the picture (CSS sets it by house and kind), its title across the top, a line under it. */
+function card(kind, house, title, line, buttons) {
+  return h('section', { class: `cp-stage cp-card cp-${kind}`, dataset: { house } },
+    h('div', { class: 'cp-card-pic', 'aria-hidden': 'true' }),
+    h('div', { class: 'cp-card-shade', 'aria-hidden': 'true' }),
+    h('div', { class: 'cp-card-words' },
+      h('h2', { class: 'cp-card-title', dataset: { text: title } }, title),
+      h('p', {}, line)),
+    h('div', { class: 'cp-bar' }, ...buttons));
+}
+
 /** The victory card: our picture, VICTORY across it and the mission done; Continue (or the timer) moves on. */
 export function victoryCard(house, mission, { onContinue }) {
-  const art = h('div', { class: 'cp-victory-pic' });
-  art.innerHTML = victorySvg(house);
-  return h('section', { class: 'cp-stage cp-victory', dataset: { house } }, art,
-    h('div', { class: 'cp-victory-words' },
-      h('h2', { class: 'cp-victory-title', dataset: { text: 'Victory' } }, 'Victory'),
-      h('p', {}, `House ${name(house)} · mission ${mission} accomplished`)),
-    h('div', { class: 'cp-bar' }, h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')));
+  return card('victory', house, 'Victory', `House ${name(house)} · mission ${mission} accomplished`,
+    [h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')]);
+}
+
+/** The defeat card: the base burning at dusk, MISSION FAILED across it; Continue moves on to the Mentat. */
+export function defeatCard(house, mission, { onContinue }) {
+  return card('defeat', house, 'Defeat', `House ${name(house)} · mission ${mission} failed`,
+    [h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')]);
 }
 
 /** The rows the score screen shows for a mission: the structures row only from mission 2 on, as on the Sega. */
@@ -47,9 +65,8 @@ export function scoreScreen(result, { later, instant = false, onContinue, steps 
       line('You', 'you', row.you), line('Enemy', 'enemy', row.enemy));
   });
   const set = (bar, k) => { bar.fill.style.width = `${(bar.share * k * 100).toFixed(1)}%`; bar.num.textContent = fmt(bar.value * k); };
-  const art = h('div', { class: 'cp-score-art' });
-  art.innerHTML = tankSvg();
-  const el = h('section', { class: 'cp-stage cp-score', dataset: { house: result.house } }, art,
+  const el = h('section', { class: 'cp-stage cp-score', dataset: { house: result.house } },
+    h('div', { class: 'cp-score-art', 'aria-hidden': 'true', dataset: { subject: scoreSubject(result.mission) } }, h('span', { class: 'cp-etch' }), h('span', { class: 'cp-etch-lit' })),
     h('div', { class: 'cp-score-card' },
       h('div', { class: 'cp-score-head' },
         h('div', {}, h('span', {}, 'Score'), h('b', { dataset: { field: 'score' } }, String(result.score))),
@@ -78,7 +95,7 @@ export function passwordReveal(house, mission, word, { onContinue, kept = true }
   return h('section', { class: 'cp-stage cp-password-reveal', dataset: { house } },
     h('div', { class: 'cp-reveal-card' },
       h('p', {}, `Your password for completing House ${name(house)} mission ${mission} is`),
-      h('div', { class: 'cp-tiles', role: 'text', 'aria-label': word, dataset: { field: 'password' } }, [...word].map((c) => h('span', { 'aria-hidden': 'true' }, c))),
+      h('div', { class: 'cp-tiles', role: 'text', 'aria-label': word, dataset: { field: 'password' } }, [...word].map((c, i) => h('span', { 'aria-hidden': 'true', style: `--i: ${i}` }, c))),
       kept ? h('p', { class: 'cp-reveal-note' }, 'Progress is also saved in this browser; the password brings you back here on any computer.')
         : h('p', { class: 'cp-reveal-note', role: 'status', dataset: { unsaved: '1' } }, 'This browser is not keeping your progress: note this password. It brings you back here on any computer.')),
     h('div', { class: 'cp-bar' }, h('button', { type: 'button', class: 'dm-btn cp-btn primary', dataset: { act: 'continue' }, onclick: onContinue }, 'Continue')));
