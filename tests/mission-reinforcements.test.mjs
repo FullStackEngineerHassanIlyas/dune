@@ -6,7 +6,7 @@ import { setupMission } from '../src/game/mission-setup.js';
 import { edgePoint } from '../src/sim/air.js';
 import { checkInvariants } from '../src/sim/invariants.js';
 import { friendly, hostile } from '../src/sim/alliance.js';
-import { tinyDef, setup, evas } from './missions-helpers.mjs';
+import { tinyDef, setup, evas, razeBase } from './missions-helpers.mjs';
 import { run, runUntil } from './helpers.mjs';
 
 const carryalls = (world, house) => [...world.units.values()].filter((u) => u.typeId === 'carryall' && u.house === house);
@@ -141,4 +141,27 @@ test('a reinforcement of an unknown house or of no known unit is skipped and rep
   run(world, 3);
   assert.equal(carryalls(world, 'atreides').length, 0);
   assert.equal(world.mission.debug().pending, 0);
+});
+
+test('once the mission is over no group sets off, and one still in the air comes down unannounced', () => {
+  const { world } = setup({ minSeconds: 1, reinforcements: [
+    { house: 'atreides', units: ['quad'], at: 2, via: 'carryall', to: 'home', from: 'north' },
+    { house: 'atreides', units: ['combatTank', 'quad'], at: 10, via: 'carryall', to: 'home' },
+    { house: 'harkonnen', units: ['troopers'], at: 10, via: 'carryall', to: 'enemy' },
+    { house: 'atreides', units: ['trike'], at: 10, via: 'edge', to: 'home', from: 'west' },
+  ] });
+  run(world, 2.3);
+  const inbound = carryalls(world, 'atreides').map((c) => c.cargo);
+  assert.equal(inbound.length, 1, 'the first group is on its way');
+  razeBase(world, 'harkonnen', 'atreides');
+  run(world, 0.5);
+  assert.equal(world.outcome?.winner, 'atreides', 'won while the Carryall is in the air');
+  world.events.drain();
+  const before = new Set(world.units.keys());
+  run(world, 30);
+  assert.ok(!world.units.get(inbound[0]).inside, 'the Carryall still set its load down');
+  assert.deepEqual(evas(world.events.drain(), 'atreides', 'reinforcements'), [], 'and nobody announced it after "Mission accomplished"');
+  assert.deepEqual([...world.units.values()].filter((u) => !before.has(u.id)).map((u) => `${u.house} ${u.typeId}`), [], 'no later group came in');
+  assert.equal(world.mission.debug().pending, 3);
+  assert.equal(world.mission.nextReinforcement().at, 10);
 });
