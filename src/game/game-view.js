@@ -390,7 +390,7 @@ export class GameView {
     this.controller.frame();
     this.overlay.draw({
       world, selection: this.selection, hoverId: this.controller.hoverId, hoverStructureId: this.controller.hoverStructureId,
-      project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars,
+      project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars, house: this.house,
       canSee: (u) => unitVisibleTo(world, this.house, u),
       canSeeStructure: (s) => structureVisibleTo(world, this.house, s),
     });
