@@ -60,6 +60,11 @@ test('the stylesheet points only at pictures that exist, and gives every house a
       `.cp-mentat-stage.cp-win[data-house="${house}"]`, `.cp-mentat-stage.cp-defeat[data-house="${house}"]`]) assert.ok(css.includes(sel), sel);
   }
   assert.match(css, /prefers-reduced-motion[^}]*\.cp-card-pic, \.cp-card-title, \.cp-tiles span \{ animation: none/);
+  // the gradient letters: a background shorthand on them would reset the text clip and paint a bar across the card
+  for (const rule of css.match(/\.cp-card-title::after \{[^}]*\}/g)) {
+    const at = rule.search(/[{;]\s*background:[^;]*;(?![\s\S]*[{;]\s*background:)/);
+    if (at >= 0) assert.match(rule.slice(at + 1), /background-clip: text/, rule);
+  }
 });
 
 test('the victory and defeat cards: their picture, title and line, and Continue', () => {
