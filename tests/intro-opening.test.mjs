@@ -4,6 +4,7 @@
 // hands the planet back tan.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { CARDS } from '../src/game/intro-timeline.js';
 
 // ---- a stand-in for the DOM: elements, the window's and the document's listeners, animation frames run by hand ----------
 function listeners() {
@@ -75,7 +76,7 @@ const keyEvent = (key, more = {}) => ({
 const press = (key, more) => { const e = win.fire(keyEvent(key, more)); win.fire({ ...keyEvent(key, more), type: 'keyup' }); return e; };
 const pointer = (target) => target.on.fire({ type: 'pointerdown', preventDefault() {}, stopPropagation() {} });
 
-const { runIntro, playEnding, browserKey } = await import('../src/scenes/menu-intro.js');
+const { runIntro, playEnding, browserKey, cardScales } = await import('../src/scenes/menu-intro.js');
 
 /** runIntro's context, forced on (?intro=1) in its still version unless `full`; calls are logged. */
 function opening({ music = {}, query = 'intro=1', reduced = true } = {}) {
@@ -184,6 +185,35 @@ test('the backdrop prepares its first battle behind the gate\'s black, a slice a
   await tick();
   ctx.debug.intro.skip();
   await run;
+});
+
+test('on a narrow window a credit card\'s lines of a size are drawn at one size: the longest line sets it', async () => {
+  const was = { innerWidth, innerHeight };
+  Object.assign(globalThis, { innerWidth: 420, innerHeight: 860 });
+  // the still version's card: "A FAN REMAKE" big, then "AFTER WESTWOOD STUDIOS'" and "1992 GAME" small
+  const { ctx, layer } = opening();
+  const run = runIntro(ctx);
+  try {
+    press('a');
+    await tick();
+    ctx.debug.intro.step(1);
+    const card = layer().children.find((c) => c.className === 'intro-card');
+    assert.deepEqual(card.children.map((c) => c.style.height), ['35px', '14px', '14px']);
+    for (const c of card.children) assert.ok(parseFloat(c.style.width) <= 0.92 * 420, `${c.style.width} fits the window`);
+  } finally {
+    ctx.debug.intro.skip();
+    await run;
+    Object.assign(globalThis, was);
+  }
+  // the full opening's cards, on a phone, a laptop and a wide screen
+  const after = CARDS.find((c) => c.id === 'after').lines;
+  assert.deepEqual(cardScales(after, { width: 420, height: 860 }), [2, 2]);
+  assert.deepEqual(cardScales(after, { width: 1280, height: 720 }), [4, 4]);
+  assert.deepEqual(cardScales(after, { width: 1600, height: 900 }), [5, 5]);
+  for (const card of CARDS) for (const [w, h] of [[360, 740], [420, 860], [1280, 720]]) {
+    const scales = cardScales(card.lines, { width: w, height: h });
+    card.lines.forEach((line, i) => assert.ok(line.text.length * 6 * scales[i] <= 0.92 * w, `${line.text} at ${w}`));
+  }
 });
 
 test('without the opening the music still hears of it: no cue at the first click on the title', async () => {

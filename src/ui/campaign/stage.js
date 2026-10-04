@@ -15,14 +15,17 @@ export function reducedMotion() {
 /**
  * Types `lines` into `box` two at a time: each pair letter by letter, held, then the next; the last pair stays.
  * `later(fn, ms)` schedules (the caller cancels everything when the screen changes). skip() finishes the pair
- * being typed, or moves on to the next one; done is true once the last pair is out.
+ * being typed, or moves on to the next one; done is true once the last pair is out. `room`, unseen in the box's
+ * place, gets every pair whole, so the box is as tall as the tallest from the start and nothing below it moves
+ * as the words wrap (a narrow window).
  */
-export function typeLines(box, lines, { later, instant = reducedMotion(), onDone = () => {} } = {}) {
+export function typeLines(box, lines, { later, instant = reducedMotion(), onDone = () => {}, room = null } = {}) {
   const pairs = [];
   for (let i = 0; i < lines.length; i += 2) pairs.push(lines.slice(i, i + 2));
   if (!pairs.length) pairs.push(['']);
   const rows = [h('div', { class: 'cp-line' }), h('div', { class: 'cp-line' })];
   box.replaceChildren(...rows);
+  room?.replaceChildren(...pairs.map((pair) => h('div', {}, h('div', { class: 'cp-line' }, pair[0]), h('div', { class: 'cp-line' }, pair[1] ?? ''))));
   let pair = 0, shown = 0, token = 0;
   const typer = { done: false, typing: false };
   const total = () => pairs[pair].join('').length;
@@ -78,6 +81,7 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
   const kicker = h('div', { class: 'cp-kicker' });
   const title = h('h2', { class: 'cp-title' });
   const box = h('div', { class: 'cp-lines', 'aria-hidden': 'true', title: 'Click to read on', dataset: { act: 'read-on' } });
+  const room = h('div', { class: 'cp-lines cp-room', 'aria-hidden': 'true' });
   const spoken = h('div', { class: 'cp-sr', 'aria-live': 'polite' });
   const note = h('p', { class: 'cp-note', hidden: true });
   const portrait = h('figure', { class: 'cp-mentat', 'aria-label': `${mentatName}, Mentat of House ${label || house}` });
@@ -85,7 +89,7 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
   const mapBox = h('div', { class: 'cp-mapbox' });
   const bar = h('div', { class: 'cp-bar' });
   const el = h('section', { class: `cp-stage cp-mentat-stage ${className}`.trim(), dataset: { house } },
-    h('div', { class: 'cp-text' }, kicker, title, box, spoken), portrait, mapBox,
+    h('div', { class: 'cp-text' }, kicker, title, h('div', { class: 'cp-say' }, box, room), spoken), portrait, mapBox,
     h('div', { class: 'cp-foot' }, warn && h('p', { class: 'cp-warn', role: 'status' }, warn), note, bar));
   let typer = null;
   box.addEventListener('click', () => typer?.skip());
@@ -99,7 +103,7 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
       title.hidden = !t;
       spoken.textContent = lines.join(' ');
       typer?.stop();
-      typer = typeLines(box, lines, { later, onDone });
+      typer = typeLines(box, lines, { later, onDone, room });
       return typer;
     },
     /** A small line under the map (the objective, a warning); null hides it. */

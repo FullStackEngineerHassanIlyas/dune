@@ -69,9 +69,16 @@ function pixelCanvas(text, scale, color = '#fff') {
 }
 
 /** CSS pixels per font pixel for a line `cols` font pixels wide: about 1/120 of the window's height (big) or 1/190, never wider than the window. */
-function pixelScale(cols, size) {
-  const fit = Math.floor((0.92 * innerWidth) / Math.max(1, cols));
-  return Math.max(1, Math.min(fit, Math.round(innerHeight / (size === 'big' ? 120 : 190))));
+function pixelScale(cols, size, width = innerWidth, height = innerHeight) {
+  const fit = Math.floor((0.92 * width) / Math.max(1, cols));
+  return Math.max(1, Math.min(fit, Math.round(height / (size === 'big' ? 120 : 190))));
+}
+
+/** The scale of each line of a card: its lines of a size share one, the one its longest line fits the window at. */
+export function cardScales(lines, { width = innerWidth, height = innerHeight } = {}) {
+  const scale = {};
+  for (const { text, size } of lines) scale[size] = Math.min(scale[size] ?? Infinity, pixelScale(text.length * 6, size, width, height));
+  return lines.map(({ size }) => scale[size]);
 }
 
 // ---- input ---------------------------------------------------------------------------------------------------------------
@@ -316,7 +323,8 @@ class Opening {
     const card = cardAt(t, { reduced });
     if ((card?.card.id ?? null) !== s.card) {
       s.card = card?.card.id ?? null;
-      this.card.replaceChildren(...(card ? card.card.lines.map((line) => pixelCanvas(line.text, pixelScale(line.text.length * 6, line.size))) : []));
+      const scales = card ? cardScales(card.card.lines) : [];
+      this.card.replaceChildren(...(card ? card.card.lines.map((line, i) => pixelCanvas(line.text, scales[i])) : []));
     }
     const opacity = card?.opacity ?? 0;
     if (opacity !== s.cardOpacity) { this.card.style.opacity = opacity.toFixed(3); s.cardOpacity = opacity; }

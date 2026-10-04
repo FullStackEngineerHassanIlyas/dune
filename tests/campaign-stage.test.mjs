@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { installDom, FakeEl } from './campaign-dom.mjs';
 
 installDom();
-const { typeLines } = await import('../src/ui/campaign/stage.js');
+const { typeLines, mentatStage } = await import('../src/ui/campaign/stage.js');
 const { scoreScreen, scoreRows } = await import('../src/ui/campaign/results.js');
 const { readResult } = await import('../src/campaign/result.js');
 
@@ -80,6 +80,27 @@ test('instant (reduced motion) shows each pair whole', () => {
   assert.deepEqual(shown(box), ['A', 'B']);
   c.run(2600);
   assert.deepEqual(shown(box), ['C', '']);
+});
+
+test('every pair is laid out unseen beside the words, so the box keeps the tallest pair\'s height while they type', () => {
+  const c = clock();
+  const stage = mentatStage('harkonnen', { mentatName: 'Radnor', later: c.later });
+  const box = stage.el.find((e) => e.className === 'cp-lines');
+  const room = stage.el.find((e) => e.className.split(' ').includes('cp-room'));
+  assert.ok(room, 'a room for the words');
+  assert.equal(room.parent, box.parent, 'beside the box');
+  assert.equal(box.parent.className, 'cp-say', 'the two share one cell (campaign.css)');
+  assert.ok(room.className.split(' ').includes('cp-lines'), 'set in the same type as the box');
+  assert.equal(room.attrs['aria-hidden'], 'true');
+  const lines = ['A short one', 'A much longer line that wraps on a narrow window', 'Three', 'Four', 'Five'];
+  stage.say(lines);
+  const pairs = () => room.children.map((p) => p.children.map((l) => l.textContent));
+  assert.deepEqual(pairs(), [[lines[0], lines[1]], [lines[2], lines[3]], [lines[4], '']], 'every pair whole, from the first letter');
+  assert.deepEqual(shown(box), ['', ''], 'while the box types');
+  c.run(26 * 10);
+  assert.deepEqual(pairs(), [[lines[0], lines[1]], [lines[2], lines[3]], [lines[4], '']], 'and it stays as they type');
+  stage.say(['New words']);
+  assert.deepEqual(pairs(), [['New words', '']], 'new words, a new room');
 });
 
 test('the score bars fill row by row to their share of the row\'s larger number, the numbers counting up', () => {
