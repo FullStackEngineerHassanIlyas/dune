@@ -5,7 +5,8 @@ measures the loudness and true peak (EBU R128), the voice's pitch (median F0 of 
 in semitones), its brightness (spectral centroid), its pace (words a minute of speech), how well Whisper hears the
 words (word error rate against the clip's own text, numbers said as words), and whether the track's timings sit on
 the sound: Whisper's own word starts against the track's (median and 90th percentile of the difference, words
-matched in order) and the share of the track's words that fall on speech rather than silence.
+matched in order), each sentence's start against the moment its sound rises, and the share of the track's
+words that fall on speech rather than silence.
 
   /tmp/tts/bin/python scripts/voices/mentat_measure.py <folder> [--out results.json] [--model small.en] [--whisper-dir <dir>]
 Needs ffmpeg, numpy and faster-whisper (uv pip install faster-whisper); WHISPER_THREADS (default 2).
@@ -105,6 +106,19 @@ def on_speech(x, track):
     return ok / max(1, len(track['words']))
 
 
+def onsets(x, track):
+    """Each sentence's start in the track less the moment its sound rises past -30 dB of the clip's loud level
+    (ms; positive: the track is late), looked for from 300 ms before it."""
+    win = int(0.01 * RATE)
+    env = np.sqrt(np.convolve(x ** 2, np.ones(win) / win, mode='same') + 1e-12)
+    db = 20 * np.log10(env / np.percentile(env, 95))
+    out = []
+    for s, *_ in track['sentences']:
+        a = int(max(0, s / 1000 - 0.3) * RATE)
+        out.append(s - (a + int(np.argmax(db[a:] > -30))) / RATE * 1000)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('folder')
@@ -133,7 +147,8 @@ def main():
             speech_s = sum(e - s for s, e, *_ in track['sentences']) / 1000
             row = {'house': rel[0], 'voice': rel[1] if len(rel) == 3 else '', 'key': f[:-4], 'seconds': round(len(x) / RATE, 3), 'ms': track['ms'],
                    'bytes': os.path.getsize(path), 'lufs': lufs, 'peak': peak, 'f0': f0 and round(f0, 1), 'spread': spread and round(spread, 2),
-                   'centroid': round(centroid(x)), 'wpm': round(len(track['words']) / speech_s * 60, 1), 'onSpeech': round(on_speech(x, track), 3)}
+                   'centroid': round(centroid(x)), 'wpm': round(len(track['words']) / speech_s * 60, 1), 'onSpeech': round(on_speech(x, track), 3),
+                   'onsetsMs': [round(d) for d in onsets(x, track)]}
             if model:
                 pad = np.concatenate([np.zeros(RATE // 2, np.float32), x, np.zeros(RATE // 2, np.float32)])
                 segs, _ = model.transcribe(pad, language='en', beam_size=5, condition_on_previous_text=False, vad_filter=False, word_timestamps=True)
@@ -167,6 +182,7 @@ def main():
         print(f"{house:9} {voice:34} n {len(rs):3} {sum(r['seconds'] for r in rs):7.1f}s {sum(r['bytes'] for r in rs) / 1e6:5.2f} MB "
               f"LUFS {min(r['lufs'] for r in rs):.1f}..{max(r['lufs'] for r in rs):.1f} pk<={max(r['peak'] for r in rs):.1f} F0 {med('f0'):.1f} "
               f"±{med('spread'):.1f}st c {med('centroid'):.0f} {med('wpm'):.0f} wpm on>={min(r['onSpeech'] for r in rs):.2f}"
+              + f" onsets {np.median([d for r in rs for d in r['onsetsMs']]):+.0f} ms (p10 {np.percentile([d for r in rs for d in r['onsetsMs']], 10):+.0f}, p90 {np.percentile([d for r in rs for d in r['onsetsMs']], 90):+.0f})"
               + (f" WER mean {np.mean([r['wer'] for r in rs]):.3f} max {max(r['wer'] for r in rs):.2f} Δt med {med('startErrMs'):.0f} p90 {med('startErrP90Ms'):.0f} ms" if model else ''))
 
 
