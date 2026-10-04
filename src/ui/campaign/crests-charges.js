@@ -26,7 +26,8 @@ function volume(m, key, d, w = 9, o = 0.5) {
 }
 const volumeAgain = (m, key, d, w = 9, o = 0.5) => `<g clip-path="url(#${m.p}-${key})" fill="none">
     <path d="${d}" stroke="#000" stroke-width="${f(w)}" opacity="${o}" transform="translate(${f(-w * 0.42)} ${f(-w * 0.5)})" filter="url(#${m.p}-blur)"/>
-    <path d="${d}" stroke="#fff" stroke-width="${f(w * 0.5)}" opacity="${f(o * 0.8)}" transform="translate(${f(w * 0.36)} ${f(w * 0.42)})" filter="url(#${m.p}-blur)"/></g>`;
+    <path d="${d}" stroke="#fff" stroke-width="${f(w * 0.5)}" opacity="${f(o * 0.8)}" transform="translate(${f(w * 0.36)} ${f(w * 0.42)})" filter="url(#${m.p}-blur)"/>
+    <path d="${d}" stroke="#fff" stroke-width="1.6" opacity=".38" transform="translate(-1 -1.2)"/></g>`;
 
 /** A mirrored copy of a right-hand half outline, closed through the axis. */
 const both = (half) => smooth([...half, ...half.slice(1, -1).reverse().map(([x, y]) => [-x, y])], true);
