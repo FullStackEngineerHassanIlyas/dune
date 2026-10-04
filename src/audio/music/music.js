@@ -516,6 +516,10 @@ export class BattleMusic {
   }
 }
 
+const LIMITER_RELEASE = 0.15;         // seconds: the menu limiter's release
+const LIMITER_START_RELEASE = 0.003;  // and while a fresh one settles, over its first LIMITER_SETTLE s of audio
+const LIMITER_SETTLE = 0.25;
+
 /**
  * The main menu's own audio: a context made at page load for the intro (suspended until a gesture lets it run),
  * or by the first click or key (browser autoplay rules), a master at the Options volume (off with Sound off) and a
@@ -547,7 +551,12 @@ export class MenuAudio {
         const Context = this.win.AudioContext ?? this.win.webkitAudioContext, ctx = new Context();
         const master = ctx.createGain(), limiter = ctx.createDynamicsCompressor?.();
         if (limiter) {
-          limiter.threshold.value = -6; limiter.knee.value = 4; limiter.ratio.value = 20; limiter.attack.value = 0.003; limiter.release.value = 0.15;
+          limiter.threshold.value = -6; limiter.knee.value = 4; limiter.ratio.value = 20; limiter.attack.value = 0.003;
+          // a fresh compressor starts fully down and comes up at its release time, and the intro's cue starts on the
+          // very first sample the context runs: a short release at first, so the opening hit is not blunted (by 4 dB
+          // over its first 50 ms in Chrome with 0.15), and the usual one from a quarter second of audio on
+          const r = limiter.release, t = ctx.currentTime ?? 0;
+          if (r.setValueAtTime) { r.setValueAtTime(LIMITER_START_RELEASE, t); r.setValueAtTime(LIMITER_RELEASE, t + LIMITER_SETTLE); } else r.value = LIMITER_RELEASE;
           master.connect(limiter);
           limiter.connect(ctx.destination);
         } else master.connect(ctx.destination);

@@ -7,9 +7,12 @@
 // first one is to play, and the commands behind it wait in order. `audio` is anything with an AudioContext `ctx`
 // (null until a gesture opens it, or made suspended at page load) and a `master` node: the battle's SoundEngine,
 // or the menu's own.
-import { BLOCK } from './mixer.js';
+import { BLOCK, vgmLevel } from './mixer.js';
+import { segaTrack } from './sega-tracks.js';
 
 export const VGM_TYPE = 'audio/x-vgm';
+/** A VGM file's own gain for the mixer: the Sega track its tag (else its file name) names, evened out; 1 for any other. */
+export const vgmGain = (file) => vgmLevel(segaTrack(file?.meta?.title, file?.name)?.title);
 const vgmIds = new WeakMap();
 let vgmCount = 0;
 /** The mixer's id for one of the player's VGM files: its key in the store, else one given here once. */
@@ -32,6 +35,7 @@ export class MusicOutput {
     this.win = win ?? {};
     this.onEvent = onEvent;
     this.gain = null;
+    this.gainAt = 0;
     this.node = null;        // the AudioWorkletNode
     this.worker = null;      // or the render-ahead worker
     this.loading = null;
@@ -56,6 +60,7 @@ export class MusicOutput {
       this.gain = ctx.createGain();
       this.gain.gain.value = this.level;
       this.gain.connect(this.audio.master);
+      this.gainAt = ctx.currentTime ?? 0;   // its context's clock when made: until that moves, nothing has sounded through it
     }
     if (!this.node && !this.worker && !this.loading) this.loading = this.startSynth(this.gen);
     return true;
@@ -194,17 +199,22 @@ export class MusicOutput {
     const id = vgmId(file);
     if (!this.vgmSent.has(id)) {
       this.vgmSent.add(id);
-      this.send({ cmd: 'vgm', id, data: file.data });
+      this.send({ cmd: 'vgm', id, data: file.data, gain: vgmGain(file) });
     }
     return id;
   }
 
+  /**
+   * The music's level, eased over LEVEL_TIME — except while nothing has sounded through the gain yet (a context primed
+   * at page load that has not run): there it holds from the first sample, as an ease from 0 would only start when the
+   * gesture lets the context run, and blunt the intro's opening hit.
+   */
   setLevel(v) {
     this.level = v;
-    const g = this.gain?.gain;
+    const g = this.gain?.gain, now = this.ctx?.currentTime;
     if (!g) return;
-    if (g.setTargetAtTime && this.ctx.currentTime !== undefined) g.setTargetAtTime(v, this.ctx.currentTime, LEVEL_TIME);
-    else g.value = v;
+    if (g.setTargetAtTime && now !== undefined && now > this.gainAt) g.setTargetAtTime(v, now, LEVEL_TIME);
+    else { g.cancelScheduledValues?.(0); g.value = v; }
   }
 
   /** One of the player's files ({ name, type, data }), faded in (or waiting, paused); onEnded when it is over or cannot be played. */

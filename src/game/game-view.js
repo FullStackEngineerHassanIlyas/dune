@@ -64,7 +64,7 @@ export class GameView {
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
     this.rig.lookAt(focus.x, focus.z, true);
-    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
+    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume, early: inShell() });   // the shell's frame may play at once
     this.stage = new BattleStage({
       world, scene: r3d.scene, quality: r3d.quality, viewer: house, sound: this.sound, rig: this.rig,
       onShake: (amount) => { this.rig.shake = Math.max(this.rig.shake, amount); },
@@ -250,6 +250,7 @@ export class GameView {
         this.flyover = new Flyover(this.r3d.scene, { house: this.house, heightAt: this.heightAt });
         this.flyover.start(this.rig);
         this.handoff = 'flyover';
+        this.music.end(true);   // the house's victory theme over the Carryalls, as the Sega game plays it
       } else this.handOff(now);
     }
     if (this.flyover?.update(live)) { this.flyover.dispose(); this.flyover = null; this.handOff(now); }
