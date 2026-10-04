@@ -17,18 +17,23 @@ const TYPES = {
 
 export function createServer() {
   return http.createServer(async (req, res) => {
+    let rel = '';
     try {
       const url = new URL(req.url, 'http://localhost');
       let file = path.normalize(path.join(root, decodeURIComponent(url.pathname)));
       if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403); return res.end(); }
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      rel = path.relative(root, file).split(path.sep).join('/');
       if (PRIVATE.some((re) => re.test(rel))) { res.writeHead(403); return res.end(); }
       if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html');
-      const body = await readFile(file);
-      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
+      const body = await readFile(file), { mtime } = await stat(file);
+      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store',
+        'content-length': body.length, 'last-modified': mtime.toUTCString() });
       res.end(body);
     } catch (err) {
-      res.writeHead(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 404 : 500);
+      const missing = err.code === 'ENOENT' || err.code === 'ENOTDIR';
+      // the player's own files in original/ are optional: not having one is no error worth a red line in the console
+      if (missing && rel.startsWith('original/')) { res.writeHead(204); return res.end(); }
+      res.writeHead(missing ? 404 : 500);
       res.end(String(err.code || err));
     }
   });

@@ -116,7 +116,9 @@ test('each reader of the playlists reads only the slots it can play: a battle th
   assert.deepEqual(Object.keys(battle.conductor.lists).sort(), ['defeat-atreides', 'ingame', 'victory-atreides']);
   const menu = new MenuMusic({ settings: {}, win: { setTimeout: () => 0 }, importer });
   await menu.conductor.ready;
-  assert.deepEqual(asked[1], SLOTS.filter((n) => !['ingame', 'peace', 'battle'].includes(n)), 'the menu: every slot but the in-game ones');
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(asked[1], ['intro', 'menu'], 'the menu reads the music it wants at once first');
+  assert.deepEqual([...asked[1], ...asked[2]].sort(), SLOTS.filter((n) => !['ingame', 'peace', 'battle'].includes(n)).sort(), 'the menu: every slot but the in-game ones');
   assert.equal(menu.conductor.lists.ingame, undefined);
 });
 

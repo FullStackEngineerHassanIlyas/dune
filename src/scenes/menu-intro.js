@@ -14,7 +14,7 @@
 //   playEnding({ house, app, backdrop, menu, music }) (contract C12): Arrakis from space slowly turns from tan to the
 //     victor's colour (the Sega's "planet shimmer", music 'finale'), then the credits roll over it (story's CREDITS,
 //     music 'credits'); any key or click skips; resolves when it is over, the title and the backdrop back.
-import { introLength, introPhase, blackAt, cardAt, titleAt, nebulaAt, travelOffset, shipPose, SHIP_HOUSES, backdropWork, introRule, returningFromBattle } from '../game/intro-timeline.js';
+import { introLength, introPhase, blackAt, cardAt, titleAt, nebulaAt, travelOffset, shipPose, SHIP_HOUSES, shipSoundsBetween, backdropWork, introRule, returningFromBattle } from '../game/intro-timeline.js';
 import { ENDING, endingView, endingLength, rollAt, pageAt } from '../game/ending-timeline.js';
 import { PLANET_SUN } from '../render/planet.js';
 import { ShipFlight } from '../render/space-travel.js';
@@ -133,11 +133,12 @@ class WallClock {
 // ---- the opening ---------------------------------------------------------------------------------------------------------
 const ZERO = Object.freeze({ x: 0, y: 0, z: 0 });
 const SETTLE = 0.8;   // seconds the ending's planet takes back to the title's shot (centre, distance and colour) when it ends early
+const GATE_WAIT = 3000;   // ms the gate's prompt waits at most for the player's own music to be read
 const AUDIO_WAIT = 1600;   // ms the picture waits at black for the music to become audible (contract C6: it says within 1.5 s)
 
 class Opening {
-  constructor({ backdrop, app, menu, music, startBackdrop, rule }) {
-    Object.assign(this, { backdrop, app, menu, music, startBackdrop, rule });
+  constructor({ backdrop, app, menu, music, startBackdrop, rule, settings = {} }) {
+    Object.assign(this, { backdrop, app, menu, music, startBackdrop, rule, settings });
     this.planet = backdrop.planet;
     this.reduced = rule.reduced;
     this.length = introLength({ reduced: this.reduced });
@@ -198,8 +199,13 @@ class Opening {
   waitForGesture() {
     this.gate.append(pixelCanvas('PRESS ANY KEY', pixelScale(13 * 6, 'small'), '#dfe6ff'));
     this.gate.focus?.({ preventScroll: true });
+    // the player's own music read first (at most GATE_WAIT), so their Sega Opening, not the game's cue, starts with the
+    // key: a key pressed before that starts the opening as soon as it is in (the page keeps the gesture's permission)
+    const lists = this.music?.conductor, read = lists?.early ?? lists?.ready;
+    const listsIn = !read || lists.listRead?.('intro') || lists.loaded ? null
+      : Promise.race([Promise.resolve(read).catch(() => null), new Promise((r) => setTimeout(r, GATE_WAIT))]);
     return new Promise((resolve) => {
-      let work = 0;
+      let work = 0, starting = false;
       const prepare = () => {
         work = 0;
         if (!this.gateDone || this.backdrop.next?.ready) return;
@@ -213,17 +219,22 @@ class Opening {
         this.gateDone = null;
         resolve(how);
       };
+      const start = () => {
+        if (starting) return;
+        starting = true;
+        const go = () => { if (!this.gateDone) return; this.cue(); finish('start'); };
+        if (listsIn) listsIn.then(go); else go();
+      };
       // window listeners in the bubbling phase, after the music's own: the event is never stopped, so every
-      // audio-unlock listener sees the gesture; the cue starts inside it
+      // audio-unlock listener sees the gesture; the cue starts inside it (or as soon as the player's music is in)
       const onKey = (e) => {
         if (e.repeat) return;
         if (e.key === 'Escape') { e.preventDefault(); finish('skip'); return; }
         if (!unlocksAudio(e.key)) return;
-        this.cue();
         swallowKey(e.code, !browserKey(e));
-        finish('start');
+        start();
       };
-      const onPointer = () => { this.cue(); finish('start'); };
+      const onPointer = () => start();
       addEventListener('keydown', onKey);
       this.layer.addEventListener('pointerdown', onPointer);
       this.gateDone = finish;   // seek() and skip() from the debug hook answer the gate too
@@ -285,11 +296,23 @@ class Opening {
     this.raf = requestAnimationFrame(this.frameBound);
     const dt = Math.min(0.1, Math.max(0, (now - this.last) / 1000));
     this.last = now;
+    const was = this.t;
     if (!this.frozen) this.t = this.clock.t;
+    if (!this.frozen && !this.stepping && this.ships) this.shipSounds(was, this.t);
     try {
       this.draw(this.frozen ? 0 : dt);
       if (!this.frozen && this.t >= this.length) this.finish(false);
     } catch (err) { this.fail(err); }
+  }
+
+  /** The ships' fly-by and atmosphere entry, through the backdrop's sound engine (its gesture is the gate's key). */
+  shipSounds(from, to) {
+    const cues = shipSoundsBetween(from, to), sound = this.backdrop.sound;
+    if (!cues.length || !sound?.play) return;
+    sound.volume = this.settings.volume ?? 0.8;   // the backdrop keeps its battle sound at 0 in space; the ships are the opening's own
+    sound.setMuted?.(this.settings.sound === false);
+    sound.setListener?.(0, 0, 1, 0, 10);   // a flat line for panning: x = pan * 8 stays at full level
+    for (const c of cues) sound.play(c.id, { x: c.pan * 8, z: 0 });
   }
 
   placeShips(t) {
@@ -458,7 +481,7 @@ export async function runIntro(ctx = {}) {
     if (!rule.play) { skipCue(music); return { played: false, reason: rule.reason }; }
     menu.hide();
     backdrop.lend();
-    opening = new Opening({ backdrop, app, menu, music, startBackdrop, rule });
+    opening = new Opening({ backdrop, app, menu, music, startBackdrop, rule, settings });
     if (debug) debug.intro = opening.debug();
     return await opening.run();
   } catch (err) {

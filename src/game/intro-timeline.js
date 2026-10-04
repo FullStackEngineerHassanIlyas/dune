@@ -43,6 +43,19 @@ export const SHIPS = [
   { house: 'harkonnen', from: [-1.12, -0.86], to: [-0.44, 0.42], bend: -0.22, bank: 0.4 },  // bottom left, climbing up and right onto the upper left
   { house: 'ordos', from: [1.14, 0.86], to: [0.5, -0.36], bend: -0.2, bank: 0.5 },          // top right, swooping down and left onto the night side
 ];
+/**
+ * What the ships sound like (synth recipes shipPass and shipEntry): each sweeps past as it enters, panned to the side it
+ * comes from, and meets the atmosphere with a far-off boom as it sinks into the planet, which sits right of centre.
+ */
+export const SHIP_SOUNDS = Object.freeze(SHIPS.flatMap((ship, i) => [
+  { at: INTRO_MARKS.ships[i], id: 'shipPass', pan: Math.sign(ship.from[0]) * 0.6, house: ship.house },
+  { at: INTRO_MARKS.ships[i] + SHIP_TIME * 0.8, id: 'shipEntry', pan: Math.max(-0.6, Math.min(0.6, 0.3 + 0.25 * ship.to[0])), house: ship.house },
+]).sort((a, b) => a.at - b.at));
+
+/** The ship sounds whose moment falls in (from, to]: none for a jump backwards or a still picture. */
+export function shipSoundsBetween(from, to) {
+  return to > from ? SHIP_SOUNDS.filter((s) => s.at > from && s.at <= to) : [];
+}
 const SHIP_DEPTH = 0.95;   // how far in front of the camera a ship enters (planet radii)
 const SHIP_SIZE = 0.2;     // its width on entry, as a share of the window's height (the smaller side's, on a tall window)
 const SHIP_SPAN = 1;       // the model's width at scale 1 (render/models/units/house-ship.js)

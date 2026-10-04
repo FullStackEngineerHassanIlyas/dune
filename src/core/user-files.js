@@ -359,6 +359,29 @@ export async function importMusic(files, { slot = null, format = VGM_FORMAT } = 
 }
 
 /** The tracks without their data: [{ id, list, lists, name, type, size, meta }], in the order added; `list` filters by slot. */
+/** Where a player may keep their own copy of the Sega soundtrack beside the game (the folder is git-ignored). */
+export const LOCAL_MUSIC = 'original/sega-music.zip';
+
+/**
+ * The player's own soundtrack kept in the game's git-ignored original/ folder is imported once by itself, so a copy
+ * already on the player's disk plays without the Original Game Files page; a changed file is imported again. Nothing
+ * is fetched from anywhere else, and a missing file is quietly nothing. Resolves the import's report, or null.
+ */
+export async function importLocalMusic({ fetch: get = globalThis.fetch, url = LOCAL_MUSIC, format } = {}) {
+  if (typeof get !== 'function') return null;
+  let res;
+  try { res = await get(url, { method: 'HEAD', cache: 'no-store' }); } catch { return null; }
+  if (res?.status !== 200) return null;   // the dev server answers 204 when the player keeps no copy there
+  const stamp = `${res.headers?.get?.('content-length') ?? ''}|${res.headers?.get?.('last-modified') ?? ''}`;
+  if ((await meta('localMusic', null)) === stamp) return null;   // already in: the file is not even downloaded
+  try { res = await get(url, { cache: 'no-store' }); } catch { return null; }
+  if (res?.status !== 200) return null;
+  const data = await res.arrayBuffer();
+  const report = await importMusic([{ name: url.split('/').pop(), data }], format ? { format } : {});
+  if (!report.files.some((f) => f.error && !f.from)) await setMeta('localMusic', stamp);
+  return report;
+}
+
 export async function listTracks(list) {
   const all = await (await db()).all('tracks');
   return all.filter((t) => !list || slotsOf(t).includes(list)).sort((a, b) => a.id - b.id)

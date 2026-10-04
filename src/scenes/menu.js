@@ -77,6 +77,12 @@ export async function start({ search }) {
   let frame = null;
   // the title theme from the first click or key (spec §6 Music); ?music=<track id> plays any track instead
   const music = new MenuMusic({ settings, track: params.str('music') });
+  // the player's own Sega soundtrack, kept beside the game in its git-ignored original/ folder, joins their music by
+  // itself on a local server (not in automated runs, which start from an empty browser on purpose)
+  const automated = navigator.webdriver || /HeadlessChrome/.test(navigator.userAgent);
+  if (!automated && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+    import('../core/user-files.js').then((m) => m.importLocalMusic()).catch((err) => console.warn('local music:', err));
+  }
 
   const launch = (query) => {
     menu.hide();

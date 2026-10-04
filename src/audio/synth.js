@@ -631,6 +631,24 @@ export const RECIPES = {
       [shape(glide(s, (t) => 2000 + 1000 * by(t)), bell), 0.05],
     ], -17);
   },
+  shipPass: (d) => {   // a house ship of the opening sweeping past on its way to Arrakis: a beating drive hum and a whine falling as it goes by
+    const s = 1.9, mid = d.u(0.6, 0.72), by = passing(mid, 0.13), bell = [[0, 0], [mid * 0.45, 0.4], [mid, 1], [mid + 0.4, 0.45], [s, 0]];
+    return out([
+      [shape(biquad(glide(s, (t) => 66 + 30 * by(t), 'saw'), 'lp', 380), bell), 0.9],
+      [shape(biquad(glide(s, (t) => 69.5 + 31 * by(t), 'saw'), 'lp', 380), bell), 0.6],   // a little apart: the drive beats
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 480 + 1600 * by(t), 0.9), bell), 0.65],   // the rush of its passing
+      [shape(glide(s, (t) => 820 + 640 * by(t)), bell), 0.05],
+    ], -16);
+  },
+  shipEntry: (d) => {   // the ship meeting the atmosphere far off: a hiss of fire swelling, then a soft distant boom rolling away
+    const s = 2.2;
+    return out([
+      [shape(biquad(crackle(s, d.s(), 1500), 'bp', 1400, 0.8), [[0, 0], [0.45, 0.7], [0.8, 1], [1.5, 0.2], [s, 0]]), 0.45],
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 280 + 900 * Math.exp(-t / 0.9), 0.7), [[0, 0], [0.35, 0.6], [0.8, 1], [s, 0]]), 0.7],
+      [thump(68, 36, 0.05, 0.4, 2.2), 0.8, 0.8],
+      [rumble(d, 150, 0.45, 0.08), 0.55, 0.85],
+    ], -19);
+  },
 
   // ——— interface ———
   ready: () => out([[chime(659.3, 0.22), 0.8], [chime(987.8, 0.3), 0.9, 0.11]], -18),   // construction complete: a clean two-note chime

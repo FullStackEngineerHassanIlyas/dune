@@ -17,6 +17,10 @@ test('server serves the page, vendored three as JavaScript, 404s and blocks path
     const missing = await fetch(`http://localhost:${port}/nope.js`);
     assert.equal(missing.status, 404);
     await missing.arrayBuffer();
+    const optional = await fetch(`http://localhost:${port}/original/no-such-copy.zip`);
+    assert.equal(optional.status, 204, "the player's optional files are quietly absent, not a 404");
+    await optional.arrayBuffer();
+    assert.ok(Number(three.headers.get('content-length')) > 0 && three.headers.get('last-modified'), 'files say their size and date');
     const escape = await fetch(`http://localhost:${port}/..%2f..%2fetc%2fpasswd`);
     assert.notEqual(escape.status, 200);
     await escape.arrayBuffer();

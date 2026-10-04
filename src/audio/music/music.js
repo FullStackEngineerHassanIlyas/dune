@@ -115,6 +115,7 @@ export class Conductor {
     this.lists = {};
     this.failed = new Set();   // the player's files that would not play (this session, until the lists change)
     this.loaded = false;
+    this.got = new Set();   // the slots whose list has been read
     this.wanted = null;      // the mood asked for
     this.override = null;    // a one-off entrance for the next start (a skipped intro)
     this.playing = null;     // the mood started
@@ -148,20 +149,42 @@ export class Conductor {
    */
   reloadPlaylists() {
     const read = ++this.reads, wait = new Promise((resolve) => this.win?.setTimeout?.(resolve, PLAYLIST_WAIT));
-    return Promise.race([loadPlaylists(this.importer, this.slots), wait.then(() => null)]).then((lists) => {
-      if (read !== this.reads) return;   // a later read is on its way
+    const apply = (lists) => {
+      if (read !== this.reads || !lists) return;   // a later read is on its way, or this one failed
       let changed = false;
-      if (lists) for (const n of this.slots) {
+      for (const n of Object.keys(lists)) {
+        this.got.add(n);
         const list = lists[n] ?? [];
         if (signature(list) === signature(this.lists[n])) continue;   // unchanged: the same objects stay (the shuffle knows them)
         if (list.length) this.lists[n] = list; else delete this.lists[n];
         changed = true;
       }
-      const first = !this.loaded;
-      this.loaded = true;
       if (changed) { this.failed.clear(); this.listsChanged(); }
-      if (first) this.update();
-    });
+      if (!this.loaded) this.update();   // a mood whose list is in may start before the rest is read
+    };
+    const settle = () => {
+      if (read !== this.reads || this.loaded) return;
+      this.loaded = true;
+      this.update();
+    };
+    // what is wanted now is read first (the intro's cue, the title, a battle's tunes): a whole library of the
+    // player's files can take seconds to read, and a slow read still arrives when it is done
+    const early = this.earlySlots(), rest = this.slots.filter((n) => !early.includes(n));
+    const head = early.length ? loadPlaylists(this.importer, early).then(apply) : Promise.resolve();
+    const all = head.then(() => (rest.length ? loadPlaylists(this.importer, rest) : null)).then(apply);
+    this.early = Promise.race([head, wait]);   // the intro's gate waits for this much
+    return Promise.race([all, wait]).then(settle);
+  }
+
+  /** The player's list for `mood` has been read (or the reading was given up): its music may start. */
+  listRead(mood) { return this.loaded || this.got.has(String(mood ?? '').replace(':', '-')); }
+
+  /** The slots of the music wanted at once: the intro's and the title's, a screen's mood, a battle's tunes. */
+  earlySlots() {
+    const want = new Set(['intro', 'menu']), mood = String(this.wanted ?? '').replace(':', '-');
+    if (this.slots.includes(mood)) want.add(mood);
+    if (['peace', 'battle', 'ingame'].includes(this.wanted)) for (const n of ['ingame', 'peace', 'battle']) want.add(n);
+    return this.slots.filter((n) => want.has(n));
   }
 
   /** The lists changed under a mood that plays: it starts again if its music is now another (the intro's cue plays on). */
@@ -187,7 +210,7 @@ export class Conductor {
       return;
     }
     const open = this.output.open();   // the synth loads while the playlists are read (and while a context waits for a gesture)
-    if (!this.loaded || !open) return;
+    if (!this.listRead(this.wanted) || !open) return;
     this.on = true;
     if (level !== this.level) { this.level = level; this.output.setLevel(level); }
     if (this.playing !== this.wanted) this.start(this.wanted);
@@ -688,7 +711,7 @@ export class MenuMusic {
     this.prime();
     this.audio.open();   // the gesture lets the context run
     this.update();
-    if (!c.loaded) {
+    if (!c.listRead('intro')) {
       // the player's files are still being read: past a moment the game's own cue goes ahead
       this.win?.setTimeout?.(() => { if (!c.loaded) { c.loaded = true; this.update(); } }, INTRO_LIST_WAIT);
     }

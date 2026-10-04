@@ -116,3 +116,18 @@ test('the ship model builds: grey hull, house-coloured lamps on its stern facing
   const tris = def.parts.reduce((n, p) => n + p.geometry.attributes.position.count / 3, 0);
   assert.ok(tris < 6000, `${tris} triangles`);
 });
+
+test('each ship sweeps past as it enters and meets the atmosphere as it sinks, once, in arrival order', async () => {
+  const { SHIP_SOUNDS, shipSoundsBetween, INTRO_MARKS, SHIP_TIME } = await import('../src/game/intro-timeline.js');
+  const { RECIPES } = await import('../src/audio/synth.js');
+  assert.equal(SHIP_SOUNDS.length, 6);
+  for (const s of SHIP_SOUNDS) assert.ok(RECIPES[s.id], `${s.id} is a synthesized sound`);
+  assert.deepEqual(SHIP_SOUNDS.filter((s) => s.id === 'shipPass').map((s) => s.at), [...INTRO_MARKS.ships]);
+  for (const s of SHIP_SOUNDS.filter((c) => c.id === 'shipEntry')) assert.ok(s.at < INTRO_MARKS.ships[2] + SHIP_TIME + 0.01);
+  let heard = [];
+  for (let t = 0; t < 30; t += 1 / 60) heard.push(...shipSoundsBetween(t, t + 1 / 60));
+  assert.equal(heard.length, 6, 'every cue once over a frame-by-frame run');
+  assert.deepEqual(shipSoundsBetween(25, 10), [], 'a jump back plays nothing');
+  assert.deepEqual(shipSoundsBetween(19, 19), [], 'a still frame plays nothing');
+  assert.ok(SHIP_SOUNDS.every((s) => Math.abs(s.pan) <= 0.6));
+});

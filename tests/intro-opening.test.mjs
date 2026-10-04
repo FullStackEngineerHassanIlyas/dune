@@ -255,3 +255,19 @@ test('the ending, skipped in the victor\'s colour, draws the colour back to tan 
   assert.equal(after.at(-1), 0);
   assert.equal(e.calls.at(-1), 'backdrop.start', e.calls.join(' '));
 });
+
+test('a key at the gate starts the opening once the player\'s own music has been read, so their Opening starts with it', async () => {
+  let read;
+  const conductor = { loaded: false, ready: new Promise((r) => { read = r; }) };
+  const { ctx, calls } = opening({ music: { conductor } });
+  const run = runIntro(ctx);
+  press('a');
+  await tick();
+  assert.ok(!calls.includes('music.intro'), 'a key before the music is read waits for it');
+  assert.equal(ctx.debug.intro.phase, 'gate');
+  read();
+  await tick();
+  assert.ok(calls.includes('music.intro'), `the opening starts as soon as the music is in, with no second key: ${calls.join(' ')}`);
+  ctx.debug.intro.skip();
+  await run;
+});

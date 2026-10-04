@@ -219,7 +219,9 @@ came in), or MP3, OGG or WAV tracks. Each Sega track plays where the Sega game p
 the intro and the title, the Mentats' themes at the briefings, the five in-game tunes in every mission, a
 victory theme and a dirge per house — and the Music Test on that page plays any of them and lets you choose
 where each one plays. VGM files are replayed through an emulated YM2612 and PSG in the browser
-(`node scripts/vgm-info.mjs <files or zip>` shows what is inside a rip). Your files are read in your browser
+(`node scripts/vgm-info.mjs <files or zip>` shows what is inside a rip). On your own machine you can also keep the rip as `original/sega-music.zip` beside
+the game (the `original/` folder is git-ignored): the menu imports it by itself the first time it finds it, and the
+opening's key waits a moment for it, so the Sega Opening plays under the intro. Your files are read in your browser
 only and kept in its storage: nothing is uploaded or committed.
 
 ## Announcer voices

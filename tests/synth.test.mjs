@@ -77,9 +77,9 @@ test('every sound the game and the other workstreams call for is there', () => {
     'harvesterUnload', 'rotor', 'jet', 'ready', 'sell', 'click', 'error', 'beep', 'alarm', 'static', 'wormRumble', 'wormRoar', 'wormGulp', 'bloom']) assert.ok(RECIPES[id], id);
 });
 
-test('the whole bank stays small: under 100 s of audio, about 12.5 MB as float samples', () => {
+test('the whole bank stays small: under 104 s of audio, about 13 MB as float samples', () => {
   const seconds = Object.values(bank).flat().reduce((s, a) => s + a.length, 0) / RATE;
-  assert.ok(seconds < 100, `${seconds.toFixed(1)} s`);   // 95 s before the worms' and blooms' 7 s; each of those has one variation
+  assert.ok(seconds < 104, `${seconds.toFixed(1)} s`);   // 95 s before the worms' and blooms' 7 s, then the opening's two ship sounds' 5 s; each of those has one variation
 });
 
 test('the wind loops without a seam, its two halves wide apart, softly under everything', () => {

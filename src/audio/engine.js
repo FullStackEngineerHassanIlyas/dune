@@ -19,6 +19,7 @@ export const VOICE_GAIN = 0.5;   // each voice at -6 dB, and a limiter before th
 export const VOICE_LIMITS = {
   rifle: 5, mg: 5, cannon: 4, heavyCannon: 3, rocket: 4, rocketFly: 3, hit: 4, sandHit: 4, bulletHit: 4,
   explosionSmall: 4, explosionMedium: 3, explosionLarge: 2, explosionHuge: 1, launchHeavy: 1, debris: 3, collapse: 2, crush: 2, click: 3,
+  shipPass: 3, shipEntry: 3,   // the opening's three ships: each one's boom still rolls as the next comes in
 };
 const DEFAULT_LIMIT = 2;
 const PRIORITY = new Set(['explosionLarge', 'explosionHuge', 'launchHeavy', 'collapse', 'alarm', 'ready', 'error', 'sell', 'click', 'beep', 'static']);
