@@ -125,14 +125,14 @@ test('a worm surfaces under its prey, swallows it whole, eats three units and th
   for (const e of eaten) assert.equal(e.by, WORM_HOUSE);
 });
 
-test('under the sand a worm cannot be targeted; up, it can be shot, and after 400 damage it flees', () => {
+test('a worm can be shot on the move as well as up (as in the original), and after 300 damage it flees', () => {
   const world = desert(40, 24);
   const worm = spawnWorm(world, 6, 12);
   const tank = world.spawnUnit('siegeTank', 'atreides', 8, 12);
   world.step();
   assert.equal(worm.submerged, true);
-  assert.equal(findTarget(world, 'atreides', tank.x, tank.y, 6, { ignoreFog: true }), null, 'under the sand: nothing to shoot');
-  assert.equal(validTarget(world, 'atreides', { kind: 'unit', id: worm.id }), false);
+  assert.deepEqual(findTarget(world, 'atreides', tank.x, tank.y, 6, { ignoreFog: true }), { kind: 'unit', id: worm.id }, 'on the move: a target');
+  assert.equal(validTarget(world, 'atreides', { kind: 'unit', id: worm.id }), true);
   assert.ok(runUntil(world, () => !worm.submerged, 10) >= 0, 'it comes up under the tank');
   assert.deepEqual(findTarget(world, 'harkonnen', 10, 12, 6, { ignoreFog: true, exclude: tank.id }), { kind: 'unit', id: worm.id }, 'up: a target');
   assert.equal(validTarget(world, 'atreides', { kind: 'unit', id: worm.id }), true);
@@ -143,16 +143,16 @@ test('under the sand a worm cannot be targeted; up, it can be shot, and after 40
   w2.rise = 1;
   damage(fresh, w2, WORM.flee - 1, { house: 'atreides', id: 0, kind: 'unit' });
   fresh.step();
-  assert.equal(w2.worm.state, 'up', '399 damage: it stays');
+  assert.equal(w2.worm.state, 'up', 'one short of the mark: it stays');
   damage(fresh, w2, 1, { house: 'atreides', id: 0, kind: 'unit' });
   const seen = watch(fresh, 10, (s) => s.some((e) => e.type === 'wormGone'));
   assert.ok(seen.some((e) => e.type === 'wormFled'));
   assert.equal(seen.find((e) => e.type === 'wormGone')?.why, 'fled');
   assert.ok(!fresh.units.has(w2.id));
-  assert.equal(w2.hp, 1000 - WORM.flee, '1000 HP: far from dead');
+  assert.equal(w2.hp, 600 - WORM.flee, '600 HP: driven off, not dead');
 });
 
-test('under the sand a worm is out of reach of every blast: no splash, no Death Hand', () => {
+test('a blast hurts a worm on the move too, and drives it off', () => {
   const world = desert(40, 30);
   const worm = spawnWorm(world, 20, 15);
   worm.worm.rest = worm.worm.scanAt = 1e9;   // lying still
@@ -160,10 +160,9 @@ test('under the sand a worm is out of reach of every blast: no splash, no Death 
   const tank = world.spawnUnit('missileTank', 'harkonnen', 20, 15);
   killUnit(world, tank, { house: 'atreides', id: 0, kind: 'unit' });   // it blows up right on top of the worm
   deathHandBlast(world, { house: 'atreides', sourceId: 0, sourceKind: 'structure', x: worm.x, y: worm.y, damage: DEATH_HAND.damage ?? 600 });
-  assert.equal(worm.submerged, true);
-  assert.equal(worm.hp, 1000, 'not a scratch');
+  assert.ok(worm.hp < 600 || !world.units.has(worm.id), 'the blasts reach it');
   watch(world, 2);
-  assert.equal(worm.worm.fled, false, 'and no reason to flee');
+  assert.ok(!world.units.has(worm.id) || worm.worm.fled, 'and it goes');
 });
 
 /** Whether the worm's tile is worm ground (sand, dunes, spice). */
@@ -189,7 +188,7 @@ test('a worm keeps to its sand: round a lone rock to its prey, never across a co
     map.revision++;
     const worm = spawnWorm(world, wx, wy, { heading: 0 });
     const prey = world.spawnUnit('trike', 'atreides', px, py);
-    for (let i = 0; i < 20 * 8 && world.units.has(prey.id); i++) {
+    for (let i = 0; i < 20 * 16 && world.units.has(prey.id); i++) {   // a worm is slower than a Harvester now: more time
       world.step();
       assert.ok(onSand(world, worm), `from ${wx},${wy} to ${px},${py}: on the rock at ${worm.x.toFixed(2)},${worm.y.toFixed(2)}`);
     }

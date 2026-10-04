@@ -46,7 +46,7 @@ export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (k
 export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false, only = null } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.submerged || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate or a worm under the sand
+    if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate (a worm on the move is fair game, as in the original)
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -68,7 +68,7 @@ export function validTarget(world, houseId, t, force, canHitAir = false) {
   if (t.kind === 'tile') return true;
   const e = t.kind === 'unit' ? world.units.get(t.id) : world.structures.get(t.id);
   if (!e || e.hp <= 0) return false;
-  if (t.kind === 'unit' && (e.inside || e.submerged || e.type.untargetable || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall, or a worm under the sand: safe; aircraft: anti-air only
+  if (t.kind === 'unit' && (e.inside || e.type.untargetable || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall: safe; aircraft: anti-air only
   return !!force || !friendly(world, e.house, houseId);
 }
 
@@ -180,13 +180,13 @@ function impact(world, p) {
 
 /** A sandworm up out of the sand whose maw covers (x, y): it holds no tile, so stray shots find it here. */
 function wormAt(world, x, y) {
-  for (const u of world.units.values()) if (u.move === 'worm' && !u.submerged && Math.hypot(u.x - x, u.y - y) <= 0.9) return u;
+  for (const u of world.units.values()) if (u.move === 'worm' && Math.hypot(u.x - x, u.y - y) <= 0.9) return u;
   return null;
 }
 
 /** Flat damage (no armour). attacker: {house, id, kind} or null. */
 export function damage(world, victim, amount, attacker = null) {
-  if (!(amount > 0) || victim.hp <= 0 || victim.submerged) return;   // a worm under the sand: out of reach of every blast (spec §4.8)
+  if (!(amount > 0) || victim.hp <= 0) return;
   if (victim.kind === 'unit' ? !world.units.has(victim.id) : !world.structures.has(victim.id)) return;
   victim.hp -= amount;
   world.events.push('damaged', { kind: victim.kind, id: victim.id, house: victim.house, by: attacker?.house ?? null, amount });

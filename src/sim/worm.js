@@ -7,7 +7,7 @@
 // distance in tiles (rounded up, the original's max + min / 2), ×2 within two tiles. Close enough, it
 // surfaces under its prey and swallows it whole (cause 'eaten': no wreck, no blast, no spilled spice), and
 // takes anything else that wanders into its maw while it is up. After three meals it dives and leaves for
-// good. Up, it can be shot: 1000 HP, and after 400 damage it flees. The director keeps world.rules.worms
+// good. It can be shot on the move as well as up, as in the original: 600 HP, and after 300 damage it flees. The director keeps world.rules.worms
 // worms on the map ('off' none, 'few' one, 'many' three; a missing setting reads 'few'), each born on a
 // large stretch of sand away from every base, the next one some time after one goes. It never sets a
 // tile's worth of body on rock: every step is checked and slides along the edge instead, and a worm that
@@ -24,7 +24,7 @@ const T = (seconds) => Math.round(seconds * SIM_HZ);
 
 export const WORM = {
   meals: 3,                    // OpenDUNE pool/unit.c: amount = 3, the worm goes once it reaches 0
-  flee: 400,                   // damage taken before it dives and flees (spec §4.8)
+  flee: 300,                   // damage taken before it dives and flees (spec §4.8); half its 600 HP
   prey: { [MOVE.FOOT]: 100, [MOVE.SABOTEUR]: 100, [MOVE.TRACKED]: 1000, [MOVE.HARVESTER]: 1000, [MOVE.WHEELED]: 5000 },
   busy: 4, near: 2, nearTiles: 2,   // ×4 moving or firing; ×2 within two tiles
   scan: T(1),                  // looks for prey once a second

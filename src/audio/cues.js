@@ -28,7 +28,8 @@ export function cueFor(e, me, seen) {
     case 'unitDestroyed':
       if (e.cause === 'eaten') return null;   // the worm's gulp ('wormAte') says it all
       if (e.typeId === 'sandworm') return at('wormRoar', e.x, e.y);
-      return e.cause === 'crushed' ? at('crush', e.x, e.y) : UNITS[e.typeId] && !onFoot(UNITS[e.typeId].move) ? at('debris', e.x, e.y) : null;
+      if (e.cause === 'crushed') return at('crush', e.x, e.y);
+      return UNITS[e.typeId] && !onFoot(UNITS[e.typeId].move) ? at('debris', e.x, e.y) : at('scream', e.x, e.y);   // a man cries out as he falls, as in the original
     case 'wormSurfaced': case 'wormFled': return at('wormRoar', e.x, e.y);
     case 'wormAte': return at('wormGulp', e.x, e.y);
     case 'bloomErupted': return at('bloom', e.x, e.y);

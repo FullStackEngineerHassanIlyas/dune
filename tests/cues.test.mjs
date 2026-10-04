@@ -68,7 +68,8 @@ test('specials have their own sounds: sonic hum, gas hiss, the Destruct alarm; a
 test('destruction has its aftermath: debris after a vehicle, a collapse after a structure', () => {
   assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'combatTank', cause: 'shot', x: 1, y: 1 }, 'atreides', all).id, 'debris');
   assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'ornithopter', cause: 'shot', x: 1, y: 1 }, 'atreides', all).id, 'debris');
-  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'shot', x: 1, y: 1 }, 'atreides', all), null, 'a soldier leaves no wreck');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'shot', x: 1, y: 1 }, 'atreides', all).id, 'scream', 'a soldier cries out as he falls (no wreck)');
+  assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'eaten', x: 1, y: 1 }, 'atreides', all), null, 'the worm\'s gulp says it all');
   assert.equal(cueFor({ type: 'unitDestroyed', typeId: 'soldier', cause: 'crushed', x: 1, y: 1 }, 'atreides', all).id, 'crush');
   assert.deepEqual(cueFor({ type: 'structureDestroyed', typeId: 'windtrap', x: 4, y: 6, w: 2, h: 2 }, 'atreides', all), { id: 'collapse', x: 5, z: 7 });
   assert.equal(cueFor({ type: 'structureDestroyed', x: 4, y: 6, w: 2, h: 2 }, 'atreides', () => false), null, 'unseen, unheard');

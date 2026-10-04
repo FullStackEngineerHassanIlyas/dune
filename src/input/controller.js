@@ -43,7 +43,7 @@ export class Controller {
   candidates() {
     const out = [];
     for (const u of this.world.units.values()) {
-      if ((u.inside && !(u.docked && u.house === this.house)) || u.type.untargetable || u.submerged || !this.canSee(u)) continue;   // held units, the Frigate and a worm under the sand cannot be picked; our harvester in a refinery's slot can
+      if ((u.inside && !(u.docked && u.house === this.house)) || u.type.untargetable || !this.canSee(u)) continue;   // held units and the Frigate cannot be picked (a worm on the move can, as in the original); our harvester in a refinery's slot can
       const p = this.positionOf(u);
       const s = this.project(p.x, p.z, u.alt ?? 0.12);   // aircraft at their flying height
       if (!s.visible) continue;

@@ -89,14 +89,14 @@ const REPLY_CLIPS = { ...ACK_CLIPS, ...UNIT_CLIPS };
  * Synthesized effects (src/audio/synth.js ids) → [the original clips that stand in for them, loudness in
  * LUFS of the synthesized sound]. Clip meanings from the research's file list; ROCKET is every rocket's
  * and the Death Hand's launch (unitinfo.c bulletSound 42), BUTTON and STATICP are read from their names
- * alone (?). The screams (VSCREAM1–5), the worm (WORMET3P), EXDUD and MISLTINP (the troopers'
+ * alone (?). The screams VSCREAM1–5 stand in for our cry. The worm (WORMET3P), EXDUD and MISLTINP (the troopers'
  * mini-rocket, bulletSound 64) have no sound of ours to replace yet.
  */
 export const EFFECT_CLIPS = {
   rifle: [['GUN'], -20.2], mg: [['GUNMULTI'], -18.1], cannon: [['EXCANNON'], -15.2], heavyCannon: [['EXCANNON'], -14.2],
   rocket: [['ROCKET'], -15], launchHeavy: [['ROCKET'], -13], sandHit: [['EXSAND'], -19],
   explosionSmall: [['EXSMALL'], -14.1], explosionMedium: [['EXMED'], -13.1], explosionLarge: [['EXLARGE'], -12.1], explosionHuge: [['EXLARGE'], -11.1],
-  gas: [['EXGAS'], -19], collapse: [['CRUMBLE'], -15], crush: [['SQUISH2'], -19], click: [['BUTTON'], -27.1], static: [['STATICP'], -23],
+  gas: [['EXGAS'], -19], scream: [['VSCREAM1', 'VSCREAM2', 'VSCREAM3', 'VSCREAM4', 'VSCREAM5'], -21], collapse: [['CRUMBLE'], -15], crush: [['SQUISH2'], -19], click: [['BUTTON'], -27.1], static: [['STATICP'], -23],
 };
 export const VOICE_LUFS = -14.3;   // the Kokoro lines' median on the same meter (they range -15.9 to -12.5)
 

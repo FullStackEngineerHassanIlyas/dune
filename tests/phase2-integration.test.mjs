@@ -11,7 +11,7 @@ import { flatWorld } from './helpers.mjs';
 const NONE = { shift: false, ctrl: false, alt: false };
 const px = (t) => (t + 0.5) * 40;
 
-test('a worm under the sand cannot be picked or attacked; a surfaced one can be looked at', () => {
+test('a worm can be pointed at and attacked on the move as well as up, as in the original', () => {
   const world = flatWorld(20, 20, G.SAND);
   const tank = world.spawnUnit('combatTank', 'atreides', 3, 3);
   const worm = spawnWorm(world, 10, 10);
@@ -25,7 +25,7 @@ test('a worm under the sand cannot be picked or attacked; a surfaced one can be 
   });
   c.selection.set([tank.id]);
   assert.ok(worm.submerged, 'a new worm starts under the sand');
-  assert.equal(c.hitTest(px(10), px(10))?.kind, 'ground', 'the ridge is just sand to the pointer');
+  assert.equal(c.hitTest(px(10), px(10))?.unit, worm, 'its ridge on the move can be pointed at');
   worm.submerged = false;
-  assert.equal(c.hitTest(px(10), px(10))?.unit, worm, 'surfaced, it can be pointed at');
+  assert.equal(c.hitTest(px(10), px(10))?.unit, worm, 'and so can a worm up');
 });
