@@ -18,6 +18,8 @@ export const OPTION_ROWS = [
   { key: 'gameSpeed', label: 'Game speed', choices: [['slowest', 'Slowest'], ['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['fastest', 'Fastest']] },
   { key: 'sound', label: 'Sound', choices: ON_OFF },
   { key: 'volume', label: 'Volume', range: [0.05, 1, 0.05], format: (v) => `${Math.round(v * 100)}%` },
+  { key: 'announcer', label: 'Announcer', choices: [['one', 'One voice (original)'], ['house', 'Each house']],
+    notes: { one: 'One deep voice speaks for every house, as in the Mega Drive game.', house: 'Atreides, Harkonnen and Ordos each have an announcer of their own, as in the PC game.' } },
   { key: 'voiceVolume', label: 'Voices', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off'), note: 'The announcer and the units\' replies; M mutes them with the rest.' },
   { key: 'musicVolume', label: 'Music', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off') },
   { key: 'musicMode', label: 'Battle music', choices: [['sega', 'Sega'], ['adaptive', 'Adaptive']],

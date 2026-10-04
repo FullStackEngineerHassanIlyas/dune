@@ -4,6 +4,7 @@ export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true
   voiceVolume: 0.8,     // the announcer and the units' acknowledgements (src/audio/voice.js); 0 turns them off
   musicVolume: 0.5,     // the music (src/audio/music); 0 turns it off
   musicMode: 'sega',    // in battle: 'sega' plays the battle tunes in random order like the Sega game; 'adaptive' switches peace/battle
+  announcer: 'one',     // 'one': one shared announcer for every house, as on the Mega Drive; 'house': each house its own (src/audio/voice.js)
   intro: true,          // the opening before the title (scenes/menu-intro.js); ?intro=0 skips it
   perfCheck: true,      // the frame-rate check offers a lower preset when battles run slow (src/ui/perf-monitor.js, spec §8)
   menuMotion: true };   // false: the main menu's backdrop stands still (its Pause background button, WCAG 2.2.2)
@@ -15,6 +16,7 @@ const CHOICES = {
   healthBars: ['selected', 'damaged', 'always'],
   gameSpeed: ['slowest', 'slow', 'normal', 'fast', 'fastest'],
   musicMode: ['sega', 'adaptive'],
+  announcer: ['one', 'house'],
 };
 
 export function sanitize(obj) {

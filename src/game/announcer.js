@@ -54,6 +54,7 @@ export class Announcer {
   status() {
     const p = this.player, out = p.output;
     return { live: !!out?.live, volume: p.volume, lines: out?.lines ? Object.keys(out.lines).length : 0, decoded: out?.buffers?.size ?? 0,
+      announcer: out?.announcer ?? null, set: out?.lines?.constructionComplete?.file?.split('/')[0] ?? null,   // the Announcer option and the set it speaks from
       speaking: p.current, waiting: p.queue.items.map((q) => q.id), said: [...p.said] };
   }
 
