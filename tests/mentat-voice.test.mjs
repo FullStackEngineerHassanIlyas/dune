@@ -221,6 +221,26 @@ test('a line stopped while it loads never sounds; a context waiting for a gestur
   assert.equal(await l2.started, true);
 });
 
+test('a hidden page holds the Mentat: the context is suspended and his clock with it, then resumed', async () => {
+  const doc = { hidden: false, listeners: [], addEventListener(type, fn) { this.listeners.push(fn); } };
+  const audio = fakeAudio(), f = fakeFetch(), t = timers();
+  let suspended = 0;
+  const voice = new MentatVoice({ settings: { ...DEFAULTS }, base: 'http://x/m/', fetch: f.fetch, context: audio.context, later: t.later, doc });
+  const line = voice.speak('atreides', 1, 'briefing');
+  await line.started;
+  const ctx = audio.made.ctx;
+  ctx.suspend = () => { suspended++; ctx.state = 'suspended'; return Promise.resolve(); };
+  doc.hidden = true;
+  doc.listeners.forEach((fn) => fn());
+  assert.equal(suspended, 1);
+  assert.equal(voice.paused, true);
+  doc.hidden = false;
+  doc.listeners.forEach((fn) => fn());
+  assert.equal(voice.paused, false);
+  assert.ok(audio.made.resumed >= 1);
+  assert.equal(line.state, 'playing', 'the line carries on');
+});
+
 // ——— the words follow the voice ———
 function clock() {
   let now = 0;

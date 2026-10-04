@@ -169,11 +169,12 @@ export class MentatLine {
 
 /**
  * The Mentats' voice. settings: the live settings (sound, volume, voiceVolume, mentatVoice); duck(on): the music
- * ducks under a line; base, fetch, context (makes the AudioContext), later (setTimeout) are for tests.
+ * ducks under a line; base, fetch, context (makes the AudioContext), later (setTimeout) and doc (the document,
+ * whose visibility pauses him) are for tests.
  */
 export class MentatVoice {
-  constructor({ settings = {}, duck = null, base = MENTAT_BASE, fetch = globalThis.fetch?.bind(globalThis), context = null, later = null } = {}) {
-    Object.assign(this, { settings, duck, base, fetchFn: fetch });
+  constructor({ settings = {}, duck = null, base = MENTAT_BASE, fetch = globalThis.fetch?.bind(globalThis), context = null, later = null, doc = globalThis.document } = {}) {
+    Object.assign(this, { settings, duck, base, fetchFn: fetch, doc });
     const Ctx = globalThis.AudioContext ?? globalThis.webkitAudioContext;
     this.makeContext = context ?? (typeof Ctx === 'function' ? () => new Ctx({ latencyHint: 'interactive' }) : null);
     this.later = later ?? ((fn, ms) => { const t = setTimeout(fn, ms); t?.unref?.(); return t; });
@@ -188,6 +189,17 @@ export class MentatVoice {
     this.ducked = false;
     this.unduck = 0;
     this.silent = restFrame();
+    this.paused = false;   // the page is hidden: the context is suspended, so the line, its words and face wait
+    doc?.addEventListener?.('visibilitychange', () => this.visibility());
+  }
+
+  /** A hidden page holds the Mentat where he is (his clock with him); shown again, he carries on. */
+  visibility() {
+    const hidden = !!this.doc?.hidden, ctx = this.ctx;
+    if (!ctx || hidden === this.paused) return;
+    if (hidden && ctx.state !== 'running') return;
+    this.paused = hidden;
+    try { (hidden ? ctx.suspend?.() : ctx.resume?.())?.catch?.(() => {}); } catch { /* it plays on */ }
   }
 
   /** Spoken at all: Options → Mentat voice On, Sound on, a volume and a Voices level above 0, Web Audio there. */
