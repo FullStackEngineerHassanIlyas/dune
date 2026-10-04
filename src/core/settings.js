@@ -5,6 +5,7 @@ export const DEFAULTS = { quality: 'medium', scheme: 'classic', edgeScroll: true
   musicVolume: 0.5,     // the music (src/audio/music); 0 turns it off
   musicMode: 'sega',    // in battle: 'sega' plays the battle tunes in random order like the Sega game; 'adaptive' switches peace/battle
   announcer: 'one',     // 'one': one shared announcer for every house, as on the Mega Drive; 'house': each house its own (src/audio/voice.js)
+  mentatVoice: true,    // the Mentats speak their words on the campaign screens (src/audio/mentat-voice.js); false: typed, silent
   intro: true,          // the opening before the title (scenes/menu-intro.js); ?intro=0 skips it
   perfCheck: true,      // the frame-rate check offers a lower preset when battles run slow (src/ui/perf-monitor.js, spec §8)
   menuMotion: true };   // false: the main menu's backdrop stands still (its Pause background button, WCAG 2.2.2)

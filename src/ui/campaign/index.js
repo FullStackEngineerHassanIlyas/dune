@@ -4,7 +4,8 @@
 // shell.on('missionEnd'). Words (C4), the mission list (C1), the territory map (C5) and the menu music's moods
 // (C6) come from other modules that may not be there yet: each has a plain fallback. The menu's backdrop is held
 // still behind the full-screen stages (no frames drawn: the laptop's GPU is shared with the map) and resumes on
-// the panels and the title.
+// the panels and the title. The Mentat speaks his words (src/audio/mentat-voice.js; Options → Mentat voice): the
+// text follows the voice, the music ducks under it, and leaving the screen or a new line stops it.
 import { h } from '../dom.js';
 import { HOUSES } from '../../data/houses.js';
 import { SCREENS, SEGA_ORDER, step, resolveScreen, backOf } from '../../campaign/flow.js';
@@ -16,6 +17,8 @@ import { CampaignMap } from './map.js';
 import { mentatStage, reducedMotion } from './stage.js';
 import { crestSvg } from './crests.js';
 import { victoryCard, scoreScreen, passwordReveal } from './results.js';
+import { MentatVoice } from '../../audio/mentat-voice.js';
+import { clipId } from '../../audio/mentat-lines.js';
 
 export const isCampaignScreen = (screen) => SCREENS.includes(screen);
 /** Screens that cover the whole menu: the backdrop holds still behind them. */
@@ -34,10 +37,11 @@ const hex = (house) => `#${(HOUSES[house]?.color ?? 0xd9a52e).toString(16).padSt
 export class CampaignScreens {
   /**
    * menu: the MainMenu (go, show, hide, visit, onStart); shell: { launch, quit, on } (C3); music: MenuMusic;
-   * backdrop: MenuBackdrop. store and load (story, missions, atlas, ending) are for tests.
+   * backdrop: MenuBackdrop. store, load (story, missions, atlas, ending) and voice (a MentatVoice) are for tests.
    */
-  constructor(menu, { settings = {}, music = null, shell = null, backdrop = null, store, load = {} } = {}) {
+  constructor(menu, { settings = {}, music = null, shell = null, backdrop = null, store, load = {}, voice } = {}) {
     Object.assign(this, { menu, settings, music, shell, backdrop, store, load });
+    this.voice = voice !== undefined ? voice : new MentatVoice({ settings, duck: (on) => this.music?.duck?.(on) });
     this.progress = loadProgress(store);
     this.saved = null;          // false once a save failed (private window): the hub says so
     this.state = { screen: 'campaign' };
@@ -83,6 +87,7 @@ export class CampaignScreens {
 
   /** The words and the mission list, loaded once; the screen is drawn again when they arrive. */
   ensureWords() {
+    this.voice?.prepare?.();
     if (this.words || this.wordsLoading) return;
     this.wordsLoading = loadWords(this.load).then((w) => {
       this.words = w;
@@ -111,6 +116,7 @@ export class CampaignScreens {
 
   launch(query) {
     this.clearTimers();
+    this.voice?.stop();
     this.map.dispose();
     this.hushed = false;   // the shell stops the backdrop and starts it again on the way back
     this.moodNow = null;   // and plays the title again
@@ -167,6 +173,7 @@ export class CampaignScreens {
   /** MainMenu.go asks for a campaign screen: { screen (the one drawn), body, back }. */
   render(requested) {
     this.clearTimers();
+    this.voice?.stop();   // a new screen: the Mentat stops (his next words, if any, start with it)
     this.sync(requested);
     const screen = this.state.screen;
     this.hush(FULL.has(screen));
@@ -194,6 +201,7 @@ export class CampaignScreens {
   /** Leaving the campaign for the title: the map goes, the backdrop moves again, the title theme returns. */
   leave() {
     this.clearTimers();
+    this.voice?.stop();
     this.map.dispose();
     this.hush(false);
     this.mood('menu');
@@ -297,12 +305,19 @@ export class CampaignScreens {
   mentat(className, step) {
     const { house } = this.state;
     const stage = mentatStage(house, { mentatName: this.words.mentat(house), label: name(house), later: (fn, ms) => this.later(fn, ms), className,
-      warn: this.saved === false ? 'This browser is not keeping your progress: note the passwords you are given.' : null });
+      warn: this.saved === false ? 'This browser is not keeping your progress: note the passwords you are given.' : null, voice: this.voice });
     this.map.mount(stage.mapBox);
     if (step !== null) this.map.show({ house, step });
     const say = stage.say;
-    stage.say = (lines, opts) => (this.typer = say(lines, opts));
+    // `clips`: the Mentat's clips that say these lines (mentat-lines.js ids); the words then follow his voice
+    stage.say = (lines, { clips = null, ...opts } = {}) => (this.typer = say(lines, { ...opts, speech: clips ? this.speak(clips, lines) : null }));
     return stage;
+  }
+
+  /** The Mentat says `lines` (the clips `ids`): his voice's line, or null (voice off, no clip): the words are typed. */
+  speak(ids, lines) {
+    if (!this.voice || !this.words?.story || ids.some((id) => !id)) return null;
+    try { return this.voice.say(ids, { lines }); } catch (err) { console.warn('campaign: mentat voice:', err); return null; }
   }
 
   join() {
@@ -313,12 +328,13 @@ export class CampaignScreens {
     let page = 0;
     const show = () => {
       if (page < pages.length) {
-        stage.say(pages[page], { kicker: `House ${name(house)} · ${page + 1} of ${pages.length}` });
+        stage.say(pages[page], { kicker: `House ${name(house)} · ${page + 1} of ${pages.length}`, clips: [clipId(house, 'page', page + 1)] });
+        this.voice?.preload?.([clipId(house, page + 1 < pages.length ? 'page' : 'question', page + 2)]);
         stage.note(null);
         stage.actions([['Back', 'back', () => this.go({ type: 'back' })], ['Next', 'next', () => { page += 1; show(); }, { primary: true }]]);
         return;
       }
-      stage.say([this.words.question(house)], { kicker: `House ${name(house)}` });
+      stage.say([this.words.question(house)], { kicker: `House ${name(house)}`, clips: [clipId(house, 'question')] });
       const saved = this.progress.houses[house]?.mission ?? 1;
       stage.note(saved >= DONE ? `Yes starts House ${name(house)} again at mission 1; Arrakis stays won in your record.`
         : saved > 1 ? `Yes starts House ${name(house)} again at mission 1 (your saved game is at mission ${saved}; Continue keeps it).` : null);
@@ -338,7 +354,9 @@ export class CampaignScreens {
     let advice = false;
     const show = (focus) => {
       stage.say(advice ? w.advice(house, mission) : w.briefing(house, mission),
-        { kicker: advice ? `Mission ${mission} · the Mentat's advice` : `Mission ${mission} of ${MISSIONS}`, title: w.title(house, mission) ?? `House ${name(house)}` });
+        { kicker: advice ? `Mission ${mission} · the Mentat's advice` : `Mission ${mission} of ${MISSIONS}`, title: w.title(house, mission) ?? `House ${name(house)}`,
+          clips: [clipId(house, advice ? 'advice' : 'briefing', mission)] });
+      this.voice?.preload?.([clipId(house, advice ? 'briefing' : 'advice', mission)]);
       stage.note([objective && `Objective: ${objective}.`, enemies.length && `Against ${andList(enemies)}.`, replay].filter(Boolean).join(' ') || null);
       stage.actions([['Back', 'back', () => this.go({ type: 'back' })], [advice ? 'Briefing' : 'Advice', 'advice', () => { advice = !advice; show('advice'); }],
         ['Proceed', 'proceed', () => this.go({ type: 'proceed' }), { primary: true }]], { focus });
@@ -395,8 +413,10 @@ export class CampaignScreens {
     if (part === 'score') return scoreScreen(r, { later: (fn, ms) => this.later(fn, ms), instant: reducedMotion(), onContinue: next });
     const stage = this.mentat('cp-win', null);
     this.map.show({ house, step: mission - 1 }).then(() => this.later(() => this.map.conquer({ house, step: mission }), 800));
-    if (last) stage.say([...this.words.win(house, mission), ...this.words.ending(house)], { kicker: 'The Battle for Arrakis is over', title: `Dune belongs to House ${name(house)}` });
-    else stage.say(this.words.win(house, mission), { kicker: `Mission ${mission} accomplished`, title: this.words.title(house, mission) ?? `House ${name(house)}` });
+    if (last) {
+      stage.say([...this.words.win(house, mission), ...this.words.ending(house)], { kicker: 'The Battle for Arrakis is over', title: `Dune belongs to House ${name(house)}`,
+        clips: [clipId(house, 'win', mission), ...(this.words.ending(house).length ? [clipId(house, 'ending')] : [])] });
+    } else stage.say(this.words.win(house, mission), { kicker: `Mission ${mission} accomplished`, title: this.words.title(house, mission) ?? `House ${name(house)}`, clips: [clipId(house, 'win', mission)] });
     stage.actions([['Continue', 'continue', next, { primary: true }]]);
     return stage.el;
   }
@@ -405,7 +425,7 @@ export class CampaignScreens {
     const { house, mission } = this.state;
     this.mood(`defeat:${house}`);
     const stage = this.mentat('cp-defeat', mission - 1);
-    stage.say(this.words.lose(house, mission), { kicker: `Mission ${mission} failed`, title: this.words.title(house, mission) ?? `House ${name(house)}` });
+    stage.say(this.words.lose(house, mission), { kicker: `Mission ${mission} failed`, title: this.words.title(house, mission) ?? `House ${name(house)}`, clips: [clipId(house, 'lose', mission)] });
     stage.actions([['Campaign menu', 'menu', () => this.go({ type: 'open', screen: 'campaign' })], ['Try again', 'retry', () => this.go({ type: 'retry' }), { primary: true }]]);
     return stage.el;
   }
@@ -416,7 +436,8 @@ export class CampaignScreens {
     this.mood(`victory:${house}`);
     const stage = this.mentat('cp-ending', MISSIONS);
     const lines = this.words.ending(house);
-    stage.say(lines.length ? lines : this.words.win(house, MISSIONS), { kicker: 'The Battle for Arrakis is over', title: `Dune belongs to House ${name(house)}` });
+    stage.say(lines.length ? lines : this.words.win(house, MISSIONS), { kicker: 'The Battle for Arrakis is over', title: `Dune belongs to House ${name(house)}`,
+      clips: [lines.length ? clipId(house, 'ending') : clipId(house, 'win', MISSIONS)] });
     stage.actions([['Continue', 'ending', () => this.playEnding(), { primary: true }]]);
     return stage.el;
   }
@@ -427,6 +448,7 @@ export class CampaignScreens {
     this.endingBusy = true;
     const house = this.state.house;
     this.clearTimers();
+    this.voice?.stop();
     this.map.dispose();
     this.menu.hide();
     this.moodNow = 'finale';   // the ending plays music of its own; the title theme comes back with the title

@@ -20,10 +20,11 @@ export const OPTION_ROWS = [
   { key: 'volume', label: 'Volume', range: [0.05, 1, 0.05], format: (v) => `${Math.round(v * 100)}%` },
   { key: 'announcer', label: 'Announcer', choices: [['one', 'One voice (original)'], ['house', 'Each house']],
     notes: { one: 'One deep voice speaks for every house, as in the Mega Drive game.', house: 'Atreides, Harkonnen and Ordos each have an announcer of their own, as in the PC game.' } },
-  { key: 'voiceVolume', label: 'Voices', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off'), note: 'The announcer and the units\' replies; M mutes them with the rest.' },
+  { key: 'voiceVolume', label: 'Voices', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off'), note: 'The announcer, the units\' replies and the Mentats; M mutes them with the rest.' },
   { key: 'musicVolume', label: 'Music', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off') },
   { key: 'musicMode', label: 'Battle music', choices: [['sega', 'Sega'], ['adaptive', 'Adaptive']],
     notes: { sega: 'Like the Sega game: the battle tunes play one after another in random order.', adaptive: 'Calm music in peace; battle music takes over when fighting starts near your forces.' } },
+  { key: 'mentatVoice', label: 'Mentat voice', choices: ON_OFF, note: 'Your Mentat speaks his briefings, advice and verdicts, and the words follow his voice. Any key or click reads on.' },
   { key: 'intro', label: 'Intro', choices: ON_OFF, note: 'The opening before the title. Any key or click skips it.' },
 ];
 
