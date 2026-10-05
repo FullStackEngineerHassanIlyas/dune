@@ -5,8 +5,9 @@ screenshots/
 docs/research/refs/*.png
 docs/research/refs/*.jpg
 docs/research/refs/*.gif
-# player-supplied original game files
+# player-supplied original game files (a symlink to them too: a pattern with a trailing slash matches only a folder)
 original/
+/original
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/

@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameView } from '../src/game/game-view.js';
 import { BattleMusic, MenuMusic } from '../src/audio/music/music.js';
+import { battleShell } from '../src/scenes/menu.js';
 import { setup, razeBase } from './missions-helpers.mjs';
 import { runUntil } from './helpers.mjs';
 import { fakeWindow, fakeEngine, fakeStore, settle, plays } from './music-fakes.mjs';
@@ -66,11 +67,17 @@ test('a lost mission has no fly-over: the defeat theme waits for the result', as
 
 // ——— in the menu shell: one fanfare from the fly-over through the results ———
 
-/** The menu shell's music as a battle opens in its frame: the title after the player's click, then resting behind the frame. */
+/**
+ * The menu shell as a battle opens in its frame (scenes/menu.js battleShell, as start() wires it): its music — the
+ * title after the player's click, then resting behind the frame — its settings, reloaded from `saved` (what the
+ * battle's own options wrote), and a campaign that takes a mission's result as ui/campaign/index.js does: the frame
+ * closes on its results (shell.quit('campaign-results')), whose mood is the house's victory theme.
+ */
 async function shellMusic() {
   const win = fakeWindow();
   win.document = { hidden: false, addEventListener() {} };
-  const music = new MenuMusic({ settings: { sound: true, volume: 0.8 }, win, importer: fakeStore().importer });
+  const settings = { sound: true, volume: 0.8 };
+  const music = new MenuMusic({ settings, win, importer: fakeStore().importer });
   await music.conductor.ready;
   win.listeners.pointerdown[0]();
   music.update();
@@ -78,22 +85,18 @@ async function shellMusic() {
   music.leave();
   win.flush();
   assert.equal(music.audio.ctx.state, 'suspended', 'resting behind the battle');
-  return { music, win };
+  const shell = { music, win, settings, saved: { ...settings }, shown: [] };
+  Object.assign(shell, battleShell({ music, settings, reload: () => ({ ...shell.saved }), close() {}, show: (screen) => shell.shown.push(screen) }));
+  shell.on('missionEnd', (m) => { shell.quit('campaign-results'); music.mood(`victory:${m.house}`); });
+  return shell;
 }
 
-/**
- * Runs fn as the battle in the menu shell's frame, then hands what it posted to the shell as scenes/menu.js does:
- * 'fanfare' to the menu's music; 'missionEnd' to the campaign, which closes the frame on its results
- * (shell.quit('campaign-results'): music.enter({ carry: true })) and asks for their mood.
- */
+/** Runs fn as the battle in the menu shell's frame, then hands what it posted to the shell's handlers. */
 function asFrame(fn, shell) {
   const posted = [], before = globalThis.window;
   globalThis.window = { location: { origin: 'http://localhost', pathname: '/' }, parent: { __duneShell: {}, postMessage: (m) => posted.push(structuredClone(m)) } };
   try { fn(); } finally { if (before === undefined) delete globalThis.window; else globalThis.window = before; }
-  for (const m of posted) {
-    if (m.dune === 'fanfare') shell.music.fanfare(m.house, { held: m.held });
-    else if (m.dune === 'missionEnd') { shell.music.enter({ carry: true }); shell.music.mood(`victory:${m.house}`); }
-  }
+  for (const m of posted) shell.handle(m);
   return posted;
 }
 const victories = (win) => plays(win).filter((p) => p.id === 'victory-atreides').length;
@@ -113,6 +116,7 @@ test('in the menu shell the fanfare starts once, over the Carryalls, and plays o
   assert.equal(shell.music.audio.ctx.state, 'running', 'awake behind the frame for it');
   for (let k = 0; k < 600 && v.handoff === 'flyover'; k++) asFrame(() => { v.missionFrame(3 + k, 1 / 60); music.frame(); }, shell);
   assert.equal(v.handoff, 'posted', 'the result went to the shell');
+  assert.deepEqual(shell.shown, ['campaign-results'], 'which closed the frame on the results');
   await settle();
   const titles = () => plays(shell.win).filter((p) => p.id === 'title').length, before = titles();
   for (const part of ['victory card', 'Mentat', 'score']) {
@@ -151,10 +155,32 @@ test('in the shell the fanfare rests while the battle is paused or muted, as the
 
 test('back from a battle with no fanfare to carry on, or to another screen, the menu\'s music starts the title again', async () => {
   const shell = await shellMusic();
-  shell.music.enter({ carry: true });   // the result handed over before the Carryalls came (Esc): nothing to carry on
+  shell.quit('campaign-results');   // the result handed over before the Carryalls came (Esc): nothing to carry on
   assert.equal(plays(shell.win).at(-1).id, 'title');
-  const other = await shellMusic();
-  other.music.fanfare('atreides');
-  other.music.enter();   // a result the campaign could not read: back to its hub, not its results
-  assert.equal(plays(other.win).at(-1).id, 'title', 'the fanfare does not loop on under the hub');
+  for (const screen of ['campaign', 'campaign-defeat', undefined]) {
+    const other = await shellMusic();
+    other.handle({ dune: 'fanfare', house: 'atreides' });
+    assert.equal(plays(other.win).at(-1).id, 'victory-atreides');
+    other.handle({ dune: 'quit', screen });   // e.g. a result the campaign could not read: back to its hub, not its results
+    assert.equal(plays(other.win).at(-1).id, 'title', `${screen ?? 'the title'}: the fanfare does not loop on under it`);
+    assert.deepEqual(other.shown, [screen]);
+  }
+});
+
+test('the shell\'s fanfare reads the battle\'s options first, and a fanfare naming no house is let be', async () => {
+  const shell = await shellMusic();
+  const n = plays(shell.win).length;
+  shell.handle({ dune: 'fanfare' });
+  shell.handle({ dune: 'fanfare', house: 7 });
+  assert.equal(plays(shell.win).length, n, 'no house: nothing starts');
+  assert.equal(shell.music.audio.ctx.state, 'suspended', 'and the music rests on behind the frame');
+  shell.saved.sound = false;   // the battle's Options: Sound off
+  shell.handle({ dune: 'fanfare', house: 'atreides' });
+  assert.equal(shell.settings.sound, false, 'the battle\'s options are read before the fanfare starts');
+  assert.equal(shell.music.audio.ctx.state, 'suspended', 'Sound off: the fanfare is not heard');
+  shell.saved.sound = true;
+  shell.handle({ dune: 'quit', screen: 'campaign-results' });
+  assert.equal(shell.settings.sound, true, 'back from the battle, its options are read again');
+  assert.equal(plays(shell.win).at(-1).id, 'victory-atreides', 'and the fanfare plays on into the results');
+  assert.equal(shell.music.audio.ctx.state, 'running');
 });
