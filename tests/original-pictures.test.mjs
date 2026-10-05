@@ -20,6 +20,7 @@ import { originalMentatFigure, originalMentatRig } from '../src/ui/campaign/orig
 import { validateRig, VISEMES, EXPRESSIONS } from '../src/ui/campaign/mentat-face-rig.js';
 import { MentatTrack } from '../src/audio/mentat-voice.js';
 import { attachMentatFace } from '../src/ui/campaign/mentat-face.js';
+import { rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
 
 const HOUSES = ['atreides', 'harkonnen', 'ordos'];
 const pakLookup = (bytes) => { const p = readPak(bytes); return (n) => p.file(n); };
@@ -486,12 +487,29 @@ test('the briefing (mentatStage with the hook): the original Mentat with his fac
       const stage = mentatStage('harkonnen', { mentatName: 'Radnor', later: () => {}, voice: voiceSaying('a') });
       assert.match(stage.portrait.innerHTML, /^<div class="cp-mentat-art cpo cpo-harkonnen"/);
       assert.ok(stage.face, 'his face follows the voice');
+      // on his own figure's rig (its frame, his mouth frames), not the painting's, whose mouth would be drawn at the
+      // 400 x 500 painting's places over the pixel-art figure
+      const rig = originalMentatRig('harkonnen');
+      assert.ok(stage.face.rig.original === true, 'the figure\'s own rig');
+      assert.deepEqual(stage.face.rig.frame, rig.frame);
+      assert.equal(await stage.face.warm(), true, 'built');
+      const a = stage.portrait.querySelector('.cpmf-v-A');
+      assert.ok(a !== null && a.getAttribute('href') === rig.mouth.sprites.A, 'his A is his own most open mouth frame');
       stage.face.destroy();
+      // a figure whose files hold no open mouth frame has no rig: his figure, still, and no face on it
+      resetOriginalPictures();
+      const shut = pictures.map((p) => (p.name === 'mentat:harkonnen' ? { ...p, parts: { ...p.parts, mouth: [] } } : p));
+      await loadOriginalPictures({ files: fakeStore(new Map(shut.map((p) => [p.name, p]))) });
+      assert.ok(originalMentatFigure('harkonnen') !== null && originalMentatRig('harkonnen') === null);
+      const still = mentatStage('harkonnen', { mentatName: 'Radnor', later: () => {}, voice: voiceSaying('a') });
+      assert.match(still.portrait.innerHTML, /^<div class="cp-mentat-art cpo cpo-harkonnen"/, 'his figure');
+      assert.ok(still.face === null, 'no face: the painting\'s rig is never drawn over his figure');
       resetOriginalPictures();
       const plain = mentatStage('ordos', { mentatName: 'Ammon', later: () => {}, voice: voiceSaying('a') });
       assert.match(plain.portrait.innerHTML, /class="cp-mentat-art /);
       assert.doesNotMatch(plain.portrait.innerHTML, /cpo-/, 'without the originals: the painting');
-      plain.face?.destroy();
+      assert.ok(plain.face !== null && plain.face.rig === rigFor('ordos'), 'and the painting moves on its own rig');
+      plain.face.destroy();
     } finally {
       globalThis.document.createElement = make;
       resetOriginalPictures();
