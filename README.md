@@ -72,7 +72,9 @@ walls and slabs do not count; captured ones do); you lose when you have no build
 save you — and nothing is decided in the first two minutes. Every computer house is allied with every other
 against you. Reinforcements arrive on schedule by Carryall or over a map edge ("Reinforcements have arrived."
 — Space jumps there). The objective line under the message bar shows how far along you are. A win ends with
-seven Carryalls in your house colour flying over the battlefield in a V. The in-game menu says Restart mission
+seven Carryalls in your house colour flying over the battlefield in a V; your house's victory theme comes in with
+them and plays on, without starting again, through the victory picture, the Mentat's words and the score. The
+in-game menu says Restart mission
 and Quit mission.
 
 Between missions a tilted relief map of Arrakis — sand seas, rock lands, mountain ranges and both ice caps —
@@ -194,7 +196,9 @@ building you send it into. The computer uses its Palace as soon as it is charged
 Up to three, each with its own house and difficulty (skirmish set-up, or
 `?opponents=harkonnen:hard,ordos:normal,sardaukar:easy`; houses atreides, harkonnen, ordos, sardaukar,
 mercenary; the old `enemy=` and `ai=easy|normal|hard` still work). Every house fights every other one,
-and the last house standing wins. The computer deploys its MCV, builds in its house's order,
+and the last house standing wins. With **Computers allied** On in the set-up (`allied=1`; Off by default) the
+computers fight as one side: they never fight each other, share what they see and all come for you, and you win
+when every one of them is out. The computer deploys its MCV, builds in its house's order,
 keeps its power up, runs two harvesters per refinery, defends its base and sends growing attack waves
 — the first after about eight minutes on Easy, five on Normal and three and a half on Hard, where it
 also builds faster and earns half again as much from spice. Like the original, it ignores the shroud and fog of war.
@@ -225,7 +229,9 @@ victory-harkonnen, victory-ordos, defeat-atreides, defeat-harkonnen, defeat-ordo
 
 Original game files (optional): Main menu or Options → Original Game Files lets you pick the `.PAK` files
 from your own Dune II PC copy (the original announcer, unit replies and sound effects replace the generated
-ones) and the Mega Drive game's soundtrack from your own copy as VGM files (`.vgm`, `.vgz` or the `.zip` they
+ones; with Original pictures on, the briefing shows the original Mentat, filling his portrait at any window
+size, his eyes and mouth moving with the Mentat voice, and the house selection the original banners; the files
+can also sit in `original/dune2/` beside the game) and the Mega Drive game's soundtrack from your own copy as VGM files (`.vgm`, `.vgz` or the `.zip` they
 came in), or MP3, OGG or WAV tracks. Each Sega track plays where the Sega game played it — the Opening under
 the intro and the title, the Mentats' themes at the briefings, the five in-game tunes in every mission, a
 victory theme and a dirge per house — and the Music Test on that page plays any of them and lets you choose
@@ -237,8 +243,10 @@ only and kept in its storage: nothing is uploaded or committed.
 
 ## Announcer voices
 
-Like the original, each Great House has its own announcer — Atreides calm and clear, Harkonnen deep
-and harsh, Ordos cool and precise — and the player's house decides which one speaks: construction
+By default one deep announcer speaks for every house, as on the Mega Drive. Options → Announcer → Each house
+gives every Great House its own, as on the PC — Atreides calm and clear, Harkonnen deep and harsh, Ordos cool
+and precise — and the player's house decides which one speaks. The choice applies at once, also from the
+in-game menu. The announcer says construction
 complete, unit ready, building, training, on hold, cancelled, upgrade complete, insufficient funds,
 unit lost, structure destroyed, "Harkonnen unit destroyed", our base is under attack, enemy unit
 approaching, radar activated, frigate has arrived, missile launched, mission accomplished and the rest.
