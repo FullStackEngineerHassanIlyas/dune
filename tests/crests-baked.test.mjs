@@ -47,7 +47,8 @@ test('the pictures are WebP files, each under 300 KB and all under 2 MB', () => 
 
 test('the game shows the baked pictures; a look that is not baked shows the vector art', () => {
   for (const house of CREST_HOUSES) {
-    assert.match(crestSvg(house), new RegExp(`<image href="[^"]*/assets/campaign/crests/${house}-framed\\.webp" x="0" y="0" width="400" height="400"/></svg>$`), house);
+    assert.match(crestSvg(house, { narrow: false }), new RegExp(`<image href="[^"]*/assets/campaign/crests/${house}-framed\\.webp" x="0" y="0" width="400" height="400"/></svg>$`), house);
+    assert.match(crestSvg(house), new RegExp(`<image href="[^"]*/assets/campaign/crests/${house}-framed\\.webp" x="0" y="0" width="400" height="400"/></svg><svg [^>]*><image href="[^"]*/assets/campaign/crests/${house}-shield\\.webp" x="76" y="52" width="248" height="310"/></svg>$`), `${house}: both baked, for wide and narrow screens`);
     assert.match(crestSvg(house, { variant: 'shield' }), new RegExp(`<image href="[^"]*/assets/campaign/crests/${house}-shield\\.webp" x="76" y="52" width="248" height="310"/></svg>$`), house);
     assert.match(crestSvg(house, { detail: false }), /<image href="data:image\/svg\+xml,/, `${house} without engraving`);
   }
