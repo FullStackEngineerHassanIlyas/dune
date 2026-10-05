@@ -31,6 +31,7 @@ export const DEFAULT_MOTION = {
   ease: 0.2,        // an expression settles in this long (critically damped) …
   headEase: 0.35,   // … and the head's tilt and nod, which is heavier, in this long
   mouthEase: 0.075, // a mouth shape settles in this long: the co-articulation that keeps it from popping
+  sharpen: 2,       // the sprites cross-fade along an S: their weights are raised to this power (1: a straight blend) before they are stacked
   jawEase: 0.06,    // the jaw follows the loudness this fast
   hold: 1.4,        // after the line the last expression is held this long …
   release: 0.6,     // … then eases back to the painting over this
@@ -67,6 +68,10 @@ export function validateRig(rig) {
     inside(p.box, `${what}.box`);
     if (p.feather !== undefined && (!isNum(p.feather) || p.feather <= 0 || p.feather > 1)) err(`${what}.feather must be in (0, 1]`);
     if (p.src !== undefined && p.src !== null && !isUrl(p.src)) err(`${what}.src must be a URL`);
+    if (p.base !== undefined && p.base !== null) {
+      if (typeof p.base !== 'object' || !isUrl(p.base.src)) err(`${what}.base must be { src, box }: the head without the part, which stays under it`);
+      else inside(p.base.box, `${what}.base.box`);
+    }
   };
   const scale = (v, what, lo, hi) => { if (!isNum(v) || v < lo || v > hi) err(`${what} must be a number in ${lo}..${hi}`); };
 
@@ -114,11 +119,15 @@ export function validateRig(rig) {
 
   const l = rig.lids;
   if (l != null) {
-    if (!isUrl(l.src)) err('lids.src must be the closed eyes\' URL');
-    const lb = inside(l.box, 'lids.box') ? l.box : null;
+    // the closed eyes: one layer for both (lids.src and lids.box, each eye's box inside it), or one sprite per eye
+    // (left.src and right.src, each eye's box being its sprite's)
+    const own = !!(l.left?.src && l.right?.src);
+    if (!own && !isUrl(l.src)) err('lids.src must be the closed eyes\' URL (or each eye its own src)');
+    const lb = !own && inside(l.box, 'lids.box') ? l.box : null;
     for (const side of ['left', 'right']) {
       const e = l[side];
       if (!e || typeof e !== 'object') { err(`lids.${side} must be { box, open: [top, bottom] }`); continue; }
+      if (own && !isUrl(e.src)) err(`lids.${side}.src must be the closed eye's URL`);
       if (inside(e.box, `lids.${side}.box`) && lb && (e.box[0] < lb[0] - 0.5 || e.box[1] < lb[1] - 0.5 || e.box[0] + e.box[2] > lb[0] + lb[2] + 0.5 || e.box[1] + e.box[3] > lb[1] + lb[3] + 0.5)) err(`lids.${side}.box must lie in lids.box`);
       if (!Array.isArray(e.open) || e.open.length !== 2 || !e.open.every(isNum) || e.open[1] <= e.open[0]) err(`lids.${side}.open must be [top, bottom] of the eye`);
       else if (isBox(e.box) && (e.open[0] < e.box[1] || e.open[1] > e.box[1] + e.box[3])) err(`lids.${side}.open must lie in lids.${side}.box`);

@@ -1,10 +1,11 @@
-// The Mentat's face, drawn into his portrait's SVG (notes docs/superpowers/notes/2026-10-05-mentat-face.md). Built
-// once per face: a group around the head (it tilts and nods about the head's pivot, inside the portrait's own CSS
-// sway) and, over the head painting, the face's parts: the brows and the mouth's corners and chin (a warp of the
-// painting or a sprite of their own, each under a soft mask), the mouth's sprites (one per viseme, cross-faded, on
-// a jaw that opens), and the lids (the closed-eyes layer, drawn down over each eye). Every frame write(pose) sets
-// only what changed, and only to strings made once here: each value is quantised to a step far under a pixel and
-// looked up in a table, so a frame allocates nothing. restore() puts the portrait back as it was.
+// The Mentat's face, drawn over his portrait (notes docs/superpowers/notes/2026-10-05-mentat-face.md). The portrait is
+// a stack of HTML images (portraits.js); built once per face, the head (its image and the closed eyes) goes inside two
+// boxes that tilt and nod about the head's pivot (CSS transforms, inside the portrait's own CSS sway), and an SVG laid
+// over the head painting holds the face's parts: the brows and the mouth's corners and chin (a warp of the painting or
+// a sprite of their own, each under a soft mask), the mouth's sprites (one per viseme, cross-faded, on a jaw that
+// opens), and the lids (the closed-eyes layer, drawn down over each eye). Every frame write(pose) sets only what
+// changed, and only to strings made once here: each value is quantised to a step far under a pixel and looked up in a
+// table, so a frame allocates nothing. restore() puts the portrait back as it was.
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -13,9 +14,10 @@ export const POSE = {
   tilt: 0, nod: 1,
   browLy: 2, browLx: 3, browLr: 4, browRy: 5, browRx: 6, browRr: 7,
   cornerLy: 8, cornerRy: 9, jawY: 10,
-  mouthY: 11, mouthSkew: 12, mouthSx: 13, mouthSy: 14,
+  mouthY: 11, mouthSkew: 12, mouthSx: 13, mouthSy: 14,   // mouthSkew: the left half's skew (degrees) …
   lidL: 15, lidR: 16,
-  alpha: 17,         // … one per viseme (VISEMES order)
+  mouthSkewR: 17,    // … and the right half's: a corner up on each side, or a sneer on one
+  alpha: 18,         // … one per viseme (VISEMES order)
 };
 export const POSE_SIZE = POSE.alpha + 7;
 
@@ -36,18 +38,29 @@ class Quant {
   }
 }
 
-let TABLES = null;
-/** The shared tables (made once for every face): 1/32 unit, 1/50 degree, 1/256 of a scale, 1/255 of an opacity. */
-export function tables() {
-  return (TABLES ??= {
-    ty: new Quant(-16, 16, 1 / 32, (v) => `translate(0 ${v})`),
-    tx: new Quant(-8, 8, 1 / 32, (v) => `translate(${v} 0)`),
-    rot: new Quant(-20, 20, 1 / 50, (v) => `rotate(${v})`),
-    sx: new Quant(0.6, 1.4, 1 / 256, (v) => `scale(${v} 1)`),
-    sy: new Quant(0.4, 2, 1 / 256, (v) => `scale(1 ${v})`),
-    skew: new Quant(-25, 25, 1 / 20, (v) => `skewY(${v})`),
-    unit: new Quant(0, 1, 1 / 255, (v) => v),
-  });
+const TABLES = new Map();
+/**
+ * The shared tables (made once for every face of a frame `fh` units high): 1/32 unit, 1/50 degree, 1/256 of a scale,
+ * 1/255 of an opacity; `ty` and `rot` for the SVG's attributes, `cssTy` and `cssRot` for the head's boxes.
+ */
+export function tables(fh = 500) {
+  let t = TABLES.get(fh);
+  if (!t) {
+    t = {
+      ty: new Quant(-16, 16, 1 / 32, (v) => `translate(0 ${v})`),
+      tx: new Quant(-8, 8, 1 / 32, (v) => `translate(${v} 0)`),
+      rot: new Quant(-20, 20, 1 / 50, (v) => `rotate(${v})`),
+      sx: new Quant(0.6, 1.4, 1 / 256, (v) => `scale(${v} 1)`),
+      sy: new Quant(0.4, 2, 1 / 256, (v) => `scale(1 ${v})`),
+      skew: new Quant(-25, 25, 1 / 20, (v) => `skewY(${v})`),
+      unit: new Quant(0, 1, 1 / 255, (v) => v),
+      // the head's boxes: a nod in units is a share of the frame's height
+      cssTy: new Quant(-16, 16, 1 / 32, (v) => `translateY(${fmt((v * 100) / fh)}%)`),
+      cssRot: new Quant(-20, 20, 1 / 50, (v) => `rotate(${v}deg)`),
+    };
+    TABLES.set(fh, t);
+  }
+  return t;
 }
 
 /**
@@ -74,65 +87,121 @@ function rasterize(img, src, box, perUnit, urls) {
 }
 
 // the write slots (one per attribute the frame may change)
-const W_HEAD_TY = 0, W_HEAD_ROT = 1, W_BROWS = 2, W_CORNERS = 8, W_JAW = 10, W_MOUTH = 11, W_LIDS = 15, W_ALPHA = 21, W_COUNT = 28;
+const W_HEAD_TY = 0, W_HEAD_ROT = 1, W_BROWS = 2, W_CORNERS = 8, W_JAW = 10, W_MOUTH = 11, W_LIDS = 16, W_ALPHA = 22, W_COUNT = 29;
 // the display slots: a part out of the picture while it would only repaint the painting (a warp at rest, a sprite at 0)
-const D_BROWS = 0, D_CORNERS = 2, D_JAW = 4, D_LIDS = 5, D_ALPHA = 7, D_COUNT = 14;
+const D_BROWS = 0, D_CORNERS = 2, D_JAW = 4, D_LIDS = 5, D_ALPHA = 7, D_BASE = 14, D_COUNT = 16;
 
 /**
- * Builds the face into `svg` (the portrait's <svg>, as portraits.js makes it: a `.cpm-sway` group holding the head
- * image and the `.cpm-blink` lids). `rig`: a valid rig (mentat-face-rig.js). `uid` keeps the ids unique when two
- * portraits are on the page. Returns { root, write(pose), setActive(on, ownBlinks), restore(), written }.
+ * Builds the face into the portrait `art` (the `.cp-mentat-art` element portraits.js makes: a `.cpm-sway` box holding the
+ * head `<img>` and the `.cpm-blink` closed eyes). `rig`: a valid rig (mentat-face-rig.js). `uid` keeps the ids unique
+ * when two portraits are on the page. Returns { root, write(pose), setActive(on, ownBlinks), restore(), written }.
  */
-export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
-  const doc = svg.ownerDocument ?? globalThis.document;
-  const T = tables();
-  const sway = svg.querySelector('.cpm-sway');
-  if (!sway) throw new Error('mentat face: the portrait has no head group (.cpm-sway)');
-  const blink = svg.querySelector('.cpm-blink');
+export function createFaceSvg({ art, svg, rig, uid = 'cpmf', visemes }) {
+  const host = art ?? svg;
+  const doc = host.ownerDocument ?? globalThis.document;
+  const [fw, fh] = rig.frame;
+  const T = tables(fh);
+  const sway = host.querySelector('.cpm-sway');
+  if (!sway) throw new Error('mentat face: the portrait has no head box (.cpm-sway)');
+  const blink = host.querySelector('.cpm-blink');
   const make = (tag, attrs, parent) => {
     const el = doc.createElementNS(NS, tag);
     for (const k in attrs) el.setAttribute(k, String(attrs[k]));
     if (parent) parent.appendChild(el);
     return el;
   };
+  const box = (cls, style, parent) => {
+    const el = doc.createElement('div');
+    el.setAttribute('class', cls);
+    el.setAttribute('style', style);
+    parent?.appendChild(el);
+    return el;
+  };
   const boxAttrs = ([x, y, width, height]) => ({ x, y, width, height });
   const image = (src, box, parent, extra = {}) => make('image', { href: src, ...boxAttrs(box), preserveAspectRatio: 'none', ...extra }, parent);
 
-  const defs = make('defs', { class: 'cpmf-defs' });
-  svg.insertBefore(defs, svg.firstChild);
-
-  // the head: nod (translate), then roll about the pivot; the portrait's own children move inside
+  // the head: a box that nods (translateY) holding one that rolls about the pivot; the portrait's own children move
+  // inside, and the face's SVG lies over the head painting, under the portrait's own blink
   const [px, py] = rig.head.pivot;
-  const head = make('g', { class: 'cpmf-head' });
-  const headRoll = make('g', { transform: `translate(${fmt(px)} ${fmt(py)})` }, head);
-  const headRot = make('g', {}, headRoll);
-  const content = make('g', { transform: `translate(${fmt(-px)} ${fmt(-py)})` }, headRot);
+  const share = (v, of) => `${fmt((v / of) * 100)}%`;
+  const head = box('cpmf-head', 'position:absolute;inset:0;will-change:transform');
+  const headRot = box('cpmf-roll', `position:absolute;inset:0;will-change:transform;transform-origin:${share(px, fw)} ${share(py, fh)}`, head);
   const moved = Array.from(sway.childNodes);
-  for (const n of moved) content.appendChild(n);
+  for (const n of moved) headRot.appendChild(n);
   sway.appendChild(head);
 
-  const root = make('g', { class: 'cpmf-face', display: 'none' });
-  const headImage = moved.find((n) => n.nodeType === 1 && (n.localName ?? n.tagName) === 'image') ?? null;
-  content.insertBefore(root, headImage ? headImage.nextSibling : content.firstChild);
+  // the SVG covers only the face (every part's box, with room for the moves), as a layer of its own: a frame's changes
+  // repaint that small layer and nothing else, and the compositor lays it over the head
+  const spots = [rig.mouth.box, rig.brows?.left.box, rig.brows?.right.box, rig.corners?.left.box, rig.corners?.right.box, rig.jaw?.box, rig.lids?.left.box, rig.lids?.right.box].filter(Boolean);
+  const pad = 8;
+  const fx0 = Math.max(0, Math.min(...spots.map((b) => b[0])) - pad), fy0 = Math.max(0, Math.min(...spots.map((b) => b[1])) - pad);
+  const fx1 = Math.min(fw, Math.max(...spots.map((b) => b[0] + b[2])) + pad), fy1 = Math.min(fh, Math.max(...spots.map((b) => b[1] + b[3])) + pad);
+  const overlay = make('svg', {
+    class: 'cpmf-svg', viewBox: `${fmt(fx0)} ${fmt(fy0)} ${fmt(fx1 - fx0)} ${fmt(fy1 - fy0)}`, preserveAspectRatio: 'none', 'aria-hidden': 'true',
+    style: `position:absolute;left:${share(fx0, fw)};top:${share(fy0, fh)};width:${share(fx1 - fx0, fw)};height:${share(fy1 - fy0, fh)};overflow:hidden;pointer-events:none;will-change:transform`,
+  });
+  const headImage = moved.find((n) => n.nodeType === 1 && (n.localName ?? n.tagName).toLowerCase() === 'img' && !n.matches?.('.cpm-blink')) ?? null;
+  headRot.insertBefore(overlay, headImage ? headImage.nextSibling : headRot.firstChild);
+  const defs = make('defs', { class: 'cpmf-defs' }, overlay);
+  const root = make('g', { class: 'cpmf-face', display: 'none' }, overlay);
+  // the layers: the brows' bare patches of head first, the brows' own sprites last (over the lids: a brow that comes
+  // down passes over the eyelid, not under it)
+  const baseLayer = make('g', { class: 'cpmf-bases' }, root);
+  const browLayer = make('g', { class: 'cpmf-brows' });
 
-  // a soft mask: a box whose centre is opaque and whose edge fades over `feather` of its half-size
+  // a soft mask: a box whose middle is opaque and whose edges fade over `feather` of its half-size on each side: a ramp
+  // across and a ramp down, in two masks one inside the other (their product is a soft rectangle, not an ellipse: the
+  // corners of a brow's box stay opaque, so a moved brow leaves no ghost of itself in them)
   const softMask = (name, box, feather) => {
-    const id = `${uid}-${name}`;
-    const grad = make('radialGradient', { id: `${id}-f`, cx: 0.5, cy: 0.5, r: 0.5 }, defs);
-    make('stop', { offset: 0, 'stop-color': '#fff' }, grad);
-    make('stop', { offset: fmt(Math.max(0, 1 - feather)), 'stop-color': '#fff' }, grad);
-    make('stop', { offset: 1, 'stop-color': '#000' }, grad);
-    const mask = make('mask', { id, maskUnits: 'userSpaceOnUse', ...boxAttrs(box) }, defs);
-    make('rect', { ...boxAttrs(box), fill: `url(#${id}-f)` }, mask);
-    return `url(#${id})`;
+    const id = `${uid}-${name}`, f = fmt(Math.min(0.5, Math.max(0, feather / 2)));
+    const one = (axis) => {
+      const grad = make('linearGradient', { id: `${id}-${axis}f`, x1: 0, y1: 0, x2: axis === 'x' ? 1 : 0, y2: axis === 'y' ? 1 : 0 }, defs);
+      make('stop', { offset: 0, 'stop-color': '#000' }, grad);
+      make('stop', { offset: f, 'stop-color': '#fff' }, grad);
+      make('stop', { offset: fmt(1 - f), 'stop-color': '#fff' }, grad);
+      make('stop', { offset: 1, 'stop-color': '#000' }, grad);
+      const mask = make('mask', { id: `${id}-${axis}`, maskUnits: 'userSpaceOnUse', ...boxAttrs(box) }, defs);
+      make('rect', { ...boxAttrs(box), fill: `url(#${id}-${axis}f)` }, mask);
+      return `url(#${id}-${axis})`;
+    };
+    return [one('x'), one('y')];
   };
 
-  // a part: its own sprite (src) at its box, or a warp of the head painting seen through its box; the mask stays put
-  // and the picture inside moves (ty, and for a brow tx and a roll about `origin`)
-  const part = (name, p, { roll = null } = {}) => {
-    const masked = !p.src || p.feather !== undefined;
-    const g = make('g', { class: `cpmf-${name}`, ...(masked ? { mask: softMask(name, p.box, p.feather ?? 0.45) } : {}) }, root);
-    const ty = make('g', {}, g);
+  // a warp's patch: the head painting cut to the part's box with its edges faded (a canvas, once, from the head <img>
+  // already on the page). Drawn small and moved, it costs the compositor next to nothing; the masks it replaces made a
+  // layer the size of the whole head image for every part, every frame. Null where there is no canvas (the masks serve).
+  const patchOf = (box, feather) => {
+    try {
+      const k = headImage?.complete ? headImage.naturalWidth / rig.head.box[2] : 0;
+      if (!(k > 0) || typeof doc.createElement !== 'function') return null;
+      const c = doc.createElement('canvas');
+      if (typeof c.getContext !== 'function') return null;
+      const [x, y, w, h] = box;
+      c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+      const g = c.getContext('2d');
+      g.drawImage(headImage, (x - rig.head.box[0]) * k, (y - rig.head.box[1]) * k, w * k, h * k, 0, 0, c.width, c.height);
+      const f = Math.min(0.5, Math.max(0, feather / 2));
+      g.globalCompositeOperation = 'destination-in';
+      for (const [x2, y2] of [[c.width, 0], [0, c.height]]) {
+        const ramp = g.createLinearGradient(0, 0, x2, y2);
+        ramp.addColorStop(0, 'rgba(0,0,0,0)'); ramp.addColorStop(f, '#000'); ramp.addColorStop(1 - f, '#000'); ramp.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = ramp; g.fillRect(0, 0, c.width, c.height);
+      }
+      return c.toDataURL('image/png');
+    } catch { return null; }
+  };
+
+  // a part: its own sprite (src) at its box, over a bare patch of the head that stays (base: a brow cut-out), or a warp
+  // of the head painting (a faded patch of it, or the whole painting under masks that stay put while the picture inside
+  // moves); it moves (ty, and for a brow tx and a roll about `origin`)
+  const part = (name, p, { roll = null, into = root } = {}) => {
+    const patch = !p.src ? patchOf(p.box, p.feather ?? 0.45) : null;
+    const masked = !patch && (!p.src || p.feather !== undefined);
+    const masks = masked ? softMask(name, p.box, p.feather ?? 0.45) : null;
+    const g = make('g', { class: `cpmf-${name}`, ...(masks ? { mask: masks[0] } : {}) }, into);
+    const base = p.base ? image(p.base.src, p.base.box, baseLayer, { class: `cpmf-${name}-base` }) : null;
+    const gy = masks ? make('g', { mask: masks[1] }, g) : g;
+    const ty = make('g', {}, gy);
     let inner = ty, tx = null, rot = null;
     if (roll) {
       tx = make('g', {}, ty);
@@ -140,28 +209,49 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
       rot = make('g', {}, at);
       inner = make('g', { transform: `translate(${fmt(-roll[0])} ${fmt(-roll[1])})` }, rot);
     }
-    if (p.src) image(p.src, p.box, inner); else image(rig.head.src, rig.head.box, inner);
-    return { g, ty, tx, rot, warp: !p.src };
+    if (p.src) image(p.src, p.box, inner); else if (patch) image(patch, p.box, inner); else image(rig.head.src, rig.head.box, inner);
+    // a part that leaves the painting as it is at rest is out of the picture then (a warp, or a cut-out over its patch)
+    return { g, base, ty, tx, rot, warp: !p.src || !!p.base };
   };
 
   const brow = (side) => {
     const p = rig.brows[side], [x, y, w, h] = p.box;
-    return part(`brow-${side}`, p, { roll: p.origin ?? (side === 'left' ? [x + w * 0.1, y + h / 2] : [x + w * 0.9, y + h / 2]) });
+    return part(`brow-${side}`, p, { into: browLayer, roll: p.origin ?? (side === 'left' ? [x + w * 0.08, y + h / 2] : [x + w * 0.92, y + h / 2]) });
   };
   const brows = rig.brows ? [brow('left'), brow('right')] : null;
   const corners = rig.corners ? [part('corner-left', rig.corners.left), part('corner-right', rig.corners.right)] : null;
   const jaw = rig.jaw ? part('jaw', rig.jaw) : null;
 
-  // the mouth: about (centre, hinge) it moves up, skews (one corner up), widens and opens (scale y)
+  // the mouth: about (centre, hinge) it moves up, widens and opens (scale y), and each half of it skews on its own (a
+  // corner up on either side). The sprites are drawn once, in a stack in the defs, and shown twice: as a left and a right
+  // half, each under a soft mask that hands over to the other across a unit or so in the middle (their opacities add up
+  // to one) and the two added together (plus-lighter, in a group of their own), so the seam where they meet is exactly
+  // the sprite, however far the sprites are cross-faded, and no hairline shows
   const m = rig.mouth, cx = m.center ?? m.box[0] + m.box[2] / 2, hy = m.hinge;
   const mouth = make('g', { class: 'cpmf-mouth' }, root);
   const mAt = make('g', { transform: `translate(${fmt(cx)} ${fmt(hy)})` }, mouth);
-  const mTy = make('g', {}, mAt), mSkew = make('g', {}, mTy), mSx = make('g', {}, mSkew), mSy = make('g', {}, mSx);
-  const mBack = make('g', { transform: `translate(${fmt(-cx)} ${fmt(-hy)})` }, mSy);
+  const mTy = make('g', {}, mAt), mSx = make('g', {}, mTy), mSy = make('g', {}, mSx);
+  const stack = make('g', { id: `${uid}-stack`, transform: `translate(${fmt(-cx)} ${fmt(-hy)})` }, defs);
   const names = visemes ?? ['rest', 'MBP', 'FV', 'A', 'E', 'O', 'L'];
-  const sprites = names.map((v) => (m.sprites[v] ? image(m.sprites[v], m.box, mBack, { opacity: 0, display: 'none', class: `cpmf-v-${v}` }) : null));
+  const sprites = names.map((v) => (m.sprites[v] ? image(m.sprites[v], m.box, stack, { opacity: 0, display: 'none', class: `cpmf-v-${v}` }) : null));
   const urls = [];
   const ready = Promise.all(sprites.map((el, i) => (el ? rasterize(el, m.sprites[names[i]], m.box, m.raster ?? 5, urls) : false)));
+  const bw = m.box[2], bh = m.box[3];
+  const joined = make('g', { style: 'isolation:isolate' }, mSy);
+  const half = (name) => {
+    const id = `${uid}-half-${name}`, left = name === 'left';
+    const grad = make('linearGradient', { id: `${id}-f`, gradientUnits: 'userSpaceOnUse', x1: -0.8, y1: 0, x2: 0.8, y2: 0 }, defs);
+    make('stop', { offset: 0, 'stop-color': '#fff', 'stop-opacity': left ? 1 : 0 }, grad);
+    make('stop', { offset: 1, 'stop-color': '#fff', 'stop-opacity': left ? 0 : 1 }, grad);
+    // the mask's box, in the mouth's own space (about the centre and the hinge), with room for the moves
+    const mask = make('mask', { id, maskUnits: 'userSpaceOnUse', x: fmt(-bw), y: fmt(-bh), width: fmt(bw * 2), height: fmt(bh * 2) }, defs);
+    make('rect', { x: fmt(-bw), y: fmt(-bh), width: fmt(bw * 2), height: fmt(bh * 2), fill: `url(#${id}-f)` }, mask);
+    const skew = make('g', { style: 'mix-blend-mode:plus-lighter' }, joined);
+    const g = make('g', { mask: `url(#${id})` }, skew);
+    make('use', { href: `#${uid}-stack` }, g);
+    return skew;
+  };
+  const mSkewL = half('left'), mSkewR = half('right');
 
   // the lids: the closed eyes, shown down to an edge that falls from the eye's top to the lids' foot
   const lid = (side) => {
@@ -171,11 +261,13 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
     const s1 = make('stop', { offset: 0, 'stop-color': '#000' }, grad);
     const mask = make('mask', { id, maskUnits: 'userSpaceOnUse', ...boxAttrs(e.box) }, defs);
     make('rect', { ...boxAttrs(e.box), fill: `url(#${id}-f)` }, mask);
-    const img = image(rig.lids.src, rig.lids.box, root, { mask: `url(#${id})`, opacity: 0, display: 'none', class: `cpmf-lid-${side}` });
+    // the eye's own sprite (its box is the sprite's), or the portrait's one lids layer
+    const img = image(e.src ?? rig.lids.src, e.src ? e.box : rig.lids.box, root, { mask: `url(#${id})`, opacity: 0, display: 'none', class: `cpmf-lid-${side}` });
     // [eye top, lids box foot, box y, box height]
     return { s0, s1, img, g: new Float64Array([e.open[0], e.box[1] + e.box[3], e.box[1], e.box[3]]) };
   };
   const lids = rig.lids ? [lid('left'), lid('right')] : null;
+  root.appendChild(browLayer);
   const soft = rig.lids?.soft ?? 0.12;
 
   // put(): the attribute `attr` of `el` to the table's string for arr[k], when it changed. Numbers are read from
@@ -188,6 +280,12 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
     let i = Math.round((arr[k] - q.min) * q.inv);
     i = i >= 0 ? (i < q.n ? i : q.n - 1) : 0;
     if (last[slot] !== i) { last[slot] = i; el.setAttribute(attr, q.s[i]); written++; }
+  };
+  // putCss(): the same for the style's transform of an HTML box
+  const putCss = (slot, el, q, arr, k) => {
+    let i = Math.round((arr[k] - q.min) * q.inv);
+    i = i >= 0 ? (i < q.n ? i : q.n - 1) : 0;
+    if (last[slot] !== i) { last[slot] = i; el.style.transform = q.s[i]; written++; }
   };
   // display(): `el` in (on) or out of the picture, when that changed
   const display = (slot, el, on) => {
@@ -209,15 +307,15 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
 
   let active = false;
   return {
-    root, defs, head, sprites,
+    root, defs, head, overlay, sprites,
     /** Resolves once the vector sprites are bitmaps (in a browser; at once elsewhere). */
     ready,
     /** Attribute writes made so far (a test's measure of a frame's work). */
     get written() { return written; },
     /** Shows the pose (only the attributes whose quantised value changed). */
     write(pose) {
-      put(W_HEAD_TY, head, 'transform', T.ty, pose, POSE.nod);
-      put(W_HEAD_ROT, headRot, 'transform', T.rot, pose, POSE.tilt);
+      putCss(W_HEAD_TY, head, T.cssTy, pose, POSE.nod);
+      putCss(W_HEAD_ROT, headRot, T.cssRot, pose, POSE.tilt);
       if (brows) {
         put(W_BROWS, brows[0].ty, 'transform', T.ty, pose, POSE.browLy);
         put(W_BROWS + 1, brows[0].tx, 'transform', T.tx, pose, POSE.browLx);
@@ -233,14 +331,19 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
         display(D_CORNERS + 1, corners[1].g, !corners[1].warp || moved1(W_CORNERS + 1, T.ty));
       }
       if (brows) {
-        display(D_BROWS, brows[0].g, !brows[0].warp || moved1(W_BROWS, T.ty) || moved1(W_BROWS + 1, T.tx) || moved1(W_BROWS + 2, T.rot));
-        display(D_BROWS + 1, brows[1].g, !brows[1].warp || moved1(W_BROWS + 3, T.ty) || moved1(W_BROWS + 4, T.tx) || moved1(W_BROWS + 5, T.rot));
+        const on0 = !brows[0].warp || moved1(W_BROWS, T.ty) || moved1(W_BROWS + 1, T.tx) || moved1(W_BROWS + 2, T.rot);
+        const on1 = !brows[1].warp || moved1(W_BROWS + 3, T.ty) || moved1(W_BROWS + 4, T.tx) || moved1(W_BROWS + 5, T.rot);
+        display(D_BROWS, brows[0].g, on0);
+        display(D_BROWS + 1, brows[1].g, on1);
+        if (brows[0].base) display(D_BASE, brows[0].base, on0);
+        if (brows[1].base) display(D_BASE + 1, brows[1].base, on1);
       }
       if (jaw) { put(W_JAW, jaw.ty, 'transform', T.ty, pose, POSE.jawY); display(D_JAW, jaw.g, !jaw.warp || moved1(W_JAW, T.ty)); }
       put(W_MOUTH, mTy, 'transform', T.ty, pose, POSE.mouthY);
-      put(W_MOUTH + 1, mSkew, 'transform', T.skew, pose, POSE.mouthSkew);
+      put(W_MOUTH + 1, mSkewL, 'transform', T.skew, pose, POSE.mouthSkew);
       put(W_MOUTH + 2, mSx, 'transform', T.sx, pose, POSE.mouthSx);
       put(W_MOUTH + 3, mSy, 'transform', T.sy, pose, POSE.mouthSy);
+      put(W_MOUTH + 4, mSkewR, 'transform', T.skew, pose, POSE.mouthSkewR);
       if (lids) {
         putLid(W_LIDS, lids[0], pose, POSE.lidL); putLid(W_LIDS + 3, lids[1], pose, POSE.lidR);
         display(D_LIDS, lids[0].img, last[W_LIDS + 2] > 0); display(D_LIDS + 1, lids[1].img, last[W_LIDS + 5] > 0);
@@ -260,13 +363,12 @@ export function createFaceSvg({ svg, rig, uid = 'cpmf', visemes }) {
       if (!on) { last.fill(-1); shown.fill(-1); }
     },
     get active() { return active; },
-    /** Takes the face out and puts the portrait's head group back as it was. */
+    /** Takes the face out and puts the portrait's head box back as it was. */
     restore() {
       if (blink?.style) blink.style.visibility = '';
       for (const u of urls.splice(0)) URL.revokeObjectURL(u);
-      for (const n of Array.from(content.childNodes)) if (n !== root) sway.insertBefore(n, head);
+      for (const n of Array.from(headRot.childNodes)) if (n !== overlay) sway.insertBefore(n, head);
       head.parentNode?.removeChild(head);
-      defs.parentNode?.removeChild(defs);
       active = false;
     },
   };

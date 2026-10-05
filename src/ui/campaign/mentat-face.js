@@ -7,8 +7,8 @@
 // at a phrase's start; his head moves a little as he speaks; when he falls silent the mouth closes. After the line
 // his last look is held a moment and eased back to the painting, and the loop sleeps until the next line. Nothing
 // is allocated per frame. Options → Mentat voice Off: no line ever plays, so the portrait stays the painting.
-// prefers-reduced-motion: the mouth alone moves. All a rig's art is data (mentat-face-rig.js); stand-in rigs for
-// today's paintings are in mentat-face-standin.js.
+// prefers-reduced-motion: the mouth alone moves. All a rig's art is data (mentat-face-rig.js); the three Mentats' rigs, baked
+// from the very sculpt of their heads, are in mentat-face-rigs.js.
 import { restFrame, VISEMES } from '../../audio/mentat-voice.js';
 import { compileRig, P, PARAMS } from './mentat-face-rig.js';
 import { springStep, omegaFor, visemeTargets, normalizeWeights, stackAlphas, openness, Blinker, sway, clamp01 } from './mentat-face-motion.js';
@@ -31,16 +31,18 @@ export class MentatFace {
   /**
    * rig: a rig (mentat-face-rig.js; throws a TypeError naming what is wrong). voice: a MentatVoice (or anything
    * with now(frame), current and on('line' | 'end')). el: the element whose leaving the page ends the face (the
-   * stage's section); svg: the portrait's <svg> (default: the first in `el`). reducedMotion: the mouth alone.
+   * stage's section); art: the portrait's `.cp-mentat-art` (default: the first in `el`; `svg` is the old name).
+   * reducedMotion: the mouth alone.
    * raf / caf: the frame scheduler (tests pass their own).
    */
-  constructor({ rig, voice, el = null, svg = null, reducedMotion = prefersReducedMotion(), raf = null, caf = null } = {}) {
+  constructor({ rig, voice, el = null, art = null, svg = null, reducedMotion = prefersReducedMotion(), raf = null, caf = null } = {}) {
     this.c = compileRig(rig);
     this.rig = rig;
     this.voice = voice;
-    this.svg = svg ?? el?.querySelector?.('svg') ?? null;
-    if (!this.svg) throw new Error('mentat face: no portrait <svg>');
-    this.el = el ?? this.svg;
+    this.art = art ?? svg ?? el?.querySelector?.('.cp-mentat-art') ?? null;
+    if (!this.art) throw new Error('mentat face: no portrait (.cp-mentat-art)');
+    this.svg = this.art;
+    this.el = el ?? this.art;
     this.reduced = !!reducedMotion;
     this.raf = raf ?? ((fn) => globalThis.requestAnimationFrame(fn));
     this.caf = caf ?? ((id) => globalThis.cancelAnimationFrame(id));
@@ -48,7 +50,7 @@ export class MentatFace {
     this.view = null;
     this.frame = restFrame();
     this.pose = new Float64Array(POSE_SIZE);
-    this.w = new Float64Array(NV); this.wv = new Float64Array(NV); this.wt = new Float64Array(NV); this.alpha = new Float64Array(NV);
+    this.w = new Float64Array(NV); this.wv = new Float64Array(NV); this.wt = new Float64Array(NV); this.alpha = new Float64Array(NV); this.ws = new Float64Array(NV);
     this.e = new Float64Array(NP); this.ev = new Float64Array(NP); this.zero = new Float64Array(NP);
     this.x = new Float64Array(4); this.v = new Float64Array(4);
     this.s = new Float64Array(7); this.tmp = new Float64Array(2);
@@ -86,7 +88,7 @@ export class MentatFace {
   /** Runs the face (a line is starting); a no-op while it runs. */
   start() {
     if (this.destroyed || this.running) return;
-    this.view ??= createFaceSvg({ svg: this.svg, rig: this.rig, uid: this.uid, visemes: VISEMES });
+    this.view ??= createFaceSvg({ art: this.art, rig: this.rig, uid: this.uid, visemes: VISEMES });
     this.running = true;
     this.settled = false;
     this.missing = 0;
@@ -219,9 +221,10 @@ export class MentatFace {
       pose[POSE.cornerLy] = -cl * rig.corners.lift;
       pose[POSE.cornerRy] = -cr * rig.corners.lift;
     }
-    const sym = (cl + cr) / 2, asym = (cr - cl) / 2;
+    const sym = (cl + cr) / 2;
     pose[POSE.mouthY] = -sym * mouth.lift * 0.35;
-    pose[POSE.mouthSkew] = Math.atan(-asym * mouth.lift / mouth.halfWidth) * 57.29578;
+    pose[POSE.mouthSkew] = Math.atan(cl * mouth.lift / mouth.halfWidth) * 57.29578;
+    pose[POSE.mouthSkewR] = Math.atan(-cr * mouth.lift / mouth.halfWidth) * 57.29578;
     pose[POSE.mouthSx] = 1 + sym * mouth.widen;
     const jaw = clamp01(x[J_JAW] * openness(this.w, c.open) + e[P.jaw] * 0.25 * sp);
     pose[POSE.mouthSy] = mouth.jaw[0] + (mouth.jaw[1] - mouth.jaw[0]) * jaw;
@@ -229,7 +232,11 @@ export class MentatFace {
     const ll = reduced ? 0 : e[P.lidL], lr = reduced ? 0 : e[P.lidR];
     pose[POSE.lidL] = clamp01(ll + (1 - ll) * blink);
     pose[POSE.lidR] = clamp01(lr + (1 - lr) * blink);
-    stackAlphas(this.w, this.alpha);
+    // the sprites are cross-faded along an S: the shape that is leaving fades while the one arriving rises, and the two
+    // dark-and-light ghosts of a half-way mouth are seen for as short a time as the weights allow
+    const ws = this.ws, sharp = m.sharpen, w = this.w;
+    for (let i = 0; i < NV; i++) ws[i] = Math.pow(w[i], sharp);
+    stackAlphas(ws, this.alpha);
     for (let i = 0; i < NV; i++) pose[POSE.alpha + i] = this.alpha[i];
     return pose;
   }
@@ -251,15 +258,15 @@ export function createMentatFace(opts) { return new MentatFace(opts); }
 
 /**
  * For mentatStage (stage.js): the face on `stage.portrait`, following `stage.voice`, ending when `stage.el` leaves
- * the page. `rig`: the house's rig (the art step's, or standInRig(house) from mentat-face-standin.js). Returns the
+ * the page. `rig`: the house's rig (rigFor(house) of mentat-face-rigs.js). Returns the
  * face, or null when there is nothing to animate (no voice, no portrait) or the rig is bad (a warning says why):
  * the briefing never breaks for its face.
  */
 export function attachMentatFace(stage, rig, opts = {}) {
-  const svg = stage?.portrait?.querySelector?.('svg');
-  if (!stage?.voice || !svg || !rig) return null;
+  const art = stage?.portrait?.querySelector?.('.cp-mentat-art');
+  if (!stage?.voice || !art || !rig) return null;
   try {
-    return new MentatFace({ rig, voice: stage.voice, el: stage.el ?? stage.portrait, svg, ...opts });
+    return new MentatFace({ rig, voice: stage.voice, el: stage.el ?? stage.portrait, art, ...opts });
   } catch (err) {
     console.warn('mentat face:', err?.message ?? err);
     return null;

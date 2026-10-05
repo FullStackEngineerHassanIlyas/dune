@@ -10,7 +10,7 @@ import { MentatTrack, VISEMES, EXPRESSIONS } from '../src/audio/mentat-voice.js'
 import { mentatSvg } from '../src/ui/campaign/portraits.js';
 import { MentatFace, createMentatFace, attachMentatFace } from '../src/ui/campaign/mentat-face.js';
 import { POSE, tables } from '../src/ui/campaign/mentat-face-svg.js';
-import { standInRig } from '../src/ui/campaign/mentat-face-standin.js';
+import { rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
 import { PARAMS, compileRig } from '../src/ui/campaign/mentat-face-rig.js';
 
 // atreides/m1-advice as the voice renders it (assets/voice/mentat/atreides/m1-advice.json): a real track
@@ -38,11 +38,16 @@ function synth(sentences, { cycle = 'maeofl', every = 110, loud = 50, tail = 600
   return { v: 1, id: 'test/synth', ms, lines: sentences.map((_, i) => `Line ${i}.`), words, sentences: sents, visemes: { t: vt, s: vs.join('') }, env: { hz: 30, q } };
 }
 
-// ---- a counting fake DOM, enough for the portrait's SVG ----
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+// ---- a counting fake DOM, enough for the portrait's boxes and the face's SVG ----
 class FakeEl {
   constructor(doc, tag) {
     this.ownerDocument = doc; this.localName = tag; this.tagName = tag; this.nodeType = 1;
-    this.attrs = new Map(); this.childNodes = []; this.parentNode = null; this.style = { visibility: '' };
+    this.attrs = new Map(); this.childNodes = []; this.parentNode = null;
+    // the style's transform is counted (and watched) like an attribute: the head's boxes are moved by it
+    const el = this;
+    this.style = { visibility: '', set transform(v) { el.ownerDocument.sets++; this.t = v; if (el.ownerDocument.watch !== null) el.ownerDocument.watch(v); }, get transform() { return this.t ?? ''; } };
   }
   setAttribute(k, v) { const d = this.ownerDocument; d.sets++; this.attrs.set(k, v); if (d.watch !== null) d.watch(v); }
   getAttribute(k) { return this.attrs.has(k) ? this.attrs.get(k) : null; }
@@ -68,6 +73,7 @@ class FakeEl {
 function fakeDocument() {
   const doc = { created: 0, sets: 0, watch: null };
   doc.createElementNS = (ns, tag) => { doc.created++; return new FakeEl(doc, tag); };
+  doc.createElement = (tag) => { doc.created++; return new FakeEl(doc, tag); };
   doc.body = new FakeEl(doc, 'body');
   return doc;
 }
@@ -81,13 +87,13 @@ function parseSvg(doc, markup) {
     const el = new FakeEl(doc, tag);
     for (const [, k, v] of attrs.matchAll(/([\w:-]+)="([^"]*)"/g)) el.attrs.set(k, v);
     stack.at(-1).appendChild(el);
-    if (!self) stack.push(el);
+    if (!self && tag !== 'img') stack.push(el);   // an <img> has no end tag
   }
   return root.childNodes[0];
 }
 const shape = (n) => `${n.localName}${[...n.attrs].map(([k, v]) => ` ${k}=${v}`).join('')}[${n.childNodes.map(shape).join(',')}]`;
 
-/** A stage as mentatStage makes it: the section in the page, the figure with the portrait's SVG, the voice. */
+/** A stage as mentatStage makes it: the section in the page, the figure with the portrait's boxes, the voice. */
 function makeStage(house, voice, { attach = true } = {}) {
   const doc = fakeDocument();
   const el = new FakeEl(doc, 'section'), portrait = new FakeEl(doc, 'figure');
@@ -139,7 +145,7 @@ function setup(house = 'atreides', json = ADVICE, opts = {}) {
   const voice = fakeVoice(json);
   const stage = makeStage(house, voice);
   const d = frames(voice);
-  const face = attachMentatFace(stage, opts.rig ?? standInRig(house), { raf: d.raf, caf: d.caf, reducedMotion: false, ...opts });
+  const face = attachMentatFace(stage, opts.rig ?? clone(rigFor(house)), { raf: d.raf, caf: d.caf, reducedMotion: false, ...opts });
   return { voice, stage, d, face };
 }
 const sprite = (stage, v) => stage.svg.querySelector(`.cpmf-v-${v}`);
@@ -157,12 +163,24 @@ test('attached, the face waits for a line; then it is drawn into the portrait, i
   d.step();
   const sway = stage.svg.querySelector('.cpm-sway');
   const head = sway.querySelector('.cpmf-head');
-  assert.equal(sway.childNodes.length, 1, 'the head group holds what the sway held');
+  assert.equal(sway.childNodes.length, 1, 'the head box holds what the sway held');
   assert.equal(head.parentNode, sway);
-  const inner = head.querySelector('.cpmf-face').parentNode;
-  assert.deepEqual(inner.childNodes.map((n) => n.attrs.get('class') ?? n.localName), ['image', 'cpmf-face', 'cpm-blink'], 'the face sits over the head painting, under the blink');
-  assert.match(inner.childNodes[0].attrs.get('href'), /atreides-head\.webp$/);
-  assert.equal(head.querySelector('.cpmf-face').getAttribute('display'), 'inline');
+  // the head's boxes: one nods, one rolls about the pivot, and inside it the painting, the face's SVG, the CSS blink
+  const roll = head.querySelector('.cpmf-roll');
+  assert.equal(roll.parentNode, head);
+  assert.match(roll.getAttribute('style'), /transform-origin:50% 62\.\d+%/, 'rolls about the neck\'s root');
+  assert.deepEqual(roll.childNodes.map((n) => n.attrs.get('class')), ['cpm-l', 'cpmf-svg', 'cpm-l cpm-blink'], 'the face sits over the head painting, under the blink');
+  assert.match(roll.childNodes[0].attrs.get('src'), /atreides-head\.webp$/);
+  const svg = head.querySelector('.cpmf-svg');
+  assert.equal(svg.localName, 'svg');
+  assert.match(svg.getAttribute('viewBox'), /^[\d.]+ [\d.]+ [\d.]+ [\d.]+$/, 'the SVG covers the face in frame units');
+  const root = head.querySelector('.cpmf-face');
+  assert.equal(root.parentNode, svg);
+  assert.equal(root.getAttribute('display'), 'inline');
+  // the layers in the SVG: the brows' bare patches of head first, the brows' own sprites last (over the lids)
+  assert.deepEqual(root.childNodes.map((n) => n.attrs.get('class')).filter((c) => /^cpmf-(bases|brows)$/.test(c)), ['cpmf-bases', 'cpmf-brows']);
+  assert.equal(root.childNodes.at(-1).attrs.get('class'), 'cpmf-brows');
+  assert.ok(root.childNodes.findIndex((n) => /lid/.test(n.attrs.get('class') ?? '')) < root.childNodes.length - 1);
   assert.equal(stage.svg.querySelector('.cpm-blink').style.visibility, 'hidden', 'the face blinks for the CSS while it runs');
   assert.equal(sprite(stage, 'rest'), null, 'at rest the painting\'s own mouth shows');
   for (const v of VISEMES.slice(1)) assert.ok(sprite(stage, v));
@@ -195,8 +213,8 @@ test('the mouth follows the voice: the shape held is the sprite shown, the jaw o
     if (face.w[3] > 0.9) open = Math.max(open, sy);
     if (face.w[1] > 0.95) closedMax = Math.max(closedMax, sy);
   });
-  assert.ok(open > 1.15, `the jaw opens on A: ${open}`);
-  assert.ok(closedMax < 1.06, `and stays shut on M/B/P: ${closedMax}`);
+  assert.ok(open > 1.06, `the jaw opens on A: ${open}`);
+  assert.ok(closedMax < 1.03, `and stays shut on M/B/P: ${closedMax}`);
 });
 
 test('nothing pops: from frame to frame at 60, 30 or 144 fps the mouth, jaw, brows and head move in small steps', () => {
@@ -225,28 +243,28 @@ test('nothing pops: from frame to frame at 60, 30 or 144 fps the mouth, jaw, bro
   }
 });
 
-test('expressions ease in over about 200 ms (the head 350 ms) without overshoot, and hold between sentences', () => {
+test('expressions ease in over the rig\'s easing time (the head\'s longer) without overshoot, and hold between sentences', () => {
   const json = synth([[200, 1500, 'neutral'], [1900, 3400, 'angry'], [3800, 5000, 'pleased']]);
   const { voice, d, face } = setup('harkonnen', json);
-  const { targets, exprIndex } = compileRig(standInRig('harkonnen'));
+  const { targets, exprIndex } = compileRig(rigFor('harkonnen'));
   const neutral = targets[exprIndex.neutral], angry = targets[exprIndex.angry];
   voice.play();
   while (voice.clock[0] < 1.85) d.step(16);
   for (let p = 0; p < PARAMS.length; p++) assert.ok(Math.abs(face.e[p] - neutral[p]) < 0.01, `neutral ${PARAMS[p]}`);
-  // the step to angry: under way at 100 ms, within 5 % at 200 ms, never past the target
+  // the step to angry: under way at half the rig's easing time, within 5 % at that time (the head's: at its own), never past
+  const { ease, headEase } = compileRig(rigFor('harkonnen')).motion, E = ease * 1000, H = headEase * 1000;
   while (voice.clock[0] < 1.9) d.step(16);
   const from = Float64Array.from(face.e);
   const at = (ms) => { while (voice.clock[0] < 1.9 + ms / 1000) d.step(16); return Float64Array.from(face.e); };
-  const e100 = at(100), e200 = at(210);
-  const e350 = at(360);
+  const eHalf = at(E / 2), eDone = at(E * 1.05), eHead = at(H * 1.05);
   for (let p = 0; p < PARAMS.length; p++) {
     const span = angry[p] - from[p];
     if (Math.abs(span) < 0.05) continue;
-    const f100 = (e100[p] - from[p]) / span, f200 = (e200[p] - from[p]) / span, f350 = (e350[p] - from[p]) / span;
-    assert.ok(f100 > 0.1 && f100 < 0.9, `${PARAMS[p]} at 100 ms: ${f100.toFixed(2)}`);
-    if (PARAMS[p] === 'tilt' || PARAMS[p] === 'nod') {   // the head is heavier: it settles in 350 ms
-      assert.ok(f200 > 0.5 && f200 < 0.94 && f350 > 0.94 && f350 <= 1 + 1e-9, `${PARAMS[p]}: ${f200.toFixed(3)} at 200 ms, ${f350.toFixed(3)} at 350 ms`);
-    } else assert.ok(f200 > 0.94 && f200 <= 1 + 1e-9 && f350 <= 1 + 1e-9, `${PARAMS[p]} at 200 ms: ${f200.toFixed(3)}`);
+    const f50 = (eHalf[p] - from[p]) / span, fDone = (eDone[p] - from[p]) / span, fHead = (eHead[p] - from[p]) / span;
+    assert.ok(f50 > 0.1 && f50 < 0.9, `${PARAMS[p]} at half the easing: ${f50.toFixed(2)}`);
+    if (PARAMS[p] === 'tilt' || PARAMS[p] === 'nod') {   // the head is heavier: it settles in its own time
+      assert.ok(fDone > 0.5 && fDone < 0.94 && fHead > 0.94 && fHead <= 1 + 1e-9, `${PARAMS[p]}: ${fDone.toFixed(3)} at ${E} ms, ${fHead.toFixed(3)} at ${H} ms`);
+    } else assert.ok(fDone > 0.94 && fDone <= 1 + 1e-9 && fHead <= 1 + 1e-9, `${PARAMS[p]} at ${E} ms: ${fDone.toFixed(3)}`);
   }
   // between sentences (3.4 … 3.8 s) the anger holds while the mouth closes
   while (voice.clock[0] < 3.75) d.step(16);
@@ -331,7 +349,7 @@ test('destroy() mid-line puts the portrait back; a line for a stage already gone
   assert.equal(b.d.requests, 0);
   // never shown at all: it gives up after a few frames
   const voice = fakeVoice(ADVICE), stage = makeStage('atreides', voice, { attach: false }), d = frames(voice);
-  const face = createMentatFace({ rig: standInRig('atreides'), voice, el: stage.el, svg: stage.svg, raf: d.raf, caf: d.caf, reducedMotion: false });
+  const face = createMentatFace({ rig: clone(rigFor('atreides')), voice, el: stage.el, art: stage.svg, raf: d.raf, caf: d.caf, reducedMotion: false });
   voice.play();
   d.run(0.2);
   assert.equal(face.destroyed, true);
@@ -342,21 +360,21 @@ test('Mentat voice Off: no line ever sounds, so the portrait stays the still pai
   voice.enabled = false;            // MentatVoice.say() gives null: no 'line' is ever emitted
   const stage = makeStage('harkonnen', voice), d = frames(voice);
   const before = shape(stage.svg);
-  const face = attachMentatFace(stage, standInRig('harkonnen'), { raf: d.raf, caf: d.caf });
+  const face = attachMentatFace(stage, clone(rigFor('harkonnen')), { raf: d.raf, caf: d.caf });
   assert.ok(face);
   for (let i = 0; i < 60; i++) d.step();
   assert.equal(d.requests, 0);
   assert.equal(shape(stage.svg), before);
   assert.equal(face.running, false);
   // and nothing to attach to
-  assert.equal(attachMentatFace({ ...stage, voice: null }, standInRig('harkonnen')), null);
-  assert.equal(attachMentatFace({ ...stage, portrait: null }, standInRig('harkonnen')), null);
+  assert.equal(attachMentatFace({ ...stage, voice: null }, rigFor('harkonnen')), null);
+  assert.equal(attachMentatFace({ ...stage, portrait: null }, rigFor('harkonnen')), null);
   assert.equal(attachMentatFace(stage, null), null);
 });
 
 test('a bad rig does not break the briefing: attach warns and gives null; createMentatFace throws', () => {
   const voice = fakeVoice(ADVICE), stage = makeStage('ordos', voice);
-  const bad = standInRig('ordos');
+  const bad = clone(rigFor('ordos'));
   delete bad.expressions.sad;
   const warn = console.warn, said = [];
   console.warn = (...a) => said.push(a.join(' '));
@@ -417,7 +435,7 @@ test('the frame loop allocates nothing: no heap growth over 10k frames, no eleme
   const sentences = Array.from({ length: 12 }, (_, i) => [i * 2500 + 150, i * 2500 + 2200, EXPRESSIONS[i % 7]]);
   const voice = replayVoice(synth(sentences, { every: 90 }));
   const stage = makeStage('harkonnen', voice), d = frames(null);
-  const face = createMentatFace({ rig: standInRig('harkonnen'), voice, el: stage.el, svg: stage.svg, raf: d.raf, caf: d.caf, reducedMotion: false });
+  const face = createMentatFace({ rig: clone(rigFor('harkonnen')), voice, el: stage.el, art: stage.svg, raf: d.raf, caf: d.caf, reducedMotion: false });
   assert.equal(face.running, true, 'a line was playing when it was made');
   const loop = (n) => { for (let i = 0; i < n; i++) d.step(i % 3 === 2 ? 18 : 16); };
   loop(20000);   // warm: the engine's code optimised
@@ -444,4 +462,67 @@ test('the frame loop allocates nothing: no heap growth over 10k frames, no eleme
   assert.equal(foreign, 0, 'every value written is one of the strings made at the start');
   assert.ok(doc.sets > sets + 10000, 'and the face did draw');
   assert.ok(face.running && face.frames === 40000);
+});
+
+test('each corner of the mouth moves its own half: a sneer lifts one side while the other stays or falls', () => {
+  const { voice, stage, d, face } = setup('harkonnen', synth([[100, 3000, 'sly'], [3300, 6000, 'angry']], { cycle: 'aeo' }));
+  voice.play();
+  d.run(2.6);
+  const e = face.e, rig = rigFor('harkonnen');
+  assert.ok(e[5] > 0.1 && e[6] > 0.9, `Radnor's sly look: the corners ${e[5].toFixed(2)} / ${e[6].toFixed(2)}`);
+  // the right half is skewed up by about the corner's lift over the half width; the left is nearly level
+  const lift = rig.mouth.lift, half = rig.mouth.halfWidth;
+  const wantR = -Math.atan(e[6] * lift / half) * 57.29578, wantL = Math.atan(e[5] * lift / half) * 57.29578;
+  assert.ok(Math.abs(face.pose[POSE.mouthSkewR] - wantR) < 1e-6 && Math.abs(face.pose[POSE.mouthSkew] - wantL) < 1e-6);
+  assert.ok(face.pose[POSE.mouthSkewR] < -5 && Math.abs(face.pose[POSE.mouthSkew]) < 2, `${face.pose[POSE.mouthSkew].toFixed(2)} / ${face.pose[POSE.mouthSkewR].toFixed(2)} degrees`);
+  // the sprites are drawn once and shown by two halves, each under a mask, the two added up (so no hairline shows between them)
+  const uses = stage.svg.querySelectorAll('use');
+  assert.equal(uses.length, 2);
+  assert.deepEqual(stage.svg.querySelectorAll('g').filter((g) => /plus-lighter/.test(g.getAttribute('style') ?? '')).length, 2);
+  for (const u of uses) assert.equal(u.getAttribute('href'), `#${face.uid}-stack`);
+  const stack = stage.svg.querySelector('defs').querySelectorAll('g').find((g) => g.getAttribute('id') === `${face.uid}-stack`);
+  assert.equal(stack.querySelectorAll('image').length, VISEMES.length - 1, 'one image per sprite, once');
+  // angry: the left corner now falls, the right stays up (the skews have opposite senses on the two halves)
+  d.run(3.2);
+  assert.ok(face.e[5] < -0.4 && face.pose[POSE.mouthSkew] < 0 && face.pose[POSE.mouthSkewR] < 0);
+});
+
+test('a brow is a cut-out over a bare patch of the head, drawn only while it is moved; the lids are a sprite per eye', () => {
+  const { voice, stage, d, face } = setup('ordos', synth([[100, 2000, 'neutral'], [2400, 4200, 'sly']]));
+  const rig = rigFor('ordos');
+  voice.play();
+  d.step();
+  const root = stage.svg.querySelector('.cpmf-face');
+  const bases = stage.svg.querySelector('.cpmf-bases'), brows = stage.svg.querySelector('.cpmf-brows');
+  assert.equal(root.childNodes[0], bases, 'the patches under everything');
+  for (const side of ['left', 'right']) {
+    const base = bases.querySelector(`.cpmf-brow-${side}-base`), brow = brows.querySelector(`.cpmf-brow-${side}`);
+    assert.ok(base && brow);
+    assert.match(base.getAttribute('href'), new RegExp(`ordos-browbase-${side}\\.webp$`));
+    assert.match(brow.querySelector('image').getAttribute('href'), new RegExp(`ordos-brow-${side}\\.webp$`));
+    const lid = stage.svg.querySelector(`.cpmf-lid-${side}`);
+    assert.match(lid.getAttribute('href'), new RegExp(`ordos-lid-${side}\\.webp$`));
+    assert.equal(lid.getAttribute('x'), String(rig.lids[side].box[0]), 'the eye\'s own sprite sits at its own box');
+  }
+  // Ammon's neutral lifts his right brow a little: that one is in the picture while he speaks
+  d.run(0.6);
+  assert.equal(bases.querySelector('.cpmf-brow-right-base').getAttribute('display'), 'inline');
+  assert.equal(brows.querySelector('.cpmf-brow-right').getAttribute('display'), 'inline');
+  // the line ends and the look is let go: the whole face is out of the picture, the painting alone shows
+  voice.end();
+  d.run(4);
+  assert.equal(face.running, false);
+  assert.equal(root.getAttribute('display'), 'none');
+});
+
+test('a brow that rests at the painting is out of the picture: patch and cut-out show only while it is moved', () => {
+  const { voice, stage, d } = setup('harkonnen', synth([[100, 1500, 'sly']], { tail: 100 }));
+  voice.play();
+  d.run(0.05);
+  // Radnor's sly look raises his right brow and lowers his left a little: the first frames have not moved them far yet
+  const left = stage.svg.querySelector('.cpmf-brows').querySelector('.cpmf-brow-left'), right = stage.svg.querySelector('.cpmf-brows').querySelector('.cpmf-brow-right');
+  d.run(1);
+  for (const brow of [left, right]) assert.equal(brow.getAttribute('display'), 'inline');
+  const base = stage.svg.querySelector('.cpmf-bases').querySelector('.cpmf-brow-left-base');
+  assert.equal(base.getAttribute('display'), left.getAttribute('display'), 'the patch and the cut-out go together');
 });

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { omegaFor, springStep, visemeTargets, normalizeWeights, stackAlphas, openness, Blinker } from '../src/ui/campaign/mentat-face-motion.js';
 import { validateRig, compileRig, assertRig, PARAMS, PARAM_RANGE, VISEMES, EXPRESSIONS } from '../src/ui/campaign/mentat-face-rig.js';
-import { standInRig, standInRigs, mouthSpriteSvg, mouthBox, FACE_SPOTS, EXPRESSION_SETS } from '../src/ui/campaign/mentat-face-standin.js';
+import { MENTAT_RIGS, rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
 import { PORTRAITS } from '../src/ui/campaign/portraits-layers.js';
 
 const HOUSES = ['atreides', 'harkonnen', 'ordos'];
@@ -102,68 +102,53 @@ test('blinks come on a seeded schedule within their interval, close fully and op
   assert.equal(n.nudge(2.1), false, 'just blinked');
 });
 
-test('the stand-in rigs are valid, sit on today\'s paintings and give every viseme and expression', () => {
-  const rigs = standInRigs();
+test('the Mentats\' rigs are valid, sit on the baked paintings and give every viseme and expression', () => {
   for (const h of HOUSES) {
-    const rig = rigs[h];
+    const rig = rigFor(h);
     assert.deepEqual(validateRig(rig), { ok: true, errors: [] }, h);
     assert.equal(rig.name, PORTRAITS[h].name);
     assert.deepEqual(rig.head.box, PORTRAITS[h].layers.head);
-    assert.deepEqual(rig.lids.box, PORTRAITS[h].layers.lids);
+    assert.deepEqual(rig.head.pivot, PORTRAITS[h].pivot);
     assert.equal(rig.mouth.sprites.rest, null, 'at rest the painting\'s own mouth shows');
-    for (const v of VISEMES.slice(1)) assert.match(rig.mouth.sprites[v], /^data:image\/svg\+xml/);
-    const [x, y, w, hh] = rig.head.box, [mx, my] = FACE_SPOTS[h].mid;
-    assert.ok(mx > x && mx < x + w && my > y && my < y + hh, 'the mouth is on the head');
-    const [bx, by, bw, bh] = rig.mouth.box;
-    for (const [cx, cy] of FACE_SPOTS[h].corners) assert.ok(cx > bx && cx < bx + bw && cy > by && cy < by + bh, 'the corners are in the mouth box');
+    for (const v of VISEMES.slice(1)) assert.match(rig.mouth.sprites[v], new RegExp(`/${h}-mouth-${v}\\.webp$`));
+    // the mouth is on the head, and its corners (the sprite's middle and half width) in the mouth's box
+    const [x, y, w, hh] = rig.head.box, [bx, by, bw, bh] = rig.mouth.box;
+    assert.ok(bx > x && bx + bw < x + w && by > y && by + bh < y + hh, 'the mouth is on the head');
+    assert.ok(rig.mouth.center - rig.mouth.halfWidth > bx && rig.mouth.center + rig.mouth.halfWidth < bx + bw, 'the corners are in the mouth box');
     for (const e of EXPRESSIONS) assert.ok(rig.expressions[e], `${h} ${e}`);
     const c = compileRig(rig);
     assert.equal(c.targets.length, EXPRESSIONS.length);
     assert.ok(c.targets.every((t) => t.length === PARAMS.length && t.every(Number.isFinite)));
   }
-  assert.equal(standInRig('fremen'), null);
+  assert.equal(rigFor('fremen'), null);
+  assert.deepEqual(Object.keys(MENTAT_RIGS), HOUSES);
 });
 
 test('each Mentat\'s expressions are in character: Cyril\'s kindly concern, Radnor\'s sneer, Ammon\'s sly half-smile', () => {
-  const { atreides: cy, harkonnen: ra, ordos: am } = EXPRESSION_SETS;
+  const { atreides: cy, harkonnen: ra, ordos: am } = Object.fromEntries(HOUSES.map((h) => [h, rigFor(h).expressions]));
   // Cyril: concern lifts his inner brows (furrow < 0) when he warns or grieves; warmth turns both corners up
-  assert.ok(cy.warning.furrow < 0 && cy.sad.furrow < 0 && cy.neutral.furrow <= 0);
+  assert.ok(cy.warning.furrow < 0 && cy.sad.furrow < 0 && (cy.neutral.furrow ?? 0) <= 0);
   assert.ok(cy.pleased.cornerL > 0.4 && cy.pleased.cornerR > 0.4 && Math.abs(cy.pleased.cornerL - cy.pleased.cornerR) < 0.1, 'an even smile');
   assert.ok(cy.sad.cornerL < 0 && cy.sad.nod > 0);
   // Radnor: the sneer is one-sided (his smirk's side up, the other down) under drawn-down brows
   for (const e of ['neutral', 'sly', 'pleased']) assert.ok(ra[e].cornerR - ra[e].cornerL > 0.25, `Radnor ${e}`);
-  assert.ok(ra.sly.cornerR >= 0.7 && ra.sly.cornerL <= 0 && ra.sly.browL < 0 && ra.sly.lidL > 0.3);
-  assert.ok(ra.angry.furrow === 1 && ra.angry.browL < -0.5);
-  // Ammon: one brow up and a smile on one side, the lids lowered
+  assert.ok(ra.sly.cornerR >= 0.7 && ra.sly.cornerL <= 0.2 && ra.sly.browL < 0 && ra.sly.browR > 0.4 && ra.sly.lidL > 0.15);
+  assert.ok(ra.angry.furrow === 1 && ra.angry.browL < -0.4 && ra.angry.browR < -0.4);
+  // Ammon: one brow up and a smile on one side, the lids a little lowered
   for (const e of ['neutral', 'sly']) assert.ok(am[e].browR > (am[e].browL ?? 0) && am[e].cornerR > am[e].cornerL, `Ammon ${e}`);
-  assert.ok(am.sly.browR >= 0.5 && am.sly.cornerR - am.sly.cornerL >= 0.5 && am.sly.lidL >= 0.3);
+  assert.ok(am.sly.browR >= 0.5 && am.sly.cornerR - am.sly.cornerL >= 0.5 && am.sly.lidL >= 0.2);
+  // none of it a cartoon: a lid never more than a third down, a brow never past its range, a head never far over
   for (const set of [cy, ra, am]) for (const t of Object.values(set)) for (const [k, v] of Object.entries(t)) {
     const [lo, hi] = PARAM_RANGE[k];
     assert.ok(v >= lo && v <= hi, `${k} ${v}`);
-  }
-});
-
-test('the stand-in mouth sprites are well-formed SVG drawn in the mouth\'s box', () => {
-  for (const h of HOUSES) {
-    const [bx, by, bw, bh] = mouthBox(FACE_SPOTS[h]);
-    for (const v of VISEMES.slice(1)) {
-      const svg = mouthSpriteSvg(h, v);
-      assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'), `${h} ${v}`);
-      assert.ok(svg.includes(`viewBox="${bx} ${by} ${bw} ${bh}"`));
-      assert.ok(!/NaN|undefined|Infinity/.test(svg), `${h} ${v}: a bad number`);
-      const ids = [...svg.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
-      assert.equal(new Set(ids).size, ids.length, 'unique ids');
-      for (const [, ref] of svg.matchAll(/url\(#([^)]+)\)/g)) assert.ok(ids.includes(ref), `${h} ${v}: #${ref} is defined`);
-      assert.ok(svg.length < 40000);
-    }
-    assert.equal(mouthSpriteSvg(h, 'rest'), null);
-    // open shapes have an inside; the closed lips do not
-    assert.ok(mouthSpriteSvg(h, 'A').includes('clip-path') && !mouthSpriteSvg(h, 'MBP').includes('clip-path'));
+    if (k === 'lidL' || k === 'lidR') assert.ok(v <= 0.34, `${k} ${v}`);
+    if (k === 'tilt') assert.ok(Math.abs(v) <= 2, `${k} ${v}`);
+    if (k === 'nod') assert.ok(Math.abs(v) <= 2.5, `${k} ${v}`);
   }
 });
 
 test('a bad rig is told what is wrong, field by field', () => {
-  const good = standInRig('ordos');
+  const good = clone(rigFor('ordos'));
   const cases = [
     [(r) => { r.v = 2; }, /v must be 1/],
     [(r) => { delete r.mouth.sprites.O; }, /mouth\.sprites\.O is missing/],
@@ -174,7 +159,10 @@ test('a bad rig is told what is wrong, field by field', () => {
     [(r) => { r.mouth.hinge = 10; }, /mouth\.hinge/],
     [(r) => { r.brows.left.box = [1, 2, 3]; }, /brows\.left\.box must be a box/],
     [(r) => { r.brows.right.feather = 3; }, /brows\.right\.feather/],
-    [(r) => { r.lids.left.box = [0, 0, 20, 20]; }, /lids\.left\.box must lie in lids\.box/],
+    [(r) => { r.brows.left.base = { src: '' }; }, /brows\.left\.base must be/],
+    [(r) => { r.brows.right.base.box = [390, 490, 40, 40]; }, /brows\.right\.base\.box lies outside the frame/],
+    [(r) => { delete r.lids.left.src; }, /lids\.src must be the closed eyes/],
+    [(r) => { r.lids.left.box = [0, 0, 20, 20]; }, /lids\.left\.open must lie in lids\.left\.box/],
     [(r) => { r.lids.right.open = [190, 170]; }, /lids\.right\.open/],
     [(r) => { r.head.src = ''; }, /head\.src/],
     [(r) => { delete r.expressions.sly; }, /expressions\.sly is missing/],
