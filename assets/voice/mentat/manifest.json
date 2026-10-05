@@ -1,0 +1,767 @@
+{
+ "version": 1,
+ "lufs": -19.0,
+ "mentats": {
+  "atreides": {
+   "name": "Cyril",
+   "voice": "bm_george*0.6+bm_fable*0.4",
+   "speed": 0.82,
+   "tape": 0.94,
+   "room": "Caladan sea window"
+  },
+  "harkonnen": {
+   "name": "Radnor",
+   "voice": "bm_daniel*0.6+am_onyx*0.4",
+   "speed": 0.85,
+   "tape": 0.9,
+   "room": "Harkonnen furnace hall"
+  },
+  "ordos": {
+   "name": "Ammon",
+   "voice": "am_eric*0.6+bm_lewis*0.4",
+   "speed": 0.82,
+   "tape": 1.0,
+   "room": "Ordos ice hall"
+  }
+ },
+ "clips": {
+  "atreides/page-1": {
+   "file": "atreides/page-1.ogg",
+   "track": "atreides/page-1.json",
+   "seconds": 8.31,
+   "text": "House Atreides rules by trust, not by terror.\nIts people serve it because they believe in it."
+  },
+  "atreides/page-2": {
+   "file": "atreides/page-2.ogg",
+   "track": "atreides/page-2.json",
+   "seconds": 7.8,
+   "text": "The Duke leads his soldiers from the front.\nHe listens before he judges, and keeps his word."
+  },
+  "atreides/page-3": {
+   "file": "atreides/page-3.ogg",
+   "track": "atreides/page-3.json",
+   "seconds": 8.403,
+   "text": "Its home is Caladan, a mild world of seas and fields,\nwhere farms and industry thrive side by side."
+  },
+  "atreides/question": {
+   "file": "atreides/question.ogg",
+   "track": "atreides/question.json",
+   "seconds": 3.199,
+   "text": "Will you stand with House Atreides?"
+  },
+  "atreides/m1-briefing": {
+   "file": "atreides/m1-briefing.ogg",
+   "track": "atreides/m1-briefing.json",
+   "seconds": 35.738,
+   "text": "Welcome to Arrakis, Commander. I am Cyril,\nMentat of House Atreides. I will advise you here.\nThe Emperor cares for one thing here: spice.\nHis decree gives Arrakis to his best supplier.\nWe begin with a modest task: harvest spice until\n1000 credits are held safely in our stores.\nOrdos patrols roam this basin. They have no base,\nbut they will not leave our Harvester in peace."
+  },
+  "atreides/m1-advice": {
+   "file": "atreides/m1-advice.ogg",
+   "track": "atreides/m1-advice.json",
+   "seconds": 16.855,
+   "text": "Lay concrete before anything else. Buildings set on\nbare rock start weakened.\nThen raise a Wind Trap for power, and after it a\nSpice Refinery. The Refinery brings its own Harvester."
+  },
+  "atreides/m1-win": {
+   "file": "atreides/m1-win.ogg",
+   "track": "atreides/m1-win.json",
+   "seconds": 9.442,
+   "text": "Well done. Our stores are full and our people fed.\nThe Duke will hear of this from me in person."
+  },
+  "atreides/m1-lose": {
+   "file": "atreides/m1-lose.ogg",
+   "track": "atreides/m1-lose.json",
+   "seconds": 11.021,
+   "text": "The quota was not met. That is no disgrace.\nRest, Commander. We will begin again together."
+  },
+  "atreides/m2-briefing": {
+   "file": "atreides/m2-briefing.ogg",
+   "track": "atreides/m2-briefing.json",
+   "seconds": 31.088,
+   "text": "Your first harvest has impressed the Duke.\nNow we move into richer ground, and a harder one.\nThe Ordos have built a base nearby. Their merchants\nwould rather buy this land than fight for it,\nbut they will fight if they are pressed.\nStore 2700 credits of spice or, if you prefer the\ndirect path, destroy the Ordos base outright.\nEither will satisfy the Duke."
+  },
+  "atreides/m2-advice": {
+   "file": "atreides/m2-advice.ogg",
+   "track": "atreides/m2-advice.json",
+   "seconds": 16.953,
+   "text": "Only spice held in storage counts toward the quota.\nBuild Spice Silos so that none of it goes to waste.\nA Radar Outpost lets you build a Barracks, and the\nHeavy Factory now turns out Trikes for scouting."
+  },
+  "atreides/m2-win": {
+   "file": "atreides/m2-win.ogg",
+   "track": "atreides/m2-win.json",
+   "seconds": 7.786,
+   "text": "Excellent work. The Ordos have learned that House\nAtreides cannot be bought or bullied."
+  },
+  "atreides/m2-lose": {
+   "file": "atreides/m2-lose.ogg",
+   "track": "atreides/m2-lose.json",
+   "seconds": 10.033,
+   "text": "The Ordos outlasted us this time. Do not despair.\nStudy their defences before you return."
+  },
+  "atreides/m3-briefing": {
+   "file": "atreides/m3-briefing.ogg",
+   "track": "atreides/m3-briefing.json",
+   "seconds": 29.316,
+   "text": "The Harkonnen have arrived, as we knew they would.\nThey take what they want and burn what they cannot.\nWe cannot share this world with them.\nFind their base and destroy it. Every building\nof theirs must fall before the region is ours.\nBe watchful in the open sand. The great worms of\nArrakis have been seen here, and they hunt by sound."
+  },
+  "atreides/m3-advice": {
+   "file": "atreides/m3-advice.ogg",
+   "track": "atreides/m3-advice.json",
+   "seconds": 12.217,
+   "text": "Upgrade the Heavy Factory and it will build Quads.\nThey are faster and tougher than Trikes.\nKeep your vehicles on rock when worms are near."
+  },
+  "atreides/m3-win": {
+   "file": "atreides/m3-win.ogg",
+   "track": "atreides/m3-win.json",
+   "seconds": 7.141,
+   "text": "A fine victory. The Harkonnen have been taught\nthat our patience is not weakness."
+  },
+  "atreides/m3-lose": {
+   "file": "atreides/m3-lose.ogg",
+   "track": "atreides/m3-lose.json",
+   "seconds": 9.342,
+   "text": "The Harkonnen held. Their cruelty makes them\nstubborn defenders. Rebuild, and we shall try again."
+  },
+  "atreides/m4-briefing": {
+   "file": "atreides/m4-briefing.ogg",
+   "track": "atreides/m4-briefing.json",
+   "seconds": 25.898,
+   "text": "The Harkonnen have returned with more troops,\nand they are raiding our Harvesters in the sand.\nSomething stranger troubles me. Sardaukar troopers,\nthe Emperor's own soldiers, have been seen here.\nThey come by Carryall and strike without warning.\nDestroy the Harkonnen base, and be ready for\nwhoever else drops out of the sky."
+  },
+  "atreides/m4-advice": {
+   "file": "atreides/m4-advice.ogg",
+   "track": "atreides/m4-advice.json",
+   "seconds": 15.877,
+   "text": "The Heavy Factory can now be upgraded for Combat Tanks.\nOne Combat Tank is worth several light vehicles.\nWalls will slow the raiders down, and a second\nHarvester will keep the credits coming."
+  },
+  "atreides/m4-win": {
+   "file": "atreides/m4-win.ogg",
+   "track": "atreides/m4-win.json",
+   "seconds": 7.655,
+   "text": "The Harkonnen are beaten again. You have earned\nthe trust of every soldier in this army."
+  },
+  "atreides/m4-lose": {
+   "file": "atreides/m4-lose.ogg",
+   "track": "atreides/m4-lose.json",
+   "seconds": 7.967,
+   "text": "We could not break them. The fault is not yours;\nthe Sardaukar were more than any of us expected."
+  },
+  "atreides/m5-briefing": {
+   "file": "atreides/m5-briefing.ogg",
+   "track": "atreides/m5-briefing.json",
+   "seconds": 31.345,
+   "text": "I have troubling news. The Sardaukar we met were no\naccident. The Emperor himself is arming our rivals.\nThis contest is not as open as he claimed.\nThe Ordos have profited most from his favour.\nThey have built a strong base, and mean to use it.\nDestroy it, Commander. Let them find out what their\nbargain with the Emperor has bought them."
+  },
+  "atreides/m5-advice": {
+   "file": "atreides/m5-advice.ogg",
+   "track": "atreides/m5-advice.json",
+   "seconds": 17.322,
+   "text": "A Hi-Tech Factory builds Carryalls. They lift\nHarvesters to the spice and back, saving time.\nBuild a Repair Facility, and upgrade the Heavy\nFactory for Missile Tanks. They strike from range."
+  },
+  "atreides/m5-win": {
+   "file": "atreides/m5-win.ogg",
+   "track": "atreides/m5-win.json",
+   "seconds": 7.506,
+   "text": "The Ordos base is gone, and their bargain with it.\nYou have done the Duke a great service."
+  },
+  "atreides/m5-lose": {
+   "file": "atreides/m5-lose.ogg",
+   "track": "atreides/m5-lose.json",
+   "seconds": 8.908,
+   "text": "The Ordos held, with the Emperor's help. We are not\nfinished. Regroup, and we will strike again."
+  },
+  "atreides/m6-briefing": {
+   "file": "atreides/m6-briefing.ogg",
+   "track": "atreides/m6-briefing.json",
+   "seconds": 24.947,
+   "text": "The Harkonnen are desperate, and desperate men\nstrike hardest. They will attack while we attack.\nWe must hold our ground and push forward at once.\nTheir base lies across the open sand. Destroy it.\nGuard our own walls as well: the Emperor's\nSardaukar may yet return to aid them."
+  },
+  "atreides/m6-advice": {
+   "file": "atreides/m6-advice.ogg",
+   "track": "atreides/m6-advice.json",
+   "seconds": 20.773,
+   "text": "Upgrade the Construction Yard for Rocket Turrets.\nThey guard the base while your army is away.\nA Starport sells vehicles from off-world. Its\nprices change, so buy when they are low.\nSiege Tanks are now ready at the Heavy Factory."
+  },
+  "atreides/m6-win": {
+   "file": "atreides/m6-win.ogg",
+   "track": "atreides/m6-win.json",
+   "seconds": 10.098,
+   "text": "The Harkonnen are scattered. You held the line and\nstruck at the same time. That is a rare skill."
+  },
+  "atreides/m6-lose": {
+   "file": "atreides/m6-lose.ogg",
+   "track": "atreides/m6-lose.json",
+   "seconds": 8.152,
+   "text": "We were stretched too thin, defending and attacking\nat once. Strengthen the base before you go again."
+  },
+  "atreides/m7-briefing": {
+   "file": "atreides/m7-briefing.ogg",
+   "track": "atreides/m7-briefing.json",
+   "seconds": 23.902,
+   "text": "A new danger, Commander. The Ordos have built\nnot one base in this region but two.\nBeware their Deviators: they can turn our own\ntanks against us for a time.\nDestroy both bases before they grow any stronger.\nThe Sardaukar could appear at any time, so keep\na reserve at home."
+  },
+  "atreides/m7-advice": {
+   "file": "atreides/m7-advice.ogg",
+   "track": "atreides/m7-advice.json",
+   "seconds": 15.691,
+   "text": "Our engineers have finished the Sonic Tank. Its wave\ncuts through anything in its path, so keep our own\nunits out of its line of fire.\nUpgrade the Hi-Tech Factory to build Ornithopters."
+  },
+  "atreides/m7-win": {
+   "file": "atreides/m7-win.ogg",
+   "track": "atreides/m7-win.json",
+   "seconds": 6.97,
+   "text": "Both Ordos bases are rubble. The Duke sends his\nthanks, and so do I."
+  },
+  "atreides/m7-lose": {
+   "file": "atreides/m7-lose.ogg",
+   "track": "atreides/m7-lose.json",
+   "seconds": 7.266,
+   "text": "Two bases proved too much this time. Strike at one\nfirst, then turn on the other."
+  },
+  "atreides/m8-briefing": {
+   "file": "atreides/m8-briefing.ogg",
+   "track": "atreides/m8-briefing.json",
+   "seconds": 28.445,
+   "text": "The Ordos and the Harkonnen have set aside their\nquarrels and joined against us. One base each lies\nin this region, and both must be destroyed.\nI suspect the Emperor arranged this alliance.\nHis Sardaukar will be watching for their chance.\nThis is the battle that decides Arrakis, Commander.\nFight it as you have fought every other: well."
+  },
+  "atreides/m8-advice": {
+   "file": "atreides/m8-advice.ogg",
+   "track": "atreides/m8-advice.json",
+   "seconds": 16.98,
+   "text": "You may now build a Palace. From it you can call the\nFremen, the desert's own warriors. They cost nothing\nand come again once the Palace has recovered.\nRemember that a Palace needs a Starport first."
+  },
+  "atreides/m8-win": {
+   "file": "atreides/m8-win.ogg",
+   "track": "atreides/m8-win.json",
+   "seconds": 8.298,
+   "text": "Both rival Houses are broken. Only the Emperor\nstands between House Atreides and Arrakis."
+  },
+  "atreides/m8-lose": {
+   "file": "atreides/m8-lose.ogg",
+   "track": "atreides/m8-lose.json",
+   "seconds": 8.533,
+   "text": "Two Houses at once is a heavy burden. Rebuild,\nand let the Fremen strike while our tanks advance."
+  },
+  "atreides/m9-briefing": {
+   "file": "atreides/m9-briefing.ogg",
+   "track": "atreides/m9-briefing.json",
+   "seconds": 28.018,
+   "text": "The mask is off. The Emperor has landed his own\nSardaukar on Arrakis to take the planet himself.\nTwo Sardaukar bases stand before us. They are the\nfinest soldiers in the Empire, and they know it.\nDestroy both bases and the contest is over.\nWhatever happens, Commander, I am proud to have\nserved beside you."
+  },
+  "atreides/m9-advice": {
+   "file": "atreides/m9-advice.ogg",
+   "track": "atreides/m9-advice.json",
+   "seconds": 15.519,
+   "text": "If the Sardaukar hold a Palace, its Death Hand will\nfall on us. Do not crowd your buildings together.\nWatch every flank: they favour sudden raids on\nHarvesters and lightly guarded corners."
+  },
+  "atreides/m9-win": {
+   "file": "atreides/m9-win.ogg",
+   "track": "atreides/m9-win.json",
+   "seconds": 7.405,
+   "text": "It is done. The Sardaukar are defeated and the\nEmperor has nowhere left to hide."
+  },
+  "atreides/m9-lose": {
+   "file": "atreides/m9-lose.ogg",
+   "track": "atreides/m9-lose.json",
+   "seconds": 7.602,
+   "text": "The Sardaukar held. Rest, gather our strength,\nand we will end this on the next attempt."
+  },
+  "atreides/ending": {
+   "file": "atreides/ending.ogg",
+   "track": "atreides/ending.json",
+   "seconds": 35.889,
+   "text": "It is over, Commander. Arrakis is ours.\nThe Emperor has given up his throne, and he will\nstand trial for the treachery he worked against us.\nThe Duke will govern here with justice. The spice\nwill flow, and those who harvest it will be paid.\nThe Ordos and the Harkonnen are gone from this world.\nI take no joy in their fall, only in the peace.\nThank you. It has been an honour to serve with you."
+  },
+  "harkonnen/page-1": {
+   "file": "harkonnen/page-1.ogg",
+   "track": "harkonnen/page-1.json",
+   "seconds": 7.369,
+   "text": "House Harkonnen takes what it wants.\nMercy is a weakness we leave to lesser Houses."
+  },
+  "harkonnen/page-2": {
+   "file": "harkonnen/page-2.ogg",
+   "track": "harkonnen/page-2.json",
+   "seconds": 9.216,
+   "text": "The Baron rewards cunning and punishes failure.\nThose who serve him well grow rich. The rest vanish."
+  },
+  "harkonnen/page-3": {
+   "file": "harkonnen/page-3.ogg",
+   "track": "harkonnen/page-3.json",
+   "seconds": 7.046,
+   "text": "Our home is Giedi Prime, a dark world of iron,\nsmoke and hunger, where only the strong survive."
+  },
+  "harkonnen/question": {
+   "file": "harkonnen/question.ogg",
+   "track": "harkonnen/question.json",
+   "seconds": 3.201,
+   "text": "Will you serve House Harkonnen?"
+  },
+  "harkonnen/m1-briefing": {
+   "file": "harkonnen/m1-briefing.ogg",
+   "track": "harkonnen/m1-briefing.json",
+   "seconds": 33.251,
+   "text": "So, you are the new commander. I am Radnor,\nMentat to the Baron. Try not to bore me.\nThe Emperor is greedy, and Arrakis is his bait.\nFeed him enough spice and he will hand it to us.\nYour first task is beneath a true Harkonnen:\nharvest until 1000 credits sit in our stores.\nSome Atreides soldiers wander this region. Kill\nthem if they get in the way. Kill them if they don't."
+  },
+  "harkonnen/m1-advice": {
+   "file": "harkonnen/m1-advice.ogg",
+   "track": "harkonnen/m1-advice.json",
+   "seconds": 15.531,
+   "text": "Even a child knows to lay concrete first.\nThen a Wind Trap, then a Spice Refinery. The\nRefinery comes with a Harvester. Do not lose it;\nthe Baron hates waste, and those who cause it."
+  },
+  "harkonnen/m1-win": {
+   "file": "harkonnen/m1-win.ogg",
+   "track": "harkonnen/m1-win.json",
+   "seconds": 8.409,
+   "text": "Adequate. The Baron has been told you can count.\nDo not expect praise for doing the obvious."
+  },
+  "harkonnen/m1-lose": {
+   "file": "harkonnen/m1-lose.ogg",
+   "track": "harkonnen/m1-lose.json",
+   "seconds": 8.683,
+   "text": "You failed to gather a little sand. How touching.\nTry again, before the Baron learns your name."
+  },
+  "harkonnen/m2-briefing": {
+   "file": "harkonnen/m2-briefing.ogg",
+   "track": "harkonnen/m2-briefing.json",
+   "seconds": 27.137,
+   "text": "The Atreides have built a base here. Noble fools;\nthey think the Emperor's contest is about honour.\nStore 2700 credits of spice, or wipe their base\nfrom the sand. The spice is what the Baron wants.\nCrushing the Atreides is simply a pleasure.\nI leave the choice to you. Choose wisely, or at\nleast choose quickly."
+  },
+  "harkonnen/m2-advice": {
+   "file": "harkonnen/m2-advice.ogg",
+   "track": "harkonnen/m2-advice.json",
+   "seconds": 14.523,
+   "text": "Spice only counts once it is stored. Build Silos.\nA Radar Outpost will let you build a WOR, which\ntrains Troopers. Put them where the Atreides attack."
+  },
+  "harkonnen/m2-win": {
+   "file": "harkonnen/m2-win.ogg",
+   "track": "harkonnen/m2-win.json",
+   "seconds": 6.578,
+   "text": "The Baron is satisfied, for now. Savour it;\nhis satisfaction never lasts."
+  },
+  "harkonnen/m2-lose": {
+   "file": "harkonnen/m2-lose.ogg",
+   "track": "harkonnen/m2-lose.json",
+   "seconds": 9.493,
+   "text": "Beaten by the Atreides. They will be insufferable.\nGo back, and this time make them suffer instead."
+  },
+  "harkonnen/m3-briefing": {
+   "file": "harkonnen/m3-briefing.ogg",
+   "track": "harkonnen/m3-briefing.json",
+   "seconds": 26.955,
+   "text": "The Ordos have come, smiling and counting coin.\nMerchants. They would sell their own mothers for a\ngood price, and they think we can be bought too.\nShow them otherwise. Find their base and destroy\nit. Leave nothing standing.\nMind the open sand. Worms roam here, and they do not\ncare whose army they swallow."
+  },
+  "harkonnen/m3-advice": {
+   "file": "harkonnen/m3-advice.ogg",
+   "track": "harkonnen/m3-advice.json",
+   "seconds": 11.237,
+   "text": "At last you may build a Heavy Factory. It makes\nQuads, and Quads make the Ordos weep.\nKeep your vehicles on rock when the worms stir."
+  },
+  "harkonnen/m3-win": {
+   "file": "harkonnen/m3-win.ogg",
+   "track": "harkonnen/m3-win.json",
+   "seconds": 6.825,
+   "text": "The Ordos base is ash. Their accountants will\nneed a new column for losses."
+  },
+  "harkonnen/m3-lose": {
+   "file": "harkonnen/m3-lose.ogg",
+   "track": "harkonnen/m3-lose.json",
+   "seconds": 9.391,
+   "text": "Outwitted by shopkeepers. The Baron is not amused.\nTry again, and leave fewer of them breathing."
+  },
+  "harkonnen/m4-briefing": {
+   "file": "harkonnen/m4-briefing.ogg",
+   "track": "harkonnen/m4-briefing.json",
+   "seconds": 29.19,
+   "text": "The Ordos have rebuilt, and they hire well.\nTheir raiders have been picking at our Harvesters.\nThere is more. Sardaukar troopers have been seen,\ndropped in by Carryall. The Emperor's own dogs.\nWhose leash they wear, I have not yet learned.\nDestroy the Ordos base. If the Sardaukar get in\nyour way, destroy them too. Quietly, if you can."
+  },
+  "harkonnen/m4-advice": {
+   "file": "harkonnen/m4-advice.ogg",
+   "track": "harkonnen/m4-advice.json",
+   "seconds": 10.199,
+   "text": "Upgrade the Heavy Factory for Combat Tanks, and\nthe WOR for Trooper squads.\nWalls will keep raiders away from your Refinery."
+  },
+  "harkonnen/m4-win": {
+   "file": "harkonnen/m4-win.ogg",
+   "track": "harkonnen/m4-win.json",
+   "seconds": 9.756,
+   "text": "The Ordos are bleeding money and men. Good.\nThe Baron enjoyed the report. So did I."
+  },
+  "harkonnen/m4-lose": {
+   "file": "harkonnen/m4-lose.ogg",
+   "track": "harkonnen/m4-lose.json",
+   "seconds": 7.489,
+   "text": "The Ordos bought better luck than you had.\nRebuild, and spend our soldiers more wisely."
+  },
+  "harkonnen/m5-briefing": {
+   "file": "harkonnen/m5-briefing.ogg",
+   "track": "harkonnen/m5-briefing.json",
+   "seconds": 27.941,
+   "text": "Interesting. The Emperor has been feeding the\nAtreides weapons while preaching fair play.\nEven I admire the hypocrisy.\nHis Sardaukar may drop in again to help them.\nNo matter. The Atreides have built a fine base.\nBurn it, and destroy anyone who tries to save it.\nThe Baron does not forgive those who arm his foes."
+  },
+  "harkonnen/m5-advice": {
+   "file": "harkonnen/m5-advice.ogg",
+   "track": "harkonnen/m5-advice.json",
+   "seconds": 16.631,
+   "text": "Build a Hi-Tech Factory and it will give you Carryalls\nto carry Harvesters to the spice faster.\nUpgrade the Heavy Factory and it builds Missile Tanks.\nUse them. A Repair Facility will save you a few tanks."
+  },
+  "harkonnen/m5-win": {
+   "file": "harkonnen/m5-win.ogg",
+   "track": "harkonnen/m5-win.json",
+   "seconds": 8.551,
+   "text": "The Atreides base burns. A lovely sight.\nThe Baron has ordered the recording kept."
+  },
+  "harkonnen/m5-lose": {
+   "file": "harkonnen/m5-lose.ogg",
+   "track": "harkonnen/m5-lose.json",
+   "seconds": 10.623,
+   "text": "The Atreides beat you. The Atreides. Think on that.\nThen go back and wipe the smile from their faces."
+  },
+  "harkonnen/m6-briefing": {
+   "file": "harkonnen/m6-briefing.ogg",
+   "track": "harkonnen/m6-briefing.json",
+   "seconds": 25.677,
+   "text": "The Ordos have two bases here, and they are spending\nfreely. Every attack they make costs them a fortune.\nLet them spend. We will attack while they do.\nDestroy both bases. Keep our own walls manned; the\nOrdos like to strike where nobody is looking.\nAnd the Sardaukar still circle, like vultures."
+  },
+  "harkonnen/m6-advice": {
+   "file": "harkonnen/m6-advice.ogg",
+   "track": "harkonnen/m6-advice.json",
+   "seconds": 11.945,
+   "text": "Rocket Turrets come with a Construction Yard upgrade.\nThe Starport sells vehicles cheaply, when the price\nis right. Siege Tanks are ready as well."
+  },
+  "harkonnen/m6-win": {
+   "file": "harkonnen/m6-win.ogg",
+   "track": "harkonnen/m6-win.json",
+   "seconds": 6.377,
+   "text": "Two Ordos bases gone. They will be checking their\nledgers for years."
+  },
+  "harkonnen/m6-lose": {
+   "file": "harkonnen/m6-lose.ogg",
+   "track": "harkonnen/m6-lose.json",
+   "seconds": 8.359,
+   "text": "You let the Ordos sneak in behind you. Again.\nGuard the base this time, and then go back."
+  },
+  "harkonnen/m7-briefing": {
+   "file": "harkonnen/m7-briefing.ogg",
+   "track": "harkonnen/m7-briefing.json",
+   "seconds": 23.765,
+   "text": "The Atreides have dug in with two bases. Their\nSonic Tanks are a nuisance; their pride is worse.\nDestroy both bases. All of them. Every building.\nI want the Duke to hear of it and weep.\nThe Sardaukar may yet drop in on either side, so\nkeep an eye on the sky."
+  },
+  "harkonnen/m7-advice": {
+   "file": "harkonnen/m7-advice.ogg",
+   "track": "harkonnen/m7-advice.json",
+   "seconds": 13.49,
+   "text": "Our finest toy is ready: the Devastator. It is slow,\nbut nothing stands against it for long.\nIf it is about to fall, set off its self-destruct\nand take the enemy with it."
+  },
+  "harkonnen/m7-win": {
+   "file": "harkonnen/m7-win.ogg",
+   "track": "harkonnen/m7-win.json",
+   "seconds": 9.092,
+   "text": "Two Atreides bases, flattened. The Baron laughed\naloud. I have never heard him laugh before."
+  },
+  "harkonnen/m7-lose": {
+   "file": "harkonnen/m7-lose.ogg",
+   "track": "harkonnen/m7-lose.json",
+   "seconds": 10.3,
+   "text": "Even with a Devastator, you lost. Remarkable.\nGo back. Try aiming it at the enemy this time."
+  },
+  "harkonnen/m8-briefing": {
+   "file": "harkonnen/m8-briefing.ogg",
+   "track": "harkonnen/m8-briefing.json",
+   "seconds": 26.02,
+   "text": "Our enemies have finally done something clever.\nThe Atreides and the Ordos have joined forces,\neach with a base here. The Emperor's doing, again;\nhis Sardaukar will not be far away.\nDestroy them both, and Arrakis is all but ours.\nTwo Houses, one army, and twice the corpses.\nI expect you to enjoy this one."
+  },
+  "harkonnen/m8-advice": {
+   "file": "harkonnen/m8-advice.ogg",
+   "track": "harkonnen/m8-advice.json",
+   "seconds": 15.691,
+   "text": "You may build a Palace, once you have a Starport.\nFrom it you may launch a Death Hand missile.\nIt is not accurate, but it is free, and it reloads.\nAim at the middle of their base and enjoy the view."
+  },
+  "harkonnen/m8-win": {
+   "file": "harkonnen/m8-win.ogg",
+   "track": "harkonnen/m8-win.json",
+   "seconds": 9.246,
+   "text": "Both Houses lie broken. The Baron is almost\npleased. Almost is the best you will ever get."
+  },
+  "harkonnen/m8-lose": {
+   "file": "harkonnen/m8-lose.ogg",
+   "track": "harkonnen/m8-lose.json",
+   "seconds": 7.644,
+   "text": "Two Houses at once was too much for you, it seems.\nUse the Death Hand properly next time."
+  },
+  "harkonnen/m9-briefing": {
+   "file": "harkonnen/m9-briefing.ogg",
+   "track": "harkonnen/m9-briefing.json",
+   "seconds": 24.946,
+   "text": "Now we come to it. The Emperor has dropped his\npretence and sent his Sardaukar to take Arrakis.\nTwo of their bases stand between us and the throne.\nDestroy them, and the Emperor is at our mercy.\nAnd mercy is not something the Baron keeps.\nDo not fail me now. I have grown used to you."
+  },
+  "harkonnen/m9-advice": {
+   "file": "harkonnen/m9-advice.ogg",
+   "track": "harkonnen/m9-advice.json",
+   "seconds": 13.134,
+   "text": "A Sardaukar Palace would mean a Death Hand for us.\nSpread your buildings out; do not make it easy.\nThey raid from the flanks. Leave guards at home."
+  },
+  "harkonnen/m9-win": {
+   "file": "harkonnen/m9-win.ogg",
+   "track": "harkonnen/m9-win.json",
+   "seconds": 6.823,
+   "text": "The Sardaukar are dead and the Emperor is ours.\nI may even say it: well done."
+  },
+  "harkonnen/m9-lose": {
+   "file": "harkonnen/m9-lose.ogg",
+   "track": "harkonnen/m9-lose.json",
+   "seconds": 8.496,
+   "text": "The Sardaukar crushed you. The Baron is drafting\nyour obituary. Prove him wrong; go back."
+  },
+  "harkonnen/ending": {
+   "file": "harkonnen/ending.ogg",
+   "track": "harkonnen/ending.json",
+   "seconds": 25.018,
+   "text": "The Emperor is dead. He begged; it did not help him.\nThe Baron rules Arrakis now, and soon the rest\nof the Empire will learn to kneel.\nEvery grain of spice belongs to House Harkonnen.\nYou have done well, Commander. Enjoy it. The Baron\nrewards success richly, and forgets it quickly."
+  },
+  "ordos/page-1": {
+   "file": "ordos/page-1.ogg",
+   "track": "ordos/page-1.json",
+   "seconds": 10.383,
+   "text": "The Ordos are a league of merchant families.\nWe make nothing. We buy, we sell, we profit.\nWhat cannot be bought, we undermine."
+  },
+  "ordos/page-2": {
+   "file": "ordos/page-2.ogg",
+   "track": "ordos/page-2.json",
+   "seconds": 7.984,
+   "text": "No single lord rules us. A council of the richest\nfamilies decides, and every decision is a deal."
+  },
+  "ordos/page-3": {
+   "file": "ordos/page-3.ogg",
+   "track": "ordos/page-3.json",
+   "seconds": 7.777,
+   "text": "Our home is a frozen world of ice and long nights.\nIts cold taught us patience, thrift and secrecy."
+  },
+  "ordos/question": {
+   "file": "ordos/question.ogg",
+   "track": "ordos/question.json",
+   "seconds": 2.786,
+   "text": "Will you sign on with House Ordos?"
+  },
+  "ordos/m1-briefing": {
+   "file": "ordos/m1-briefing.ogg",
+   "track": "ordos/m1-briefing.json",
+   "seconds": 30.243,
+   "text": "I am Ammon, Mentat to the Ordos Council.\nI will be brief. Time is money.\nThe Emperor is selling Arrakis. The price is spice.\nWe intend to be the highest bidder.\nYour first contract: 1000 credits in our stores.\nHarkonnen thugs prowl this region. No base, only\nbrutes. Avoid them where you can, kill them if not.\nLosses come out of your share."
+  },
+  "ordos/m1-advice": {
+   "file": "ordos/m1-advice.ogg",
+   "track": "ordos/m1-advice.json",
+   "seconds": 13.127,
+   "text": "Concrete first. It protects what we pay for.\nNext a Wind Trap, and a Spice Refinery after it.\nThe Refinery includes a Harvester. Keep it working."
+  },
+  "ordos/m1-win": {
+   "file": "ordos/m1-win.ogg",
+   "track": "ordos/m1-win.json",
+   "seconds": 6.471,
+   "text": "Contract fulfilled. The Council has entered your\nname in the ledger, on the right side."
+  },
+  "ordos/m1-lose": {
+   "file": "ordos/m1-lose.ogg",
+   "track": "ordos/m1-lose.json",
+   "seconds": 8.619,
+   "text": "Quota missed. An unprofitable day.\nYou may try again. The Council is patient, once."
+  },
+  "ordos/m2-briefing": {
+   "file": "ordos/m2-briefing.ogg",
+   "track": "ordos/m2-briefing.json",
+   "seconds": 22.997,
+   "text": "A new site, richer and less quiet.\nThe Harkonnen have a base here. They will attack;\nit is the only thing they know how to do.\nStore 2700 credits, or remove the Harkonnen base.\nThe first is cheaper. The second lasts longer.\nYour choice. Make it profitable."
+  },
+  "ordos/m2-advice": {
+   "file": "ordos/m2-advice.ogg",
+   "track": "ordos/m2-advice.json",
+   "seconds": 18.34,
+   "text": "Spice in storage is what counts. Build Silos.\nA Barracks needs a Radar Outpost first. Its Infantry\ncan take enemy buildings. A captured Silo is free.\nRaider Trikes are fast and cheap. Scout with them."
+  },
+  "ordos/m2-win": {
+   "file": "ordos/m2-win.ogg",
+   "track": "ordos/m2-win.json",
+   "seconds": 7.093,
+   "text": "Profitable. The Harkonnen paid for their manners.\nYour commission has been approved."
+  },
+  "ordos/m2-lose": {
+   "file": "ordos/m2-lose.ogg",
+   "track": "ordos/m2-lose.json",
+   "seconds": 6.42,
+   "text": "The Harkonnen outbid us with brute force.\nReassess, reinvest, and return."
+  },
+  "ordos/m3-briefing": {
+   "file": "ordos/m3-briefing.ogg",
+   "track": "ordos/m3-briefing.json",
+   "seconds": 19.522,
+   "text": "The Atreides are here, talking of honour and duty.\nHonour does not appear on any balance sheet.\nTheir base sits on spice we want. Destroy it.\nWorms are active in this area. A Harvester lost to\na worm is a pure loss. Watch the sand."
+  },
+  "ordos/m3-advice": {
+   "file": "ordos/m3-advice.ogg",
+   "track": "ordos/m3-advice.json",
+   "seconds": 11.663,
+   "text": "Upgrade the Heavy Factory to build Quads.\nRaiders scout; Quads fight. Do not confuse the two.\nKeep vehicles on rock when worms are close."
+  },
+  "ordos/m3-win": {
+   "file": "ordos/m3-win.ogg",
+   "track": "ordos/m3-win.json",
+   "seconds": 7.337,
+   "text": "The Atreides base is liquidated. Excellent margins.\nThe Council is pleased."
+  },
+  "ordos/m3-lose": {
+   "file": "ordos/m3-lose.ogg",
+   "track": "ordos/m3-lose.json",
+   "seconds": 6.629,
+   "text": "Honour beat us. Embarrassing, and costly.\nReturn with a better plan."
+  },
+  "ordos/m4-briefing": {
+   "file": "ordos/m4-briefing.ogg",
+   "track": "ordos/m4-briefing.json",
+   "seconds": 23.314,
+   "text": "The Atreides have reinforced. Their raids on our\nHarvesters cost us. Costs must be cut.\nA complication: Sardaukar troopers have appeared,\ndropped in by Carryall. The Emperor is investing.\nIn whom, I intend to find out.\nDestroy the Atreides base. Count the Sardaukar."
+  },
+  "ordos/m4-advice": {
+   "file": "ordos/m4-advice.ogg",
+   "track": "ordos/m4-advice.json",
+   "seconds": 14.037,
+   "text": "Upgrade the Heavy Factory for Combat Tanks.\nTroopers can now be trained. Their rockets hurt tanks.\nWalls are cheap. Harvesters are not. Protect them."
+  },
+  "ordos/m4-win": {
+   "file": "ordos/m4-win.ogg",
+   "track": "ordos/m4-win.json",
+   "seconds": 8.631,
+   "text": "Base destroyed. Losses acceptable. Good work.\nThe Council has raised your allowance."
+  },
+  "ordos/m4-lose": {
+   "file": "ordos/m4-lose.ogg",
+   "track": "ordos/m4-lose.json",
+   "seconds": 7.214,
+   "text": "A loss. The Sardaukar were not in the estimate.\nRevise the estimate, then return."
+  },
+  "ordos/m5-briefing": {
+   "file": "ordos/m5-briefing.ogg",
+   "track": "ordos/m5-briefing.json",
+   "seconds": 21.619,
+   "text": "I have traced the Sardaukar. The Emperor is\nsupplying our rivals while claiming neutrality.\nPoor business practice. We will remember it.\nThe Harkonnen have two bases here, both well armed.\nDestroy both. The Emperor's investment in the\nHarkonnen should show a total loss."
+  },
+  "ordos/m5-advice": {
+   "file": "ordos/m5-advice.ogg",
+   "track": "ordos/m5-advice.json",
+   "seconds": 14.877,
+   "text": "A Hi-Tech Factory builds Carryalls. They ferry\nHarvesters and save time. Time is credits.\nA Repair Facility costs less than a new tank.\nGun Turrets are cheap insurance for the base."
+  },
+  "ordos/m5-win": {
+   "file": "ordos/m5-win.ogg",
+   "track": "ordos/m5-win.json",
+   "seconds": 7.971,
+   "text": "Both Harkonnen bases written off. Elegant work.\nThe Emperor will feel this in his accounts."
+  },
+  "ordos/m5-lose": {
+   "file": "ordos/m5-lose.ogg",
+   "track": "ordos/m5-lose.json",
+   "seconds": 6.915,
+   "text": "Two bases were more than our budget allowed.\nTake one, then the other. Return."
+  },
+  "ordos/m6-briefing": {
+   "file": "ordos/m6-briefing.ogg",
+   "track": "ordos/m6-briefing.json",
+   "seconds": 19.225,
+   "text": "Two Atreides bases ahead. They will attack us\nwhile we attack them. Defend and advance at once.\nTheir soldiers are loyal. Loyalty cannot be bought,\nso it must be destroyed.\nDestroy both bases. The Sardaukar may intervene."
+  },
+  "ordos/m6-advice": {
+   "file": "ordos/m6-advice.ogg",
+   "track": "ordos/m6-advice.json",
+   "seconds": 14.641,
+   "text": "A Construction Yard upgrade buys Rocket Turrets.\nThe Starport is open. It sells Missile Tanks and\nmore, and its prices move. Buy low.\nTrooper squads can now be trained as well."
+  },
+  "ordos/m6-win": {
+   "file": "ordos/m6-win.ogg",
+   "track": "ordos/m6-win.json",
+   "seconds": 6.95,
+   "text": "Two bases closed down. Loyalty was a poor investment.\nWell managed."
+  },
+  "ordos/m6-lose": {
+   "file": "ordos/m6-lose.ogg",
+   "track": "ordos/m6-lose.json",
+   "seconds": 8.68,
+   "text": "The Atreides held both bases. Their loyalty paid.\nOurs must pay better. Return."
+  },
+  "ordos/m7-briefing": {
+   "file": "ordos/m7-briefing.ogg",
+   "track": "ordos/m7-briefing.json",
+   "seconds": 19.454,
+   "text": "The Harkonnen have two bases again, and Devastators.\nBrute force. Very expensive brute force.\nDestroy both bases. The Sardaukar may drop in again,\nso do not leave the Refinery unguarded.\nThis is the last step before the big contracts."
+  },
+  "ordos/m7-advice": {
+   "file": "ordos/m7-advice.ogg",
+   "track": "ordos/m7-advice.json",
+   "seconds": 14.533,
+   "text": "The Deviator is ready. Its gas turns enemy units\nto our side for a time. Their best tank, our tank.\nSiege Tanks are now on sale, and the Hi-Tech\nFactory can be upgraded for Ornithopters."
+  },
+  "ordos/m7-win": {
+   "file": "ordos/m7-win.ogg",
+   "track": "ordos/m7-win.json",
+   "seconds": 5.915,
+   "text": "Both Harkonnen bases cleared. Their Devastators\nmade very good scrap."
+  },
+  "ordos/m7-lose": {
+   "file": "ordos/m7-lose.ogg",
+   "track": "ordos/m7-lose.json",
+   "seconds": 7.349,
+   "text": "Harkonnen brute force won. Temporarily.\nTurn their tanks against them, then return."
+  },
+  "ordos/m8-briefing": {
+   "file": "ordos/m8-briefing.ogg",
+   "track": "ordos/m8-briefing.json",
+   "seconds": 22.695,
+   "text": "A merger, of sorts. The Atreides and the Harkonnen\nhave joined against us. Each holds a base here.\nThey despise each other. Their alliance will fail,\nbut it need not last long to ruin us.\nDestroy both bases. The Emperor is behind this deal.\nWatch for his Sardaukar."
+  },
+  "ordos/m8-advice": {
+   "file": "ordos/m8-advice.ogg",
+   "track": "ordos/m8-advice.json",
+   "seconds": 15.923,
+   "text": "You may now build a Palace, once a Starport stands.\nIt trains a Saboteur at no cost. Send him into\ntheir base and he will bring it down from inside.\nThe Palace makes another in time. Use them often."
+  },
+  "ordos/m8-win": {
+   "file": "ordos/m8-win.ogg",
+   "track": "ordos/m8-win.json",
+   "seconds": 5.684,
+   "text": "Both rivals bankrupt. Only one shareholder remains:\nthe Emperor."
+  },
+  "ordos/m8-lose": {
+   "file": "ordos/m8-lose.ogg",
+   "track": "ordos/m8-lose.json",
+   "seconds": 7.533,
+   "text": "Two opponents at once. The numbers did not work.\nSend a Saboteur in first next time."
+  },
+  "ordos/m9-briefing": {
+   "file": "ordos/m9-briefing.ogg",
+   "track": "ordos/m9-briefing.json",
+   "seconds": 19.397,
+   "text": "Final accounts. The Emperor has sent his Sardaukar\nto seize Arrakis himself. Two bases, his best men.\nDestroy them, and the Emperor must deal with us.\nOn our terms.\nEvery credit the Council has spent comes down to\nthis. Do not waste it."
+  },
+  "ordos/m9-advice": {
+   "file": "ordos/m9-advice.ogg",
+   "track": "ordos/m9-advice.json",
+   "seconds": 10.457,
+   "text": "The Sardaukar may own a Palace, and so a Death Hand.\nKeep the base spread out.\nThey will raid the flanks. Guard the Harvesters."
+  },
+  "ordos/m9-win": {
+   "file": "ordos/m9-win.ogg",
+   "track": "ordos/m9-win.json",
+   "seconds": 8.125,
+   "text": "The Sardaukar are finished. The Emperor is ready\nto negotiate. I will handle the negotiations."
+  },
+  "ordos/m9-lose": {
+   "file": "ordos/m9-lose.ogg",
+   "track": "ordos/m9-lose.json",
+   "seconds": 7.27,
+   "text": "The Sardaukar held. A costly failure.\nThe Council will fund one more attempt."
+  },
+  "ordos/ending": {
+   "file": "ordos/ending.ogg",
+   "track": "ordos/ending.json",
+   "seconds": 19.803,
+   "text": "Arrakis is ours, and so is the Emperor.\nHe keeps his throne and his title. We keep him.\nEvery order he gives will be one we have written.\nThe spice flows through Ordos hands, at Ordos prices.\nThe Council thanks you. Your share has been paid."
+  }
+ }
+}
