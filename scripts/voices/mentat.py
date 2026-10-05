@@ -76,15 +76,18 @@ MENTATS = {
 # Names espeak says wrong, as Kokoro phonemes per accent (the whole word; a possessive keeps its 's').
 PRONOUNCE = {
     'arrakis': {'en-us': 'ɐɹˈækɪs', 'en-gb': 'ɐɹˈakɪs'},
-    'harkonnen': {'en-us': 'hˈɑːɹkənən', 'en-gb': 'hˈɑːkənən'},
+    'harkonnen': {'en-us': 'hɑːɹkˈɑːnən', 'en-gb': 'hɑːkˈɒnən'},   # har-KON-en: heard 'Harkonnen' in 23 of 26 whole clips; 'HAR-kənən' 21, 'HAR-kənɛn' 18 ('harkening', 'harken and')
     'atreides': {'en-us': 'ɐtɹˈeɪdiːz', 'en-gb': 'ətɹˈeɪdiːz'},
     'ordos': {'en-us': 'ˈɔːɹdoʊs', 'en-gb': 'ˈɔːdɒs'},
     'fremen': {'en-us': 'fɹˈɛmən', 'en-gb': 'fɹˈɛmən'},
     'caladan': {'en-us': 'kˈælədæn', 'en-gb': 'kˈaladan'},
+    # SAR-də-kar: Whisper heard 'Sardaukar' in 22-26 of 32 whole clips (two runs; the rest 'sardicar', as many say it); 'SAR-dow-kar'
+    # in 19 ('sardau car'), 'sar-DAW-kar' in 15 ('sardorcar'), though that one won on isolated sentences.
     'sardaukar': {'en-us': 'sˈɑːɹdəkˌɑːɹ', 'en-gb': 'sˈɑːdəkˌɑː'},
     'ornithopter': {'en-us': 'ˈɔːɹnɪθˌɑːptɚ', 'en-gb': 'ˈɔːnɪθˌɒptə'},
     'ornithopters': {'en-us': 'ˈɔːɹnɪθˌɑːptɚz', 'en-gb': 'ˈɔːnɪθˌɒptəz'},
     'melange': {'en-us': 'meɪlˈɑːnʒ', 'en-gb': 'meɪlˈɒnʒ'},
+    'giedi': {'en-us': 'ɡˈiːdi', 'en-gb': 'ɡˈiːdi'},   # Giedi Prime: GEE-dee
     'wor': {'en-us': 'dˈʌbəljˌuː ˈoʊ ˈɑːɹ', 'en-gb': 'dˈʌbəljˌuː ˈəʊ ˈɑː'},   # the Harkonnen barracks, said letter by letter
 }
 

@@ -24,7 +24,7 @@ export const OPTION_ROWS = [
   { key: 'musicVolume', label: 'Music', range: [0, 1, 0.05], format: (v) => (v > 0 ? `${Math.round(v * 100)}%` : 'Off') },
   { key: 'musicMode', label: 'Battle music', choices: [['sega', 'Sega'], ['adaptive', 'Adaptive']],
     notes: { sega: 'Like the Sega game: the battle tunes play one after another in random order.', adaptive: 'Calm music in peace; battle music takes over when fighting starts near your forces.' } },
-  { key: 'mentatVoice', label: 'Mentat voice', choices: ON_OFF, note: 'Your Mentat speaks his briefings, advice and verdicts, and the words follow his voice. Any key or click reads on.' },
+  { key: 'mentatVoice', label: 'Mentat voice', choices: ON_OFF, note: 'Your Mentat speaks his briefings, advice and verdicts, and the words follow his voice; →, Space or a click on the words reads on.' },
   { key: 'intro', label: 'Intro', choices: ON_OFF, note: 'The opening before the title. Any key or click skips it.' },
 ];
 
