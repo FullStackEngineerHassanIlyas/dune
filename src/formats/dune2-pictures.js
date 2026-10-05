@@ -33,14 +33,6 @@ const HERALD_FILES = ['HERALD.ENG', 'HERALD.CPS'];
 export const PICTURE_FILES = ['IBM.PAL', ...HERALD_FILES,
   ...Object.values(MENTATS).flatMap((m) => [`MENTAT${m.letter}.CPS`, `MENSHP${m.letter}.SHP`])];
 
-/** What the player's PC files offer beyond these (for the notes and the page): not shown by this game. */
-export const NOT_USED = {
-  'FARTR.WSA, FHARK.WSA, FORDOS.WSA': 'the house emblems drawn as they appear (the "join this house?" screen)',
-  'MENTATM.CPS, MENSHPM.SHP': 'the Bene Gesserit Mentat of the house selection',
-  'PLANET.CPS, DUNEMAP.CPS, DUNERGN.CPS, MAPMACH.CPS': 'the planet, the map of Dune and its regions in the map machine',
-  'FAME.CPS': 'the score and hall of fame screen',
-};
-
 /** A part of a picture: `rgba` (4 bytes a pixel) `width` x `height` at [x, y]. */
 function crop(rgba, width, [x, y, w, h]) {
   const out = new Uint8Array(w * h * 4);

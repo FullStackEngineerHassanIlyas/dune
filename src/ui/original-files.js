@@ -1,10 +1,9 @@
 // Options → Original Game Files (spec §6 Original files, §5.8): the player picks the .PAK files of their own
 // Dune II PC copy; the page shows what was found in them (each house's announcer, the units' replies, the
-// effects; the Mentats' and the house emblems' pictures), switches "Original sounds" and "Original pictures" on and
-// off and forgets them. Below, their music: the Mega
-// Drive game's soundtrack from their own copy, or tracks of their own, with a Music Test to hear each track and
-// say where it plays (original-music.js). Everything stays in this browser (src/core/user-files.js); the page
-// says so. Opened by the main menu and the Options page with
+// effects; the Mentats' and the house emblems' pictures), switches "Original sounds" and "Original pictures" on
+// and off and forgets them. Below, their music: the Mega Drive game's soundtrack from their own copy, or tracks of
+// their own, with a Music Test to hear each track and say where it plays (original-music.js). Everything stays in
+// this browser (src/core/user-files.js); the page says so. Opened by the main menu and the Options page with
 // (await import('./original-files.js')).originalFilesPanel(settings, { onBack }).
 import { h } from './dom.js';
 import * as files from '../core/user-files.js';
@@ -124,7 +123,7 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
     if (state.armed && Date.now() > state.armed) state.armed = 0;
     el.replaceChildren(
       h('h2', {}, 'Original game files'),
-      h('p', {}, 'Hear Dune II’s own announcers, unit replies and battle sounds, and see its own Mentats and house emblems, from your own copy of the PC game (1992). Choose the .PAK files in its folder — all of them will do; the sounds and pictures are picked out (each house’s announcer is in ATRE.PAK, HARK.PAK or ORDOS.PAK, the pictures in DUNE.PAK).'),
+      h('p', {}, 'Hear Dune II’s own announcers, unit replies and battle sounds, and see its own Mentats and house emblems, from your own copy of the PC game (1992). Choose the .PAK files in its folder — all of them will do; the sounds and pictures are picked out (each house’s announcer is in ATRE.PAK, HARK.PAK or ORDOS.PAK, the pictures in DUNE.PAK and ENGLISH.PAK).'),
       h('p', { class: 'of-privacy' }, 'Your files stay in this browser: they are read here and kept in its storage, never uploaded, and none of them becomes part of this game.',
         state.storage === 'memory' ? ' This browser keeps no site data, so they last only until this page is closed.' : ''),
       row('Game files',
@@ -150,7 +149,7 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
         h('div', { class: 'dm-seg', role: 'group', 'aria-label': 'Use the original pictures' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
           h('button', { type: 'button', class: (pics?.on ?? false) === v ? 'on' : '', 'aria-pressed': String((pics?.on ?? false) === v), disabled: busy || !anyPictures, dataset: { focus: `pictures-${v}` },
             onclick: () => act(null, () => files.setUsePictures(v)) }, text))),
-        h('small', {}, anyPictures ? 'On: the campaign shows the original Mentats — their eyes and mouths as the original drew them, the mouth moving with the voice — and the original house emblems; whatever is missing keeps ours.' : 'Choose the game’s files first (the pictures are in DUNE.PAK).')),
+        h('small', {}, anyPictures ? 'On: the campaign shows the original Mentats — their eyes and mouths as the original drew them, the mouth moving with the voice — and the original house emblems; whatever is missing keeps ours.' : 'Choose the game’s files first (the pictures are in DUNE.PAK and ENGLISH.PAK).')),
       row('Remove',
         h('button', { type: 'button', class: 'dm-btn small danger', disabled: busy || !any, dataset: { focus: 'clear' },
           onclick: () => {
