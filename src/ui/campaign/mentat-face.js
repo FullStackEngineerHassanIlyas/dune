@@ -11,7 +11,7 @@
 // from the very sculpt of their heads, are in mentat-face-rigs.js.
 import { restFrame, VISEMES } from '../../audio/mentat-voice.js';
 import { compileRig, rigFiles, P, PARAMS } from './mentat-face-rig.js';
-import { springStep, omegaFor, visemeTargets, normalizeWeights, stackAlphas, openness, Blinker, sway, clamp01 } from './mentat-face-motion.js';
+import { springIn, omegaFor, visemeTargets, normalizeWeights, stackAlphas, Blinker, swayIn } from './mentat-face-motion.js';
 import { createFaceSvg, headImageOf, POSE, POSE_SIZE } from './mentat-face-svg.js';
 
 const NV = VISEMES.length, NP = PARAMS.length;
@@ -19,6 +19,9 @@ const NV = VISEMES.length, NP = PARAMS.length;
 const J_JAW = 0, J_SLOW = 1, J_SPEAK = 2, J_FLASH = 3;
 // state cells
 const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6, S_FIRST = 7, S_LOOK = 8;
+// the springs' rates (rad/s), worked out once: the mouth, the jaw, its slow average, speaking, the brows' flash, an
+// expression, the head, and the ease back to the painting
+const O_MOUTH = 0, O_JAW = 1, O_SLOW = 2, O_SPEAK = 3, O_FLASH = 4, O_EASE = 5, O_HEAD = 6, O_RELEASE = 7;
 const SETTLED = 0.01;   // a parameter this close to the painting is under a hundredth of a unit or a degree away
 const BLINK_STEP = 89;  // places in the blinks' table of chances (256, which 89 is prime to) between one face and the next
 let faces = 0;
@@ -55,6 +58,9 @@ export class MentatFace {
     this.e = new Float64Array(NP); this.ev = new Float64Array(NP); this.zero = new Float64Array(NP);
     this.x = new Float64Array(4); this.v = new Float64Array(4);
     this.s = new Float64Array(9); this.tmp = new Float64Array(2);
+    const mo = this.c.motion;
+    this.om = Float64Array.of(omegaFor(mo.mouthEase), omegaFor(mo.jawEase), omegaFor(0.45), omegaFor(0.5), omegaFor(0.16), omegaFor(mo.ease), omegaFor(mo.headEase), omegaFor(mo.release));
+    this.k = new Float64Array(3);   // a spring step's [target, omega, dt] (springIn)
     // each face (each screen) starts at its own place in its Mentat's seeded blinks: screen after screen he would
     // otherwise blink at the very same moments of his first line (Cyril 0.67 s and 3.72 s in, Radnor 2.75 s, on the GPU)
     this.blinker = new Blinker({ ...this.c.motion.blink, start: (faces * BLINK_STEP) % 256 });
@@ -175,11 +181,13 @@ export class MentatFace {
 
   /**
    * Advances the face by `dt` seconds (default: the frame's, set by tick) from the voice's frame now: the pose
-   * (this.pose) is ready to draw. The frame's numbers stay in typed arrays: no call in here passes a number that
-   * the engine would have to box.
+   * (this.pose) is ready to draw. The frame's numbers stay in typed arrays: no call in here passes a number or returns
+   * one (a number that crosses a call the optimiser did not inline is boxed, and which calls it inlines into a
+   * function this large changes from run to run: a spring step passed its numbers allocated 16-45 bytes a frame in
+   * some runs and none in others).
    */
   update(step) {
-    const s = this.s, c = this.c, m = c.motion, f = this.frame, x = this.x, v = this.v;
+    const s = this.s, c = this.c, m = c.motion, f = this.frame, x = this.x, v = this.v, om = this.om, k = this.k;
     if (step !== undefined) s[S_DT] = step;
     const dt = s[S_DT];
     s[S_T] += dt;
@@ -197,26 +205,28 @@ export class MentatFace {
     let dm = dt;
     if (s[S_FIRST] === 1) { s[S_FIRST] = 0; const ran = f.t - s[S_LOOK]; if (step === undefined && ran > dt) dm = ran < 0.1 ? ran : 0.1; }
     visemeTargets(f, speaking, this.wt);
-    const wo = omegaFor(m.mouthEase);
-    for (let i = 0; i < NV; i++) springStep(this.w, this.wv, i, this.wt[i], wo, dm);
+    const wt = this.wt;
+    k[1] = om[O_MOUTH]; k[2] = dm;
+    for (let i = 0; i < NV; i++) { k[0] = wt[i]; springIn(this.w, this.wv, i, k); }
     normalizeWeights(this.w);
-    const loud = speaking ? clamp01(+f.open || 0) : 0;
-    springStep(x, v, J_JAW, loud, omegaFor(m.jawEase), dm);
-    springStep(x, v, J_SLOW, loud, omegaFor(0.45), dm);
-    springStep(x, v, J_SPEAK, speaking ? 1 : 0, omegaFor(0.5), dt);
+    let loud = speaking ? +f.open || 0 : 0;
+    loud = loud < 0 ? 0 : loud > 1 ? 1 : loud;
+    k[0] = loud; k[1] = om[O_JAW]; springIn(x, v, J_JAW, k);
+    k[1] = om[O_SLOW]; springIn(x, v, J_SLOW, k);
+    k[0] = speaking ? 1 : 0; k[1] = om[O_SPEAK]; k[2] = dt; springIn(x, v, J_SPEAK, k);
     if (x[J_JAW] < 0) x[J_JAW] = 0;
     const rise = x[J_JAW] - x[J_SLOW];
-    springStep(x, v, J_FLASH, rise > 0 ? rise : 0, omegaFor(0.16), dt);
+    k[0] = rise > 0 ? rise : 0; k[1] = om[O_FLASH]; springIn(x, v, J_FLASH, k);
 
     // the expression: the sentence's (held between sentences and a moment after the line), else the painting
     const holding = live || s[S_SINCE] < m.hold;
     let target = this.zero;
     if (!this.reduced && holding) {
-      const k = c.exprIndex[f.expression];
-      target = c.targets[k === undefined ? 0 : k];
+      const ki = c.exprIndex[f.expression];
+      target = c.targets[ki === undefined ? 0 : ki];
     }
-    const eo = omegaFor(holding ? m.ease : m.release), ho = omegaFor(holding ? m.headEase : m.release);
-    for (let p = 0; p < NP; p++) springStep(this.e, this.ev, p, target[p], p === P.tilt || p === P.nod ? ho : eo, dt);
+    const eo = holding ? om[O_EASE] : om[O_RELEASE], ho = holding ? om[O_HEAD] : om[O_RELEASE];
+    for (let p = 0; p < NP; p++) { k[0] = target[p]; k[1] = p === P.tilt || p === P.nod ? ho : eo; springIn(this.e, this.ev, p, k); }   // k[2]: dt
 
     // blinks: on their schedule, and soon after a sentence starts
     let blink = 0;
@@ -252,10 +262,10 @@ export class MentatFace {
   /** The pose from the springs: head, brows, corners, jaw, mouth, lids and the sprites' opacities. */
   compose() {
     const pose = this.pose, e = this.e, x = this.x, c = this.c, m = c.motion, rig = this.rig, mouth = c.mouth;
-    const blink = this.s[S_BLINK], t = this.s[S_T];
+    const blink = this.s[S_BLINK];
     const reduced = this.reduced;
     const sp = x[J_SPEAK];
-    sway(t, this.s[S_PHASE], this.tmp, 0);
+    swayIn(this.s, S_T, S_PHASE, this.tmp, 0);
     pose[POSE.tilt] = reduced ? 0 : e[P.tilt] + sp * m.swayTilt * this.tmp[0];
     pose[POSE.nod] = reduced ? 0 : e[P.nod] + sp * (m.swayNod * this.tmp[1] + m.speakNod * x[J_SLOW]);
     const flash = reduced ? 0 : m.flash * x[J_FLASH] * 3 * sp;
@@ -279,15 +289,21 @@ export class MentatFace {
     pose[POSE.mouthSkew] = Math.atan(cl * mouth.lift / mouth.halfWidth) * 57.29578;
     pose[POSE.mouthSkewR] = Math.atan(-cr * mouth.lift / mouth.halfWidth) * 57.29578;
     pose[POSE.mouthSx] = 1 + sym * mouth.widen;
-    const jaw = clamp01(x[J_JAW] * openness(this.w, c.open) + e[P.jaw] * 0.25 * sp);
+    // how far the shapes let the jaw open (their weighted openness), times the voice's loudness
+    const w = this.w, open = c.open;
+    let opens = 0;
+    for (let i = 0; i < NV; i++) opens += w[i] * open[i];
+    let jaw = x[J_JAW] * opens + e[P.jaw] * 0.25 * sp;
+    jaw = jaw < 0 ? 0 : jaw > 1 ? 1 : jaw;
     pose[POSE.mouthSy] = mouth.jaw[0] + (mouth.jaw[1] - mouth.jaw[0]) * jaw;
     pose[POSE.jawY] = rig.jaw ? rig.jaw.drop * jaw : 0;
     const ll = reduced ? 0 : e[P.lidL], lr = reduced ? 0 : e[P.lidR];
-    pose[POSE.lidL] = clamp01(ll + (1 - ll) * blink);
-    pose[POSE.lidR] = clamp01(lr + (1 - lr) * blink);
+    const cL = ll + (1 - ll) * blink, cR = lr + (1 - lr) * blink;
+    pose[POSE.lidL] = cL < 0 ? 0 : cL > 1 ? 1 : cL;
+    pose[POSE.lidR] = cR < 0 ? 0 : cR > 1 ? 1 : cR;
     // the sprites are cross-faded along an S: the shape that is leaving fades while the one arriving rises, and the two
     // dark-and-light ghosts of a half-way mouth are seen for as short a time as the weights allow
-    const ws = this.ws, sharp = m.sharpen, w = this.w;
+    const ws = this.ws, sharp = m.sharpen;
     for (let i = 0; i < NV; i++) ws[i] = Math.pow(w[i], sharp);
     stackAlphas(ws, this.alpha);
     for (let i = 0; i < NV; i++) pose[POSE.alpha + i] = this.alpha[i];

@@ -1,6 +1,9 @@
 // The Mentat's face, its motion (notes docs/superpowers/notes/2026-10-05-mentat-face.md): the pure arithmetic the face
 // engine (mentat-face.js) runs every animation frame, kept apart so the tests can drive it without a page. Nothing
-// here allocates once made: state lives in typed arrays, results are written into arrays the caller owns.
+// here allocates once made: state lives in typed arrays, results are written into arrays the caller owns. What the
+// frame calls (springIn, swayIn, visemeTargets, normalizeWeights, stackAlphas, Blinker.step) takes no number as an
+// argument and returns none: a number that crosses a call the optimiser did not inline is boxed (an allocation), and
+// whether it inlines a call depends on the run (its budget for a large function is spent in the order it meets them).
 
 /** Settling constant of a critically damped spring: (1 + wt)·e^(-wt) = 5 % at wt ≈ 4.744. */
 const SETTLE = 4.7439;
@@ -12,10 +15,18 @@ export function omegaFor(seconds) { return SETTLE / Math.max(1e-3, seconds); }
  * One step of a critically damped spring, solved exactly (stable at any dt, never overshoots a step from rest):
  * x[i] and v[i] move towards `target` at rate `omega` over `dt` seconds.
  */
+const SPRING = new Float64Array(3);
 export function springStep(x, v, i, target, omega, dt) {
-  const d = x[i] - target, e = Math.exp(-omega * dt), k = (v[i] + omega * d) * dt;
-  v[i] = (v[i] - omega * k) * e;
-  x[i] = target + (d + k) * e;
+  SPRING[0] = target; SPRING[1] = omega; SPRING[2] = dt;
+  springIn(x, v, i, SPRING);
+}
+
+/** springStep() with its numbers in `k`: [target, omega, dt] (the engine's frame: no number crosses the call). */
+export function springIn(x, v, i, k) {
+  const target = k[0], omega = k[1], dt = k[2];
+  const d = x[i] - target, e = Math.exp(-omega * dt), kk = (v[i] + omega * d) * dt;
+  v[i] = (v[i] - omega * kk) * e;
+  x[i] = target + (d + kk) * e;
 }
 
 export const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -28,7 +39,9 @@ export function visemeTargets(frame, speaking, out) {
   const n = out.length;
   for (let i = 0; i < n; i++) out[i] = 0;
   if (!speaking) { out[0] = 1; return out; }
-  const a = frame.from | 0, b = frame.shape | 0, m = clamp01(+frame.mix || 0);
+  const a = frame.from | 0, b = frame.shape | 0;
+  let m = +frame.mix || 0;
+  m = m < 0 ? 0 : m > 1 ? 1 : m;
   out[a >= 0 && a < n ? a : 0] += 1 - m;
   out[b >= 0 && b < n ? b : 0] += m;
   return out;
@@ -52,7 +65,11 @@ export function normalizeWeights(w) {
 export function stackAlphas(w, alpha) {
   const n = w.length;
   let sum = 0;
-  for (let i = 0; i < n; i++) { sum += w[i]; alpha[i] = sum > 1e-6 ? clamp01(w[i] / sum) : 0; }
+  for (let i = 0; i < n; i++) {
+    sum += w[i];
+    const a = sum > 1e-6 ? w[i] / sum : 0;
+    alpha[i] = a < 0 ? 0 : a > 1 ? 1 : a;
+  }
   return alpha;
 }
 
@@ -142,9 +159,17 @@ export class Blinker {
   }
 }
 
+const SWAY = new Float64Array(2);
 /** Small slow sways for a head that speaks: a sum of two sines per axis, scaled by how much he is speaking. */
 export function sway(t, phase, out, at) {
+  SWAY[0] = t; SWAY[1] = phase;
+  swayIn(SWAY, 0, 1, out, at);
+  return out;
+}
+
+/** sway() at the time src[ti] and phase src[pi], into out[at] (roll) and out[at + 1] (nod): no number crosses the call. */
+export function swayIn(src, ti, pi, out, at) {
+  const t = src[ti], phase = src[pi];
   out[at] = 0.6 * Math.sin(6.2832 * 0.23 * t + phase) + 0.4 * Math.sin(6.2832 * 0.61 * t + 2.1 * phase);
   out[at + 1] = 0.55 * Math.sin(6.2832 * 0.37 * t + 1.7 * phase) + 0.45 * Math.sin(6.2832 * 0.83 * t + 0.4 * phase);
-  return out;
 }
