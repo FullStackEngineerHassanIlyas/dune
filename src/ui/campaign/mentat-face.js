@@ -18,7 +18,7 @@ const NV = VISEMES.length, NP = PARAMS.length;
 // scalar springs (x/v cells): the jaw (fast), its slow average, how much he is speaking, the brows' lift on a loud syllable
 const J_JAW = 0, J_SLOW = 1, J_SPEAK = 2, J_FLASH = 3;
 // state cells
-const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6, S_FIRST = 7;
+const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6, S_FIRST = 7, S_LOOK = 8;
 const SETTLED = 0.01;   // a parameter this close to the painting is under a hundredth of a unit or a degree away
 let faces = 0;
 
@@ -53,7 +53,7 @@ export class MentatFace {
     this.w = new Float64Array(NV); this.wv = new Float64Array(NV); this.wt = new Float64Array(NV); this.alpha = new Float64Array(NV); this.ws = new Float64Array(NV);
     this.e = new Float64Array(NP); this.ev = new Float64Array(NP); this.zero = new Float64Array(NP);
     this.x = new Float64Array(4); this.v = new Float64Array(4);
-    this.s = new Float64Array(8); this.tmp = new Float64Array(2);
+    this.s = new Float64Array(9); this.tmp = new Float64Array(2);
     this.blinker = new Blinker(this.c.motion.blink);
     this.rafId = 0;
     this.running = false;
@@ -190,9 +190,9 @@ export class MentatFace {
 
     // the mouth: the shapes' weights spring to the frame's (co-articulation: no shape pops in or out). The first frame
     // of a line may come late (the page was busy as the sound began): the mouth catches up the time the voice has run
-    // (not past 0.1 s), so his first word is not shown a stall late
+    // (the time heard, not the look ahead; not past 0.1 s), so his first word is not shown a stall late
     let dm = dt;
-    if (s[S_FIRST] === 1) { s[S_FIRST] = 0; if (step === undefined && f.t > dt) dm = f.t < 0.1 ? f.t : 0.1; }
+    if (s[S_FIRST] === 1) { s[S_FIRST] = 0; const ran = f.t - s[S_LOOK]; if (step === undefined && ran > dt) dm = ran < 0.1 ? ran : 0.1; }
     visemeTargets(f, speaking, this.wt);
     const wo = omegaFor(m.mouthEase);
     for (let i = 0; i < NV; i++) springStep(this.w, this.wv, i, this.wt[i], wo, dm);
@@ -241,7 +241,8 @@ export class MentatFace {
    */
   look(f) {
     const voice = this.voice, lead = this.c.motion.lead, line = voice.current;
-    if (lead > 0 && line != null && line.state === 'playing' && typeof line.smooth === 'function' && typeof line.at === 'function') return line.at(line.smooth() + lead, f);
+    if (lead > 0 && line != null && line.state === 'playing' && typeof line.smooth === 'function' && typeof line.at === 'function') { this.s[S_LOOK] = lead; return line.at(line.smooth() + lead, f); }
+    this.s[S_LOOK] = 0;
     return voice.now(f);
   }
 

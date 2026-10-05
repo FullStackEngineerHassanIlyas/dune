@@ -33,7 +33,9 @@ export const DEFAULT_MOTION = {
   mouthEase: 0.05,  // a mouth shape settles in this long (about three frames): the co-articulation that keeps it from popping, short enough that the two-mouths ghost of a half-way shape is one frame, not three
   sharpen: 3,       // the sprites cross-fade along an S: their weights are raised to this power (1: a straight blend) before they are stacked
   jawEase: 0.06,    // the jaw follows the loudness this fast
-  lead: 0.04,       // the mouth is shown this far ahead of the sound: lips move before the voice, and the blend and springs trail the voice's frame by about this much
+  lead: 0.07,       // the mouth is shown this far ahead of the sound: lips move before the voice. The blend and springs eat 40 ms of it (a
+                    // shape takes over at the phoneme's start) and the page shows a frame one or two refreshes after it is drawn; at
+                    // 70 ms the shapes reach the screen with their sound or a little before it (measured on the GPU: the talk notes)
   hold: 1.4,        // after the line the last expression is held this long …
   release: 0.6,     // … then eases back to the painting over this
   speakNod: 0.9,    // units the head dips with the voice's loudness while he speaks
