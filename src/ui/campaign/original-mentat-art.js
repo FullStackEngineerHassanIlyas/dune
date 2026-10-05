@@ -1,7 +1,9 @@
 // A house's Mentat as the player's own Dune II PC files draw him (formats/dune2-pictures.js 'mentat:<house>'): his
 // room cut to where he sits, his eyes, mouth, shoulder and "other" (Cyril's book, Ammon's ring) at the original's
-// places, the picture shown at a whole number of screen pixels a pixel, unsmoothed, wherever one fits the portrait
-// (figureSizeCss), else filling it from a 4x enlargement, so it stays the original's pixel art.
+// places. The pictures are enlarged 8 times by a pixel-art scaler (pixel-scale.js: Scale2x three times, which keeps
+// the original's own colours and turns its staircases into smooth diagonals) once, when they are made, and the
+// figure then fills the portrait at any size (figureSizeCss), drawn down smoothly from that large picture; each
+// eye, mouth and book frame is enlarged in place, over the room, so it matches the enlarged head around it.
 // He moves as the original moved him (gui/mentat.c, GUI_Mentat_Animation, as OpenDUNE reads it):
 //   - his eyes, while he is not speaking, look ahead, to either side and down and now and then shut, on the
 //     original's own rules and timings (60 ticks a second), played as a CSS animation of the eye frames;
@@ -13,10 +15,12 @@
 //     talks; nothing tilts, nods, warps or scales (pixel art does not bend).
 // Pure: from a stored picture record to { figure (HTML markup for innerHTML), rig }; original-pictures.js keeps them.
 import { RIG_VERSION, EXPRESSIONS, VISEMES } from './mentat-face-rig.js';
-import { encodePng, pngDataUrl } from '../../formats/png.js';
+import { encodePng, encodeIndexedPng, pngDataUrl } from '../../formats/png.js';
 import { MENTATS } from '../../formats/dune2-pictures.js';
+import { scaleIndexed, rgbaWords, wordsRgba, REACH } from './pixel-scale.js';
 
-export const SCALE = 4;             // the pictures' whole-pixel enlargement (crisp even where a browser smooths)
+export const SCALE = 4;             // the emblems' whole-pixel enlargement (crisp even where a browser smooths)
+export const ENLARGE = 8;           // the Mentat's: Scale2x three times, larger than he is drawn on nearly any screen
 export const TICKS = 60;            // the original's interface timer: ticks a second
 export const FIGURE_ASPECT = 1.25;  // the figure is cut 4 wide by 5 high where the room allows (the portrait's frame)
 const HOUSE_NAMES = { atreides: 'Atreides', harkonnen: 'Harkonnen', ordos: 'Ordos' };
@@ -198,6 +202,52 @@ export async function pictureUrl(rgba, width, height, scale = SCALE) {
   return pngDataUrl(await encodePng(rgba, width, height, { scale }));
 }
 
+/**
+ * The figure's pictures for the pixel-art scaler (pixel-scale.js), in one palette: the room at rest (W x H RGBA,
+ * the figure's top at `top` in the room) and the frames of its parts (eyes, mouth, book; `frames`) as colour
+ * indices, index 0 see-through (as a colour word a pixel, 0 see-through, should they hold more than 255 colours).
+ * Returns { head: the room enlarged `s` times, part(q): frame q enlarged in place, url(values, w, h): a PNG data:
+ * URL }; the PNGs are written straight from the indices, so no pixel of the large pictures has its colour looked up.
+ *
+ * A part's frame is drawn over the room at rest, enlarged there with REACH pixels of the room around it (the
+ * scaler's corners look at their neighbours) and cut to the frame's own box, see-through wherever it leaves the
+ * enlarged room as it was: laid over the enlarged head at its box it shows exactly what the whole picture enlarged
+ * with this frame in it would, so the frame's edges meet the head's. A frame reaching out of the figure is enlarged
+ * alone.
+ */
+export function enlargeFigure(room, W, H, frames, top, s) {
+  const colourAt = new Map([[0, 0]]);
+  const note = (words) => {
+    let last = 0;
+    for (const c of words) if (c !== last) { last = c; if (!colourAt.has(c)) colourAt.set(c, colourAt.size); }
+    return words;
+  };
+  const roomWords = note(rgbaWords(room));
+  const frameWords = new Map(frames.filter(Boolean).map((q) => [q, note(rgbaWords(q.rgba))]));
+  const colours = colourAt.size <= 256 ? Uint32Array.from(colourAt.keys()) : null;
+  const values = (words) => (colours ? Uint8Array.from(words, (c) => colourAt.get(c)) : words);
+  const rest = values(roomWords), head = scaleIndexed(rest, W, H, s);
+  const part = (q) => {
+    if (!frameWords.has(q)) throw new Error('enlargeFigure: a frame it was not given');
+    const x = q.x, y = q.y - top, w = q.width, h = q.height, own = values(frameWords.get(q));
+    if (x < 0 || y < 0 || x + w > W || y + h > H) return scaleIndexed(own, w, h, s);
+    const x0 = Math.max(0, x - REACH), y0 = Math.max(0, y - REACH);
+    const ww = Math.min(W, x + w + REACH) - x0, wh = Math.min(H, y + h + REACH) - y0;
+    const win = new rest.constructor(ww * wh);
+    for (let r = 0; r < wh; r++) win.set(rest.subarray((y0 + r) * W + x0, (y0 + r) * W + x0 + ww), r * ww);
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (own[r * w + c]) win[(y - y0 + r) * ww + x - x0 + c] = own[r * w + c];
+    const big = scaleIndexed(win, ww, wh, s);
+    const bw = w * s, bh = h * s, out = new rest.constructor(bw * bh);   // 0: see-through
+    for (let r = 0; r < bh; r++) {
+      const from = (r + (y - y0) * s) * ww * s + (x - x0) * s, at = (y * s + r) * W * s + x * s;
+      for (let c = 0; c < bw; c++) if (big[from + c] !== head[at + c]) out[r * bw + c] = big[from + c];
+    }
+    return out;
+  };
+  const url = async (v, w, h) => pngDataUrl(await (colours ? encodeIndexedPng(v, w, h, colours) : encodePng(wordsRgba(v), w, h)));
+  return { colours, head, part, url };
+}
+
 const pct = (t, cycle) => (Math.round((t / cycle) * 1e6) / 1e4).toString();
 
 /** CSS keyframes that show `frame` while `schedule` holds it (opacity 1, else 0), stepping, over `cycle` ticks. */
@@ -213,25 +263,17 @@ export function frameKeyframes(name, schedule, frame, cycle) {
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const share = (v, of) => `${+((v / of) * 100).toFixed(4)}%`;
-const px = (v) => `${+v.toFixed(2)}px`;
 
 /**
- * The figure's size, as CSS for `sel` (its own class) over a W x H picture. By default it fills the portrait's box
- * as the painting does (as large as fits, centred, standing on the bottom edge) and is drawn smooth from the 4x
- * enlarged pictures: every picture pixel equally wide, its edge at most a screen pixel soft. Where a whole number n
- * of CSS pixels a picture pixel fits within half a step of that (the box holds n times the picture but not n + 1/2
- * times), the figure is n times its size, unsmoothed: the original's pixels exactly. Only at 1, 2 or 3 screen pixels
- * a CSS pixel, where whole CSS pixels are whole screen pixels; n up to `most`.
+ * The figure's size, as CSS for `sel` (its own class) over a W x H picture: it fills the portrait's box as the
+ * painting does (as large as fits, centred, standing on the bottom edge) at every size, drawn smoothly from the
+ * pictures the scaler enlarged (ENLARGE times: on nearly every screen they are drawn down, never blown up much), so
+ * he is never shrunk to a whole number of pixels a pixel and stays crisp.
  */
-export function figureSizeCss(sel, W, H, { most = 12 } = {}) {
-  const fit = `${sel} .cpo-frame{position:absolute;left:50%;bottom:0;transform:translateX(-50%);`
-    + `width:min(100cqw,${+((W / H) * 100).toFixed(4)}cqh);height:min(${+((H / W) * 100).toFixed(4)}cqw,100cqh)}`;
-  let whole = '';
-  for (let n = 1; n <= most; n++) {
-    whole += `@container (min-width:${px(n * W)}) and (min-height:${px(n * H)}) and ((max-width:${px((n + 0.5) * W - 0.01)}) or (max-height:${px((n + 0.5) * H - 0.01)})){`
-      + `${sel} .cpo-frame{width:${px(n * W)};height:${px(n * H)}}${sel} img,${sel} image{image-rendering:pixelated}}`;
-  }
-  return `${fit}@media (resolution:1dppx),(resolution:2dppx),(resolution:3dppx){${whole}}`;
+export function figureSizeCss(sel, W, H) {
+  return `${sel} .cpo-frame{position:absolute;left:50%;bottom:0;transform:translateX(-50%);`
+    + `width:min(100cqw,${+((W / H) * 100).toFixed(4)}cqh);height:min(${+((H / W) * 100).toFixed(4)}cqw,100cqh)}`
+    + `${sel} img,${sel} image{image-rendering:auto}`;
 }
 
 /**
@@ -241,18 +283,20 @@ export function figureSizeCss(sel, W, H, { most = 12 } = {}) {
  * or ring (`.cpo-other`) and the eyes (`.cpm-blink`), each placed in % of the frame; `rig` the face's rig (null when
  * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks).
  */
-export async function buildMentatArt(record, { scale = SCALE } = {}) {
+export async function buildMentatArt(record, { scale = ENLARGE } = {}) {
   const house = record.house, m = MENTATS[house];
   if (!m) throw new Error(`no Mentat for "${house}"`);
   const parts = record.parts ?? {}, eyes = parts.eyes ?? [], other = parts.other ?? [];
   const mouth = sameBox(parts.mouth ?? []);
   const box = figureBox(record), [, top, W, H] = box;
   // the head: the room with what the original draws over it at rest (eyes ahead, mouth shut, the book's first
-  // frame, the shoulder in front of the screen)
+  // frame, the shoulder in front of the screen), enlarged by the pixel-art scaler; every other frame of a part
+  // enlarged in place over it (enlargeFigure), so it lines up with the head pixel for pixel
   const room = cut(record.rgba, record.width, box);
   for (const q of [eyes[0], mouth[0], other[0], parts.shoulder]) if (drawn(q)) blit(room, W, H, q.rgba, q.width, q.height, q.x, q.y - top);
-  const url = (q) => pictureUrl(q.rgba, q.width, q.height, scale);
-  const head = await pictureUrl(room, W, H, scale);
+  const fig = enlargeFigure(room, W, H, [...eyes, ...mouth, ...other], top, scale);
+  const head = await fig.url(fig.head, W * scale, H * scale);
+  const url = (q) => fig.url(fig.part(q), q.width * scale, q.height * scale);
   const eyeUrls = await Promise.all(eyes.map((q, k) => (q && k ? url(q) : null)));
   const mouthUrls = await Promise.all(mouth.map((q, k) => (q && k ? url(q) : null)));
   const otherUrls = await Promise.all(other.map((q, k) => (k && drawn(q) ? url(q) : null)));
@@ -308,7 +352,7 @@ export async function buildMentatArt(record, { scale = SCALE } = {}) {
         left: { box: [ex, ey, half, eh], open: [ey, ey + eh] }, right: { box: [ex + half, ey, half, eh], open: [ey, ey + eh] } };
     }
   }
-  return { figure, rig, info: { box, visemes, eyeCycle, otherCycle, frames: { eyes: eyes.filter(drawn).length, mouth: mouth.filter(drawn).length, other: other.filter(drawn).length } } };
+  return { figure, rig, info: { box, scale, visemes, eyeCycle, otherCycle, frames: { eyes: eyes.filter(drawn).length, mouth: mouth.filter(drawn).length, other: other.filter(drawn).length } } };
 }
 
 /**

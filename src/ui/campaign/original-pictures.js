@@ -1,8 +1,8 @@
 // The original game's pictures on the campaign's screens, from the player's own Dune II PC files (Options →
 // Original Game Files; src/core/user-files.js keeps them in this browser): each house's Mentat as the original
 // drew him (original-mentat-art.js) and the house emblems of the original's house selection. While "Original
-// pictures" is on and the files gave them, loadOriginalPictures() makes them once (pictures enlarged by whole pixels,
-// as PNG data: URLs) and keeps them here for the screens to take synchronously; switching them off, forgetting the
+// pictures" is on and the files gave them, loadOriginalPictures() makes them once (the Mentats enlarged by a pixel-art
+// scaler, the emblems by whole pixels, as PNG data: URLs) and keeps them here for the screens to take synchronously; switching them off, forgetting the
 // files or reading new ones makes them again (the store tells this module). Without them every screen keeps this
 // game's own art.
 import { buildMentatArt, buildEmblemArt } from './original-mentat-art.js';

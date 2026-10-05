@@ -14,7 +14,7 @@ import { readPak } from '../src/formats/pak.js';
 import { readPal, toRgba } from '../src/formats/pal.js';
 import * as files from '../src/core/user-files.js';
 import { picturesText, reportText } from '../src/ui/original-files.js';
-import { eyeSchedule, otherSchedule, mouthVisemes, measureMouth, buildMentatArt, buildEmblemArt, figureBox, clearSurround, KNOWN_MOUTHS, TICKS } from '../src/ui/campaign/original-mentat-art.js';
+import { eyeSchedule, otherSchedule, mouthVisemes, measureMouth, buildMentatArt, buildEmblemArt, figureBox, clearSurround, KNOWN_MOUTHS, TICKS, ENLARGE } from '../src/ui/campaign/original-mentat-art.js';
 import { loadOriginalPictures, loadOriginalPicturesWithin, currentPictures, originalEmblem, resetOriginalPictures } from '../src/ui/campaign/original-pictures.js';
 import { originalMentatFigure, originalMentatRig } from '../src/ui/campaign/original-mentat.js';
 import { validateRig, VISEMES, EXPRESSIONS } from '../src/ui/campaign/mentat-face-rig.js';
@@ -289,6 +289,9 @@ test('Ammon\'s mouth as the files have it (five 64 x 40 frames) takes the frames
   assert.notDeepEqual(measured.info.visemes, known.info.visemes, 'the made-up 24 x 10 frames go by the measure');
 });
 
+/** The width and height of a PNG data: URL, from its header. */
+const pngSize = (url) => { const b = Buffer.from(url.split(',')[1], 'base64'); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
+
 test('his figure and rig: the room cut to him, the face engine\'s rig valid, his mouth frames and shut eyes in it', async () => {
   const { pictures } = extractPictures(pakLookup(fakeDunePak()));
   for (const house of HOUSES) {
@@ -317,11 +320,16 @@ test('his figure and rig: the room cut to him, the face engine\'s rig valid, his
     assert.ok(!/<svg|<image/.test(art.figure), 'no SVG of its own: the face engine lays its own over the head');
     const [ex, ey] = [MENTATS[house].eyes[0], MENTATS[house].eyes[1] - top];
     assert.ok(art.figure.includes(`left:${+((ex / box[2]) * 100).toFixed(4)}%;top:${+((ey / box[3]) * 100).toFixed(4)}%;width:${+((EYES[0] / box[2]) * 100).toFixed(4)}%`), 'the eyes at their place in the frame');
-    // its size: filling the box, or a whole number of pixels a pixel, unsmoothed, where one fits within half a step
-    const sel = `.cpo-${house}`, [W, H] = [box[2], box[3]], px = (v) => `${+v.toFixed(2)}px`;
-    assert.ok(art.figure.includes(`${sel} .cpo-frame{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(100cqw,`));
-    assert.ok(art.figure.includes(`@container (min-width:${2 * W}px) and (min-height:${2 * H}px) and ((max-width:${px(2.5 * W - 0.01)}) or (max-height:${px(2.5 * H - 0.01)})){${sel} .cpo-frame{width:${2 * W}px;height:${2 * H}px}${sel} img,${sel} image{image-rendering:pixelated}}`), 'twice its size between 2 and 2.5 times');
-    assert.match(art.figure, /@media \(resolution:1dppx\),\(resolution:2dppx\),\(resolution:3dppx\)\{@container/);
+    // its size: filling the box at every size, never shrunk to a whole number of pixels a pixel, drawn smoothly from
+    // pictures the pixel-art scaler enlarged ENLARGE times (each frame's picture its box's size, enlarged as much)
+    const sel = `.cpo-${house}`, [W, H] = [box[2], box[3]];
+    assert.ok(art.figure.includes(`${sel} .cpo-frame{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(100cqw,${+((W / H) * 100).toFixed(4)}cqh);height:min(${+((H / W) * 100).toFixed(4)}cqw,100cqh)}`));
+    assert.ok(art.figure.includes(`${sel} img,${sel} image{image-rendering:auto}`));
+    assert.doesNotMatch(art.figure, /@container|pixelated|dppx/, 'no whole-number steps');
+    assert.equal(art.info.scale, ENLARGE);
+    assert.deepEqual(pngSize(/<img class="cpo-l" src="([^"]+)"/.exec(art.figure)[1]), [W * ENLARGE, H * ENLARGE], 'the head');
+    assert.deepEqual(pngSize(art.rig.mouth.sprites.A), [MOUTH[0] * ENLARGE, MOUTH[1] * ENLARGE], 'a mouth frame');
+    assert.deepEqual(pngSize(art.rig.lids.src), [EYES[0] * ENLARGE, EYES[1] * ENLARGE], 'the shut eyes');
     assert.match(art.figure, /@media \(prefers-reduced-motion:reduce\)\{\.cpo \.cpo-anim\{animation:none;opacity:0\}\}/);
     assert.equal((art.figure.match(/cpo-anim cpo-\w+-other/g) ?? []).length, house === 'harkonnen' ? 0 : 3);
     assert.match(art.figure, /aria-label="(Cyril|Radnor|Ammon), Mentat of House \w+, from your copy of the original game"/);
