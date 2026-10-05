@@ -9,7 +9,9 @@ import { setupSkirmish, skirmishOptions, findFreeTile } from '../src/game/setup.
 import { friendly } from '../src/sim/alliance.js';
 import { sizeUpRivals } from '../src/sim/ai.js';
 import { destroyStructure } from '../src/sim/combat.js';
-import { structureVisibleTo, updateFog } from '../src/sim/fog.js';
+import { structureVisibleTo, unitVisibleTo, isVisible, updateFog } from '../src/sim/fog.js';
+import { endStats } from '../src/sim/victory.js';
+import { endTable } from '../src/ui/end-screen.js';
 import { run, runUntil } from './helpers.mjs';
 
 const memory = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
@@ -90,11 +92,28 @@ test('On, a computer wave passes a nearer computer base by and comes for the pla
   }
 });
 
-test('On, the computers share their sight, and the player wins only when every one of them is out', () => {
+test('On, what one computer sees of the player the others see too; Off, each sees only its own ground', () => {
+  for (const visibility of ['fog', 'shroud']) for (const allied of [true, false]) {
+    const { world, starts, opponents } = battle(allied, { visibility });
+    const home = starts[1 + opponents.indexOf('sardaukar')];
+    const t = findFreeTile(world, home.x, home.y, 'wheeled', 6, 3);
+    const trike = world.spawnUnit('trike', 'atreides', t.x, t.y);   // a player scout beside the Sardaukar base
+    const at = findFreeTile(world, t.x, t.y, 'tracked', 4, 2);
+    const silo = world.spawnStructure('silo', 'atreides', at.x, at.y);   // and an outpost
+    updateFog(world);
+    const what = `${visibility}, allied ${allied ? 'On' : 'Off'}`;
+    assert.ok(unitVisibleTo(world, 'sardaukar', trike) && structureVisibleTo(world, 'sardaukar', silo), `${what}: the Sardaukar see them`);
+    for (const id of ['harkonnen', 'ordos']) {
+      assert.ok(!friendly(world, id, 'atreides'), 'the player is no friend of theirs: only the fog can show them');
+      assert.equal(isVisible(world, id, trike.tx, trike.ty), allied, `${what}: the ground there in ${id}'s sight`);
+      assert.equal(unitVisibleTo(world, id, trike), allied, `${what}: ${id} see the trike`);
+      assert.equal(structureVisibleTo(world, id, silo), allied, `${what}: ${id} have seen the silo`);
+    }
+  }
+});
+
+test('On, the player wins only when every computer is out', () => {
   const { world, opponents } = battle(true, { visibility: 'shroud' });
-  const silo = world.spawnStructure('silo', 'sardaukar', 2, 2);
-  updateFog(world);
-  assert.ok(structureVisibleTo(world, 'harkonnen', silo), 'what the Sardaukar see, the Harkonnen see');
   for (const id of opponents) {
     // knock each computer out in turn (its MCV gone, no building): the game goes on while any is left
     for (const u of [...world.units.values()]) if (u.house === id && u.type.deploysTo) world.removeUnit(u);
@@ -104,4 +123,26 @@ test('On, the computers share their sight, and the player wins only when every o
   }
   assert.ok(runUntil(world, () => world.outcome, 2) >= 0);
   assert.equal(world.outcome.winner, 'atreides');
+});
+
+/** A house out of the game: its MCV gone and every building destroyed. */
+function knockOut(world, id) {
+  for (const u of [...world.units.values()]) if (u.house === id && u.type.deploysTo) world.removeUnit(u);
+  for (const s of [...world.structures.values()]) if (s.house === id) destroyStructure(world, s, null);
+}
+
+test('On, when the computers beat the player they win together: the end screen marks every one still standing; Off, the rest fight on', () => {
+  for (const allied of [true, false]) {
+    const { world } = battle(allied, { visibility: 'shroud' });
+    knockOut(world, 'ordos');
+    run(world, 1);
+    assert.equal(world.outcome, null);
+    knockOut(world, 'atreides');
+    assert.ok(runUntil(world, () => world.outcome, 2) >= 0);
+    const s = endStats(world, 'atreides');
+    assert.equal(s.won, false);
+    assert.deepEqual(s.houses.map((h) => [h.id, h.winner]), [['atreides', false], ['harkonnen', allied], ['ordos', false], ['sardaukar', allied]]);
+    assert.deepEqual(endTable(s).head.map((h) => h.note.includes('winner')), [false, allied, false, allied]);
+    assert.deepEqual(s.standing, allied ? [] : ['Harkonnen', 'Sardaukar'], 'who fights on: only when nobody has won');
+  }
 });
