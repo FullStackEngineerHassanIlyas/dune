@@ -4,7 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
-import { WebVoiceOutput, announcerSet, savedAnnouncer, lineForEvent, originalLine } from '../src/audio/voice.js';
+import { WebVoiceOutput, VoicePlayer, announcerSet, savedAnnouncer, lineForEvent, originalLine } from '../src/audio/voice.js';
+import { GameView } from '../src/game/game-view.js';
 import { voiceLine } from '../src/formats/dune2-sounds.js';
 import { PLAYABLE_HOUSES } from '../src/data/houses.js';
 import { DEFAULTS, sanitize, loadSettings } from '../src/core/settings.js';
@@ -187,4 +188,21 @@ test('switching the announcer lets go only of the lines whose voice changed, and
   assert.ok(again.includes('ordos/constructionComplete.ogg') && again.includes('ordos/unitReady.ogg'), 'the commonest lines decoded again in the new voice');
   assert.ok(!again.includes('ordos/wormsign.ogg') && !again.some((f) => !f.startsWith('ordos/')), 'only those, only the new voice');
   assert.equal(out.status('constructionComplete'), 'ready');
+});
+
+test('Options → Announcer in the game menu applies at once, mid-battle, like the other live options', async () => {
+  const b = fakeBrowser();
+  const out = new WebVoiceOutput(b.sound, 'ordos', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn, originals: null, announcer: 'one' });
+  await out.ready;
+  const settings = { ...DEFAULTS }, store = memory();
+  const view = Object.assign(Object.create(GameView.prototype), { settings, announcer: { player: new VoicePlayer({ output: out }) } });
+  await out.load('constructionComplete');
+  for (const [mode, set] of [['house', 'ordos'], ['one', 'announcer']]) {
+    changeSetting(settings, 'announcer', mode, store);   // what the options panel does before it tells the game (GameMenu onSettings)
+    view.applySetting('announcer', settings.announcer);
+    assert.equal(out.announcer, mode, mode);
+    assert.equal(out.status('constructionComplete'), 'loading', `${mode}: the line said in the old voice is let go`);
+    await out.load('constructionComplete');
+    assert.equal(at(b.fetched).at(-1), `${set}/constructionComplete.ogg`, `${mode}: the next one comes in the voice chosen`);
+  }
 });

@@ -356,6 +356,7 @@ export class GameView {
     else if (key === 'volume') { this.sound.volume = value; this.sound.setMuted(this.sound.muted); }
     else if (key === 'sound') this.sound.setMuted(!value);
     else if (key === 'voiceVolume') this.announcer.player.setVolume(value);
+    else if (key === 'announcer') this.announcer.player.output?.setAnnouncer?.(value);   // the next line comes in that voice
   }
 
   frame(now) {
