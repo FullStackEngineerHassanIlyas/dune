@@ -229,6 +229,55 @@ test('the player\'s own setting is read when the stage is built: prefers-reduced
   } finally { if (had === undefined) delete globalThis.matchMedia; else globalThis.matchMedia = had; }
 });
 
+test('the campaign screens: each Mentat screen has its face, a new screen ends the old one, and leaving the campaign lets the voice go', async () => {
+  globalThis.addEventListener ??= () => {};   // the main menu listens for keys on the window
+  const { MainMenu } = await import('../src/ui/main-menu.js');
+  const STORY = await import('../src/data/story.js');
+  const { memoryStore } = await import('./campaign-dom.mjs');
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const byAct = (n, act) => { for (const c of n.childNodes) { if (c.dataset?.act === act) return c; const f = byAct(c, act); if (f) return f; } return null; };
+  // the fakes' voice with what CampaignScreens asks of one; it says nothing (the words are typed), so no face starts
+  const voice = Object.assign(fakeVoice(ADVICE), { say: () => null, stop() {}, preload() {}, prepare() {} });
+  const listening = () => voice.listeners.line.size + voice.listeners.end.size;
+  const root = new El(doc, 'div');
+  doc.body.appendChild(root);
+  const atlas = { createAtlas: () => ({ show() {}, zoomTo() {}, conquer() {}, resize() {}, dispose() {} }) };
+  const menu = new MainMenu(root, { settings: {}, onStart() {}, onFullscreen() {}, music: { mood() {} }, shell: { launch() {}, quit() {}, on() {} },
+    backdrop: { setPaused() {}, start() {}, stop() {} },
+    campaign: { store: memoryStore(), load: { story: async () => STORY, missions: async () => ({ missionDef: () => null }), atlas: async () => atlas }, voice } });
+  try {
+    menu.go('campaign');
+    await settle();   // the words
+    menu.campaign.state = { screen: 'campaign-briefing', house: 'atreides', mission: 1 };
+    menu.go('campaign-briefing');
+    const first = menu.campaign.face;
+    assert.ok(first instanceof MentatFace && first.rig === rigFor('atreides'), 'the briefing\'s Mentat has his face');
+    await settle();
+    const portrait = first.art;
+    assert.ok(portrait.querySelector('.cpmf-head') !== null, 'made ready');
+    assert.equal(listening(), 2);
+    // Advice: the same screen, the same face
+    byAct(root, 'advice').listeners.click[0]();
+    assert.ok(menu.campaign.face === first && first.destroyed === false, 'Advice keeps the face');
+    // a new screen: the old face ends with its screen, the portrait it moved is put back, the new one has its own
+    menu.campaign.state = { screen: 'campaign-join', house: 'ordos', mission: 1 };
+    menu.go('campaign-join');
+    assert.equal(first.destroyed, true, 'the briefing\'s face ends with its screen');
+    assert.ok(portrait.querySelector('.cpmf-head') === null, 'and its portrait is the painting again');
+    const second = menu.campaign.face;
+    assert.ok(second instanceof MentatFace && second !== first && second.rig === rigFor('ordos'));
+    assert.equal(listening(), 2, 'only the new face listens to the voice');
+    // leaving the campaign
+    menu.go('title');
+    assert.equal(second.destroyed, true);
+    assert.ok(menu.campaign.face === null);
+    assert.equal(listening(), 0, 'the voice is let go');
+  } finally {
+    menu.go('title');
+    doc.body.removeChild(root);
+  }
+});
+
 test('a house without a Mentat has no face, and nothing breaks', () => {
   assert.ok(rigFor('fremen') === null);
   const none = mentatStage('fremen', { mentatName: 'Stilgar', later: () => {}, voice: fakeVoice(ADVICE) });
