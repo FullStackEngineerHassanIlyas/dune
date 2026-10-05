@@ -175,6 +175,46 @@ test('reduced motion: the mouth alone moves; brows, lids, corners and the head k
   assert.equal(art(stage).querySelector('.cpm-blink').style.visibility, '', 'the engine does not blink: the CSS (switched off by the same setting) keeps the eyes as they are');
 });
 
+test('reduced motion switched while he is on screen: from then on his mouth alone moves, and all of him again when it is switched back', async () => {
+  const had = globalThis.matchMedia;
+  // the system's setting, as a MediaQueryList the test switches
+  const query = { matches: false, listeners: new Set(), addEventListener(type, fn) { if (type === 'change') this.listeners.add(fn); }, removeEventListener(type, fn) { this.listeners.delete(fn); } };
+  const flip = (on) => { query.matches = on; for (const fn of [...query.listeners]) fn({ matches: on }); };
+  try {
+    globalThis.matchMedia = () => query;
+    const { stage, voice, d } = build('harkonnen', synth([[100, 6000, 'angry']], { every: 90 }), { reducedMotion: undefined });
+    const face = stage.face;
+    assert.equal(face.reduced, false);
+    await face.warm();
+    voice.play();
+    const eyes = () => art(stage).querySelector('.cpm-blink').style.visibility;
+    const watch = (seconds) => {
+      let mouth = 0, other = 0;
+      d.run(seconds, () => {
+        const p = face.pose;
+        mouth = Math.max(mouth, 1 - face.w[0]);
+        other = Math.max(other, Math.abs(p[POSE.browLy]), Math.abs(p[POSE.browRy]), Math.abs(p[POSE.cornerLy]), Math.abs(p[POSE.tilt]), Math.abs(p[POSE.nod]), p[POSE.lidL], p[POSE.lidR]);
+      });
+      return { mouth, other };
+    };
+    assert.ok(watch(1.5).other > 0.5, 'his brows and head move with his anger');
+    assert.equal(eyes(), 'hidden', 'and he blinks for the portrait\'s CSS');
+    flip(true);
+    assert.equal(face.reduced, true);
+    assert.equal(eyes(), '', 'the portrait\'s own eyes are back (its CSS, under reduced motion too, keeps them open)');
+    d.run(0.6);   // the brows and corners ease back to the painting
+    const calm = watch(1.5);
+    assert.ok(calm.mouth > 0.5, 'his lips still move with the voice');
+    assert.ok(calm.other < 0.01, `nothing else does: ${calm.other}`);
+    flip(false);
+    assert.equal(face.reduced, false);
+    assert.equal(eyes(), 'hidden');
+    assert.ok(watch(1.5).other > 0.5, 'all of him again');
+    face.destroy();
+    assert.equal(query.listeners.size, 0, 'the face lets the setting go');
+  } finally { if (had === undefined) delete globalThis.matchMedia; else globalThis.matchMedia = had; }
+});
+
 test('the player\'s own setting is read when the stage is built: prefers-reduced-motion on or off', () => {
   const had = globalThis.matchMedia;
   try {

@@ -312,7 +312,7 @@ export function createFaceSvg({ art, svg, rig, uid = 'cpmf', visemes }) {
     put(slot + 2, l.img, 'opacity', T.unit, lidv, 2);
   };
 
-  let active = false;
+  let active = false, ownEyes = false;
   return {
     root, defs, head, overlay, sprites,
     /** Resolves once the vector sprites are bitmaps (in a browser; at once elsewhere). */
@@ -361,13 +361,20 @@ export function createFaceSvg({ art, svg, rig, uid = 'cpmf', visemes }) {
         display(D_ALPHA + i, sprites[i], last[W_ALPHA + i] > 0);
       }
     },
-    /** On: the face shows over the painting and (ownBlinks) the portrait's own CSS blink is hidden for ours. Off: the painting alone. */
+    /**
+     * On: the face shows over the painting and (ownBlinks) the portrait's own CSS blink is hidden for ours. Off: the
+     * painting alone. Called again while on with the other ownBlinks (reduced motion switched), it gives the eyes back.
+     */
     setActive(on, ownBlinks = true) {
-      if (on === active) return;
-      active = on;
-      root.setAttribute('display', on ? 'inline' : 'none');
-      if (blink?.style) blink.style.visibility = on && ownBlinks ? 'hidden' : '';
-      if (!on) { last.fill(-1); shown.fill(-1); }
+      const mine = on && ownBlinks;
+      if (on === active && mine === ownEyes) return;
+      if (on !== active) {
+        active = on;
+        root.setAttribute('display', on ? 'inline' : 'none');
+        if (!on) { last.fill(-1); shown.fill(-1); }
+      }
+      ownEyes = mine;
+      if (blink?.style) blink.style.visibility = mine ? 'hidden' : '';
     },
     get active() { return active; },
     /** Takes the face out and puts the portrait's head box back as it was. */
@@ -376,7 +383,7 @@ export function createFaceSvg({ art, svg, rig, uid = 'cpmf', visemes }) {
       for (const u of urls.splice(0)) URL.revokeObjectURL(u);
       for (const n of Array.from(headRot.childNodes)) if (n !== overlay) sway.insertBefore(n, head);
       head.parentNode?.removeChild(head);
-      active = false;
+      active = false; ownEyes = false;
     },
   };
 }

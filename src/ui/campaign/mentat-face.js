@@ -31,15 +31,23 @@ export function prefersReducedMotion() {
   try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
 
+/** The system's reduced-motion setting as a MediaQueryList (null where there is none), to follow it while a face lives. */
+function motionQuery() {
+  try { return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null; } catch { return null; }
+}
+const follow = (q, fn) => { if (typeof q?.addEventListener === 'function') q.addEventListener('change', fn); else q?.addListener?.(fn); };
+const unfollow = (q, fn) => { if (typeof q?.removeEventListener === 'function') q.removeEventListener('change', fn); else q?.removeListener?.(fn); };
+
 export class MentatFace {
   /**
    * rig: a rig (mentat-face-rig.js; throws a TypeError naming what is wrong). voice: a MentatVoice (or anything
    * with now(frame), current and on('line' | 'end')). el: the element whose leaving the page ends the face (the
    * stage's section); art: the portrait's `.cp-mentat-art` (default: the first in `el`; `svg` is the old name).
-   * reducedMotion: the mouth alone. warm: get ready before the first line (see warm()).
+   * reducedMotion: the mouth alone (default: the system's setting, followed while the face lives, as the map and the
+   * portrait's own CSS follow it). warm: get ready before the first line (see warm()).
    * raf / caf: the frame scheduler (tests pass their own).
    */
-  constructor({ rig, voice, el = null, art = null, svg = null, reducedMotion = prefersReducedMotion(), raf = null, caf = null, warm = false } = {}) {
+  constructor({ rig, voice, el = null, art = null, svg = null, reducedMotion, raf = null, caf = null, warm = false } = {}) {
     this.c = compileRig(rig);
     this.rig = rig;
     this.voice = voice;
@@ -47,7 +55,8 @@ export class MentatFace {
     if (!this.art) throw new Error('mentat face: no portrait (.cp-mentat-art)');
     this.svg = this.art;
     this.el = el ?? this.art;
-    this.reduced = !!reducedMotion;
+    this.motionQuery = reducedMotion === undefined ? motionQuery() : null;
+    this.reduced = reducedMotion === undefined ? !!this.motionQuery?.matches : !!reducedMotion;
     this.raf = raf ?? ((fn) => globalThis.requestAnimationFrame(fn));
     this.caf = caf ?? ((id) => globalThis.cancelAnimationFrame(id));
     this.uid = `cpmf${++faces}`;
@@ -77,6 +86,8 @@ export class MentatFace {
     this.tick = this.tick.bind(this);
     this.offLine = voice?.on?.('line', () => this.onLine()) ?? null;
     this.offEnd = voice?.on?.('end', () => { this.s[S_SINCE] = 0; }) ?? null;
+    this.onMotion = () => this.setReduced(this.motionQuery.matches);
+    follow(this.motionQuery, this.onMotion);
     if (voice?.current?.state === 'playing') this.start();
     else if (warm) this.warm();
   }
@@ -142,6 +153,18 @@ export class MentatFace {
     this.rafId = this.raf(this.tick);
   }
 
+  /**
+   * Reduced motion switched while he is on screen (the system's setting): from now on the mouth alone moves (his brows,
+   * lids and corners ease back to the painting, his head is still, the portrait's own eyes are back), or all of him again.
+   */
+  setReduced(on) {
+    on = !!on;
+    if (this.destroyed || on === this.reduced) return;
+    this.reduced = on;
+    this.blinker.reset(this.s[S_T]);   // his own blinks, when they come back, start afresh (not at once)
+    if (this.running) this.view?.setActive(true, !on);
+  }
+
   /** Stops the loop and shows the painting again (the mouth closed); the next line starts it again. */
   stop() {
     if (this.rafId) this.caf(this.rafId);
@@ -157,6 +180,7 @@ export class MentatFace {
     this.stop();
     this.destroyed = true;
     this.offLine?.(); this.offEnd?.();
+    unfollow(this.motionQuery, this.onMotion);
     this.view?.restore();
     this.view = null;
     this.images = [];
