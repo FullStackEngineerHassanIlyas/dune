@@ -1,6 +1,7 @@
 // Options → Original Game Files (spec §6 Original files, §5.8): the player picks the .PAK files of their own
 // Dune II PC copy; the page shows what was found in them (each house's announcer, the units' replies, the
-// effects), switches "Use the original sounds" on and off and forgets them. Below, their music: the Mega
+// effects; the Mentats' and the house emblems' pictures), switches "Original sounds" and "Original pictures" on and
+// off and forgets them. Below, their music: the Mega
 // Drive game's soundtrack from their own copy, or tracks of their own, with a Music Test to hear each track and
 // say where it plays (original-music.js). Everything stays in this browser (src/core/user-files.js); the page
 // says so. Opened by the main menu and the Options page with
@@ -32,13 +33,29 @@ export function summaryText(s) {
   };
 }
 
+const plural = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`;
+
+/** What the pictures cover, in words (from user-files pictureSummary()): "Mentat portraits: 3, house emblems: 3". */
+export function picturesText(p) {
+  if (!p?.count) return 'Nothing yet.';
+  const names = (list) => list.map((id) => HOUSES[id]?.name ?? id).join(', ');
+  const parts = [];
+  if (p.mentats.length) parts.push(`Mentat portraits: ${p.mentats.length} (${names(p.mentats)})`);
+  if (p.emblems.length) parts.push(`house emblems: ${p.emblems.length}`);
+  const text = parts.join(', ');
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}${p.sources?.length ? `, from ${p.sources.join(', ')}` : ''}`;
+}
+
 /** One line per file read (from user-files importFiles()): [{ text, bad }]. */
 export function reportText(result) {
   return result.files.map((f) => {
     if (f.error) return { text: `${f.name}: ${f.error}`, bad: true };
-    if (!f.clips) return { text: `${f.name}: ${f.note ?? 'nothing usable in it'}`, bad: f.skipped > 0 };
+    const pictures = f.pictures ? plural(f.pictures, 'picture file') : '';
+    if (!f.clips && !pictures) return { text: `${f.name}: ${f.note ?? 'nothing usable in it'}`, bad: f.skipped > 0 };
     const skipped = f.skipped ? `; ${f.skipped} damaged clip${f.skipped === 1 ? '' : 's'} skipped — ${f.note}` : '';
-    return { text: `${f.name}: ${f.clips} sound clip${f.clips === 1 ? '' : 's'}${skipped}`, bad: false };
+    const damaged = !f.skipped && f.note && pictures ? ` — ${f.note}` : '';
+    const found = [f.clips ? plural(f.clips, 'sound clip') : '', pictures].filter(Boolean).join(' and ');
+    return { text: `${f.name}: ${found}${skipped}${damaged}`, bad: !!damaged };
   });
 }
 
@@ -69,7 +86,7 @@ function addStyle() {
 export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
   addStyle();
   const el = h('div', { class: 'dm-panel wide page-original-files', role: 'region', 'aria-label': 'Original game files' });
-  const state = { busy: null, report: null, armed: 0, summary: null, musicTracks: [], musicReport: null, storage: 'indexeddb', focus: null };
+  const state = { busy: null, report: null, armed: 0, summary: null, pictures: null, musicTracks: [], musicReport: null, storage: 'indexeddb', focus: null };
   const test = new MusicTest(settings, { files, onChange: () => render() });
   test.bind(el);
 
@@ -96,16 +113,18 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
     if (el.contains(document.activeElement) && document.activeElement.dataset.focus) state.focus = document.activeElement.dataset.focus;   // kept across a busy spell, when the button is disabled
     try {
       state.summary = await files.clipSummary();
+      state.pictures = await files.pictureSummary();
       state.musicTracks = await files.listTracks();
       state.storage = state.summary.storage;
     } catch (err) {
       state.report = [{ text: `Storage is not available: ${err.message}`, bad: true }];
     }
-    const s = state.summary, busy = !!state.busy, any = (s?.clips ?? 0) > 0, words = s ? summaryText(s) : null;
+    const s = state.summary, pics = state.pictures, busy = !!state.busy, words = s ? summaryText(s) : null;
+    const anyClips = (s?.clips ?? 0) > 0, anyPictures = (pics?.count ?? 0) > 0, any = anyClips || anyPictures;
     if (state.armed && Date.now() > state.armed) state.armed = 0;
     el.replaceChildren(
       h('h2', {}, 'Original game files'),
-      h('p', {}, 'Hear Dune II’s own announcers, unit replies and battle sounds, from your own copy of the PC game (1992). Choose the .PAK files in its folder — all of them will do; the sounds are picked out (each house’s announcer is in ATRE.PAK, HARK.PAK or ORDOS.PAK).'),
+      h('p', {}, 'Hear Dune II’s own announcers, unit replies and battle sounds, and see its own Mentats and house emblems, from your own copy of the PC game (1992). Choose the .PAK files in its folder — all of them will do; the sounds and pictures are picked out (each house’s announcer is in ATRE.PAK, HARK.PAK or ORDOS.PAK, the pictures in DUNE.PAK).'),
       h('p', { class: 'of-privacy' }, 'Your files stay in this browser: they are read here and kept in its storage, never uploaded, and none of them becomes part of this game.',
         state.storage === 'memory' ? ' This browser keeps no site data, so they last only until this page is closed.' : ''),
       row('Game files',
@@ -120,20 +139,26 @@ export function originalFilesPanel(settings, { onBack = () => {} } = {}) {
           h('dt', {}, 'Unit replies'), h('dd', {}, words.replies),
           h('dt', {}, 'Effects'), h('dd', {}, words.effects),
           words.announcer && [h('dt', {}, 'Announcer'), h('dd', {}, words.announcer)],
-          h('dt', {}, 'Clips'), h('dd', {}, words.from))),
+          h('dt', {}, 'Clips'), h('dd', {}, words.from),
+          h('dt', {}, 'Pictures'), h('dd', {}, picturesText(pics)))),
       row('Original sounds',
         h('div', { class: 'dm-seg', role: 'group', 'aria-label': 'Use the original sounds' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
-          h('button', { type: 'button', class: (s?.on ?? false) === v ? 'on' : '', 'aria-pressed': String((s?.on ?? false) === v), disabled: busy || !any, dataset: { focus: `use-${v}` },
+          h('button', { type: 'button', class: (s?.on ?? false) === v ? 'on' : '', 'aria-pressed': String((s?.on ?? false) === v), disabled: busy || !anyClips, dataset: { focus: `use-${v}` },
             onclick: () => act(null, () => files.setUseOriginals(v)) }, text))),
-        h('small', {}, any ? 'On: the lines and effects found replace this game’s own; whatever is missing keeps ours.' : 'Choose the game’s files first.')),
+        h('small', {}, anyClips ? 'On: the lines and effects found replace this game’s own; whatever is missing keeps ours.' : 'Choose the game’s files first.')),
+      row('Original pictures',
+        h('div', { class: 'dm-seg', role: 'group', 'aria-label': 'Use the original pictures' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
+          h('button', { type: 'button', class: (pics?.on ?? false) === v ? 'on' : '', 'aria-pressed': String((pics?.on ?? false) === v), disabled: busy || !anyPictures, dataset: { focus: `pictures-${v}` },
+            onclick: () => act(null, () => files.setUsePictures(v)) }, text))),
+        h('small', {}, anyPictures ? 'On: the campaign shows the original Mentats — their eyes and mouths as the original drew them, the mouth moving with the voice — and the original house emblems; whatever is missing keeps ours.' : 'Choose the game’s files first (the pictures are in DUNE.PAK).')),
       row('Remove',
         h('button', { type: 'button', class: 'dm-btn small danger', disabled: busy || !any, dataset: { focus: 'clear' },
           onclick: () => {
             if (!state.armed) { state.armed = Date.now() + ARM_SECONDS * 1000; render(); setTimeout(() => { if (state.armed && Date.now() >= state.armed) { state.armed = 0; render(); } }, ARM_SECONDS * 1000 + 20); return; }
             state.armed = 0;
-            act('Removing…', async () => { await files.clearClips(); state.report = null; });
+            act('Removing…', async () => { await files.forgetGameFiles(); state.report = null; });
           } }, state.armed ? 'Click again to remove them' : 'Forget the game files'),
-        h('small', {}, 'Deletes the clips from this browser; your music below stays.')),
+        h('small', {}, 'Deletes the clips and pictures from this browser; your music below stays.')),
       ...musicSection({ state, busy, act, picker, test, files }),
       h('div', { class: 'dm-actions' }, h('button', { type: 'button', class: 'dm-btn', dataset: { focus: 'back' }, onclick: () => { test.close(); onBack(); } }, 'Back')),
     );

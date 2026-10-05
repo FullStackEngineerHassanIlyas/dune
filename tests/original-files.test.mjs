@@ -251,7 +251,7 @@ test('reading the player\'s files keeps every clip, reports each file, and switc
   assert.equal(byName['VOC.PAK'].clips, 8);
   assert.equal(byName['VOC.PAK'].skipped, 1);
   assert.match(byName['VOC.PAK'].note, /BROKEN\.VOC/);
-  assert.equal(byName['SCENARIO.PAK'].note, 'no sound clips in it');
+  assert.equal(byName['SCENARIO.PAK'].note, 'no sound clips or pictures in it');
   assert.match(byName['HARK.PAK'].error, /^entry 1 points past the end/, 'the page names the file once, ahead of the error');
   assert.ok(reportText(result).every((r) => !/^(\S+): \1:/.test(r.text)), 'no file is named twice');
   assert.match(byName['notes.txt'].error, /not a \.PAK or \.VOC/);
