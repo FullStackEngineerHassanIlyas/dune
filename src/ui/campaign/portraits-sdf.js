@@ -199,6 +199,8 @@ uniform vec3 uCam;
 uniform vec4 uFrame;
 uniform int uPass;
 uniform float uClosed;
+// where this render's pixels start in the full frame's (a crop's grain then matches the frame's: the mouth sprites)
+uniform vec2 uPixOff;
 out vec4 fragColor;
 // (the loops start at ZERO, which the compiler cannot see is 0, so it keeps one copy of the scene per loop instead
 // of unrolling and inlining it many times over: the shader compiles in seconds, not minutes)
@@ -206,6 +208,8 @@ out vec4 fragColor;
 // true while a shadow ray is marched: a figure's bounding box then stands for nothing at all outside it (a box is a
 // fine bound for finding the surface but, read as a near miss, would darken everything near it)
 bool gShadow = false;
+// the material being lit (the inside of an open mouth, ids 4 to 6, is given a little light of its own)
+float gMat = 0.0;
 ${GLSL_LIB}
 ${GLSL_EYES}
 ${scene}
@@ -237,7 +241,7 @@ vec3 calcNormal(vec3 p, int groups) {
 float softShadow(vec3 ro, vec3 rd, float tmax, float k) {
   // started a little off the surface, at a per-pixel jittered distance, so the penumbra's steps dither into grain
   // (the supersampling and the painter's finish smooth it) instead of banding
-  float res = 1.0, t = 0.08 + 0.1 * hash13(vec3(gl_FragCoord.xy, 7.0));
+  float res = 1.0, t = 0.08 + 0.1 * hash13(vec3(gl_FragCoord.xy + uPixOff, 7.0));
   gShadow = true;
   for (int i = ZERO; i < 72; i++) {
     float h = mapAll(ro + rd * t, 3).x;
@@ -291,6 +295,7 @@ vec3 lightIt(vec3 p, vec3 n, vec3 rd, vec3 alb, vec4 surf, float occ) {
   float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.5);
   vec3 rim = RIM_COL * rdl * fres * rimSh * (0.6 + 0.4 * occ);
   vec3 diffuse = alb * (key + fill + amb) * (1.0 - surf.w * 0.8);
+  if (gMat > 3.5 && gMat < 6.5) diffuse += alb * (gMat < 4.5 ? 0.5 : gMat < 5.5 ? 0.06 : 0.2);
   vec3 col = diffuse + rim * (0.2 + alb) * (1.0 - surf.w * 0.5);
   vec3 H = normalize(L - rd);
   float gloss = 1.0 - surf.x;
@@ -343,6 +348,7 @@ void main() {
   vec3 col = vec3(0.55) * (0.12 + 0.25 * occ + 0.9 * max(dot(n, Lc), 0.0) * shc) + 0.15 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
   if (h.y > 1.5 && h.y < 2.5) col *= vec3(0.8, 0.85, 1.0);
 #else
+  gMat = h.y;
   vec3 col = lightIt(p, n, rd, alb, surf, occ);
 #endif
   fragColor = vec4(grade(tonemap(col), p), 1.0);

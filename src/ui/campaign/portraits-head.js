@@ -52,15 +52,26 @@ const vec3 GAZE_P = ${g3(eye.gaze?.[0] ?? [0, 0, 1])};
 const vec3 GAZE_N = ${g3(eye.gaze?.[1] ?? [0, 0, 1])};
 const vec3 MOUTH_C = ${g3(mouth.c)};
 const float MOUTH_W = ${g1(mouth.w)};
+const float MOUTH_UP = ${g1(mouth.upper)};
+const float MOUTH_LO = ${g1(mouth.lower)};
+// the mouth's pose, for the baked mouth sprites (the bake's --mouth mode); all zero is the sculpt as it stands
+uniform vec4 uMouthA;   // x the gap between the lip lines (cm), y the corners drawn apart (+) or together (-), z the lower lip tucked under the upper teeth (0..1), w the tongue lifted (0..1)
+uniform vec4 uMouthB;   // x the lips pursed forward (0..1), y the upper lip raised (cm), z the corners raised (cm), w the lips pressed together (0..1)
+uniform vec4 uMouthC;   // x the upper teeth shown below the lip (cm), y the lower teeth shown above it (cm), z the lower lip pushed out (cm), w the brows taken off (0..1: the brow cut-outs' bare head)
+float mouthGapUp() { return uMouthB.y + 0.2 * uMouthA.x; }
+float mouthGapDn() { return 0.8 * uMouthA.x + uMouthC.z; }
 // the gaze of the eye on the point's side, in the mirrored space (x >= 0)
 vec3 gazeS(vec3 q) { return q.x >= 0.0 ? GAZE_P : vec3(-GAZE_N.x, GAZE_N.y, GAZE_N.z); }
 float eyeUp() { return mix(${g1(eye.up)}, ${g1(eye.closedUp)}, uClosed); }
 // the lips' space: centred on the mouth, bent round the teeth, a smirk lifting one corner (the head's left, +x)
 vec3 lipSpace(vec3 q) {
   vec3 l = q - MOUTH_C;
+  l.x /= 1.0 + 0.26 * uMouthA.y - 0.34 * uMouthB.x;
   l.z += ${g1(mouth.bend)} * l.x * l.x;
+  l.z -= 0.3 * uMouthB.x * (1.0 - smoothstep(0.0, 2.4, abs(l.x)));
   l.y += 0.1 * (1.0 - smoothstep(0.1, 0.55, abs(l.x))) * step(0.0, l.y);
   l.y -= ${g1(mouth.smirk)} * smoothstep(-0.3, MOUTH_W, l.x) * l.x * l.x / ${g1(mouth.w * mouth.w)};
+  l.y -= uMouthB.z * l.x * l.x / ${g1(mouth.w * mouth.w)};
   return l;
 }
 // a shallow groove along the segment a-b (in the face's x-y plane), w wide: 1 on the line, fading off it and at its ends
@@ -107,6 +118,8 @@ float noseShape(vec3 q, vec3 s) {
 vec2 headLocal(vec3 q) {
   float bound = sdEllipsoid(q - vec3(0.0, -0.5, 0.6), vec3(10.0, 13.6, 13.0));
   if (bound > 2.5) return vec2(gShadow ? 1e5 : bound, 1.0);
+  // the inside of an open mouth: the wall's flag and the teeth's and the tongue's distances (zero pose: none)
+  float wall = 0.0, dTeeth = 1e5, dTongue = 1e5;
   vec3 s = vec3(abs(q.x), q.y, q.z);
   // the cranium, its sides flattened at the temples, and the frontal bone
   float d = skullQ(q);
@@ -135,14 +148,44 @@ vec2 headLocal(vec3 q) {
     d += ${g1(0.1 * mouth.fold)} * front * groove(s.xy, ${g2([nose.ala[0] + nose.alaR[0] * 1.05, nose.ala[1] + 0.15])}, ${g2([mouth.w + 0.65, mouth.c[1] - 1.3])}, 0.32);
     // the lips
     vec3 l = lipSpace(q);
-    float lips = sdEllipsoid(l - vec3(0.0, ${g1(mouth.upper * 0.75)}, 0.22), vec3(MOUTH_W, ${g1(mouth.upper)}, 0.85));
-    lips = min(lips, sdEllipsoid(l - vec3(0.0, ${g1(-mouth.lower * 0.75)}, -0.05), vec3(${g1(mouth.w * 0.84)}, ${g1(mouth.lower)}, 0.9)));
+    float gUp = mouthGapUp(), gDn = mouthGapDn();
+    // pursed lips are fuller, pressed ones thinner
+    float fat = (1.0 + 0.15 * uMouthB.x) * (1.0 - 0.3 * uMouthB.w);
+    float lips = sdEllipsoid(l - vec3(0.0, ${g1(mouth.upper * 0.75)} + gUp, 0.22), vec3(MOUTH_W, ${g1(mouth.upper)} * fat, 0.85));
+    lips = min(lips, sdEllipsoid(l - vec3(0.0, ${g1(-mouth.lower * 0.75)} - gDn + 0.55 * uMouthA.z, -0.05 - 0.5 * uMouthA.z), vec3(${g1(mouth.w * 0.84)}, ${g1(mouth.lower)} * fat, 0.9)));
     d = smin(d, lips, 0.45);
     // the line between them, the corners pressed in, the groove above the upper lip, the dip above the chin
-    d = smax(d, -sdEllipsoid(l - vec3(0.0, 0.0, 0.75), vec3(${g1(mouth.w * 0.97)}, ${g1(mouth.open)}, 0.9)), 0.08);
+    d = smax(d, -sdEllipsoid(l - vec3(0.0, 0.0, 0.75), vec3(${g1(mouth.w * 0.97)}, ${g1(mouth.open)} * (1.0 - 0.6 * uMouthB.w), 0.9)), 0.08);
+    if (uMouthA.x > 0.01) {
+      // the mouth open: a hole through the lips, the chamber behind it, and what lies inside
+      float hh = 0.5 * uMouthA.x + 0.04, ym = 0.5 * (gUp - gDn);
+      float hw = ${g1(mouth.w * 0.97)} * (0.93 - 0.3 * uMouthB.x);
+      if (uMouthB.x > 0.01) {
+        // pursed lips: a fuller ring of them round the hole, drawn forward
+        vec2 rq = vec2(l.x / (hw + 0.2), (l.y - ym) / (hh + 0.25));
+        float ringD = (length(rq) - 1.0) * min(hw + 0.2, hh + 0.25);
+        d = smin(d, length(vec2(ringD, l.z - 0.5)) - 0.4 * uMouthB.x, 0.3);
+      }
+      float dHole = min(sdEllipsoid(l - vec3(0.0, ym, 0.3), vec3(hw, hh, 1.5)), sdEllipsoid(l - vec3(0.0, ym - 0.05, -2.2), vec3(hw * 0.8, hh + 0.45, 2.4)));
+      float before = d;
+      d = smax(d, -dHole, 0.1);
+      wall = (-dHole > before && l.z < 0.15) ? 1.0 : 0.0;
+      float tu = uMouthC.x, tl = uMouthC.y;
+      if (tu > 0.0) {
+        float yb = ym + hh - tu + 0.1 * l.x * l.x;
+        dTeeth = smax(smax(smax(yb - l.y, l.y - (ym + hh + 0.9), 0.1), abs(l.x) - hw * 0.85, 0.3), abs(l.z + 0.3) - 0.4, 0.15);
+      }
+      if (tl > 0.0) {
+        float yt = ym - hh + tl - 0.07 * l.x * l.x;
+        dTeeth = min(dTeeth, smax(smax(smax(l.y - yt, (ym - hh - 0.9) - l.y, 0.1), abs(l.x) - hw * 0.75, 0.3), abs(l.z + 0.25) - 0.36, 0.15));
+      }
+      dTeeth += 0.03 * (1.0 - smoothstep(0.0, 0.12, abs(fract(l.x / 0.8 + 0.5) - 0.5) * 0.8));
+      float tg = uMouthA.w;
+      dTongue = sdEllipsoid(l - vec3(0.0, ym - hh - 0.12 + 0.5 * tg, -1.9 + 1.4 * tg), vec3(hw * 0.5, 0.26 + 0.1 * tg, 1.2));
+    }
     d = smax(d, -sdSphere(vec3(abs(l.x), l.y, l.z) - vec3(${g1(mouth.w * 0.98)}, 0.0, 0.0), 0.12), 0.25);
     d = smin(d, sdCapsule(vec3(abs(q.x), q.y, q.z), ${g3([0.38, tip[1] - 1.25, mouth.c[2] + 0.2])}, ${g3([0.44, mouth.c[1] + mouth.upper * 1.6, mouth.c[2] + 0.42])}, 0.11), 0.2);
-    d += 0.11 * front * groove(q.xy, ${g2([-mouth.w * 0.5, mouth.c[1] - mouth.lower * 2.5])}, ${g2([mouth.w * 0.5, mouth.c[1] - mouth.lower * 2.5])}, 0.45);
+    d += 0.11 * front * groove(q.xy, ${g2([-mouth.w * 0.5, mouth.c[1] - mouth.lower * 2.5])} - vec2(0.0, gDn), ${g2([mouth.w * 0.5, mouth.c[1] - mouth.lower * 2.5])} - vec2(0.0, gDn), 0.45);
     ${extra}
     // the lids, folded into the sockets, and the crease over each upper lid
     vec3 e = s - EYE_C;
@@ -155,7 +198,9 @@ vec2 headLocal(vec3 q) {
   ${extraAll}
   // the ears
   d = smin(d, earShape(s - ${g3(ear.c)}), 0.45);
-  vec2 r = vec2(d, 1.0);
+  vec2 r = vec2(d, wall > 0.5 ? 5.0 : 1.0);
+  if (dTeeth < r.x) r = vec2(dTeeth, 4.0);
+  if (dTongue < r.x) r = vec2(dTongue, 6.0);
   vec3 e = s - EYE_C;
   float ball = length(e) - EYE_R;
   if (ball < 1.0) ball = smin(ball, length(e - gazeS(q) * 0.62) - 0.64, 0.18);
@@ -247,9 +292,10 @@ vec3 skinAlbedo(vec3 q) {
   c = zone(c, c * vec3(0.88, 0.92, 0.98), ${g1(0.3 + stubble)} * blob(q, ${g3([0, mouth.c[1] - 2.6, mouth.c[2] - 0.6])}, vec3(4.6, 3.2, 3.2)) * (1.0 - blob(s, ${g3([0, mouth.c[1], mouth.c[2] + 0.4])}, vec3(2.6, 1.1, 1.0))));
   float strand;
   float brow = browMask(s, strand);
-  c = mix(c, ${g3(b.colour)}, brow * (0.72 + 0.28 * strand));
+  c = mix(c, ${g3(b.colour)}, brow * (0.72 + 0.28 * strand) * (1.0 - uMouthC.w));
   vec3 l = lipSpace(q);
-  float lip = 1.0 - smoothstep(0.7, 1.05, length(vec2(l.x / ${g1(mouth.w * 0.98)}, (l.y - 0.05) / ${g1(Math.max(mouth.upper, mouth.lower) * 1.7)})));
+  float ly = l.y - (l.y > 0.5 * (mouthGapUp() - mouthGapDn()) ? mouthGapUp() : -mouthGapDn());
+  float lip = 1.0 - smoothstep(0.7, 1.05, length(vec2(l.x / ${g1(mouth.w * 0.98)}, (ly - 0.05) / ${g1(Math.max(mouth.upper, mouth.lower) * 1.7)})));
   c = mix(c, ${g3(lips)}, lip * 0.8);
   // the lash line along each lid's edge, darkest along the upper lid
   vec3 e = s - EYE_C;
@@ -269,6 +315,13 @@ vec3 skinAlbedo(vec3 q) {
   c *= 0.93 + 0.14 * fbm(q * 3.0);
   ${stubble ? `c = mix(c, c * vec3(0.72, 0.72, 0.76), ${g1(stubble)} * smoothstep(0.45, 0.75, vnoise(q * 14.0)) * blob(q, ${g3([0, mouth.c[1] - 2.0, mouth.c[2] - 1.0])}, vec3(5.8, 3.8, 4.2)) * (1.0 - lip));` : ''}
   return c;
+}
+// the inside of an open mouth: teeth (4), the dark of the chamber (5), the tongue (6)
+vec3 mouthAlbedo(vec3 q, float mat, out vec4 surf) {
+  if (mat < 4.5) { surf = vec4(0.32, 0.4, 0.0, 0.0); return vec3(1.0, 0.88, 0.66) * (0.94 + 0.1 * vnoise(q * 9.0)); }
+  if (mat < 5.5) { surf = vec4(0.5, 0.25, 1.0, 0.0); return vec3(0.2, 0.05, 0.045); }
+  surf = vec4(0.3, 0.55, 1.0, 0.0);
+  return vec3(0.46, 0.13, 0.13) * (0.9 + 0.2 * vnoise(q * 6.0));
 }
 vec3 eyeAlbedo(vec3 q, out vec4 surf) {
   vec3 s = vec3(abs(q.x), q.y, q.z);

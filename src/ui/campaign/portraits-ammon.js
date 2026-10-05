@@ -184,6 +184,7 @@ vec3 albedo(vec3 p, vec3 n, float mat, out vec4 surf) {
   if (mat < 1.5) { surf = vec4(0.55, 0.22, 1.0, 0.0); return skinAlbedo(q); }
   if (mat < 2.5) return eyeAlbedo(q, surf);
   if (mat < 3.5) { surf = vec4(0.22, 0.85, 0.0, 0.0); return hairColour(q); }
+  if (mat < 6.5) return mouthAlbedo(q, mat, surf);
   // the cloth: a fine weave, and the dye a little uneven over larger patches
   float weave = 0.9 + 0.12 * vnoise(p * vec3(9.0, 3.0, 9.0)) + 0.22 * (vnoise(p * vec3(0.6, 0.25, 0.6)) - 0.5);
   if (mat < 20.5) { surf = vec4(0.84, 0.08, 0.0, 0.0); return vec3(0.016, 0.05, 0.03) * weave; }
@@ -204,5 +205,7 @@ export const AMMON = {
   eyes: [toWorld(EYE), toWorld([-EYE[0], EYE[1], EYE[2]])].map((p) => project(FRAME, p)),
   /** Where his mouth, brows and eyes fall in the frame (for animating them). */
   features: faceFeatures(PARAMS, BROWS, (q) => project(FRAME, toWorld(q))),
+  /** The mouth's own numbers (head space, cm) over HEAD_DEFAULTS.mouth, for the mouth sprites. */
+  mouth: PARAMS.mouth,
   scene: SCENE,
 };
