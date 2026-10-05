@@ -3,7 +3,8 @@
 The Mentat's face is hooked into every Mentat screen and has been checked on the real GPU with the real clips for all
 three houses (below, "Real GPU check"): lips in sync, 60 fps while he speaks, no console messages, three look-and-fix
 rounds (cfe750c, 728b759, 80ad881). The hook-up itself was the build agent's (workflow run wf_4641467b-363, stopped
-mid-work and committed as WIP in d874596); b4356d8 fixed Options → Mentat voice Off.
+mid-work and committed as WIP in d874596); b4356d8 fixed Options → Mentat voice Off. A report-only review of the
+hook-up followed; its findings are fixed (5c09ea4 … 75f465a, below, "Review fixes").
 
 Branch: phase3/mentat-talk = phase3/mentat-voice (incl. voice fix 329cdf2) + phase3/mentat-face-art 8bdfae9, with
 phase3/integration merged in (21f8539: the original-figure hook in stage.js).
@@ -12,31 +13,63 @@ phase3/integration merged in (21f8539: the original-figure hook in stage.js).
 - stage.js: mentatStage attaches the face (attachMentatFace(stage, figure ? originalMentatRig(house) : rigFor(house),
   { warm: true })) when its voice will speak (`voice.enabled`, b4356d8); stage.face; faceOptions for tests.
 - index.js: quiet() destroys the face; the screen keeps this.face = stage.face.
-- mentat-face.js: warm() builds the face and decodes the rig's pictures before the first line; look() reads the
-  voice `motion.lead` (0.07 s since cfe750c) ahead; the first frame of a line catches up the time heard (not the look
-  ahead); each face starts at its own place in its Mentat's seeded blinks (728b759).
-- mentat-face-rig.js: rigFiles(rig); mouthEase 0.05, sharpen 3, lead 0.07.
+- mentat-face.js: warm() builds the face and decodes the rig's pictures before the first line (once the head painting
+  has loaded or failed; a picture that will not load is said once); look() reads the voice `motion.lead` (0.07 s since
+  cfe750c) ahead; the first frame of a line catches up the time heard (not the look ahead), also for a line that starts
+  while the face is awake; each face starts at its own place in its Mentat's seeded blinks (728b759); reduced motion
+  switched while he is on screen is followed at once; nothing in the frame passes or returns a number (no allocation
+  whatever the optimiser inlines).
+- mentat-face-motion.js: springIn() and swayIn() (the frame's forms of springStep() and sway(): their numbers in
+  typed arrays).
+- mentat-face-rig.js: rigFiles(rig) (every part's sprite and bare patch); mouthEase 0.05, sharpen 3, lead 0.07.
 - mentat-face-rigs.js: stronger brows for all three Mentats.
-- mentat-face-svg.js: headImageOf(art); willReadFrequently canvas for the patches.
+- mentat-face-svg.js: headImageOf(art); willReadFrequently canvas for the patches; setActive() hands the eyes over
+  when only the blinks' owner changes.
 - scripts/voices/mentat.py, assets/voice/mentat/{atreides,ordos}/ending.json: the last words' thanks are 'pleased' (80ad881).
-- tests: mentat-face-fakes.mjs (shared fakes, moved out of mentat-face.test.mjs), mentat-talk.test.mjs (new),
-  mentat-face-sync.test.mjs (the GPU rounds: lead, first frame, blinks per screen), mentat-lines.test.mjs (the
-  ending's thanks).
+- tests: mentat-face-fakes.mjs (shared fakes, moved out of mentat-face.test.mjs), mentat-talk.test.mjs (new: the stage,
+  live reduced motion, and CampaignScreens through the real main menu), mentat-face-sync.test.mjs (the GPU rounds: lead,
+  first frame, blinks per screen; a real MentatLine), mentat-lines.test.mjs (the ending's thanks).
 
-## Known broken — fix first
-- `tests/mentat-talk.test.mjs`, test "Options → Mentat voice Off" (line 131): the process grows to ~14 GB and the
-  kernel OOM-kills it (seen 2026-10-05 12:30). Do NOT run the full suite until this is fixed (it can hang the PC).
-  Run the file alone with a memory cap: `node --max-old-space-size=2048 --test tests/mentat-talk.test.mjs`.
-- Likely cause: stage.js attaches the face whenever `voice` is set; it does not check `voice.enabled`, so the
-  "Off" stage gets a face (the test expects stage.face === null). Fix the hook, then find the runaway loop.
-- The first three tests of the file pass; the last four (Off, reduced motion, setting read, no-Mentat house) have
-  not been seen passing. tests/mentat-face.test.mjs passes.
+## The runaway test (fixed)
+The WIP's "Options → Mentat voice Off" test grew to about 14 GB until the kernel killed it. Two things together:
+mentatStage gave a face to any voice, Off or not, so the test's `assert.equal(stage.face, null)` failed; and a failed
+`assert.equal` in Node 22 prints both sides with `inspect` (depth 1000, getters on) and diffs the printed lines in
+typed arrays outside the V8 heap, so `--max-old-space-size` does not bound it. A face printed that way is the whole fake
+page again through every element's `ownerDocument` and `parentNode`: measured on 21f8539, a built face against null
+reached 9.7 GB in 25 s, one element of it against null 2 GB in 1.2 s, even with a message given (Node 22 adds the diff
+to it). Fixed by:
+- b4356d8: the hook gives no face to a voice that will not speak (`voice.enabled`).
+- 5c09ea4: every comparison of an element, a face or a frame callback in the face tests is an identity check
+  (`assert.ok(a === b)`); the fakes' ways back up are not enumerable, so even a check written the old way prints an
+  element's own subtree (the same element against null: 78 kB in 23 ms); the talk tests' stages leave the page after
+  each test instead of piling up on one fake page.
+Run tests under a cgroup cap, which does bound it: `systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 npm test`.
+
+## Review fixes
+A report-only review (21f8539) found these; each fix makes a mutation of it fail a test.
+- 5c09ea4: tests that could still run away (above).
+- cc4a668: "the frame loop allocates nothing" failed 3-6 runs in 8 (on a4fca8c too). Not the measurement: each process
+  grew either 2.5 kB per 10k frames or a steady 160-450 kB (16-45 bytes a frame), the allocation profile put it in
+  update(), and `--trace-turbo-inlining` showed TurboFan's budget for update() running out at a different call in
+  different runs; a spring step not inlined boxed the numbers it was passed. The frame now passes no number to a call
+  (springIn, swayIn, the rates worked out once, the clamps in place): twelve fresh processes all 2.5-5 kB, 10 of 10 alone.
+- a8573f7: the original figure's stage test checks the face's rig is the figure's (the merge's
+  `figure ? originalMentatRig(house) : rigFor(house)`), and a figure without a rig has no face.
+- 28960c2: a line that starts while the face is awake (Advice right after the briefing) catches up a late first frame
+  too; the lead and the catch-up are tested on a real MentatLine.
+- fc90329: reduced motion switched while he is on screen is followed at once (the map and the portrait's CSS already
+  did): his mouth alone from then on, the portrait's own eyes back; all of him again when switched back.
+- 38043b5: warm()'s wait for the head painting (load or error) is tested, and lets the other listener go.
+- 1d28ee9: CampaignScreens' half of the hook-up (stage.face kept, ended by quiet() on a screen change, the voice let
+  go) is tested through the real main menu.
+- 4fba140: rigFiles() lists the corners' and the jaw's own sprites and bare patches too.
+- 75f465a: warm() says which of the rig's pictures would not load, once per file.
 
 ## Still to do (from the brief in the workflow script)
 1. Done (b4356d8; checked on the GPU below): Options "Mentat voice: Off" (still portrait, no mouth) and reduced motion.
 2. Done (below, "Real GPU check"): real GPU, real audio, all three houses, sync, 60 fps, console, three rounds.
-3. Full suite green under the lock. This file: add "## For the README".
-4. Report-only review, then fixes.
+3. Done: full suite green under a 3 GB cgroup, twice (below, "Tests"); "For the README" below, and in README.md.
+4. Done: report-only review, then fixes (above, "Review fixes").
 5. Merge into phase3/integration: stage.js conflicts with the original-figure hook there (a793ac3 / 4602786) —
    keep it: `figure ? originalMentatRig : rigFor(house)`. Then every suite and a GPU check with the real PAKs.
 
@@ -142,7 +175,16 @@ GPUs and a 30 Hz display were not tried.
 (asleep against the face taken out), `strips/rm3/strip-<house>-live-face.png` (reduced motion), `checks/c0/sheet-voice-off.png`,
 `strips/r3/` (round 3). Numbers: `runs/r0`, `r1`, `r3` (raw), `r0-summary.json`, `r1-summary.json`, `r3-summary.json`.
 
-**Tests.** Full suite under a 3 GB cgroup (`systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 npm test`):
-1525 of 1527 pass, 1 skipped, 1 fails: "the frame loop allocates nothing" in tests/mentat-face.test.mjs, which is flaky
-on this machine and fails as often on 21f8539 (alone: 6 of 8 runs there, 5 of 8 here; the young heap's growth over 10k
-frames). `npm run e2e:campaign` passes; the 12 campaign smoke scenes pass.
+**Tests.** Full suite under a 3 GB cgroup (`systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 npm test`),
+after the review fixes, twice: 1533 of 1534 pass and 1 is skipped (the portrait bake check, which needs the GPU Chrome),
+both times; "the frame loop allocates nothing" passes both times (it was the one failure before cc4a668).
+`npm run e2e:campaign` passes (all campaign checks, no console errors).
+
+## For the README
+
+In "Campaign", after the Mentats' voice (the voice notes' "For the README", now in README.md as well):
+
+> The Mentat's face moves with his voice: his lips take the shape of each sound a moment before you hear it, his jaw
+> opens with its loudness, and his brows, eyes and mouth take each sentence's mood (Cyril's kindly concern, Radnor's
+> sneer, Ammon's sly half-smile). He blinks and moves his head a little as he talks, and rests between lines. With
+> Options → Mentat voice Off he is the still painting; with reduced motion only his mouth moves.
