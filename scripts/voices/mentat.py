@@ -32,7 +32,8 @@ ROOT = G.ROOT
 OUT = os.path.join(ROOT, 'assets', 'voice', 'mentat')
 RATE = G.RATE                # Kokoro's output, 24 kHz
 FRAME = 600                  # samples per duration frame (25 ms)
-TARGET_LUFS = -19.0          # as loud as the music (src/audio/music), so the menu needs no other balance
+TARGET_LUFS = -19.0          # as loud as the music (src/audio/music), so the menu needs no other balance (set before the encode)
+SHIPPED_LUFS = -19.7         # what the shipped clips measure after the limiter and the Opus encode (-19.8..-19.5, mentat_measure.py)
 CEILING_DB = -2.0
 BITRATE = '20k'              # Opus, mono, speech: about 2.5 kB a second; the whole campaign stays near 5 MB
 ENV_HZ = 30                  # the envelope's rate
@@ -41,7 +42,8 @@ B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'   # 0..
 # ——— the three Mentats ———
 # voice: a Kokoro voice or a blend [(name, weight)]; speed: Kokoro's; tape: played back at this share of its speed
 # (pitch and formants down together, as generate.py's slower()); pause: seconds between sentences; chain: ffmpeg
-# filters for the timbre (before the room); room: the chamber, a light reverb (room_ir below).
+# filters for the timbre (before the room); room: the chamber, a light reverb (room_ir below); say: his own respellings
+# of names (as PRONOUNCE, only the phonemes of his accent), which win over PRONOUNCE for him.
 # Chosen by measured auditions (mentat_measure.py on page-1, question, m3-win, then m2-briefing and m2-lose; notes):
 # every blend kept was heard word for word by Whisper; daniel+fenrir ('House Haakonnen') and lewis+onyx ('Harkening')
 # were not. Cyril is george with fable (median F0 about 130 Hz, a lively 4 semitones of spread: warm, older than
@@ -66,6 +68,10 @@ MENTATS = {
     },
     'ordos': {   # Ammon: smooth, cool, calculating; the Ordos ice hall, hard and bright
         'name': 'Ammon', 'voice': [('am_eric', 0.6), ('bm_lewis', 0.4)], 'lang': 'en-us', 'speed': 0.82, 'tape': 1.0, 'pause': 0.45,
+        # sar-DAW-kar: with the shared 'SAR-də-kar' Whisper small.en heard Ammon's Sardaukar right 4 times of 11 and base.en 0 of 11 (his
+        # schwa came out as 'i': 'sardikar'); with this, on the same 11 whole clips, 11 of 11 (small.en) and 7-8 of 11 (base.en, which
+        # spells the rest 'Sardaucar'). Cyril and Radnor keep the shared one: the same sound in British (sɑːdˈɔkɑː) was heard 2 of 11.
+        'say': {'sardaukar': {'en-us': 'sɑːɹdˈɔkɑːɹ'}},
         'chain': ['highpass=f=80:p=1', 'lowpass=f=11000:p=1', 'equalizer=f=300:t=q:w=1:g=-2', 'equalizer=f=1200:t=q:w=1:g=-1',
                   'equalizer=f=5500:t=q:w=1.2:g=2', 'acompressor=threshold=-24dB:ratio=3:attack=5:release=100:makeup=2'],
         'room': {'name': 'Ordos ice hall', 'predelay': 0.035, 'early': [(0.031, 0.4), (0.049, 0.3), (0.071, 0.22), (0.097, 0.15)],
@@ -76,14 +82,20 @@ MENTATS = {
 # Names espeak says wrong, as Kokoro phonemes per accent (the whole word; a possessive keeps its 's').
 PRONOUNCE = {
     'arrakis': {'en-us': 'ɐɹˈækɪs', 'en-gb': 'ɐɹˈakɪs'},
-    'harkonnen': {'en-us': 'hɑːɹkˈɑːnən', 'en-gb': 'hɑːkˈɒnən'},   # har-KON-en: heard 'Harkonnen' in 23 of 26 whole clips; 'HAR-kənən' 21, 'HAR-kənɛn' 18 ('harkening', 'harken and')
+    # har-KON-en: heard 'Harkonnen' in 23 of 26 whole clips; 'HAR-kənən' 21, 'HAR-kənɛn' 18 ('harkening', 'harken and'). The usual Dune
+    # stress is HAR-kuh-nen, which a listener may prefer: on the 12 mentions in Ammon's 10 whole clips with the name 'hˈɑːɹkənən' was heard 8 of 12 by small.en and
+    # 3 of 12 by base.en, this one 9 and 6-8 (his misses are 'Harkonnen thugs / bases / brute' opening a sentence, and the same sentences said
+    # four to a clip were heard right 12 of 12 by both models: the transcriber's context, not the sound)
+    'harkonnen': {'en-us': 'hɑːɹkˈɑːnən', 'en-gb': 'hɑːkˈɒnən'},
     'atreides': {'en-us': 'ɐtɹˈeɪdiːz', 'en-gb': 'ətɹˈeɪdiːz'},
     'ordos': {'en-us': 'ˈɔːɹdoʊs', 'en-gb': 'ˈɔːdɒs'},
     'fremen': {'en-us': 'fɹˈɛmən', 'en-gb': 'fɹˈɛmən'},
     'caladan': {'en-us': 'kˈælədæn', 'en-gb': 'kˈaladan'},
-    # SAR-də-kar: Whisper heard 'Sardaukar' in 22-26 of 32 whole clips (two runs; the rest 'sardicar', as many say it); 'SAR-dow-kar'
-    # in 19 ('sardau car'), 'sar-DAW-kar' in 15 ('sardorcar'), though that one won on isolated sentences.
-    'sardaukar': {'en-us': 'sˈɑːɹdəkˌɑːɹ', 'en-gb': 'sˈɑːdəkˌɑː'},
+    # sar-DOW-kar. Whisper small.en / base.en on whole clips: Cyril's Sardaukar 10 of 11 / 0 of 11 with the schwa form SAR-də-kar ('sˈɑːdəkˌɑː';
+    # base.en heard 'Sardica'), 10 / 7 with this; Radnor's 9 of 10 / 0 of 10 and 8 / 6 (near misses 'Sardau', 'Sardauka'). Cyril's 11 sentences
+    # said four to a clip: schwa 4 / 0, this 10 / 11, sar-DAW-kar with a long ɔː 4 / 6, with a short ɒ 1 / 0, with ɑː 0 / 0. The first respelling
+    # (stress on the first syllable, 'SAR-dow-kar') was heard as 'sardau car' on 19 of 32 clips. Ammon, American, has his own (`say` in MENTATS).
+    'sardaukar': {'en-us': 'sɑːɹdˈɑʊkɑːɹ', 'en-gb': 'sɑːdˈaʊkɑː'},
     'ornithopter': {'en-us': 'ˈɔːɹnɪθˌɑːptɚ', 'en-gb': 'ˈɔːnɪθˌɒptə'},
     'ornithopters': {'en-us': 'ˈɔːɹnɪθˌɑːptɚz', 'en-gb': 'ˈɔːnɪθˌɒptəz'},
     'melange': {'en-us': 'meɪlˈɑːnʒ', 'en-gb': 'meɪlˈɒnʒ'},
@@ -128,13 +140,14 @@ def display_words(lines):
     return out
 
 
-def spoken_tokens(word):
-    """A display word as the words that are said, each with its phonemes when espeak must not read it."""
+def spoken_tokens(word, say=None):
+    """A display word as the words that are said, each with its phonemes when espeak must not read it. `say`: a Mentat's
+    own respellings (the spec's 'say'), which win over PRONOUNCE for him."""
     core = word.replace(',', '')
     if core.isdigit():
         return [(t, None) for t in number_words(int(core)).split(' ')]
     base, poss = (word[:-2], "'s") if word.lower().endswith("'s") else (word, '')
-    over = PRONOUNCE.get(base.lower())
+    over = (say or {}).get(base.lower()) or PRONOUNCE.get(base.lower())
     return [(word, (over, poss))] if over else [(word, None)]
 
 
@@ -306,7 +319,7 @@ def speak(voice, spec, lines):
     for g, group in enumerate(groups):
         tokens = []
         for wi in group:
-            said = spoken_tokens(words[wi][3])
+            said = spoken_tokens(words[wi][3], spec.get('say'))
             for k, (t, over) in enumerate(said):
                 trailing = words[wi][4].strip() if k == len(said) - 1 else ''
                 tokens.append((t, wi, over, trailing))
@@ -550,7 +563,7 @@ def all_clips():
 
 def write_manifest(out, clips):
     """The manifest from what is on disk: every clip that has its sound and its track."""
-    manifest = {'version': 1, 'lufs': TARGET_LUFS, 'mentats': {}, 'clips': {}}
+    manifest = {'version': 1, 'lufs': SHIPPED_LUFS, 'mentats': {}, 'clips': {}}
     for house, spec in MENTATS.items():
         manifest['mentats'][house] = {'name': spec['name'], 'voice': G.voice_name(spec['voice']), 'speed': spec['speed'], 'tape': spec['tape'], 'room': spec['room']['name']}
     for clip in clips:

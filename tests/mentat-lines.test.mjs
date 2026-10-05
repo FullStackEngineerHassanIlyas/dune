@@ -52,7 +52,7 @@ test('the clip list: every Mentat line of the story, as the screens show it', ()
 
 test('the manifest: every clip, with the very words of the story, a Mentat for each house, within the budget', () => {
   assert.equal(manifest.version, 1);
-  assert.equal(manifest.lufs, -19);
+  assert.equal(manifest.lufs, -19.7);   // what the clips measure after the Opus encode (the target before it is -19)
   assert.deepEqual(Object.keys(manifest.mentats).sort(), [...HOUSES].sort());
   for (const house of HOUSES) assert.equal(manifest.mentats[house].name, STORY.MENTATS[house].name);
   assert.deepEqual(Object.keys(manifest.clips).sort(), clips.map((c) => c.id).sort(), 'no clip missing, none left over');
@@ -142,4 +142,32 @@ test('the sentences carry a face fitting the Mentat and the moment', () => {
   assert.ok(count('ordos', 'briefing').sly > 0, 'Ammon schemes');
   for (const house of HOUSES) assert.ok(count(house, 'win').pleased > 0, `${house}: pleased at a win`);
   assert.ok(existsSync(new URL('atreides/ending.ogg', DIR)));
+});
+
+// The ASR check cannot run here (it needs Whisper): mentat_measure.py ran on these very files and its per-clip results
+// are kept beside the notes. A clip rendered again without measuring again fails the bytes check below, and the numbers
+// the notes quote have to stay true of what is shipped.
+test('the committed measurement is of these very files, and says every clip is heard as written, in loudness and in words', () => {
+  const rows = JSON.parse(readFileSync(new URL('../docs/superpowers/notes/2026-10-05-mentat-voice-measure.json', import.meta.url), 'utf8'));
+  assert.equal(rows.length, clips.length);
+  const byId = new Map(rows.map((r) => [`${r.house}/${r.key}`, r]));
+  assert.deepEqual([...byId.keys()].sort(), clips.map((c) => c.id).sort());
+  for (const c of clips) {
+    const r = byId.get(c.id), e = manifest.clips[c.id];
+    assert.equal(r.bytes, statSync(new URL(e.file, DIR)).size, `${c.id}: measured on another render (run scripts/voices/mentat_measure.py again)`);
+    assert.equal(r.ms, JSON.parse(readFileSync(new URL(e.track, DIR), 'utf8')).ms, `${c.id}: measured on another render`);
+    assert.ok(Math.abs(r.lufs - manifest.lufs) <= 0.5, `${c.id}: ${r.lufs} LUFS, the manifest says ${manifest.lufs}`);
+    assert.ok(r.peak <= -0.5, `${c.id}: true peak ${r.peak} dBTP`);
+    assert.ok(r.wer <= 0.3, `${c.id}: heard "${r.heard}"`);
+    assert.ok(r.onSpeech >= 0.9, `${c.id}: ${r.onSpeech} of the words fall on speech`);
+  }
+  const mean = rows.reduce((s, r) => s + r.wer, 0) / rows.length;
+  assert.ok(mean <= 0.03, `word error rate ${mean.toFixed(3)}`);
+  // the names, as Whisper small.en heard them in each Mentat's clips: Sardaukar had been heard 4 of 11 for Ammon (his schwa read 'i'),
+  // and by base.en none of Cyril's or Radnor's
+  const heard = (house, name) => rows.filter((r) => r.house === house).reduce(([a, b], r) => [a + (r.names[name]?.[0] ?? 0), b + (r.names[name]?.[1] ?? 0)], [0, 0]);
+  for (const house of HOUSES) {
+    const [ok, said] = heard(house, 'Sardaukar');
+    assert.ok(said >= 9 && ok / said >= 0.75, `${house}: Sardaukar heard ${ok} of ${said}`);
+  }
 });

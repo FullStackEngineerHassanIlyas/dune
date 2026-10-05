@@ -119,6 +119,21 @@ def onsets(x, track):
     return out
 
 
+# the names the Mentats say: (what the text holds, what Whisper's transcript must hold to count as heard right)
+NAMES = {'Arrakis': ('arrakis', 'arrakis'), 'Atreides': ('atreides', 'atreides'), 'Ordos': (r'\bordos', r'\bordos'), 'Harkonnen': ('harkonnen', 'harkonnen'),
+         'Sardaukar': ('sardaukar', 'sardaukar'), 'Fremen': ('fremen', 'fremen'), 'Ornithopter': ('ornithopter', 'ornithopter'), 'Carryall': ('carryall', r'carry[\s-]?all')}
+
+
+def names_heard(text, heard):
+    """{name: [heard right, said]}: each name counted in the text and in what Whisper heard (the lesser of the two counts)."""
+    out = {}
+    for name, (said, got) in NAMES.items():
+        n = len(re.findall(said, text, re.I))
+        if n:
+            out[name] = [min(n, len(re.findall(got, heard, re.I))), n]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('folder')
@@ -156,6 +171,7 @@ def main():
                 heard = ''.join(w.word for w in heard_words).strip()
                 got = norm_words(heard)
                 row['heard'] = heard
+                row['names'] = names_heard(text, heard)
                 row['wer'] = round(wer(want, got), 3)
                 # Whisper's word starts against the track's: each word as said (a number's first word) matched in order
                 said = [(norm_words(w.word), w.start - 0.5) for w in heard_words]
@@ -184,6 +200,14 @@ def main():
               f"±{med('spread'):.1f}st c {med('centroid'):.0f} {med('wpm'):.0f} wpm on>={min(r['onSpeech'] for r in rs):.2f}"
               + f" onsets {np.median([d for r in rs for d in r['onsetsMs']]):+.0f} ms (p10 {np.percentile([d for r in rs for d in r['onsetsMs']], 10):+.0f}, p90 {np.percentile([d for r in rs for d in r['onsetsMs']], 90):+.0f})"
               + (f" WER mean {np.mean([r['wer'] for r in rs]):.3f} max {max(r['wer'] for r in rs):.2f} Δt med {med('startErrMs'):.0f} p90 {med('startErrP90Ms'):.0f} ms" if model else ''))
+        if model:
+            total = {}
+            for r in rs:
+                for name, (a, b) in r['names'].items():
+                    t = total.setdefault(name, [0, 0])
+                    t[0] += a
+                    t[1] += b
+            print(f"{'':9} {'':34} names heard right: " + ', '.join(f'{name} {a}/{b}' for name, (a, b) in total.items()))
 
 
 if __name__ == '__main__':

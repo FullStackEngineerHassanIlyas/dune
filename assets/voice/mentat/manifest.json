@@ -1,6 +1,6 @@
 {
  "version": 1,
- "lufs": -19.0,
+ "lufs": -19.7,
  "mentats": {
   "atreides": {
    "name": "Cyril",
@@ -124,7 +124,7 @@
   "atreides/m4-briefing": {
    "file": "atreides/m4-briefing.ogg",
    "track": "atreides/m4-briefing.json",
-   "seconds": 25.898,
+   "seconds": 26.025,
    "text": "The Harkonnen have returned with more troops,\nand they are raiding our Harvesters in the sand.\nSomething stranger troubles me. Sardaukar troopers,\nthe Emperor's own soldiers, have been seen here.\nThey come by Carryall and strike without warning.\nDestroy the Harkonnen base, and be ready for\nwhoever else drops out of the sky."
   },
   "atreides/m4-advice": {
@@ -142,13 +142,13 @@
   "atreides/m4-lose": {
    "file": "atreides/m4-lose.ogg",
    "track": "atreides/m4-lose.json",
-   "seconds": 7.967,
+   "seconds": 8.019,
    "text": "We could not break them. The fault is not yours;\nthe Sardaukar were more than any of us expected."
   },
   "atreides/m5-briefing": {
    "file": "atreides/m5-briefing.ogg",
    "track": "atreides/m5-briefing.json",
-   "seconds": 31.345,
+   "seconds": 31.358,
    "text": "I have troubling news. The Sardaukar we met were no\naccident. The Emperor himself is arming our rivals.\nThis contest is not as open as he claimed.\nThe Ordos have profited most from his favour.\nThey have built a strong base, and mean to use it.\nDestroy it, Commander. Let them find out what their\nbargain with the Emperor has bought them."
   },
   "atreides/m5-advice": {
@@ -172,7 +172,7 @@
   "atreides/m6-briefing": {
    "file": "atreides/m6-briefing.ogg",
    "track": "atreides/m6-briefing.json",
-   "seconds": 24.947,
+   "seconds": 25.074,
    "text": "The Harkonnen are desperate, and desperate men\nstrike hardest. They will attack while we attack.\nWe must hold our ground and push forward at once.\nTheir base lies across the open sand. Destroy it.\nGuard our own walls as well: the Emperor's\nSardaukar may yet return to aid them."
   },
   "atreides/m6-advice": {
@@ -196,7 +196,7 @@
   "atreides/m7-briefing": {
    "file": "atreides/m7-briefing.ogg",
    "track": "atreides/m7-briefing.json",
-   "seconds": 23.902,
+   "seconds": 23.963,
    "text": "A new danger, Commander. The Ordos have built\nnot one base in this region but two.\nBeware their Deviators: they can turn our own\ntanks against us for a time.\nDestroy both bases before they grow any stronger.\nThe Sardaukar could appear at any time, so keep\na reserve at home."
   },
   "atreides/m7-advice": {
@@ -220,7 +220,7 @@
   "atreides/m8-briefing": {
    "file": "atreides/m8-briefing.ogg",
    "track": "atreides/m8-briefing.json",
-   "seconds": 28.445,
+   "seconds": 28.725,
    "text": "The Ordos and the Harkonnen have set aside their\nquarrels and joined against us. One base each lies\nin this region, and both must be destroyed.\nI suspect the Emperor arranged this alliance.\nHis Sardaukar will be watching for their chance.\nThis is the battle that decides Arrakis, Commander.\nFight it as you have fought every other: well."
   },
   "atreides/m8-advice": {
@@ -244,25 +244,25 @@
   "atreides/m9-briefing": {
    "file": "atreides/m9-briefing.ogg",
    "track": "atreides/m9-briefing.json",
-   "seconds": 28.018,
+   "seconds": 28.517,
    "text": "The mask is off. The Emperor has landed his own\nSardaukar on Arrakis to take the planet himself.\nTwo Sardaukar bases stand before us. They are the\nfinest soldiers in the Empire, and they know it.\nDestroy both bases and the contest is over.\nWhatever happens, Commander, I am proud to have\nserved beside you."
   },
   "atreides/m9-advice": {
    "file": "atreides/m9-advice.ogg",
    "track": "atreides/m9-advice.json",
-   "seconds": 15.519,
+   "seconds": 15.598,
    "text": "If the Sardaukar hold a Palace, its Death Hand will\nfall on us. Do not crowd your buildings together.\nWatch every flank: they favour sudden raids on\nHarvesters and lightly guarded corners."
   },
   "atreides/m9-win": {
    "file": "atreides/m9-win.ogg",
    "track": "atreides/m9-win.json",
-   "seconds": 7.405,
+   "seconds": 7.498,
    "text": "It is done. The Sardaukar are defeated and the\nEmperor has nowhere left to hide."
   },
   "atreides/m9-lose": {
    "file": "atreides/m9-lose.ogg",
    "track": "atreides/m9-lose.json",
-   "seconds": 7.602,
+   "seconds": 7.785,
    "text": "The Sardaukar held. Rest, gather our strength,\nand we will end this on the next attempt."
   },
   "atreides/ending": {
@@ -370,7 +370,7 @@
   "harkonnen/m4-briefing": {
    "file": "harkonnen/m4-briefing.ogg",
    "track": "harkonnen/m4-briefing.json",
-   "seconds": 29.19,
+   "seconds": 29.408,
    "text": "The Ordos have rebuilt, and they hire well.\nTheir raiders have been picking at our Harvesters.\nThere is more. Sardaukar troopers have been seen,\ndropped in by Carryall. The Emperor's own dogs.\nWhose leash they wear, I have not yet learned.\nDestroy the Ordos base. If the Sardaukar get in\nyour way, destroy them too. Quietly, if you can."
   },
   "harkonnen/m4-advice": {
@@ -394,7 +394,7 @@
   "harkonnen/m5-briefing": {
    "file": "harkonnen/m5-briefing.ogg",
    "track": "harkonnen/m5-briefing.json",
-   "seconds": 27.941,
+   "seconds": 28.053,
    "text": "Interesting. The Emperor has been feeding the\nAtreides weapons while preaching fair play.\nEven I admire the hypocrisy.\nHis Sardaukar may drop in again to help them.\nNo matter. The Atreides have built a fine base.\nBurn it, and destroy anyone who tries to save it.\nThe Baron does not forgive those who arm his foes."
   },
   "harkonnen/m5-advice": {
@@ -418,7 +418,7 @@
   "harkonnen/m6-briefing": {
    "file": "harkonnen/m6-briefing.ogg",
    "track": "harkonnen/m6-briefing.json",
-   "seconds": 25.677,
+   "seconds": 25.871,
    "text": "The Ordos have two bases here, and they are spending\nfreely. Every attack they make costs them a fortune.\nLet them spend. We will attack while they do.\nDestroy both bases. Keep our own walls manned; the\nOrdos like to strike where nobody is looking.\nAnd the Sardaukar still circle, like vultures."
   },
   "harkonnen/m6-advice": {
@@ -442,7 +442,7 @@
   "harkonnen/m7-briefing": {
    "file": "harkonnen/m7-briefing.ogg",
    "track": "harkonnen/m7-briefing.json",
-   "seconds": 23.765,
+   "seconds": 23.835,
    "text": "The Atreides have dug in with two bases. Their\nSonic Tanks are a nuisance; their pride is worse.\nDestroy both bases. All of them. Every building.\nI want the Duke to hear of it and weep.\nThe Sardaukar may yet drop in on either side, so\nkeep an eye on the sky."
   },
   "harkonnen/m7-advice": {
@@ -466,7 +466,7 @@
   "harkonnen/m8-briefing": {
    "file": "harkonnen/m8-briefing.ogg",
    "track": "harkonnen/m8-briefing.json",
-   "seconds": 26.02,
+   "seconds": 26.038,
    "text": "Our enemies have finally done something clever.\nThe Atreides and the Ordos have joined forces,\neach with a base here. The Emperor's doing, again;\nhis Sardaukar will not be far away.\nDestroy them both, and Arrakis is all but ours.\nTwo Houses, one army, and twice the corpses.\nI expect you to enjoy this one."
   },
   "harkonnen/m8-advice": {
@@ -490,25 +490,25 @@
   "harkonnen/m9-briefing": {
    "file": "harkonnen/m9-briefing.ogg",
    "track": "harkonnen/m9-briefing.json",
-   "seconds": 24.946,
+   "seconds": 25.062,
    "text": "Now we come to it. The Emperor has dropped his\npretence and sent his Sardaukar to take Arrakis.\nTwo of their bases stand between us and the throne.\nDestroy them, and the Emperor is at our mercy.\nAnd mercy is not something the Baron keeps.\nDo not fail me now. I have grown used to you."
   },
   "harkonnen/m9-advice": {
    "file": "harkonnen/m9-advice.ogg",
    "track": "harkonnen/m9-advice.json",
-   "seconds": 13.134,
+   "seconds": 13.242,
    "text": "A Sardaukar Palace would mean a Death Hand for us.\nSpread your buildings out; do not make it easy.\nThey raid from the flanks. Leave guards at home."
   },
   "harkonnen/m9-win": {
    "file": "harkonnen/m9-win.ogg",
    "track": "harkonnen/m9-win.json",
-   "seconds": 6.823,
+   "seconds": 6.93,
    "text": "The Sardaukar are dead and the Emperor is ours.\nI may even say it: well done."
   },
   "harkonnen/m9-lose": {
    "file": "harkonnen/m9-lose.ogg",
    "track": "harkonnen/m9-lose.json",
-   "seconds": 8.496,
+   "seconds": 8.61,
    "text": "The Sardaukar crushed you. The Baron is drafting\nyour obituary. Prove him wrong; go back."
   },
   "harkonnen/ending": {
@@ -616,7 +616,7 @@
   "ordos/m4-briefing": {
    "file": "ordos/m4-briefing.ogg",
    "track": "ordos/m4-briefing.json",
-   "seconds": 23.314,
+   "seconds": 23.471,
    "text": "The Atreides have reinforced. Their raids on our\nHarvesters cost us. Costs must be cut.\nA complication: Sardaukar troopers have appeared,\ndropped in by Carryall. The Emperor is investing.\nIn whom, I intend to find out.\nDestroy the Atreides base. Count the Sardaukar."
   },
   "ordos/m4-advice": {
@@ -634,13 +634,13 @@
   "ordos/m4-lose": {
    "file": "ordos/m4-lose.ogg",
    "track": "ordos/m4-lose.json",
-   "seconds": 7.214,
+   "seconds": 7.296,
    "text": "A loss. The Sardaukar were not in the estimate.\nRevise the estimate, then return."
   },
   "ordos/m5-briefing": {
    "file": "ordos/m5-briefing.ogg",
    "track": "ordos/m5-briefing.json",
-   "seconds": 21.619,
+   "seconds": 21.688,
    "text": "I have traced the Sardaukar. The Emperor is\nsupplying our rivals while claiming neutrality.\nPoor business practice. We will remember it.\nThe Harkonnen have two bases here, both well armed.\nDestroy both. The Emperor's investment in the\nHarkonnen should show a total loss."
   },
   "ordos/m5-advice": {
@@ -664,7 +664,7 @@
   "ordos/m6-briefing": {
    "file": "ordos/m6-briefing.ogg",
    "track": "ordos/m6-briefing.json",
-   "seconds": 19.225,
+   "seconds": 19.254,
    "text": "Two Atreides bases ahead. They will attack us\nwhile we attack them. Defend and advance at once.\nTheir soldiers are loyal. Loyalty cannot be bought,\nso it must be destroyed.\nDestroy both bases. The Sardaukar may intervene."
   },
   "ordos/m6-advice": {
@@ -688,7 +688,7 @@
   "ordos/m7-briefing": {
    "file": "ordos/m7-briefing.ogg",
    "track": "ordos/m7-briefing.json",
-   "seconds": 19.454,
+   "seconds": 19.529,
    "text": "The Harkonnen have two bases again, and Devastators.\nBrute force. Very expensive brute force.\nDestroy both bases. The Sardaukar may drop in again,\nso do not leave the Refinery unguarded.\nThis is the last step before the big contracts."
   },
   "ordos/m7-advice": {
@@ -712,7 +712,7 @@
   "ordos/m8-briefing": {
    "file": "ordos/m8-briefing.ogg",
    "track": "ordos/m8-briefing.json",
-   "seconds": 22.695,
+   "seconds": 22.659,
    "text": "A merger, of sorts. The Atreides and the Harkonnen\nhave joined against us. Each holds a base here.\nThey despise each other. Their alliance will fail,\nbut it need not last long to ruin us.\nDestroy both bases. The Emperor is behind this deal.\nWatch for his Sardaukar."
   },
   "ordos/m8-advice": {
@@ -736,25 +736,25 @@
   "ordos/m9-briefing": {
    "file": "ordos/m9-briefing.ogg",
    "track": "ordos/m9-briefing.json",
-   "seconds": 19.397,
+   "seconds": 19.448,
    "text": "Final accounts. The Emperor has sent his Sardaukar\nto seize Arrakis himself. Two bases, his best men.\nDestroy them, and the Emperor must deal with us.\nOn our terms.\nEvery credit the Council has spent comes down to\nthis. Do not waste it."
   },
   "ordos/m9-advice": {
    "file": "ordos/m9-advice.ogg",
    "track": "ordos/m9-advice.json",
-   "seconds": 10.457,
+   "seconds": 10.454,
    "text": "The Sardaukar may own a Palace, and so a Death Hand.\nKeep the base spread out.\nThey will raid the flanks. Guard the Harvesters."
   },
   "ordos/m9-win": {
    "file": "ordos/m9-win.ogg",
    "track": "ordos/m9-win.json",
-   "seconds": 8.125,
+   "seconds": 8.219,
    "text": "The Sardaukar are finished. The Emperor is ready\nto negotiate. I will handle the negotiations."
   },
   "ordos/m9-lose": {
    "file": "ordos/m9-lose.ogg",
    "track": "ordos/m9-lose.json",
-   "seconds": 7.27,
+   "seconds": 7.344,
    "text": "The Sardaukar held. A costly failure.\nThe Council will fund one more attempt."
   },
   "ordos/ending": {
