@@ -116,7 +116,9 @@ change about seven times a second at this pace.
 Expressions, one per sentence, from the Mentat and the words (`CUES`, `ORDER`, `DEFAULT` in `mentat.py`;
 `--retag` chooses them again without rendering): Cyril is never angry nor sly (grave, warning, sad, pleased,
 neutral), Radnor's defeats are angry and his schemes sly, Ammon's deals sly; a win's sentences are pleased
-unless one warns, a defeat's take the Mentat's mood (Cyril sad, Radnor angry, Ammon grave).
+unless one warns, a defeat's take the Mentat's mood (Cyril sad, Radnor angry, Ammon grave), and the last words take
+it too (Cyril grave, Radnor pleased, Ammon sly) except their thanks, which are pleased (`WARM`, added after the GPU
+check of the talking face: Cyril had thanked the Commander with a frown).
 
 ## Contract for the face
 

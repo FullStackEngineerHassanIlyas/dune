@@ -471,14 +471,19 @@ ORDER = {   # which cues a Mentat answers to, first match wins: Cyril is never a
     'ordos': ['warning', 'sly', 'pleased', 'grave'],
 }
 EXPRESSIONS = ['neutral', 'grave', 'pleased', 'warning', 'angry', 'sly', 'sad']
+# the last words' thanks and honour are warm, whatever the Mentat's mood for the rest of them (Cyril's grave ending
+# thanked the Commander with a frown: seen on the GPU, docs/superpowers/notes/2026-10-05-mentat-talk.md)
+WARM = r"\b(thank\w*|honou?r\w*)\b"
 
 
 def expression(house, kind, sentence):
     text = sentence.lower()
     if kind in ('win', 'lose', 'ending'):
-        # the outcome sets the mood; a cue of its own kind or a warning may still speak
+        # the outcome sets the mood; a cue of its own kind or a warning may still speak, and the ending's thanks
         if re.search(CUES['warning'], text):
             return 'warning'
+        if kind == 'ending' and re.search(WARM, text):
+            return 'pleased'
         return DEFAULT[house][kind]
     for cue in ORDER[house]:
         if re.search(CUES[cue], text):

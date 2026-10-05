@@ -141,6 +141,10 @@ test('the sentences carry a face fitting the Mentat and the moment', () => {
   assert.ok(count('harkonnen', 'lose').angry > 0, 'Radnor rages at a defeat');
   assert.ok(count('ordos', 'briefing').sly > 0, 'Ammon schemes');
   for (const house of HOUSES) assert.ok(count(house, 'win').pleased > 0, `${house}: pleased at a win`);
+  // the last words: grave as Cyril is, but his thanks are warm (they were a frown on the GPU)
+  const ending = (house) => JSON.parse(readFileSync(new URL(manifest.clips[`${house}/ending`].track, DIR), 'utf8')).sentences.map((s) => s[4]);
+  assert.deepEqual(ending('atreides'), ['grave', 'grave', 'grave', 'grave', 'grave', 'grave', 'grave', 'pleased', 'pleased'], 'Cyril: "Thank you. It has been an honour to serve with you."');
+  assert.ok(ending('ordos').includes('pleased') && ending('ordos').filter((e) => e === 'sly').length >= 5, 'Ammon\'s Council thanks you, and he stays sly');
   assert.ok(existsSync(new URL('atreides/ending.ogg', DIR)));
 });
 
