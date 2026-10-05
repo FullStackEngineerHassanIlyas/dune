@@ -123,13 +123,21 @@ export async function start({ search }) {
     const hold = screen === 'campaign-results' || screen === 'campaign-defeat';
     backdrop.setPaused?.(hold || !settings.menuMotion);
     backdrop.start();
-    music.enter();
+    music.enter({ carry: screen === 'campaign-results' });   // a won mission's fanfare plays on into its results
     menu.show(screen);
     window.focus();
   };
+  // A won mission's Carryalls: its house's victory theme plays on the menu's music from now (and rests while the
+  // battle is paused or muted), so the results carry it on once the frame closes. The battle's options come first.
+  const fanfare = (data) => {
+    if (typeof data?.house !== 'string') return;
+    Object.assign(settings, loadSettings(params));
+    music.fanfare(data.house, { held: !!data.held });
+  };
   // Messages from the battle in the frame: { dune: '<type>', ... } goes to the handler registered for the type.
-  // 'quit' is the shell's own; the campaign screens register theirs through shell.on (e.g. a mission's result).
-  const handlers = new Map([['quit', (data) => quit(data?.screen)]]);
+  // 'quit' and 'fanfare' are the shell's own; the campaign screens register theirs through shell.on (e.g. a
+  // mission's result).
+  const handlers = new Map([['quit', (data) => quit(data?.screen)], ['fanfare', fanfare]]);
   const shell = { launch, quit, on: (type, handler) => { handlers.set(type, handler); } };
 
   const menu = new MainMenu(document.getElementById('ui'), { settings, music, shell, backdrop, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
