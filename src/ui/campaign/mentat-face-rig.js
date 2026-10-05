@@ -168,13 +168,17 @@ export function validateRig(rig) {
   return { ok: errors.length === 0, errors };
 }
 
-/** Every picture file the face draws besides the head painting (the mouth's sprites, the brows' cut-outs and their bare patches, the lids), once each. */
+/**
+ * Every picture file the face draws besides the head painting, once each: the mouth's sprites, and each part's own
+ * sprite and bare patch (src, base.src: the brows, the corners and the jaw may each have them, as part() reads them),
+ * the lids' sprites or their one closed-eyes layer.
+ */
 export function rigFiles(rig) {
   const urls = new Set();
-  for (const url of Object.values(rig.mouth?.sprites ?? {})) if (url) urls.add(url);
-  for (const b of [rig.brows?.left, rig.brows?.right]) { if (b?.src) urls.add(b.src); if (b?.base?.src) urls.add(b.base.src); }
-  for (const l of [rig.lids?.left, rig.lids?.right]) if (l?.src) urls.add(l.src);
-  if (rig.lids?.src) urls.add(rig.lids.src);
+  const add = (url) => { if (typeof url === 'string' && url) urls.add(url); };
+  for (const url of Object.values(rig.mouth?.sprites ?? {})) add(url);
+  for (const p of [rig.brows?.left, rig.brows?.right, rig.corners?.left, rig.corners?.right, rig.jaw, rig.lids?.left, rig.lids?.right]) { add(p?.src); add(p?.base?.src); }
+  add(rig.lids?.src);
   return [...urls];
 }
 

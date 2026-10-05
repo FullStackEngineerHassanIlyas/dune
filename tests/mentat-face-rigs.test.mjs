@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const { MENTAT_RIGS, rigFor } = await import('../src/ui/campaign/mentat-face-rigs.js');
 const { FACE_ART } = await import('../src/ui/campaign/mentat-face-art.js');
 const { PORTRAITS } = await import('../src/ui/campaign/portraits-layers.js');
-const { validateRig, EXPRESSIONS, VISEMES } = await import('../src/ui/campaign/mentat-face-rig.js');
+const { validateRig, rigFiles, EXPRESSIONS, VISEMES } = await import('../src/ui/campaign/mentat-face-rig.js');
 const { PIXELS_PER_UNIT: K, SPRITE_VISEMES } = await import('../src/ui/campaign/portraits-mouth.js');
 
 const DIR = new URL('../assets/campaign/portraits/', import.meta.url);
@@ -129,4 +129,25 @@ test('the rigs are valid, name the baked files, and put every part where the art
     const o = rig.mouth.open;
     assert.ok(o.rest === 0 && o.MBP === 0 && o.A === 1 && o.FV < o.E && o.E < o.L && o.L < o.O && o.O <= o.A, `${house}: ${JSON.stringify(o)}`);
   }
+});
+
+test('rigFiles: every picture a face draws besides the head painting, each part\'s sprite and bare patch, once each', () => {
+  for (const house of HOUSES) {
+    const rig = rigFor(house), files = rigFiles(rig);
+    const want = [...SPRITE_VISEMES.map((v) => `mouth-${v}`), 'brow-left', 'brow-right', 'browbase-left', 'browbase-right', 'lid-left', 'lid-right'];
+    assert.deepEqual(files.map((u) => u.slice(u.lastIndexOf('/') + 1)).sort(), want.map((n) => `${house}-${n}.webp`).sort(), house);
+  }
+  // the format lets the corners and the jaw have a sprite and a bare patch too, and the lids be one layer: all are fetched
+  const rig = JSON.parse(JSON.stringify(rigFor('ordos')));
+  rig.corners.left.src = 'corner-left.webp';
+  rig.corners.right.base = { src: 'cornerbase-right.webp', box: rig.corners.right.box };
+  rig.jaw.src = 'jaw.webp';
+  rig.jaw.base = { src: 'jawbase.webp', box: rig.jaw.box };
+  rig.lids.src = 'lids.webp';
+  rig.mouth.sprites.O = rig.mouth.sprites.A;   // the same file for two shapes: once
+  assert.deepEqual(validateRig(rig).errors, []);
+  const files = rigFiles(rig);
+  for (const name of ['corner-left.webp', 'cornerbase-right.webp', 'jaw.webp', 'jawbase.webp', 'lids.webp']) assert.ok(files.includes(name), name);
+  assert.equal(new Set(files).size, files.length, 'each once');
+  assert.equal(files.length, rigFiles(rigFor('ordos')).length - 1 + 5);
 });
