@@ -76,7 +76,7 @@ export function typeLines(box, lines, { later, instant = reducedMotion(), onDone
   return typer;
 }
 
-export const START_WAIT = 1500;   // ms the voice may take to start before the words are typed without it
+export const START_WAIT = 1500;   // ms the voice may take to load before the words are typed without it (a context the browser holds gives up in RUN_WAIT)
 export const TICK_MS = 33;        // the words follow the voice this often
 const MARK_AFTER = 0.15;          // seconds a word stays marked after it is said (into a pause)
 // the word being said: spice gold over the cream text, underlined too so it is not told by colour alone

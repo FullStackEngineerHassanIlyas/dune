@@ -1,0 +1,3891 @@
+[
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "ending",
+  "seconds": 35.883,
+  "ms": 35889,
+  "bytes": 88746,
+  "lufs": -19.6,
+  "peak": -2.3,
+  "f0": 131.3,
+  "spread": 4.18,
+  "centroid": 1877,
+  "wpm": 156.9,
+  "onSpeech": 0.987,
+  "onsetsMs": [
+   27,
+   25,
+   -35,
+   11,
+   -14,
+   -34,
+   16,
+   46,
+   17
+  ],
+  "heard": "It is over, Commander. Arrakis is ours. The Emperor has given up his throne, and he will stand trial for the treachery he worked against us. The Duke will govern here with justice. The spice will flow, and those who harvest it will be paid. The Ordos and the Harkonnen are gone from this world. world. I take no joy in their fall, only in the peace. Thank you. It has been an honour to serve with you.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.013,
+  "startErrMs": 102,
+  "startErrP90Ms": 340,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m1-advice",
+  "seconds": 16.848,
+  "ms": 16855,
+  "bytes": 42434,
+  "lufs": -19.6,
+  "peak": -3.6,
+  "f0": 133.3,
+  "spread": 3.93,
+  "centroid": 1845,
+  "wpm": 127.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   26,
+   20,
+   13,
+   -27
+  ],
+  "heard": "Lay concrete before anything else. Buildings set on bare rock start weakened. Then raise a wind trap for power, and after it a spice refinery. The refinery brings its own harvester.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 178,
+  "startErrP90Ms": 439,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m1-briefing",
+  "seconds": 35.731,
+  "ms": 35738,
+  "bytes": 89328,
+  "lufs": -19.7,
+  "peak": -1.9,
+  "f0": 132.5,
+  "spread": 4.08,
+  "centroid": 1934,
+  "wpm": 130.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   23,
+   -7,
+   43,
+   -7,
+   -15,
+   -38,
+   92,
+   -30
+  ],
+  "heard": "Welcome to Arrakis commander. I am Cyril mentat of house at tradies. I will advise you here. The Emperor cares for one thing here, spice. His decree gives Arrakis to his best supplier. We begin with a modest task, harvest spice until 1,000 credits are held safely in our stores. Ordos patrols roam this basin. They have no base, but they will not leave our harvester in peace.",
+  "names": {
+   "Arrakis": [
+    2,
+    2
+   ],
+   "Atreides": [
+    0,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.029,
+  "startErrMs": 110,
+  "startErrP90Ms": 400,
+  "matched": 0.985
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m1-lose",
+  "seconds": 11.015,
+  "ms": 11021,
+  "bytes": 26759,
+  "lufs": -19.5,
+  "peak": -4.5,
+  "f0": 133.8,
+  "spread": 4.29,
+  "centroid": 1801,
+  "wpm": 109.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   10,
+   5,
+   39,
+   -33
+  ],
+  "heard": "The quota was not met. That is no disgrace. Rest commando. We will begin again together.",
+  "names": {},
+  "wer": 0.062,
+  "startErrMs": 196,
+  "startErrP90Ms": 547,
+  "matched": 0.938
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m1-win",
+  "seconds": 9.436,
+  "ms": 9442,
+  "bytes": 23070,
+  "lufs": -19.6,
+  "peak": -1.9,
+  "f0": 131.1,
+  "spread": 4.68,
+  "centroid": 1775,
+  "wpm": 154.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   42,
+   63,
+   -9
+  ],
+  "heard": "Well done. Our stores are full and our people fed. The Duke will hear of this from me in person.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 133,
+  "startErrP90Ms": 443,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m2-advice",
+  "seconds": 16.946,
+  "ms": 16953,
+  "bytes": 43236,
+  "lufs": -19.8,
+  "peak": -1.8,
+  "f0": 129.2,
+  "spread": 4.23,
+  "centroid": 2040,
+  "wpm": 149.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   12,
+   19,
+   -31
+  ],
+  "heard": "Only spice held in storage counts toward the quota. Build spice silos so that none of it goes to waste. A radar outpost lets you build a barracks, and the heavy factory now turns out trikes for scouting.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 132,
+  "startErrP90Ms": 494,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m2-briefing",
+  "seconds": 31.081,
+  "ms": 31088,
+  "bytes": 78071,
+  "lufs": -19.7,
+  "peak": -2.5,
+  "f0": 129.8,
+  "spread": 3.84,
+  "centroid": 1913,
+  "wpm": 142.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   27,
+   49,
+   -30,
+   -27,
+   16,
+   127
+  ],
+  "heard": "Your first harvest has impressed the duke. Now we move into richer ground and a harder one. The Ordos have built a base nearby. Their merchants would rather buy this land than fight for it, but they will fight if they are pressed. Store 2700 credits of spice, or if you prefer the direct path, destroy the Ordos base outright. right, either will satisfy the duke.",
+  "names": {
+   "Ordos": [
+    2,
+    2
+   ]
+  },
+  "wer": 0.015,
+  "startErrMs": 118,
+  "startErrP90Ms": 327,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m2-lose",
+  "seconds": 10.026,
+  "ms": 10033,
+  "bytes": 24865,
+  "lufs": -19.7,
+  "peak": -2.5,
+  "f0": 134.2,
+  "spread": 3.89,
+  "centroid": 1973,
+  "wpm": 107.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -12,
+   32,
+   26
+  ],
+  "heard": "The orders outlasted us this time. Do not despair. Study their defenses before you return.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.067,
+  "startErrMs": 145,
+  "startErrP90Ms": 543,
+  "matched": 0.933
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m2-win",
+  "seconds": 7.779,
+  "ms": 7786,
+  "bytes": 19633,
+  "lufs": -19.6,
+  "peak": -2.3,
+  "f0": 129.0,
+  "spread": 4.25,
+  "centroid": 1845,
+  "wpm": 124.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   121,
+   -38
+  ],
+  "heard": "Excellent work. The Ordos have learned that house of tradies cannot be bought or bullied.",
+  "names": {
+   "Atreides": [
+    0,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.143,
+  "startErrMs": 135,
+  "startErrP90Ms": 475,
+  "matched": 0.929
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m3-advice",
+  "seconds": 12.211,
+  "ms": 12217,
+  "bytes": 30781,
+  "lufs": -19.6,
+  "peak": -1.1,
+  "f0": 128.6,
+  "spread": 4.73,
+  "centroid": 1813,
+  "wpm": 141.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   16,
+   -5,
+   -34
+  ],
+  "heard": "upgrade the heavy factory and it will build quads. They are faster and tougher than trikes. Keep your vehicles on rock when worms are near.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 140,
+  "startErrP90Ms": 492,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m3-briefing",
+  "seconds": 29.309,
+  "ms": 29316,
+  "bytes": 73162,
+  "lufs": -19.6,
+  "peak": -2.0,
+  "f0": 130.4,
+  "spread": 4.22,
+  "centroid": 1852,
+  "wpm": 151.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -1,
+   -13,
+   -27,
+   20,
+   12,
+   -4,
+   -45
+  ],
+  "heard": "The Harkonnen have arrived as we knew they would. They take what they want and burn what they cannot. We cannot share this world with them. Find their base and destroy it. Every building of theirs must fall before the region is ours. Be watchful in the open sand. And the great worms of Arrakis have been seen here, and they hunt by sound.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.016,
+  "startErrMs": 118,
+  "startErrP90Ms": 367,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m3-lose",
+  "seconds": 9.336,
+  "ms": 9342,
+  "bytes": 23039,
+  "lufs": -19.6,
+  "peak": -2.9,
+  "f0": 129.4,
+  "spread": 4.67,
+  "centroid": 1822,
+  "wpm": 116.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   14,
+   -11,
+   13
+  ],
+  "heard": "The Harkonnen held. Their cruelty makes them stubborn defenders, rebuild and we shall try again.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 179,
+  "startErrP90Ms": 537,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m3-win",
+  "seconds": 7.135,
+  "ms": 7141,
+  "bytes": 17920,
+  "lufs": -19.6,
+  "peak": -6.0,
+  "f0": 123.7,
+  "spread": 5.12,
+  "centroid": 1871,
+  "wpm": 135.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   25,
+   -10
+  ],
+  "heard": "A fine victory. The Harkonnen have been taught that our patience is not weakness.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 100,
+  "startErrP90Ms": 488,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m4-advice",
+  "seconds": 15.871,
+  "ms": 15877,
+  "bytes": 40404,
+  "lufs": -19.7,
+  "peak": -1.4,
+  "f0": 131.5,
+  "spread": 3.83,
+  "centroid": 1893,
+  "wpm": 138.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -9,
+   13,
+   -2
+  ],
+  "heard": "The heavy factory can now be upgraded for combat tanks. One combat tank is worth several light vehicles. Walls will slow the raiders down and a second harvester will keep the credits coming.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 133,
+  "startErrP90Ms": 439,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m4-briefing",
+  "seconds": 26.018,
+  "ms": 26025,
+  "bytes": 65706,
+  "lufs": -19.7,
+  "peak": -2.4,
+  "f0": 130.3,
+  "spread": 4.16,
+  "centroid": 1950,
+  "wpm": 140.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -54,
+   28,
+   22,
+   -8,
+   -34
+  ],
+  "heard": "The Harkonnen have returned with more troops, and they are raiding our harvesters in the sand. Something stranger troubles me. Sardaukar troopers, the Emperor's own soldiers, have been seen here. They come by cariol and strike without warning. Destroy the Harkonnen base and be ready for whoever else drops out of the sky.",
+  "names": {
+   "Harkonnen": [
+    2,
+    2
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ],
+   "Carryall": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.019,
+  "startErrMs": 84,
+  "startErrP90Ms": 404,
+  "matched": 0.981
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m4-lose",
+  "seconds": 8.013,
+  "ms": 8019,
+  "bytes": 20226,
+  "lufs": -19.6,
+  "peak": -3.0,
+  "f0": 133.2,
+  "spread": 3.79,
+  "centroid": 1839,
+  "wpm": 161.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   14,
+   -29
+  ],
+  "heard": "We could not break them. The fault is not yours. The Sardau car were more than any of us expected.",
+  "names": {
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.105,
+  "startErrMs": 88,
+  "startErrP90Ms": 255,
+  "matched": 0.947
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m4-win",
+  "seconds": 7.649,
+  "ms": 7655,
+  "bytes": 19572,
+  "lufs": -19.6,
+  "peak": -3.8,
+  "f0": 129.5,
+  "spread": 5.7,
+  "centroid": 1872,
+  "wpm": 143.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -11,
+   11
+  ],
+  "heard": "The Harkonnen are beaten against. You have earned the trust of every soldier in this army.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.062,
+  "startErrMs": 153,
+  "startErrP90Ms": 486,
+  "matched": 0.938
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m5-advice",
+  "seconds": 17.316,
+  "ms": 17322,
+  "bytes": 43256,
+  "lufs": -19.7,
+  "peak": -0.9,
+  "f0": 130.7,
+  "spread": 4.42,
+  "centroid": 1942,
+  "wpm": 123.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   25,
+   -7,
+   17,
+   14
+  ],
+  "heard": "A high-tech factory builds carrials. They lift harvesters to the spice and back, saving time. Build a repair facility and upgrade the heavy factory for missile tanks. They strike from range.",
+  "names": {
+   "Carryall": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.062,
+  "startErrMs": 130,
+  "startErrP90Ms": 449,
+  "matched": 0.935
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m5-briefing",
+  "seconds": 31.351,
+  "ms": 31358,
+  "bytes": 77541,
+  "lufs": -19.6,
+  "peak": -2.0,
+  "f0": 131.4,
+  "spread": 4.04,
+  "centroid": 1839,
+  "wpm": 140.5,
+  "onSpeech": 0.984,
+  "onsetsMs": [
+   42,
+   -8,
+   -32,
+   -10,
+   -8,
+   -27,
+   12,
+   30
+  ],
+  "heard": "I have troubling news. The Sardaukar we met were no accident. The Emperor himself is arming our rivals. This contest is not as open as he claimed. The Ordos have profited most from his favour. They have built a strong base and mean to use it. Destroy it, Commander. Let Let them find out what their bargain with the Emperor has bought them.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.016,
+  "startErrMs": 113,
+  "startErrP90Ms": 511,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m5-lose",
+  "seconds": 8.902,
+  "ms": 8908,
+  "bytes": 21889,
+  "lufs": -19.6,
+  "peak": -3.0,
+  "f0": 138.9,
+  "spread": 4.05,
+  "centroid": 1772,
+  "wpm": 139.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -5,
+   19,
+   20
+  ],
+  "heard": "The Ordos held with the Emperor's help. We are not finished. Regroup and we will strike again.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 100,
+  "startErrP90Ms": 455,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m5-win",
+  "seconds": 7.499,
+  "ms": 7506,
+  "bytes": 19034,
+  "lufs": -19.6,
+  "peak": -3.2,
+  "f0": 134.3,
+  "spread": 3.2,
+  "centroid": 1933,
+  "wpm": 161.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -35,
+   25
+  ],
+  "heard": "The Ordos base is gone and they're bargain with it. You have done the Duke a great service.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.056,
+  "startErrMs": 135,
+  "startErrP90Ms": 464,
+  "matched": 0.944
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m6-advice",
+  "seconds": 20.766,
+  "ms": 20773,
+  "bytes": 51910,
+  "lufs": -19.8,
+  "peak": -2.0,
+  "f0": 130.5,
+  "spread": 4.11,
+  "centroid": 1899,
+  "wpm": 134.5,
+  "onSpeech": 0.975,
+  "onsetsMs": [
+   13,
+   -30,
+   -32,
+   -34,
+   48
+  ],
+  "heard": "Upgrade the construction yard for rocket turrets. They guard the base while your army is away. A starport sells vehicles from off-world. Its prices change, so buy when they are low. Siege tanks are now ready at the heavy factory.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 136,
+  "startErrP90Ms": 500,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m6-briefing",
+  "seconds": 25.068,
+  "ms": 25074,
+  "bytes": 62214,
+  "lufs": -19.6,
+  "peak": -3.6,
+  "f0": 132.3,
+  "spread": 4.16,
+  "centroid": 1870,
+  "wpm": 136.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -27,
+   12,
+   -12,
+   -7,
+   23,
+   17
+  ],
+  "heard": "The Harkonnen are desperate and desperate men strike hardest. They will attack while we attack. We must hold our ground and push forward at once. Their base lies across the open sand. Destroy it. Guard our own walls as well. The Emperor's Sardaukar may yet return to aid them.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 124,
+  "startErrP90Ms": 459,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m6-lose",
+  "seconds": 8.146,
+  "ms": 8152,
+  "bytes": 20698,
+  "lufs": -19.7,
+  "peak": -2.5,
+  "f0": 127.9,
+  "spread": 4.48,
+  "centroid": 1961,
+  "wpm": 142.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -8,
+   32
+  ],
+  "heard": "We were stretched too thin, defending and attacking at once. Strengthen the base before you go again.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 98,
+  "startErrP90Ms": 449,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m6-win",
+  "seconds": 10.092,
+  "ms": 10098,
+  "bytes": 24887,
+  "lufs": -19.6,
+  "peak": -3.5,
+  "f0": 131.7,
+  "spread": 4.37,
+  "centroid": 1889,
+  "wpm": 133.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -1,
+   22,
+   27
+  ],
+  "heard": "The Harkonnen are scattered. You held the line and struck at the same time. That is a rare skill.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 116,
+  "startErrP90Ms": 424,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m7-advice",
+  "seconds": 15.684,
+  "ms": 15691,
+  "bytes": 39511,
+  "lufs": -19.6,
+  "peak": -1.9,
+  "f0": 131.1,
+  "spread": 4.64,
+  "centroid": 1895,
+  "wpm": 140.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   46,
+   -28,
+   20
+  ],
+  "heard": "Our engineers have finished the sonic tank. Its wave cuts through anything in its path, so keep our own units out of its line of fire. Upgrade the high-tech factory to build ornithopters.",
+  "names": {
+   "Ornithopter": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.029,
+  "startErrMs": 104,
+  "startErrP90Ms": 374,
+  "matched": 0.97
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m7-briefing",
+  "seconds": 23.956,
+  "ms": 23963,
+  "bytes": 60284,
+  "lufs": -19.7,
+  "peak": -3.5,
+  "f0": 130.7,
+  "spread": 3.57,
+  "centroid": 1925,
+  "wpm": 147.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   20,
+   -41,
+   -33,
+   -5,
+   -35
+  ],
+  "heard": "A new danger command us. The Ordos have built not one base in this region, but two. Beware their deviators, they can turn our own tanks against us for a time. Destroy both bases before they grow any stronger. longer. The Sardau car could appear at any time, so keep a reserve at home.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.098,
+  "startErrMs": 114,
+  "startErrP90Ms": 305,
+  "matched": 0.961
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m7-lose",
+  "seconds": 7.259,
+  "ms": 7266,
+  "bytes": 18346,
+  "lufs": -19.8,
+  "peak": -3.8,
+  "f0": 133.3,
+  "spread": 3.95,
+  "centroid": 2023,
+  "wpm": 151.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   21,
+   33
+  ],
+  "heard": "Two bases proved too much this time. Strike at one first, then turn on the other.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 157,
+  "startErrP90Ms": 351,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m7-win",
+  "seconds": 6.963,
+  "ms": 6970,
+  "bytes": 17679,
+  "lufs": -19.7,
+  "peak": -2.9,
+  "f0": 129.5,
+  "spread": 4.06,
+  "centroid": 1971,
+  "wpm": 137.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -1,
+   -9
+  ],
+  "heard": "Both order spaces are rubble. The Duke sends his thanks and so do I.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.143,
+  "startErrMs": 148,
+  "startErrP90Ms": 583,
+  "matched": 0.857
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m8-advice",
+  "seconds": 16.974,
+  "ms": 16980,
+  "bytes": 42578,
+  "lufs": -19.6,
+  "peak": -3.6,
+  "f0": 130.5,
+  "spread": 4.0,
+  "centroid": 1883,
+  "wpm": 146.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   23,
+   20,
+   -30,
+   11
+  ],
+  "heard": "You may now build a palace. From it you can call the Fremen, the desert's own warriors. They cost nothing and come again once the palace has recovered. Remember that a palace needs a starport first.",
+  "names": {
+   "Fremen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 101,
+  "startErrP90Ms": 363,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m8-briefing",
+  "seconds": 28.718,
+  "ms": 28725,
+  "bytes": 72458,
+  "lufs": -19.7,
+  "peak": -2.6,
+  "f0": 130.2,
+  "spread": 3.31,
+  "centroid": 1965,
+  "wpm": 138.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -34,
+   5,
+   19,
+   -9,
+   14,
+   40
+  ],
+  "heard": "The Ordos and the Harkonnen have set aside their quarrels and joined against us. One base each lies in this region, and both must be destroyed. I suspect the Emperor arranged this alliance. His Sardaukar will be watching for their chance. This is the battle that decides Arrakis, Commander. Fight it as you have fought every other, well. Well...",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.017,
+  "startErrMs": 105,
+  "startErrP90Ms": 338,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m8-lose",
+  "seconds": 8.526,
+  "ms": 8533,
+  "bytes": 21793,
+  "lufs": -19.7,
+  "peak": -3.5,
+  "f0": 129.3,
+  "spread": 3.78,
+  "centroid": 1934,
+  "wpm": 141.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -35,
+   19
+  ],
+  "heard": "Two houses at once is a heavy burden. Rebuild and let the Fremen strike while our tanks advance.",
+  "names": {
+   "Fremen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 86,
+  "startErrP90Ms": 558,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m8-win",
+  "seconds": 8.291,
+  "ms": 8298,
+  "bytes": 21152,
+  "lufs": -19.5,
+  "peak": -2.3,
+  "f0": 129.7,
+  "spread": 3.7,
+  "centroid": 1905,
+  "wpm": 113.4,
+  "onSpeech": 0.929,
+  "onsetsMs": [
+   0,
+   0
+  ],
+  "heard": "Both rival houses are broken. Only the Emperor stands between House of Trades and Arrakis.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Atreides": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.143,
+  "startErrMs": 262,
+  "startErrP90Ms": 552,
+  "matched": 0.929
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m9-advice",
+  "seconds": 15.591,
+  "ms": 15598,
+  "bytes": 39650,
+  "lufs": -19.6,
+  "peak": -2.8,
+  "f0": 127.7,
+  "spread": 4.18,
+  "centroid": 1926,
+  "wpm": 136.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   12,
+   -2,
+   -1
+  ],
+  "heard": "If the Sardaukar hold a palace, its death hand will fall on us. Do not crowd your buildings together. Watch every flank. They favor sudden raids on harvesters and lightly guarded corners.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 138,
+  "startErrP90Ms": 390,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m9-briefing",
+  "seconds": 28.51,
+  "ms": 28517,
+  "bytes": 71299,
+  "lufs": -19.6,
+  "peak": -2.0,
+  "f0": 130.4,
+  "spread": 3.43,
+  "centroid": 1926,
+  "wpm": 133.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   16,
+   -43,
+   15,
+   -9,
+   -4,
+   -23
+  ],
+  "heard": "The mask is off. The Emperor has landed his own Sardaukar on Arrakis to take the planet himself. Two Sardaukar bases stand before us. They are the finest soldiers in the Empire and they know it. Destroy both bases and the contest is over. Whatever happens, Commander, I am proud to have served beside you.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    2,
+    2
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 121,
+  "startErrP90Ms": 516,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m9-lose",
+  "seconds": 7.779,
+  "ms": 7785,
+  "bytes": 19378,
+  "lufs": -19.6,
+  "peak": -4.6,
+  "f0": 134.8,
+  "spread": 3.59,
+  "centroid": 1965,
+  "wpm": 139.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   10,
+   45
+  ],
+  "heard": "The Sa Dao Ka held. Rest, gather our strength and we will end this on the next attempt.",
+  "names": {
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.188,
+  "startErrMs": 138,
+  "startErrP90Ms": 469,
+  "matched": 0.938
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "m9-win",
+  "seconds": 7.492,
+  "ms": 7498,
+  "bytes": 18830,
+  "lufs": -19.7,
+  "peak": -3.2,
+  "f0": 128.4,
+  "spread": 3.7,
+  "centroid": 1736,
+  "wpm": 137.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   47,
+   -37
+  ],
+  "heard": "If it is done, the Sardau car are defeated and the emperor has nowhere left to hide.",
+  "names": {
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.2,
+  "startErrMs": 132,
+  "startErrP90Ms": 427,
+  "matched": 0.933
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "page-1",
+  "seconds": 8.304,
+  "ms": 8310,
+  "bytes": 21233,
+  "lufs": -19.7,
+  "peak": -3.1,
+  "f0": 128.4,
+  "spread": 4.2,
+  "centroid": 1937,
+  "wpm": 136.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   21,
+   -25
+  ],
+  "heard": "How's a tradies rules by trust, not by terror? It's people serve it because they believe in it.",
+  "names": {
+   "Atreides": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.235,
+  "startErrMs": 174,
+  "startErrP90Ms": 281,
+  "matched": 0.824
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "page-2",
+  "seconds": 7.794,
+  "ms": 7800,
+  "bytes": 19793,
+  "lufs": -19.7,
+  "peak": -2.4,
+  "f0": 131.5,
+  "spread": 3.41,
+  "centroid": 2023,
+  "wpm": 147.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -8,
+   -5
+  ],
+  "heard": "The Duke leads his soldiers from the front. He listens before he judges and keeps his word.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 125,
+  "startErrP90Ms": 598,
+  "matched": 1.0
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "page-3",
+  "seconds": 8.396,
+  "ms": 8403,
+  "bytes": 21813,
+  "lufs": -19.6,
+  "peak": -3.7,
+  "f0": 126.8,
+  "spread": 4.07,
+  "centroid": 1979,
+  "wpm": 139.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -34
+  ],
+  "heard": "Its home is Caledan, a mild world of seas and fields, where farms and industry thrive side by side.",
+  "names": {},
+  "wer": 0.053,
+  "startErrMs": 134,
+  "startErrP90Ms": 378,
+  "matched": 0.947
+ },
+ {
+  "house": "atreides",
+  "voice": "",
+  "key": "question",
+  "seconds": 3.193,
+  "ms": 3199,
+  "bytes": 8323,
+  "lufs": -19.7,
+  "peak": -4.8,
+  "f0": 136.4,
+  "spread": 4.5,
+  "centroid": 1985,
+  "wpm": 118.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -3
+  ],
+  "heard": "Will you stand with House Atreides?",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 160,
+  "startErrP90Ms": 506,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "ending",
+  "seconds": 25.012,
+  "ms": 25018,
+  "bytes": 63740,
+  "lufs": -19.6,
+  "peak": -4.6,
+  "f0": 107.0,
+  "spread": 2.41,
+  "centroid": 1503,
+  "wpm": 147.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -29,
+   -1,
+   -49,
+   14,
+   -6,
+   70,
+   -21
+  ],
+  "heard": "The Emperor is dead. He begged it did not help him. The Baron rules Arrakis now and soon the rest of the Empire will learn to kneel. Every grain of spice belongs to Hao's Harkonnen. You have done well, Commander. Enjoy it. The Baron rewards success richly and forgets it quickly.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.02,
+  "startErrMs": 103,
+  "startErrP90Ms": 399,
+  "matched": 0.98
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m1-advice",
+  "seconds": 15.525,
+  "ms": 15531,
+  "bytes": 39625,
+  "lufs": -19.7,
+  "peak": -5.8,
+  "f0": 108.9,
+  "spread": 1.79,
+  "centroid": 1553,
+  "wpm": 160.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   70,
+   -10,
+   -14,
+   -18
+  ],
+  "heard": "Even a child knows to lay concrete first. Then a wind trap, then a spice refinery. The refinery comes with a harvester. Do not lose it, the Baron hates waste, and those who cause it.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 84,
+  "startErrP90Ms": 303,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m1-briefing",
+  "seconds": 33.244,
+  "ms": 33251,
+  "bytes": 85068,
+  "lufs": -19.6,
+  "peak": -3.9,
+  "f0": 108.9,
+  "spread": 2.1,
+  "centroid": 1510,
+  "wpm": 159.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   36,
+   23,
+   16,
+   -40,
+   23,
+   -29,
+   19,
+   23,
+   24
+  ],
+  "heard": "So you are the new commander. I am Radner, Mintat to the Baron. Try not to bore me. The Emperor is greedy and Arrakis is his bait. Feed him enough spice and he will hand it to us. Your first task is beneath a true Harkonnen, harvest until 1000 credits sit in our stores. Some are tradies soldiers wander this region, kill them if they get in the way, kill them if they don't.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Atreides": [
+    0,
+    1
+   ],
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.054,
+  "startErrMs": 114,
+  "startErrP90Ms": 301,
+  "matched": 0.959
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m1-lose",
+  "seconds": 8.676,
+  "ms": 8683,
+  "bytes": 21973,
+  "lufs": -19.7,
+  "peak": -6.5,
+  "f0": 107.0,
+  "spread": 2.56,
+  "centroid": 1500,
+  "wpm": 148.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   15,
+   19,
+   -24
+  ],
+  "heard": "You failed to gather a little sand, how touching. Try again before the Baron learns your name.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 152,
+  "startErrP90Ms": 275,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m1-win",
+  "seconds": 8.403,
+  "ms": 8409,
+  "bytes": 21493,
+  "lufs": -19.6,
+  "peak": -4.2,
+  "f0": 109.1,
+  "spread": 3.08,
+  "centroid": 1469,
+  "wpm": 155.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   178,
+   -18,
+   -7
+  ],
+  "heard": "I had a quit. The Baron has been told you can count. Do not expect praise for doing the obvious.",
+  "names": {},
+  "wer": 0.235,
+  "startErrMs": 118,
+  "startErrP90Ms": 215,
+  "matched": 0.941
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m2-advice",
+  "seconds": 14.517,
+  "ms": 14523,
+  "bytes": 37105,
+  "lufs": -19.6,
+  "peak": -4.9,
+  "f0": 106.7,
+  "spread": 2.43,
+  "centroid": 1573,
+  "wpm": 132.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   21,
+   27,
+   -15,
+   -26
+  ],
+  "heard": "Spice only counts once it is stored. Build silos. A radar outpost will let you build a WR which trains troopers. Put them where the Atreides attack.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.037,
+  "startErrMs": 97,
+  "startErrP90Ms": 387,
+  "matched": 0.963
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m2-briefing",
+  "seconds": 27.13,
+  "ms": 27137,
+  "bytes": 69296,
+  "lufs": -19.6,
+  "peak": -3.3,
+  "f0": 107.9,
+  "spread": 2.28,
+  "centroid": 1606,
+  "wpm": 150.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -18,
+   40,
+   17,
+   -3,
+   16,
+   43,
+   16
+  ],
+  "heard": "The Atreides have built a base here. Noble fools, they think the Emperor's contest is about honor. Store 2,700 credits of spice or wipe their base from the sand. The spice is what the Baron wants. Crushing the Atreides is simply a pleasure. I leave the choice to you. Choose wisely or at least choose quickly.",
+  "names": {
+   "Atreides": [
+    2,
+    2
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 105,
+  "startErrP90Ms": 402,
+  "matched": 0.982
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m2-lose",
+  "seconds": 9.486,
+  "ms": 9493,
+  "bytes": 24059,
+  "lufs": -19.7,
+  "peak": -5.3,
+  "f0": 108.2,
+  "spread": 1.81,
+  "centroid": 1573,
+  "wpm": 134.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   25,
+   -12,
+   -5
+  ],
+  "heard": "By turn by the Atreides. They will be insufferable. Go back and this time make them suffer instead.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.118,
+  "startErrMs": 122,
+  "startErrP90Ms": 194,
+  "matched": 0.941
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m2-win",
+  "seconds": 6.572,
+  "ms": 6578,
+  "bytes": 16807,
+  "lufs": -19.7,
+  "peak": -5.6,
+  "f0": 107.1,
+  "spread": 1.5,
+  "centroid": 1606,
+  "wpm": 129.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -14,
+   45
+  ],
+  "heard": "The Baron is satisfied for now, savor it, his satisfaction never lasts.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 98,
+  "startErrP90Ms": 548,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m3-advice",
+  "seconds": 11.231,
+  "ms": 11237,
+  "bytes": 28692,
+  "lufs": -19.7,
+  "peak": -5.0,
+  "f0": 107.9,
+  "spread": 2.66,
+  "centroid": 1500,
+  "wpm": 169.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   18,
+   -12,
+   -43
+  ],
+  "heard": "At last you may build a heavy factory. It makes quads and quads make the orders weep. Keep your vehicles on rock when the worms stir.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.038,
+  "startErrMs": 102,
+  "startErrP90Ms": 319,
+  "matched": 0.962
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m3-briefing",
+  "seconds": 26.948,
+  "ms": 26955,
+  "bytes": 68283,
+  "lufs": -19.6,
+  "peak": -5.2,
+  "f0": 107.1,
+  "spread": 2.38,
+  "centroid": 1547,
+  "wpm": 151.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -49,
+   55,
+   -18,
+   53,
+   20,
+   16,
+   27,
+   -17
+  ],
+  "heard": "The Ordos have come smiling and counting coin, merchants, they would sell their own mothers for a good price and they think we can be bought too, show them otherwise, find their base and destroy it, Lave nothing standing. Mind the open sand. Worms roam here, and they do not care whose army they swallow.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.018,
+  "startErrMs": 113,
+  "startErrP90Ms": 381,
+  "matched": 0.982
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m3-lose",
+  "seconds": 9.385,
+  "ms": 9391,
+  "bytes": 23930,
+  "lufs": -19.5,
+  "peak": -5.2,
+  "f0": 106.9,
+  "spread": 2.11,
+  "centroid": 1437,
+  "wpm": 126.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   21,
+   -31,
+   -11
+  ],
+  "heard": "Outwitted by shopkeepers, the baron is not amused. Try again and leave fewer of them breathing.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 155,
+  "startErrP90Ms": 286,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m3-win",
+  "seconds": 6.819,
+  "ms": 6825,
+  "bytes": 17426,
+  "lufs": -19.6,
+  "peak": -5.7,
+  "f0": 108.7,
+  "spread": 1.79,
+  "centroid": 1528,
+  "wpm": 147.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   2,
+   -44
+  ],
+  "heard": "The Ordos base is ash. Their accountants will need a new column for losses.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 130,
+  "startErrP90Ms": 356,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m4-advice",
+  "seconds": 10.192,
+  "ms": 10199,
+  "bytes": 26237,
+  "lufs": -19.7,
+  "peak": -4.5,
+  "f0": 106.0,
+  "spread": 2.4,
+  "centroid": 1511,
+  "wpm": 139.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   14,
+   -14
+  ],
+  "heard": "Upgrade the heavy factory for combat tanks and the WOR for trooper squads. Walls will keep raiders away from your refinery.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 141,
+  "startErrP90Ms": 307,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m4-briefing",
+  "seconds": 29.401,
+  "ms": 29408,
+  "bytes": 74899,
+  "lufs": -19.6,
+  "peak": -4.7,
+  "f0": 107.8,
+  "spread": 2.43,
+  "centroid": 1493,
+  "wpm": 150.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -39,
+   -14,
+   16,
+   20,
+   -14,
+   -12,
+   1,
+   -13,
+   -14
+  ],
+  "heard": "The Ordos have rebuilt and they hire well. Their raiders have been picking at our harvesters. There is more. Sardaukar troopers have been seen, dropped in by Karyol. The Emperor's own dogs, whose leash they wear I have not yet learned. Destroy the Ordos base. If the Sardaukar get in your way, destroy them too. Quietly if you can. You",
+  "names": {
+   "Ordos": [
+    2,
+    2
+   ],
+   "Sardaukar": [
+    2,
+    2
+   ],
+   "Carryall": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.034,
+  "startErrMs": 101,
+  "startErrP90Ms": 272,
+  "matched": 0.983
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m4-lose",
+  "seconds": 7.482,
+  "ms": 7489,
+  "bytes": 19237,
+  "lufs": -19.8,
+  "peak": -5.3,
+  "f0": 104.3,
+  "spread": 2.28,
+  "centroid": 1513,
+  "wpm": 143.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -36,
+   -15
+  ],
+  "heard": "The order sport better luck than you had. Rebuild and spend our soldiers more wisely.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.133,
+  "startErrMs": 104,
+  "startErrP90Ms": 333,
+  "matched": 0.867
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m4-win",
+  "seconds": 9.749,
+  "ms": 9756,
+  "bytes": 24736,
+  "lufs": -19.7,
+  "peak": -5.2,
+  "f0": 108.5,
+  "spread": 2.76,
+  "centroid": 1386,
+  "wpm": 132.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -64,
+   72,
+   -40,
+   33
+  ],
+  "heard": "The Ordos are bleeding money and men. Good. The Baron enjoyed the report. So did I.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 126,
+  "startErrP90Ms": 336,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m5-advice",
+  "seconds": 16.625,
+  "ms": 16631,
+  "bytes": 42564,
+  "lufs": -19.7,
+  "peak": -3.9,
+  "f0": 108.7,
+  "spread": 2.44,
+  "centroid": 1606,
+  "wpm": 155.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -16,
+   15,
+   53,
+   19
+  ],
+  "heard": "Build a high-tech factory and it will give you carry-alls to carry harvesters to the spice faster. Upgrade the heavy factory and it builds missile tanks, a use them, a repair facility will save you a few tanks.",
+  "names": {
+   "Carryall": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.105,
+  "startErrMs": 94,
+  "startErrP90Ms": 504,
+  "matched": 0.946
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m5-briefing",
+  "seconds": 28.046,
+  "ms": 28053,
+  "bytes": 71499,
+  "lufs": -19.6,
+  "peak": -3.7,
+  "f0": 107.9,
+  "spread": 2.38,
+  "centroid": 1501,
+  "wpm": 145.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   127,
+   -40,
+   42,
+   -12,
+   68,
+   -14,
+   21,
+   -39
+  ],
+  "heard": "Interesting. The Emperor has been feeding the Atreides weapons while preaching fair play. Even I admire the hypocrisy. His sardao karmi drop in again to help them. No matter. The Atreides have built a fine base. Burn it and destroy anyone who tries to save it. The Baron does not forgive those who arm his foes.",
+  "names": {
+   "Atreides": [
+    2,
+    2
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.036,
+  "startErrMs": 123,
+  "startErrP90Ms": 243,
+  "matched": 0.964
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m5-lose",
+  "seconds": 10.617,
+  "ms": 10623,
+  "bytes": 26857,
+  "lufs": -19.5,
+  "peak": -5.8,
+  "f0": 110.1,
+  "spread": 2.68,
+  "centroid": 1474,
+  "wpm": 143.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -11,
+   15,
+   42,
+   -14
+  ],
+  "heard": "The Atreides beat you. The Atreides. Think on that. Then go back and wipe the smile from their faces.",
+  "names": {
+   "Atreides": [
+    2,
+    2
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 107,
+  "startErrP90Ms": 281,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m5-win",
+  "seconds": 8.544,
+  "ms": 8551,
+  "bytes": 21730,
+  "lufs": -19.5,
+  "peak": -5.3,
+  "f0": 107.2,
+  "spread": 2.33,
+  "centroid": 1470,
+  "wpm": 123.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -12,
+   44,
+   -17
+  ],
+  "heard": "The Atreides base burns. A lovely sight. The Baron has ordered the recording kept.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 205,
+  "startErrP90Ms": 369,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m6-advice",
+  "seconds": 11.939,
+  "ms": 11945,
+  "bytes": 30480,
+  "lufs": -19.7,
+  "peak": -5.4,
+  "f0": 106.9,
+  "spread": 2.34,
+  "centroid": 1596,
+  "wpm": 143.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   14,
+   -14,
+   48
+  ],
+  "heard": "Rocket turrets come with a construction yard upgrade. The starport sells vehicles cheaply when the price is right. Sage tanks are ready as well.",
+  "names": {},
+  "wer": 0.042,
+  "startErrMs": 181,
+  "startErrP90Ms": 531,
+  "matched": 0.958
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m6-briefing",
+  "seconds": 25.865,
+  "ms": 25871,
+  "bytes": 66094,
+  "lufs": -19.6,
+  "peak": -4.7,
+  "f0": 109.1,
+  "spread": 2.15,
+  "centroid": 1587,
+  "wpm": 146.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -18,
+   44,
+   45,
+   -12,
+   0,
+   -44,
+   21
+  ],
+  "heard": "The Ordos have two bases here and they are spending freely. Every attack they make costs them a fortune. Let them spend. We will attack while they do. Destroy both bases. Keep our own walls manned. The Ordos like to strike where nobody is looking. And the Sardaukar still circle like vultures.",
+  "names": {
+   "Ordos": [
+    2,
+    2
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 116,
+  "startErrP90Ms": 400,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m6-lose",
+  "seconds": 8.353,
+  "ms": 8359,
+  "bytes": 21378,
+  "lufs": -19.6,
+  "peak": -5.4,
+  "f0": 108.5,
+  "spread": 2.54,
+  "centroid": 1479,
+  "wpm": 169.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -10,
+   47,
+   21
+  ],
+  "heard": "You let the order sneak in behind you. Again, guard the base this time and then go back.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.056,
+  "startErrMs": 181,
+  "startErrP90Ms": 396,
+  "matched": 0.944
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m6-win",
+  "seconds": 6.37,
+  "ms": 6377,
+  "bytes": 16270,
+  "lufs": -19.5,
+  "peak": -5.6,
+  "f0": 109.9,
+  "spread": 2.28,
+  "centroid": 1563,
+  "wpm": 137.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   12,
+   -13
+  ],
+  "heard": "To order spaces gone, they will be tracking their ledgers for years.",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.333,
+  "startErrMs": 169,
+  "startErrP90Ms": 377,
+  "matched": 0.667
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m7-advice",
+  "seconds": 13.484,
+  "ms": 13490,
+  "bytes": 34518,
+  "lufs": -19.7,
+  "peak": -4.9,
+  "f0": 106.5,
+  "spread": 2.19,
+  "centroid": 1626,
+  "wpm": 169.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   20,
+   -12,
+   -3
+  ],
+  "heard": "Our finest toy is ready, the Devastator. It is slow but nothing stands against it for long. If it is about to fall, set off its self-destruct and take the enemy with it.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 86,
+  "startErrP90Ms": 251,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m7-briefing",
+  "seconds": 23.829,
+  "ms": 23835,
+  "bytes": 60622,
+  "lufs": -19.6,
+  "peak": -5.2,
+  "f0": 107.7,
+  "spread": 2.33,
+  "centroid": 1525,
+  "wpm": 161.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -17,
+   -12,
+   -1,
+   162,
+   131,
+   41,
+   -47
+  ],
+  "heard": "The Atreides have dug in with two bases. Their sonic tanks are a nuisance, their pride is worse. Destroy both bases. All of them. Every building. I want the Duke to hear of it and weep. The Sardau army yet dropping on either side, so keep an eye on the sky.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.077,
+  "startErrMs": 123,
+  "startErrP90Ms": 300,
+  "matched": 0.923
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m7-lose",
+  "seconds": 10.293,
+  "ms": 10300,
+  "bytes": 25978,
+  "lufs": -19.6,
+  "peak": -5.6,
+  "f0": 111.5,
+  "spread": 1.92,
+  "centroid": 1407,
+  "wpm": 131.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   105,
+   45,
+   37,
+   -24
+  ],
+  "heard": "Even with a Devastator, you lost. Remarkable. Go back. Try aiming it at the enemy this time.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 127,
+  "startErrP90Ms": 285,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m7-win",
+  "seconds": 9.086,
+  "ms": 9092,
+  "bytes": 23128,
+  "lufs": -19.6,
+  "peak": -5.0,
+  "f0": 108.7,
+  "spread": 2.44,
+  "centroid": 1362,
+  "wpm": 128.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   13,
+   -13,
+   18
+  ],
+  "heard": "Two Atreides bases flattened. The Baron laughed aloud. I have never heard him laugh before.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 102,
+  "startErrP90Ms": 522,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m8-advice",
+  "seconds": 15.685,
+  "ms": 15691,
+  "bytes": 40063,
+  "lufs": -19.7,
+  "peak": -5.1,
+  "f0": 108.0,
+  "spread": 2.22,
+  "centroid": 1533,
+  "wpm": 190.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   17,
+   22,
+   18,
+   18
+  ],
+  "heard": "You may build a palace once you have a starport. From it you may launch a death hand missile. It is not accurate but it is free and it reloads. Aim at the middle of their base and enjoy the view.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 73,
+  "startErrP90Ms": 311,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m8-briefing",
+  "seconds": 26.032,
+  "ms": 26038,
+  "bytes": 66834,
+  "lufs": -19.7,
+  "peak": -3.8,
+  "f0": 106.5,
+  "spread": 2.53,
+  "centroid": 1557,
+  "wpm": 146.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   50,
+   -39,
+   -47,
+   -14,
+   -47,
+   22
+  ],
+  "heard": "Our enemies have finally done something clever. The Atreides and the Ordos have joined forces, each with a base here. The Emperor's doing again, his Sardaukar will not be far away. Destroy them both, and Arrakis is all but ours. Two houses, one army, and twice the corpses. I expect you to enjoy this one.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Atreides": [
+    1,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 101,
+  "startErrP90Ms": 274,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m8-lose",
+  "seconds": 7.638,
+  "ms": 7644,
+  "bytes": 19558,
+  "lufs": -19.6,
+  "peak": -5.4,
+  "f0": 109.2,
+  "spread": 2.31,
+  "centroid": 1584,
+  "wpm": 169.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   12,
+   17
+  ],
+  "heard": "Two houses at once was too much for you, it seems. Use the death hand properly next time.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 122,
+  "startErrP90Ms": 324,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m8-win",
+  "seconds": 9.239,
+  "ms": 9246,
+  "bytes": 23500,
+  "lufs": -19.6,
+  "peak": -4.7,
+  "f0": 109.1,
+  "spread": 2.98,
+  "centroid": 1502,
+  "wpm": 137.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -2,
+   0,
+   78
+  ],
+  "heard": "Both houses lie broken. The Baron is almost pleased. Almost is the best you will ever get.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 113,
+  "startErrP90Ms": 365,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m9-advice",
+  "seconds": 13.236,
+  "ms": 13242,
+  "bytes": 33641,
+  "lufs": -19.7,
+  "peak": -4.0,
+  "f0": 107.7,
+  "spread": 2.08,
+  "centroid": 1482,
+  "wpm": 156.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   15,
+   30,
+   -4,
+   16
+  ],
+  "heard": "Asad al-Kar Palace would mean a death hand for us. Spread your buildings out, do not make it easy. They raid from the flanks. Leave guards at home.",
+  "names": {
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.107,
+  "startErrMs": 131,
+  "startErrP90Ms": 305,
+  "matched": 0.929
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m9-briefing",
+  "seconds": 25.056,
+  "ms": 25062,
+  "bytes": 63855,
+  "lufs": -19.6,
+  "peak": -4.2,
+  "f0": 107.3,
+  "spread": 2.38,
+  "centroid": 1551,
+  "wpm": 164.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   23,
+   -18,
+   -46,
+   -17,
+   22,
+   10,
+   47
+  ],
+  "heard": "Now we come to it. The Emperor has dropped his pretense and sent his sardaucar to take Arrakis. Two of their bases stand between us and the throne. Destroy them and the Emperor is at our mercy. And mercy is not something the Baron keeps. Do not fail me now. I have grown used to you.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.018,
+  "startErrMs": 91,
+  "startErrP90Ms": 310,
+  "matched": 0.982
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m9-lose",
+  "seconds": 8.604,
+  "ms": 8610,
+  "bytes": 21991,
+  "lufs": -19.6,
+  "peak": -5.4,
+  "f0": 109.5,
+  "spread": 2.69,
+  "centroid": 1471,
+  "wpm": 133.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -3,
+   -36,
+   -47
+  ],
+  "heard": "The Sardaukar crushed you. The Baron is drafting your obituary. Prove him wrong, go back.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 105,
+  "startErrP90Ms": 347,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "m9-win",
+  "seconds": 6.924,
+  "ms": 6930,
+  "bytes": 17598,
+  "lufs": -19.8,
+  "peak": -5.2,
+  "f0": 108.5,
+  "spread": 2.3,
+  "centroid": 1541,
+  "wpm": 168.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -42,
+   23
+  ],
+  "heard": "The Sardaukar are dead, and the Emperor is ours. I may even say it, well done.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 76,
+  "startErrP90Ms": 214,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "page-1",
+  "seconds": 7.363,
+  "ms": 7369,
+  "bytes": 18808,
+  "lufs": -19.7,
+  "peak": -4.6,
+  "f0": 107.7,
+  "spread": 2.79,
+  "centroid": 1541,
+  "wpm": 147.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   23,
+   14
+  ],
+  "heard": "A house Harkonnen takes what it wants. Mercy is a weakness we live to lesser houses.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.133,
+  "startErrMs": 103,
+  "startErrP90Ms": 338,
+  "matched": 0.933
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "page-2",
+  "seconds": 9.209,
+  "ms": 9216,
+  "bytes": 23663,
+  "lufs": -19.7,
+  "peak": -4.4,
+  "f0": 107.7,
+  "spread": 2.41,
+  "centroid": 1539,
+  "wpm": 135.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -38,
+   17,
+   19
+  ],
+  "heard": "The Baron rewards cunning and punishes failure. Those who serve him well grow rich. The rest vanish.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 123,
+  "startErrP90Ms": 385,
+  "matched": 1.0
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "page-3",
+  "seconds": 7.04,
+  "ms": 7046,
+  "bytes": 18210,
+  "lufs": -19.8,
+  "peak": -4.5,
+  "f0": 105.9,
+  "spread": 2.22,
+  "centroid": 1541,
+  "wpm": 167.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   42
+  ],
+  "heard": "Our home is Giddy Prime, a dark world of iron, smoke and hunger where only the strong survive.",
+  "names": {},
+  "wer": 0.056,
+  "startErrMs": 102,
+  "startErrP90Ms": 274,
+  "matched": 0.944
+ },
+ {
+  "house": "harkonnen",
+  "voice": "",
+  "key": "question",
+  "seconds": 3.195,
+  "ms": 3201,
+  "bytes": 7976,
+  "lufs": -19.5,
+  "peak": -6.5,
+  "f0": 109.4,
+  "spread": 1.61,
+  "centroid": 1574,
+  "wpm": 121.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -8
+  ],
+  "heard": "Will you serve house or conan?",
+  "names": {
+   "Harkonnen": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.4,
+  "startErrMs": 136,
+  "startErrP90Ms": 443,
+  "matched": 0.8
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "ending",
+  "seconds": 19.796,
+  "ms": 19803,
+  "bytes": 49971,
+  "lufs": -19.7,
+  "peak": -4.1,
+  "f0": 144.3,
+  "spread": 4.76,
+  "centroid": 1799,
+  "wpm": 177.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -7,
+   -4,
+   25,
+   95,
+   -34,
+   13,
+   -13
+  ],
+  "heard": "Arrakis is ours and so is the Emperor. He keeps his throne and his title. We keep him. Every order he gives will be one we have written. The spice flows through Ordo's hands at Ordo's prices. The council thanks you. Your share has been paid.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Ordos": [
+    0,
+    2
+   ]
+  },
+  "wer": 0.043,
+  "startErrMs": 116,
+  "startErrP90Ms": 397,
+  "matched": 0.957
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m1-advice",
+  "seconds": 13.12,
+  "ms": 13127,
+  "bytes": 33175,
+  "lufs": -19.6,
+  "peak": -4.5,
+  "f0": 144.6,
+  "spread": 5.24,
+  "centroid": 1803,
+  "wpm": 153.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   15,
+   11,
+   18,
+   -13,
+   20
+  ],
+  "heard": "Concrete first. It protects what we pay for. Next a wind trap and a spice refinery after it. The refinery includes a harvester. Keep it working.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 110,
+  "startErrP90Ms": 402,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m1-briefing",
+  "seconds": 30.236,
+  "ms": 30243,
+  "bytes": 76247,
+  "lufs": -19.6,
+  "peak": -4.8,
+  "f0": 140.7,
+  "spread": 4.69,
+  "centroid": 1794,
+  "wpm": 158.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   40,
+   39,
+   -1,
+   -6,
+   -12,
+   -11,
+   -13,
+   -8,
+   60,
+   15,
+   44
+  ],
+  "heard": "I am Ammon, mentat to the Ordos Council. I will be brief. Time is money. The Emperor is selling Arrakis. The price is spice. We intend to be the highest bidder. Your first contract, 1000 credits in our stores. Harkon and thugs prowl this region. No base only brutes. Avoid Avoid them where you can, kill them if not. Losses come out of your share.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Ordos": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.047,
+  "startErrMs": 82,
+  "startErrP90Ms": 271,
+  "matched": 0.984
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m1-lose",
+  "seconds": 8.612,
+  "ms": 8619,
+  "bytes": 21625,
+  "lufs": -19.6,
+  "peak": -4.6,
+  "f0": 147.1,
+  "spread": 5.21,
+  "centroid": 1740,
+  "wpm": 133.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   21,
+   -7,
+   37,
+   -26
+  ],
+  "heard": "Quota missed. An unprofitable day. You may try again. The council is patient once.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 103,
+  "startErrP90Ms": 396,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m1-win",
+  "seconds": 6.464,
+  "ms": 6471,
+  "bytes": 16364,
+  "lufs": -19.6,
+  "peak": -3.5,
+  "f0": 137.8,
+  "spread": 4.05,
+  "centroid": 1817,
+  "wpm": 165.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   11,
+   -33
+  ],
+  "heard": "Contract fulfilled. The council has entered your name in the ledger on the right side.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 98,
+  "startErrP90Ms": 440,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m2-advice",
+  "seconds": 18.333,
+  "ms": 18340,
+  "bytes": 46286,
+  "lufs": -19.8,
+  "peak": -4.6,
+  "f0": 141.2,
+  "spread": 4.9,
+  "centroid": 1864,
+  "wpm": 150.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   20,
+   33,
+   -10,
+   -11,
+   -5,
+   47,
+   37
+  ],
+  "heard": "Spies in storage is what counts. Build silos. A barracks needs a radar outpost first. Its infantry can take enemy buildings. A captured silo is free. Raider trikes are fast and cheap. Scout with them.",
+  "names": {},
+  "wer": 0.029,
+  "startErrMs": 98,
+  "startErrP90Ms": 365,
+  "matched": 0.971
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m2-briefing",
+  "seconds": 22.99,
+  "ms": 22997,
+  "bytes": 57943,
+  "lufs": -19.6,
+  "peak": -5.1,
+  "f0": 142.7,
+  "spread": 4.94,
+  "centroid": 1821,
+  "wpm": 154.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -10,
+   -5,
+   -28,
+   21,
+   14,
+   -4,
+   44,
+   17
+  ],
+  "heard": "A new site, richer and less quiet. The Harkonnen have a base here. They will attack. It is the only thing they know how to do. Store 2,700 credits or remove the Harkonnen base. The first is cheaper. The second lasts longer. Your choice. Make it profitable.",
+  "names": {
+   "Harkonnen": [
+    2,
+    2
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 91,
+  "startErrP90Ms": 357,
+  "matched": 0.979
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m2-lose",
+  "seconds": 6.414,
+  "ms": 6420,
+  "bytes": 16251,
+  "lufs": -19.7,
+  "peak": -5.7,
+  "f0": 142.0,
+  "spread": 5.23,
+  "centroid": 1855,
+  "wpm": 123.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -11,
+   39
+  ],
+  "heard": "The Harkonnen outbid us with brute force, reassess, reinvest, and return.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 117,
+  "startErrP90Ms": 237,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m2-win",
+  "seconds": 7.087,
+  "ms": 7093,
+  "bytes": 17875,
+  "lufs": -19.5,
+  "peak": -5.6,
+  "f0": 143.3,
+  "spread": 5.18,
+  "centroid": 1701,
+  "wpm": 132.4,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   24,
+   -6,
+   -9
+  ],
+  "heard": "Profitable, the Harkonnen paid for their manners. Your commission has been approved.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 100,
+  "startErrP90Ms": 370,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m3-advice",
+  "seconds": 11.657,
+  "ms": 11663,
+  "bytes": 29480,
+  "lufs": -19.5,
+  "peak": -4.8,
+  "f0": 143.1,
+  "spread": 5.09,
+  "centroid": 1793,
+  "wpm": 158.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   64,
+   50,
+   1,
+   -40
+  ],
+  "heard": "upgrade the heavy factory to build quads. Raiders scout quads fight. Do not confuse the two. Keep vehicles on rock when worms are close.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 129,
+  "startErrP90Ms": 354,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m3-briefing",
+  "seconds": 19.515,
+  "ms": 19522,
+  "bytes": 49313,
+  "lufs": -19.7,
+  "peak": -4.4,
+  "f0": 139.5,
+  "spread": 5.28,
+  "centroid": 1850,
+  "wpm": 176.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -31,
+   140,
+   -3,
+   20,
+   39,
+   -27,
+   39
+  ],
+  "heard": "The Atreides are here, talking of honor and duty. Honor does not appear on any balance sheet. Their base sits on spice we want. Destroy it. Worms are active in this area. A harvester lost to a worm is a pure loss. Watch the sand.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 97,
+  "startErrP90Ms": 314,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m3-lose",
+  "seconds": 6.622,
+  "ms": 6629,
+  "bytes": 16721,
+  "lufs": -19.5,
+  "peak": -5.8,
+  "f0": 147.0,
+  "spread": 4.59,
+  "centroid": 1776,
+  "wpm": 136.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   139,
+   15,
+   16
+  ],
+  "heard": "Honor beat us. Embarrassing and costly. Return with a better plan.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 157,
+  "startErrP90Ms": 358,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m3-win",
+  "seconds": 7.331,
+  "ms": 7337,
+  "bytes": 18545,
+  "lufs": -19.7,
+  "peak": -4.2,
+  "f0": 142.7,
+  "spread": 4.77,
+  "centroid": 1867,
+  "wpm": 118.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -5,
+   108,
+   12
+  ],
+  "heard": "The Atreides base is liquidated, excellent margins, the council is pleased.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 126,
+  "startErrP90Ms": 397,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m4-advice",
+  "seconds": 14.03,
+  "ms": 14037,
+  "bytes": 35319,
+  "lufs": -19.6,
+  "peak": -4.2,
+  "f0": 143.7,
+  "spread": 4.67,
+  "centroid": 1839,
+  "wpm": 138.3,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   58,
+   -6,
+   12,
+   48,
+   19,
+   -1
+  ],
+  "heard": "Upgrade the heavy factory for combat tanks. Troopers can now be trained. Their rockets hurt tanks. Walls are cheap. Harvesters are not. Protect them.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 143,
+  "startErrP90Ms": 309,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m4-briefing",
+  "seconds": 23.464,
+  "ms": 23471,
+  "bytes": 59176,
+  "lufs": -19.6,
+  "peak": -5.1,
+  "f0": 139.4,
+  "spread": 4.63,
+  "centroid": 1833,
+  "wpm": 136.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -36,
+   -7,
+   40,
+   -15,
+   -10,
+   40,
+   -4,
+   10
+  ],
+  "heard": "The Atreides have reinforced. Their raids on our harvesters cost us. Costs must be cut. A complication. Sardaukar troopers have appeared dropped in bicariol. The emperor is investing. In whom I intend to find out. Destroy the Atreides base. Count the Sardaukar.",
+  "names": {
+   "Atreides": [
+    2,
+    2
+   ],
+   "Sardaukar": [
+    2,
+    2
+   ],
+   "Carryall": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.047,
+  "startErrMs": 111,
+  "startErrP90Ms": 346,
+  "matched": 0.953
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m4-lose",
+  "seconds": 7.289,
+  "ms": 7296,
+  "bytes": 18446,
+  "lufs": -19.7,
+  "peak": -5.5,
+  "f0": 142.6,
+  "spread": 4.67,
+  "centroid": 1801,
+  "wpm": 149.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   48,
+   -13,
+   14
+  ],
+  "heard": "A loss. The Sardaucar were not in the estimate. Revise the estimate then return.",
+  "names": {
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.071,
+  "startErrMs": 112,
+  "startErrP90Ms": 366,
+  "matched": 0.929
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m4-win",
+  "seconds": 8.625,
+  "ms": 8631,
+  "bytes": 21688,
+  "lufs": -19.6,
+  "peak": -4.5,
+  "f0": 144.8,
+  "spread": 4.68,
+  "centroid": 1828,
+  "wpm": 113.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   13,
+   48,
+   25,
+   -37
+  ],
+  "heard": "Base destroyed, losses acceptable, good work, the council has raised your allowance.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 219,
+  "startErrP90Ms": 557,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m5-advice",
+  "seconds": 14.871,
+  "ms": 14877,
+  "bytes": 37508,
+  "lufs": -19.6,
+  "peak": -3.8,
+  "f0": 139.8,
+  "spread": 4.72,
+  "centroid": 1873,
+  "wpm": 154.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -10,
+   -10,
+   11,
+   -11,
+   19
+  ],
+  "heard": "A high-tech factory builds carioles. They ferry harvesters and save time. Time is credits. A repair facility costs less than a new tank. Gun turrets are cheap insurance for the base.",
+  "names": {
+   "Carryall": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.062,
+  "startErrMs": 131,
+  "startErrP90Ms": 344,
+  "matched": 0.935
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m5-briefing",
+  "seconds": 21.681,
+  "ms": 21688,
+  "bytes": 54699,
+  "lufs": -19.7,
+  "peak": -5.0,
+  "f0": 139.5,
+  "spread": 4.82,
+  "centroid": 1827,
+  "wpm": 145.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   22,
+   -33,
+   14,
+   -1,
+   -29,
+   8,
+   -37
+  ],
+  "heard": "I have traced the Sardaukar. The Emperor is supplying our rivals while claiming neutrality. Poor business practice. We will remember it. The Harkanan have two bases here, both well-armed. Destroy both. The Emperor's investment in the Harkanan should show a total loss.",
+  "names": {
+   "Harkonnen": [
+    0,
+    2
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.047,
+  "startErrMs": 109,
+  "startErrP90Ms": 372,
+  "matched": 0.953
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m5-lose",
+  "seconds": 6.908,
+  "ms": 6915,
+  "bytes": 17405,
+  "lufs": -19.8,
+  "peak": -5.5,
+  "f0": 136.7,
+  "spread": 5.72,
+  "centroid": 1759,
+  "wpm": 160.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -37,
+   -40,
+   39
+  ],
+  "heard": "Two bases were more than our budget allowed. Take one than the other. Return.",
+  "names": {},
+  "wer": 0.071,
+  "startErrMs": 96,
+  "startErrP90Ms": 398,
+  "matched": 0.929
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m5-win",
+  "seconds": 7.965,
+  "ms": 7971,
+  "bytes": 19975,
+  "lufs": -19.5,
+  "peak": -3.6,
+  "f0": 143.2,
+  "spread": 4.51,
+  "centroid": 1731,
+  "wpm": 145.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -4,
+   115,
+   -9
+  ],
+  "heard": "Both Harkan and Bases written off. Is elegant work? The Emperor will feel this in his accounts.",
+  "names": {
+   "Harkonnen": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.2,
+  "startErrMs": 141,
+  "startErrP90Ms": 315,
+  "matched": 0.933
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m6-advice",
+  "seconds": 14.634,
+  "ms": 14641,
+  "bytes": 36989,
+  "lufs": -19.8,
+  "peak": -3.9,
+  "f0": 138.0,
+  "spread": 4.5,
+  "centroid": 1859,
+  "wpm": 155.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -13,
+   -17,
+   -12,
+   23,
+   -39
+  ],
+  "heard": "A construction yard upgrade buys rocket turrets. The star port is open. It sells missile tanks and more, and its prices move. By low, trooper squads can now be trained as well.",
+  "names": {},
+  "wer": 0.097,
+  "startErrMs": 150,
+  "startErrP90Ms": 351,
+  "matched": 0.935
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m6-briefing",
+  "seconds": 19.247,
+  "ms": 19254,
+  "bytes": 48681,
+  "lufs": -19.7,
+  "peak": -4.5,
+  "f0": 140.6,
+  "spread": 4.05,
+  "centroid": 1850,
+  "wpm": 144.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   14,
+   -3,
+   -5,
+   -5,
+   41,
+   1,
+   -35
+  ],
+  "heard": "Two Atreides bases ahead. They will attack us while we attack them. Defend and advance at once. Their soldiers are loyal. Loyalty cannot be bought, so it must be destroyed. Destroy both bases. The Sardau car may intervene.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.054,
+  "startErrMs": 110,
+  "startErrP90Ms": 363,
+  "matched": 0.973
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m6-lose",
+  "seconds": 8.674,
+  "ms": 8680,
+  "bytes": 21738,
+  "lufs": -19.6,
+  "peak": -2.8,
+  "f0": 145.9,
+  "spread": 5.78,
+  "centroid": 1706,
+  "wpm": 123.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -31,
+   -4,
+   65,
+   39
+  ],
+  "heard": "The Atreides held both bases. They're loyal repaid. Hours must pay better.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.385,
+  "startErrMs": 184,
+  "startErrP90Ms": 301,
+  "matched": 0.615
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m6-win",
+  "seconds": 6.943,
+  "ms": 6950,
+  "bytes": 17420,
+  "lufs": -19.5,
+  "peak": -5.7,
+  "f0": 145.5,
+  "spread": 4.59,
+  "centroid": 1831,
+  "wpm": 127.9,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -7,
+   64,
+   39
+  ],
+  "heard": "Two bases closed down. Loyalty was a poor investment. Well managed.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 119,
+  "startErrP90Ms": 330,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m7-advice",
+  "seconds": 14.526,
+  "ms": 14533,
+  "bytes": 36606,
+  "lufs": -19.7,
+  "peak": -4.8,
+  "f0": 139.3,
+  "spread": 4.46,
+  "centroid": 1870,
+  "wpm": 171.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -7,
+   -29,
+   13,
+   27
+  ],
+  "heard": "The Deviator is ready. Its gas turns enemy units to our side for a time. Their best tank are tank. Siege tanks are now on sale, and the high-tech factory can be upgraded for ornithopters.",
+  "names": {
+   "Ornithopter": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.056,
+  "startErrMs": 91,
+  "startErrP90Ms": 225,
+  "matched": 0.943
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m7-briefing",
+  "seconds": 19.522,
+  "ms": 19529,
+  "bytes": 49352,
+  "lufs": -19.6,
+  "peak": -4.7,
+  "f0": 140.7,
+  "spread": 5.06,
+  "centroid": 1841,
+  "wpm": 144.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -29,
+   23,
+   20,
+   1,
+   -36,
+   -6
+  ],
+  "heard": "The Harkonnen have two bases again and devastating, brute force, very expensive brute force, destroy both bases. The Sardaukar may drop in again, so do not leave the refinery unguarded. This is the last step before the big contracts.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.026,
+  "startErrMs": 107,
+  "startErrP90Ms": 355,
+  "matched": 0.974
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m7-lose",
+  "seconds": 7.343,
+  "ms": 7349,
+  "bytes": 18561,
+  "lufs": -19.8,
+  "peak": -6.0,
+  "f0": 138.8,
+  "spread": 5.39,
+  "centroid": 1822,
+  "wpm": 125.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -3,
+   15,
+   -42
+  ],
+  "heard": "Harkon and brute force one, temporarily turn their tanks against them, then return.",
+  "names": {
+   "Harkonnen": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.25,
+  "startErrMs": 146,
+  "startErrP90Ms": 351,
+  "matched": 0.833
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m7-win",
+  "seconds": 5.909,
+  "ms": 5915,
+  "bytes": 15016,
+  "lufs": -19.7,
+  "peak": -5.7,
+  "f0": 139.3,
+  "spread": 4.15,
+  "centroid": 1864,
+  "wpm": 122.7,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -1,
+   -12
+  ],
+  "heard": "Both Harkonnen bases cleared. Their Devastators made very good scrap.",
+  "names": {
+   "Harkonnen": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 153,
+  "startErrP90Ms": 391,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m8-advice",
+  "seconds": 15.917,
+  "ms": 15923,
+  "bytes": 40145,
+  "lufs": -19.7,
+  "peak": -5.5,
+  "f0": 142.5,
+  "spread": 4.51,
+  "centroid": 1869,
+  "wpm": 180.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   13,
+   -14,
+   28,
+   -33,
+   64
+  ],
+  "heard": "You may now build a palace once a starport stands. It trains a saboteur at no cost. Send him into their base and he will bring it down from inside. The palace makes another in time. Use them often.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 85,
+  "startErrP90Ms": 237,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m8-briefing",
+  "seconds": 22.653,
+  "ms": 22659,
+  "bytes": 57182,
+  "lufs": -19.6,
+  "peak": -4.8,
+  "f0": 142.3,
+  "spread": 4.81,
+  "centroid": 1859,
+  "wpm": 159.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   23,
+   -34,
+   114,
+   0,
+   -23,
+   2,
+   -10,
+   23
+  ],
+  "heard": "A merger of sorts. The Atreides and the Harkhanan have joined against us. Each holds a base here. They despise each other. Their alliance will fail, but it need not last long to ruin us. Destroy both bases. The Emperor is behind this this deal. Watch for his sourdough car.",
+  "names": {
+   "Atreides": [
+    1,
+    1
+   ],
+   "Harkonnen": [
+    0,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.083,
+  "startErrMs": 113,
+  "startErrP90Ms": 323,
+  "matched": 0.958
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m8-lose",
+  "seconds": 7.526,
+  "ms": 7533,
+  "bytes": 19001,
+  "lufs": -19.7,
+  "peak": -6.4,
+  "f0": 141.5,
+  "spread": 4.97,
+  "centroid": 1876,
+  "wpm": 163.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   22,
+   -7,
+   14
+  ],
+  "heard": "Two opponents at once. The numbers did not work. Send a saboteur in first next time.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 114,
+  "startErrP90Ms": 320,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m8-win",
+  "seconds": 5.678,
+  "ms": 5684,
+  "bytes": 14473,
+  "lufs": -19.5,
+  "peak": -4.2,
+  "f0": 142.3,
+  "spread": 4.83,
+  "centroid": 1733,
+  "wpm": 118.8,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   24,
+   68
+  ],
+  "heard": "Both rivals bankrupt, only one shareholder remains the emperor.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 332,
+  "startErrP90Ms": 497,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m9-advice",
+  "seconds": 10.447,
+  "ms": 10454,
+  "bytes": 26330,
+  "lufs": -19.7,
+  "peak": -5.0,
+  "f0": 144.6,
+  "spread": 4.9,
+  "centroid": 1839,
+  "wpm": 177.1,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -9,
+   16,
+   -1,
+   24
+  ],
+  "heard": "The Sardaukar may own a palace and so a death hand. Keep the base spread out. They will raid the flanks. Guard the harvesters.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 82,
+  "startErrP90Ms": 264,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m9-briefing",
+  "seconds": 19.442,
+  "ms": 19448,
+  "bytes": 49051,
+  "lufs": -19.7,
+  "peak": -4.7,
+  "f0": 139.0,
+  "spread": 5.28,
+  "centroid": 1869,
+  "wpm": 167.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   41,
+   -34,
+   24,
+   -5,
+   92,
+   39,
+   11
+  ],
+  "heard": "Final accounts. The emperor has sent his sardakar to seize Arrakis himself. Two bases, his best man. Destroy them and the emperor must deal with us. On our terms, every credit the council has spent comes down to this. Do not waste it.",
+  "names": {
+   "Arrakis": [
+    1,
+    1
+   ],
+   "Sardaukar": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.047,
+  "startErrMs": 110,
+  "startErrP90Ms": 278,
+  "matched": 0.953
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m9-lose",
+  "seconds": 7.338,
+  "ms": 7344,
+  "bytes": 18575,
+  "lufs": -19.6,
+  "peak": -4.4,
+  "f0": 139.4,
+  "spread": 4.38,
+  "centroid": 1764,
+  "wpm": 135.5,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -4,
+   9,
+   -37
+  ],
+  "heard": "The Sardaukar held. A costly failure. The council will fund one more attempt.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 111,
+  "startErrP90Ms": 367,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "m9-win",
+  "seconds": 8.213,
+  "ms": 8219,
+  "bytes": 20708,
+  "lufs": -19.6,
+  "peak": -4.3,
+  "f0": 140.6,
+  "spread": 4.3,
+  "centroid": 1789,
+  "wpm": 137.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -2,
+   -39,
+   7
+  ],
+  "heard": "The Sardaukar are finished. The emperor is ready to negotiate. I will handle the negotiations.",
+  "names": {
+   "Sardaukar": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 120,
+  "startErrP90Ms": 265,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "page-1",
+  "seconds": 10.377,
+  "ms": 10383,
+  "bytes": 26208,
+  "lufs": -19.5,
+  "peak": -4.1,
+  "f0": 137.8,
+  "spread": 5.16,
+  "centroid": 1678,
+  "wpm": 167.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -28,
+   13,
+   -9,
+   -5
+  ],
+  "heard": "The Ordos are a league of merchant families. We make nothing. We buy, we sell, we profit. What cannot be bought, we undermine.",
+  "names": {
+   "Ordos": [
+    1,
+    1
+   ]
+  },
+  "wer": 0.0,
+  "startErrMs": 70,
+  "startErrP90Ms": 255,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "page-2",
+  "seconds": 7.977,
+  "ms": 7984,
+  "bytes": 20239,
+  "lufs": -19.6,
+  "peak": -3.7,
+  "f0": 136.4,
+  "spread": 5.02,
+  "centroid": 1908,
+  "wpm": 156.0,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   34,
+   -26
+  ],
+  "heard": "No single Lord rules us. A council of the richest families decides, and every decision is a deal.",
+  "names": {},
+  "wer": 0.0,
+  "startErrMs": 180,
+  "startErrP90Ms": 398,
+  "matched": 1.0
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "page-3",
+  "seconds": 7.77,
+  "ms": 7777,
+  "bytes": 19666,
+  "lufs": -19.7,
+  "peak": -5.4,
+  "f0": 138.1,
+  "spread": 5.04,
+  "centroid": 1860,
+  "wpm": 171.6,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   40,
+   -11
+  ],
+  "heard": "Our home is a frozen world of ice in long nights. It's cold taught us patience, thrift and secrecy.",
+  "names": {},
+  "wer": 0.105,
+  "startErrMs": 139,
+  "startErrP90Ms": 309,
+  "matched": 0.895
+ },
+ {
+  "house": "ordos",
+  "voice": "",
+  "key": "question",
+  "seconds": 2.78,
+  "ms": 2786,
+  "bytes": 7054,
+  "lufs": -19.7,
+  "peak": -6.8,
+  "f0": 143.0,
+  "spread": 3.55,
+  "centroid": 1840,
+  "wpm": 185.2,
+  "onSpeech": 1.0,
+  "onsetsMs": [
+   -14
+  ],
+  "heard": "Will you sign on with house or dose?",
+  "names": {
+   "Ordos": [
+    0,
+    1
+   ]
+  },
+  "wer": 0.286,
+  "startErrMs": 131,
+  "startErrP90Ms": 433,
+  "matched": 0.857
+ }
+]
