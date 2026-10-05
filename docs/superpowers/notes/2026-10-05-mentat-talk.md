@@ -70,8 +70,10 @@ A report-only review (21f8539) found these; each fix makes a mutation of it fail
 2. Done (below, "Real GPU check"): real GPU, real audio, all three houses, sync, 60 fps, console, three rounds.
 3. Done: full suite green under a 3 GB cgroup, twice (below, "Tests"); "For the README" below, and in README.md.
 4. Done: report-only review, then fixes (above, "Review fixes").
-5. Merge into phase3/integration: stage.js conflicts with the original-figure hook there (a793ac3 / 4602786) —
-   keep it: `figure ? originalMentatRig : rigFor(house)`. Then every suite and a GPU check with the real PAKs.
+5. Merge into phase3/integration: done the other way round — phase3/integration (a4fca8c) was merged in at 21f8539,
+   keeping the original-figure hook (`figure ? originalMentatRig(house) : rigFor(house)`), so this branch is a
+   fast-forward of it. Every suite passes at the head (below, "Tests"). Not done: the GPU check with the real PAKs
+   (no Dune II files on this machine) — the original figure is covered by tests/original-pictures.test.mjs only.
 
 ## Real GPU check with the real voice (2026-10-05)
 
@@ -179,6 +181,10 @@ GPUs and a 30 Hz display were not tried.
 after the review fixes, twice: 1533 of 1534 pass and 1 is skipped (the portrait bake check, which needs the GPU Chrome),
 both times; "the frame loop allocates nothing" passes both times (it was the one failure before cc4a668).
 `npm run e2e:campaign` passes (all campaign checks, no console errors).
+At the final head, each under a cgroup cap: npm test 1533 of 1534 (1 skipped), `npm run e2e` 29/29, `e2e:menu`,
+`e2e:intro` and `e2e:campaign` all checks, `npm run smoke` all 77 scenes. Smoke first ran out of an 8 GB cap after 33
+scenes: `page.close()` in scripts/cdp.mjs only closed the DevTools socket, so every scene's tab stayed open and kept
+drawing (harmless at 38 scenes, not at phase 3's 77). It now closes the tab; the run peaks at 1.1 GB.
 
 ## For the README
 
