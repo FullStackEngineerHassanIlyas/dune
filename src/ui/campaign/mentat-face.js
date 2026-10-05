@@ -25,6 +25,7 @@ const O_MOUTH = 0, O_JAW = 1, O_SLOW = 2, O_SPEAK = 3, O_FLASH = 4, O_EASE = 5, 
 const SETTLED = 0.01;   // a parameter this close to the painting is under a hundredth of a unit or a degree away
 const BLINK_STEP = 89;  // places in the blinks' table of chances (256, which 89 is prime to) between one face and the next
 let faces = 0;
+const unloaded = new Set();   // the rigs' picture files that would not load, each said once (not on every screen)
 
 /** True when the player asked the system for less motion. */
 export function prefersReducedMotion() {
@@ -105,12 +106,17 @@ export class MentatFace {
         if (this.destroyed) { resolve(false); return; }
         try { this.view ??= createFaceSvg({ art: this.art, rig: this.rig, uid: this.uid, visemes: VISEMES }); } catch (err) { console.warn('mentat face:', err?.message ?? err); resolve(false); return; }
         if (typeof Image !== 'function') { resolve(true); return; }
-        // each file once through an image of its own: fetched, and decoded ahead of the first frame that shows it
+        // each file once through an image of its own: fetched, and decoded ahead of the first frame that shows it. One
+        // that will not load is said once (the face goes on: that part shows the painting under it)
         const decoded = rigFiles(this.rig).map((src) => {
           const im = new Image();
           im.src = src;
           this.images.push(im);
-          return im.decode?.().catch(() => {});
+          return im.decode?.().catch((err) => {
+            if (unloaded.has(src)) return;
+            unloaded.add(src);
+            console.warn(`mentat face: ${src} would not load (${err?.message ?? err}); the painting shows in its place`);
+          });
         });
         Promise.all(decoded).then(() => resolve(!this.destroyed));
       };

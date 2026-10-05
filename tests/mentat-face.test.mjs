@@ -11,7 +11,7 @@ import { mentatSvg } from '../src/ui/campaign/portraits.js';
 import { MentatFace, createMentatFace, attachMentatFace } from '../src/ui/campaign/mentat-face.js';
 import { POSE, tables } from '../src/ui/campaign/mentat-face-svg.js';
 import { rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
-import { PARAMS, compileRig } from '../src/ui/campaign/mentat-face-rig.js';
+import { PARAMS, compileRig, rigFiles } from '../src/ui/campaign/mentat-face-rig.js';
 
 import { ADVICE, synth, clone, FakeEl, fakeDocument, parseSvg, shape, makeStage, fakeVoice, frames } from './mentat-face-fakes.mjs';
 
@@ -268,6 +268,30 @@ test('warm() waits for the head painting: the face is built once it has loaded, 
     assert.ok(stage.svg.querySelector('.cpmf-head') !== null, `${event}: built`);
     assert.equal(ready, true);
     face.destroy();
+  }
+});
+
+test('warm() fetches and decodes each of the rig\'s pictures, and says once which of them would not load', async () => {
+  const had = globalThis.Image, warn = console.warn, made = [], said = [];
+  // an image as the browser's: decode() fails for a file that is not there
+  globalThis.Image = class { constructor() { made.push(this); } decode() { return /missing/.test(this.src) ? Promise.reject(new Error('EncodingError')) : Promise.resolve(); } };
+  console.warn = (...a) => said.push(a.join(' '));
+  try {
+    const rig = clone(rigFor('ordos'));
+    rig.mouth.sprites.O = 'missing-test-o.webp';
+    const one = setup('ordos', ADVICE, { rig, warm: true });
+    assert.equal(await one.face.warm(), true, 'ready: the face goes on without the one picture');
+    assert.deepEqual(made.map((im) => im.src).sort(), rigFiles(rig).sort(), 'each picture once, through an image of its own');
+    assert.equal(said.length, 1, said.join(' | '));
+    assert.match(said[0], /missing-test-o\.webp would not load/);
+    // the next screen's face, the same rig: not said again
+    const two = setup('ordos', ADVICE, { rig: clone(rig), warm: true });
+    assert.equal(await two.face.warm(), true);
+    assert.equal(said.length, 1, 'said once, not on every screen');
+    one.face.destroy(); two.face.destroy();
+  } finally {
+    console.warn = warn;
+    if (had === undefined) delete globalThis.Image; else globalThis.Image = had;
   }
 });
 
