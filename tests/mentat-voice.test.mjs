@@ -5,10 +5,11 @@
 // asking for the right clips and stopping them, and the setting and its Options row.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { installDom, FakeEl, settle, memoryStore, byAct } from './campaign-dom.mjs';
+import { readFile } from 'node:fs/promises';
+import { installDom, FakeEl, settle, tick, memoryStore, byAct } from './campaign-dom.mjs';
 
 installDom();
-const { MentatTrack, MentatVoice, VISEMES, EXPRESSIONS, restFrame, UNDUCK_AFTER, JOIN_GAP } = await import('../src/audio/mentat-voice.js');
+const { MentatTrack, MentatVoice, VISEMES, EXPRESSIONS, restFrame, JOIN_GAP, UNDUCK_AFTER, FADE, SEEK_FADE, STEP_MAX, RUN_WAIT, RUN_WAIT_CLICKED } = await import('../src/audio/mentat-voice.js');
 const { followSpeech, START_WAIT } = await import('../src/ui/campaign/stage.js');
 const { DEFAULTS, sanitize, loadSettings, saveSettings } = await import('../src/core/settings.js');
 const { OPTION_ROWS } = await import('../src/ui/options.js');
@@ -84,7 +85,14 @@ function fakeAudio() {
   const made = { sources: [], gains: [], resumed: 0, contexts: 0 };
   class Ctx {
     constructor() { made.contexts++; this.state = made.startState ?? 'running'; this.currentTime = 0; this.destination = {}; this.baseLatency = 0; made.ctx = this; this.listeners = []; }
-    createGain() { const g = { gain: { value: 1, setTargetAtTime(v) { this.value = v; } }, connect() {}, disconnect() {} }; made.gains.push(g); return g; }
+    createGain() {
+      // a gain's automation is kept as [kind, value, time] so a test can see what ramps the sound got
+      const calls = [], gain = { value: 1, calls, cancelScheduledValues(t) { calls.push(['cancel', t]); }, setValueAtTime(v, t) { calls.push(['set', v, t]); },
+        linearRampToValueAtTime(v, t) { calls.push(['ramp', v, t]); } };
+      const g = { gain, connect() {}, disconnect() {} };
+      made.gains.push(g);
+      return g;
+    }
     createBufferSource() {
       const s = { buffer: null, connect() {}, disconnect() {}, onended: null, start(when, offset) { s.when = when; s.offset = offset; }, stop(t) { s.stopped = t; } };
       made.sources.push(s);
@@ -169,17 +177,52 @@ test('a new line stops the old one; stop() fades it; seek() restarts it further 
   t.flush();
   assert.deepEqual(ducks, [true], 'no dip back up between two lines');
   audio.made.ctx.currentTime = 1;
+  const old = audio.made.gains.at(-1), oldSrc = audio.made.sources.at(-1);
   assert.equal(b.seek(3.1), true);
   const src = audio.made.sources.at(-1);
   assert.ok(Math.abs(src.offset - 3.1) < 1e-9);
+  // no click at the cut: the old sound ramps to nothing and stops where the ramp ends, the new one comes up from nothing
+  assert.deepEqual(old.gain.calls.at(-1), ['ramp', 0, 1 + SEEK_FADE]);
+  assert.equal(oldSrc.stopped, 1 + SEEK_FADE);
+  const fresh = audio.made.gains.at(-1);
+  assert.notEqual(fresh, old);
+  assert.deepEqual(fresh.gain.calls, [['set', 0, src.when], ['ramp', 1, src.when + SEEK_FADE]]);
   audio.made.ctx.currentTime = src.when + 0.2;
   assert.ok(Math.abs(b.time - 3.3) < 1e-9);
+  const playing = audio.made.gains.at(-1);
   b.stop();
   assert.equal(b.state, 'stopped');
   assert.equal(voice.current, null);
+  assert.deepEqual(playing.gain.calls.at(-1), ['ramp', 0, audio.made.ctx.currentTime + FADE], 'a stop fades to nothing, so the sound is silent where it is cut');
+  assert.equal(audio.made.sources.at(-1).stopped, audio.made.ctx.currentTime + FADE);
   t.flush();
   assert.deepEqual(ducks, [true, false]);
   assert.equal(voice.now().viseme, 'rest');
+});
+
+test('now() carries the audio clock\'s steps on with the page\'s clock, a little way and never back', async () => {
+  let ms = 1000;
+  const audio = fakeAudio(), f = fakeFetch(), t = timers();
+  const voice = new MentatVoice({ settings: { ...DEFAULTS }, base: 'http://x/m/', fetch: f.fetch, context: audio.context, later: t.later, perf: () => ms });
+  const line = voice.speak('atreides', 1, 'briefing');
+  await line.started;
+  const ctx = audio.made.ctx, start = audio.made.sources[0].when;
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} is not ${b}`);
+  ctx.currentTime = start + 1;
+  near(line.smooth(), 1);
+  ms += 10;
+  near(line.smooth(), 1.01);                    // no step of the audio clock yet: the page's clock carries on
+  ms += 60;
+  near(line.smooth(), 1 + STEP_MAX);            // but not further than STEP_MAX
+  ctx.currentTime += 0.0213;                    // the audio clock steps, a little behind what was carried on
+  near(line.smooth(), 1 + STEP_MAX);            // never back
+  ms += 40;
+  near(line.smooth(), 1.0213 + STEP_MAX);       // then on
+  ctx.currentTime = start + 0.2;                // a read-on back to an earlier place is a new start
+  near(line.smooth(), 0.2);
+  assert.equal(line.now().word, 0, 'now() gives the frame at the smoothed time');
+  line.stop();
+  assert.equal(line.smooth(), line.time, 'a line that is not playing is not carried on');
 });
 
 test('the voice says nothing when it is off, the sound is off, a clip is missing or says other words', async () => {
@@ -204,21 +247,83 @@ test('the voice says nothing when it is off, the sound is off, a clip is missing
   assert.equal(new MentatVoice({ settings: DEFAULTS, context: null, fetch: async () => ({}) }).speak('atreides', 1, 'briefing'), null);
 });
 
-test('a line stopped while it loads never sounds; a context waiting for a gesture holds it', async () => {
+test('a line stopped while it loads never sounds', async () => {
   const { voice, audio } = voiceRig();
   const line = voice.speak('atreides', 1, 'briefing');
   line.stop();
   assert.equal(await line.started, false);
   await flush();
   assert.equal(audio.made.sources.length, 0);
+});
+
+test('a context the browser holds (no click yet): the line gives way within a moment, the words are typed; the next click\'s line sounds', async () => {
   const held = voiceRig();
   held.audio.made.startState = 'suspended';
   const l2 = held.voice.speak('atreides', 1, 'briefing');
+  assert.equal(held.audio.made.contexts, 1, 'the context is made inside the call (the click), not after the clips load');
+  assert.ok(held.audio.made.resumed >= 1, 'asked to resume there too');
   for (let i = 0; i < 5; i++) await flush();
-  assert.equal(l2.state, 'loading', 'waits for the context to run');
-  assert.ok(held.audio.made.resumed >= 1, 'asked to resume');
-  held.audio.made.ctx.run();
-  assert.equal(await l2.started, true);
+  assert.equal(l2.state, 'loading', 'a moment for the context to run');
+  assert.deepEqual(held.t.q.map((j) => j.ms), [RUN_WAIT], 'without a click on the page the wait is short');
+  held.t.flush();
+  assert.equal(await l2.started, false);
+  assert.equal(l2.state, 'failed');
+  assert.equal(held.audio.made.sources.length, 0, 'never sounds later');
+  // the player clicks: the context runs, the next line plays
+  held.audio.made.ctx.state = 'running';
+  const l3 = held.voice.speak('atreides', 1, 'briefing');
+  assert.equal(await l3.started, true);
+  // a context that starts a moment late (it was being resumed) still plays
+  const slow = voiceRig();
+  slow.audio.made.startState = 'suspended';
+  const l4 = slow.voice.speak('atreides', 1, 'briefing');
+  for (let i = 0; i < 5; i++) await flush();
+  slow.audio.made.ctx.run();
+  assert.equal(await l4.started, true);
+});
+
+test('after a click on the page the context is given longer to run', async () => {
+  const f = fakeFetch(), audio = fakeAudio(), t = timers();
+  audio.made.startState = 'suspended';
+  const voice = new MentatVoice({ settings: { ...DEFAULTS }, base: 'http://x/m/', fetch: f.fetch, context: audio.context, later: t.later, activation: () => true });
+  voice.speak('atreides', 1, 'briefing');
+  for (let i = 0; i < 5; i++) await flush();
+  assert.deepEqual(t.q.map((j) => j.ms), [RUN_WAIT_CLICKED]);
+});
+
+test('prepare() makes the context and asks it to run, inside the click that opens the screen; not when the voice is off', () => {
+  const on = voiceRig();
+  on.audio.made.startState = 'suspended';
+  on.voice.prepare();
+  assert.equal(on.audio.made.contexts, 1);
+  assert.equal(on.audio.made.resumed, 1);
+  on.voice.prepare();
+  assert.equal(on.audio.made.contexts, 1, 'one context');
+  for (const s of [{ mentatVoice: false }, { sound: false }]) {
+    const off = voiceRig(s);
+    off.voice.prepare();
+    assert.equal(off.audio.made.contexts, 0, JSON.stringify(s));
+  }
+});
+
+test('track(): the timing track without any sound, also with the voice Off; null for a missing clip or other words', async () => {
+  const two = { 'atreides/m1-briefing': JSON1, 'atreides/m1-advice': { ...JSON1, id: 'atreides/m1-advice', lines: ['End.'], ms: 1000, words: [[100, 500, 0, 0, 3]], sentences: [[100, 500, 0, 0, 'pleased']],
+    visemes: { t: [0, 100, 500], s: 'rer' }, env: { hz: 30, q: '0z0' } } };
+  const { voice, f, audio } = voiceRig({ mentatVoice: false }, { clips: two });
+  assert.equal(voice.enabled, false);
+  const tr = await voice.track(['atreides/m1-briefing'], { lines: LINES });
+  assert.ok(tr instanceof MentatTrack);
+  assert.equal(tr.at(1.85).expression, 'warning', 'the expression of a sentence, for words typed without the voice');
+  const both = await voice.track(['atreides/m1-briefing', 'atreides/m1-advice']);
+  assert.equal(both.duration, 4 + JOIN_GAP + 1, 'joined as say() joins them');
+  assert.equal(await voice.track(['atreides/m9-briefing']), null);
+  assert.equal(await voice.track(['atreides/m1-briefing'], { lines: ['Other words.'] }), null);
+  assert.equal(await voice.track([]), null);
+  assert.equal(await voice.track([null]), null);
+  assert.equal(f.asked.filter((p) => p.endsWith('.ogg')).length, 0, 'no sound fetched');
+  assert.equal(f.asked.filter((p) => p === 'atreides/m1-briefing.json').length, 1, 'and each track once');
+  assert.equal(audio.made.contexts, 0, 'no audio context made');
+  assert.equal(await new MentatVoice({ settings: DEFAULTS, context: null, fetch: null }).track(['atreides/m1-briefing']), null, 'no fetch: null');
 });
 
 test('a hidden page holds the Mentat: the context is suspended and his clock with it, then resumed', async () => {
@@ -420,6 +525,122 @@ test('a real voice on the campaign\'s briefing: it plays and the words follow it
   assert.equal(voice.current, null);
 });
 
+/** fetch for MentatVoice that serves the shipped manifest and tracks from assets/voice/mentat (the sound itself is a stub). */
+function shippedFetch(gate = null) {
+  const root = new URL('../assets/voice/mentat/', import.meta.url);
+  return async (url) => {
+    const rel = new URL(url).pathname.replace(/^\/m\//, '');
+    if (gate && rel !== 'manifest.json') await gate;
+    try {
+      if (rel.endsWith('.ogg')) return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+      return { ok: true, json: async () => JSON.parse(await readFile(new URL(rel, root), 'utf8')) };
+    } catch { return { ok: false, status: 404 }; }
+  };
+}
+async function realMenu({ gate = null, state = {}, ctxState } = {}) {
+  const { MainMenu } = await import('../src/ui/main-menu.js');
+  const STORY = await import('../src/data/story.js');
+  const audio = fakeAudio();
+  if (ctxState) audio.made.startState = ctxState;
+  const voice = new MentatVoice({ settings: { ...DEFAULTS }, base: 'http://x/m/', fetch: shippedFetch(gate), context: audio.context });
+  const menu = new MainMenu(new FakeEl('div'), { settings: { ...DEFAULTS }, onStart() {}, onFullscreen() {}, music: { mood() {} }, shell: { launch() {}, quit() {}, on() {} }, backdrop: { setPaused() {}, start() {}, stop() {} },
+    campaign: { store: memoryStore(), load: { story: async () => STORY, missions: async () => ({ missionDef: () => null }), atlas: async () => { throw new Error('none'); } }, voice } });
+  Object.assign(menu.campaign, state);
+  return { menu, voice, audio, STORY };
+}
+
+test('real voice, the shipped manifest: a join page, the question, a briefing, a defeat and the last win with the ending each play, the words following', async () => {
+  const cases = [
+    [{ screen: 'campaign-join', house: 'ordos', mission: 1 }, 'ordos/page-1'],
+    [{ screen: 'campaign-briefing', house: 'harkonnen', mission: 3 }, 'harkonnen/m3-briefing'],
+    [{ screen: 'campaign-defeat', house: 'atreides', mission: 4 }, 'atreides/m4-lose'],
+    [{ screen: 'campaign-ending', house: 'ordos', mission: 9 }, 'ordos/ending'],
+  ];
+  for (const [state, id] of cases) {
+    const { menu, voice } = await realMenu();
+    menu.campaign.state = state;
+    menu.go(state.screen);
+    await settle();
+    assert.equal(voice.current?.id, id, state.screen);
+    assert.equal(await voice.current.started, true, `${id} plays`);
+    assert.equal(menu.campaign.typer.following, true, `${id}: the words follow the voice (they are the clip's words)`);
+    assert.deepEqual(menu.campaign.typer.clips, [id], 'the typer keeps its clip ids for a face to ask voice.track()');
+    assert.ok(await voice.track(menu.campaign.typer.clips), 'and the face gets the track without the sound');
+    menu.go('title');
+    assert.equal(voice.current, null, `${id} stops when the screen goes`);
+  }
+  // the join question, after the three pages
+  const q = await realMenu();
+  q.menu.campaign.state = { screen: 'campaign-join', house: 'atreides', mission: 1 };
+  q.menu.go('campaign-join');
+  await settle();
+  for (let i = 0; i < 3; i++) { byAct(q.menu.el, 'next').click(); await settle(); }
+  assert.equal(q.voice.current?.id, 'atreides/question');
+  assert.equal(await q.voice.current.started, true);
+  assert.equal(q.menu.campaign.typer.following, true);
+  // the last win: the win and the ending as one line
+  const last = await realMenu({ state: { result: { house: 'harkonnen', mission: 9, won: true, stats: { rows: [] }, score: {} }, stage: 1 } });
+  last.menu.campaign.state = { screen: 'campaign-results', house: 'harkonnen', mission: 9 };
+  last.menu.go('campaign-results');
+  await settle();
+  assert.equal(last.voice.current?.id, 'harkonnen/m9-win+harkonnen/ending');
+  assert.equal(await last.voice.current.started, true);
+  assert.equal(last.menu.campaign.typer.following, true);
+  assert.ok(last.voice.current.track.words.some((w) => w.line >= 1), 'the ending\'s lines follow the win\'s');
+  assert.deepEqual(last.menu.campaign.typer.clips, ['harkonnen/m9-win', 'harkonnen/ending']);
+});
+
+test('leaving a screen while its clip is still loading stops the typing too: nothing types into the discarded box', async () => {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const { menu, voice } = await realMenu({ gate });
+  menu.campaign.state = { screen: 'campaign-briefing', house: 'atreides', mission: 1 };
+  menu.go('campaign-briefing');
+  await settle();
+  const old = menu.campaign.typer;
+  assert.equal(voice.current?.state, 'loading');
+  assert.equal(old.following, true);
+  menu.go('title');
+  await settle();
+  assert.equal(old.following, false);
+  assert.equal(old.typing, false, 'the old typer neither follows nor types');
+  assert.equal(menu.campaign.timers.size, 0, 'no typing timer left running');
+  release();
+  await settle();
+  assert.equal(voice.current, null);
+  // the same on the way into a battle
+  const b = await realMenu({ gate: new Promise(() => {}) });
+  b.menu.campaign.state = { screen: 'campaign-briefing', house: 'atreides', mission: 1 };
+  b.menu.go('campaign-briefing');
+  await settle();
+  const typer = b.menu.campaign.typer;
+  b.menu.campaign.launch('mission=1');
+  assert.equal(typer.following, false);
+  assert.equal(b.menu.campaign.timers.size, 0);
+});
+
+test('a browser that holds the sound (no click yet): the Mentat\'s words are typed after a moment, not after the 1.5 s wait, and Advice\'s click then speaks', async () => {
+  const { menu, voice, audio } = await realMenu({ ctxState: 'suspended' });
+  menu.campaign.state = { screen: 'campaign-briefing', house: 'atreides', mission: 1 };
+  menu.go('campaign-briefing');
+  assert.equal(audio.made.contexts, 1, 'the context is made in the render, the click\'s own call');
+  assert.ok(audio.made.resumed >= 1);
+  await settle(3);
+  const first = voice.current;
+  assert.equal(first?.state, 'loading');
+  const waited = Date.now();
+  while (first.state === 'loading' && Date.now() - waited < 1400) await tick();
+  assert.equal(first.state, 'failed', 'given up after RUN_WAIT, long before START_WAIT');
+  assert.ok(Date.now() - waited < START_WAIT, `after ${Date.now() - waited} ms`);
+  await settle(3);
+  assert.equal(menu.campaign.typer.following, false, 'typing the words');
+  assert.equal(menu.campaign.typer.typing, true);
+  // the player clicks: the context runs, and the next line is heard
+  audio.made.ctx.state = 'running';
+  byAct(menu.el, 'advice').click();
+  assert.equal(await voice.current.started, true);
+});
+
 // ——— the setting ———
 test('Mentat voice: On by default, kept, read from the address, and an Options row', () => {
   assert.equal(DEFAULTS.mentatVoice, true);
@@ -436,15 +657,31 @@ test('Mentat voice: On by default, kept, read from the address, and an Options r
   assert.match(row.label, /Mentat voice/);
 });
 
-test('the menu music ducks under a Mentat and comes back', async () => {
+test('the menu music ducks under a Mentat: the level reaches the synth, and comes back a moment after his last line', async () => {
   const { MenuMusic, SPEECH_DUCK, DUCK } = await import('../src/audio/music/music.js');
   const music = new MenuMusic({ settings: { ...DEFAULTS }, win: {} });
-  assert.equal(music.conductor.duckLevel, DUCK);
-  music.duck(true);
-  assert.equal(music.conductor.ducked, true);
-  assert.equal(music.conductor.duckLevel, SPEECH_DUCK);
+  const c = music.conductor, levels = [];
+  c.output = { open: () => true, setLevel: (v) => levels.push(v), send() {}, setPaused() {}, release() {}, synthUp: false, loading: false, audio: null };
+  c.listRead = () => true;
+  c.start = (mood) => { c.playing = mood; };
+  music.update();
+  const base = levels.at(-1);
+  assert.ok(base > 0, `the music plays at ${base}`);
   assert.ok(SPEECH_DUCK < DUCK, 'deeper than under the announcer');
+  music.duck(true);
+  assert.equal(c.duckLevel, SPEECH_DUCK);
+  assert.equal(levels.at(-1), base * SPEECH_DUCK, 'the synth is told the lower level');
   music.duck(false);
-  assert.equal(music.conductor.ducked, false);
-  assert.ok(UNDUCK_AFTER > 0);
+  assert.equal(levels.at(-1), base, 'and the full level when he is done');
+  // wired as the campaign wires it: a line's sound ducks the music at once, and it returns UNDUCK_AFTER ms after the line
+  const rig = voiceRig();
+  rig.voice.duck = (on) => music.duck(on);
+  const line = rig.voice.speak('atreides', 1, 'briefing');
+  assert.equal(await line.started, true);
+  assert.equal(levels.at(-1), base * SPEECH_DUCK);
+  line.stop();
+  assert.equal(levels.at(-1), base * SPEECH_DUCK, 'not yet: a next line may follow');
+  assert.deepEqual(rig.t.q.map((j) => j.ms).filter((ms) => ms === UNDUCK_AFTER), [UNDUCK_AFTER]);
+  rig.t.flush();
+  assert.equal(levels.at(-1), base);
 });

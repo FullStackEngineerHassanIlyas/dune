@@ -95,6 +95,12 @@ export class CampaignScreens {
     });
   }
 
+  /** The Mentat is done with the words on screen: his typing stops (a clip still loading must not start it) and his voice. */
+  quiet() {
+    this.typer?.stop?.();
+    this.voice?.stop();
+  }
+
   /** One flow step; saves when the flow says so. */
   apply(action) {
     const out = step(this.progress, this.state, action);
@@ -116,7 +122,7 @@ export class CampaignScreens {
 
   launch(query) {
     this.clearTimers();
-    this.voice?.stop();
+    this.quiet();
     this.map.dispose();
     this.hushed = false;   // the shell stops the backdrop and starts it again on the way back
     this.moodNow = null;   // and plays the title again
@@ -173,7 +179,7 @@ export class CampaignScreens {
   /** MainMenu.go asks for a campaign screen: { screen (the one drawn), body, back }. */
   render(requested) {
     this.clearTimers();
-    this.voice?.stop();   // a new screen: the Mentat stops (his next words, if any, start with it)
+    this.quiet();   // a new screen: the Mentat stops (his next words, if any, start with it)
     this.sync(requested);
     const screen = this.state.screen;
     this.hush(FULL.has(screen));
@@ -201,7 +207,7 @@ export class CampaignScreens {
   /** Leaving the campaign for the title: the map goes, the backdrop moves again, the title theme returns. */
   leave() {
     this.clearTimers();
-    this.voice?.stop();
+    this.quiet();
     this.map.dispose();
     this.hush(false);
     this.mood('menu');
@@ -309,8 +315,10 @@ export class CampaignScreens {
     this.map.mount(stage.mapBox);
     if (step !== null) this.map.show({ house, step });
     const say = stage.say;
-    // `clips`: the Mentat's clips that say these lines (mentat-lines.js ids); the words then follow his voice
-    stage.say = (lines, { clips = null, ...opts } = {}) => (this.typer = say(lines, { ...opts, speech: clips ? this.speak(clips, lines) : null }));
+    // `clips`: the Mentat's clips that say these lines (mentat-lines.js ids); the words then follow his voice. The
+    // typer keeps them (typer.clips), so a face can ask voice.track(typer.clips) for the sentences' expressions
+    // when the voice does not play
+    stage.say = (lines, { clips = null, ...opts } = {}) => (this.typer = Object.assign(say(lines, { ...opts, speech: clips ? this.speak(clips, lines) : null }), { clips }));
     return stage;
   }
 
@@ -448,7 +456,7 @@ export class CampaignScreens {
     this.endingBusy = true;
     const house = this.state.house;
     this.clearTimers();
-    this.voice?.stop();
+    this.quiet();
     this.map.dispose();
     this.menu.hide();
     this.moodNow = 'finale';   // the ending plays music of its own; the title theme comes back with the title

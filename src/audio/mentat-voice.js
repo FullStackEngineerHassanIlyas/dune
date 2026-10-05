@@ -1,8 +1,9 @@
 // The Mentats' voices on the campaign screens (notes docs/superpowers/notes/2026-10-05-mentat-voice.md): every
 // clip of src/audio/mentat-lines.js, rendered by scripts/voices/mentat.py into assets/voice/mentat/ (mono Ogg Opus,
-// -19 LUFS) with a timing track each: the words, the mouth shapes (visemes), the voice's loudness at 30 Hz and an
-// expression per sentence. MentatVoice plays one line at a time on an audio context of its own (made at the first
-// line, after the player's clicks have brought them to the campaign), at the Options volume times the Voices level;
+// -19.7 LUFS) with a timing track each: the words, the mouth shapes (visemes), the voice's loudness at 30 Hz and an
+// expression per sentence. MentatVoice plays one line at a time on an audio context of its own (made, and asked to
+// run, inside the player's click that opens a campaign screen or a line: Safari wants that), at the Options volume
+// times the Voices level;
 // a new line stops the old one, the music is asked to duck under it, and the line's handle answers at(t) for the
 // words on screen and, in part 2, the face. Nothing here throws: without Web Audio, the manifest, a clip or with
 // Options → Mentat voice Off, say() gives null and the screens type their words as before.
@@ -19,6 +20,10 @@ export const BLEND = 0.06;       // seconds a mouth takes to move from one shape
 export const JOIN_GAP = 0.6;     // seconds of quiet between two clips said as one line (the last win and the ending)
 export const FADE = 0.05;        // seconds: a stopped line fades out over this
 export const UNDUCK_AFTER = 350; // ms the music waits after a line before it comes back up (a next line may follow)
+export const SEEK_FADE = 0.015;  // seconds: a read-on's cut fades the old sound out and the new in over this (no click)
+export const STEP_MAX = 0.03;    // seconds now() may carry a line's time on past the audio clock's last step (it moves 10-20 ms at a time)
+export const RUN_WAIT = 300;         // ms a context may take to run before the browser is taken to hold it for a click
+export const RUN_WAIT_CLICKED = 1200;   // the same once the page has had a click (the browser then lets it run; a slow device takes longer)
 const CACHE = 6;                 // decoded clips kept (a long one is about 6 MB of samples)
 
 /** A frame of a line: what at(t) fills in. Make one per face and pass it to every at() / now(). */
@@ -138,6 +143,9 @@ export class MentatLine {
     this.state = 'loading';
     this.frame = restFrame();
     this.t0 = 0;          // the context's time at which the line's start is (or would be) heard
+    this.heard = -1;      // the line's time at the last step of the audio clock, the page's clock then, and the last time given (now())
+    this.heardAt = 0;
+    this.given = 0;
     this.offset = 0;      // where in the line playback (re)started
     this.sources = [];
     this.gain = null;
@@ -152,7 +160,24 @@ export class MentatLine {
   }
 
   at(t, out = this.frame) { return this.track ? this.track.at(t, out) : rest(out, t); }
-  now(out = this.frame) { return this.at(this.time, out); }
+
+  /**
+   * The line's time as a face wants it: `time` is the audio clock's, which the browser moves 10-20 ms at a time (some
+   * frames at 60 Hz see no change), so between its steps the page's own clock carries it on, never more than STEP_MAX
+   * past the last step and never back.
+   */
+  smooth() {
+    const t = this.time;
+    if (this.state !== 'playing') return t;
+    const now = this.voice.perf();
+    if (t !== this.heard) { this.heard = t; this.heardAt = now; }
+    const next = Math.min(this.duration, t + Math.min(STEP_MAX, Math.max(0, now - this.heardAt) / 1000));
+    if (next >= this.given || next < this.given - STEP_MAX) this.given = next;   // not back: but a read-on to an earlier place is a new start
+    return this.given;
+  }
+
+  /** The frame heard now (smooth()), written into `out`. */
+  now(out = this.frame) { return this.at(this.smooth(), out); }
 
   /** fn(reason) once the line is over: 'ended', 'stopped' or 'failed'. Returns a function that unsubscribes. */
   onEnd(fn) {
@@ -169,12 +194,14 @@ export class MentatLine {
 
 /**
  * The Mentats' voice. settings: the live settings (sound, volume, voiceVolume, mentatVoice); duck(on): the music
- * ducks under a line; base, fetch, context (makes the AudioContext), later (setTimeout) and doc (the document,
- * whose visibility pauses him) are for tests.
+ * ducks under a line; base, fetch, context (makes the AudioContext), later (setTimeout), doc (the document,
+ * whose visibility pauses him) and activation (() => has the player clicked or pressed a key on this page yet:
+ * true, false or undefined, as navigator.userActivation.hasBeenActive says it) and perf (the page's clock in ms) are for tests.
  */
 export class MentatVoice {
-  constructor({ settings = {}, duck = null, base = MENTAT_BASE, fetch = globalThis.fetch?.bind(globalThis), context = null, later = null, doc = globalThis.document } = {}) {
-    Object.assign(this, { settings, duck, base, fetchFn: fetch, doc });
+  constructor({ settings = {}, duck = null, base = MENTAT_BASE, fetch = globalThis.fetch?.bind(globalThis), context = null, later = null, doc = globalThis.document,
+    activation = () => globalThis.navigator?.userActivation?.hasBeenActive, perf = () => globalThis.performance?.now?.() ?? Date.now() } = {}) {
+    Object.assign(this, { settings, duck, base, fetchFn: fetch, doc, activation, perf });
     const Ctx = globalThis.AudioContext ?? globalThis.webkitAudioContext;
     this.makeContext = context ?? (typeof Ctx === 'function' ? () => new Ctx({ latencyHint: 'interactive' }) : null);
     this.later = later ?? ((fn, ms) => { const t = setTimeout(fn, ms); t?.unref?.(); return t; });
@@ -184,6 +211,7 @@ export class MentatVoice {
     this.manifestData = undefined;   // undefined: not asked yet; null: not to be had
     this.manifestLoading = null;
     this.clips = new Map();          // id → Promise<{ buffer, track }>, the last CACHE used
+    this.tracks = new Map();         // id → Promise<MentatTrack>, the timing tracks asked for without the sound (track())
     this.current = null;
     this.listeners = { line: new Set(), end: new Set() };
     this.ducked = false;
@@ -218,15 +246,28 @@ export class MentatVoice {
   /** The manifest (assets/voice/mentat/manifest.json), fetched once; null when it cannot be had. */
   manifest() {
     if (this.manifestData !== undefined) return Promise.resolve(this.manifestData);
-    if (!this.available) { this.manifestData = null; return Promise.resolve(null); }
+    if (typeof this.fetchFn !== 'function') { this.manifestData = null; return Promise.resolve(null); }
     this.manifestLoading ??= this.fetchFn(new URL('manifest.json', this.base).href)
       .then((r) => (r.ok ? r.json() : null)).catch(() => null)
       .then((m) => (this.manifestData = m && typeof m.clips === 'object' ? m : null));
     return this.manifestLoading;
   }
 
-  /** Fetches the manifest ahead of the first line (the campaign's words are loading). */
-  prepare() { if (this.enabled) this.manifest(); }
+  /**
+   * Fetches the manifest ahead of the first line (the campaign's words are loading) and wakes the context: called
+   * from a screen's render, so inside the player's click that opens it, where Safari wants the context made and resumed.
+   */
+  prepare() { if (this.enabled) { this.manifest(); this.wake(); } }
+
+  /** The context, made and asked to run (inside a click, this is what lets it); null when it cannot be had. */
+  wake() {
+    if (!this.available) return null;
+    try {
+      const ctx = this.context();
+      if (ctx.state === 'suspended' && !this.paused) ctx.resume?.()?.catch?.(() => {});
+      return ctx;
+    } catch (err) { console.warn('mentat voice: no audio context:', err?.message ?? err); return null; }
+  }
 
   /** The clip's entry, or null (also while the manifest is still loading: undefined). */
   entry(id) { return this.manifestData === undefined ? undefined : this.manifestData?.clips?.[id] ?? null; }
@@ -253,6 +294,7 @@ export class MentatVoice {
     const known = entries.every(Boolean) ? entries.reduce((s, e) => s + e.seconds, 0) + JOIN_GAP * (ids.length - 1) : 0;
     const line = new MentatLine(this, ids, known);
     this.current = line;
+    this.wake();   // a line asked for in a click wakes the context there, not after the clips have loaded
     this.load(line, lines).catch((err) => { console.warn('mentat voice:', err?.message ?? err); this.finish(line, 'failed'); });
     return line;
   }
@@ -261,6 +303,34 @@ export class MentatVoice {
   preload(ids) {
     if (!this.enabled) return;
     this.manifest().then(() => { for (const id of ids) if (id && this.entry(id)) this.clip(id).catch(() => {}); });
+  }
+
+  /**
+   * The timing track of the clips `ids` (joined as say() joins them), fetched without any sound: Promise<MentatTrack>,
+   * or null when there is no such clip. It does not need the voice On: a face whose Mentat is silent (Options → Mentat
+   * voice Off, Sound off, Voices 0, the sound blocked or failed) still gets the sentences' expressions for the words
+   * typed on screen, which it follows on the clock of the typing (the words' line and character positions say where
+   * each sentence sits in the screen's lines). `lines` as in say(): null when the clip says other words.
+   */
+  track(ids, { lines = null } = {}) {
+    if (!ids?.length || ids.some((id) => !id)) return Promise.resolve(null);
+    return this.manifest().then((m) => {
+      const entries = ids.map((id) => m?.clips?.[id] ?? null);
+      if (entries.some((e) => !e)) return null;
+      if (lines && entries.map((e) => e.text).join('\n') !== lines.join('\n')) return null;
+      return Promise.all(ids.map((id, k) => this.timing(id, entries[k]))).then((tracks) => MentatTrack.join(tracks));
+    }).catch(() => null);
+  }
+
+  timing(id, entry) {
+    let p = this.tracks.get(id);
+    if (!p) {
+      p = this.fetchFn(new URL(entry.track, this.base).href).then((r) => { if (!r.ok) throw new Error(`${entry.track}: ${r.status}`); return r.json(); }).then((j) => new MentatTrack(j));
+      p.catch(() => this.tracks.get(id) === p && this.tracks.delete(id));
+      this.tracks.set(id, p);
+      while (this.tracks.size > CACHE * 2) this.tracks.delete(this.tracks.keys().next().value);
+    }
+    return p;
   }
 
   context() {
@@ -300,15 +370,19 @@ export class MentatVoice {
     if (entries.some((e) => !e)) throw new Error(`no clip ${line.id}`);
     line.duration ||= entries.reduce((sum, e) => sum + e.seconds, 0) + JOIN_GAP * (entries.length - 1);
     if (lines && entries.map((e) => e.text).join('\n') !== lines.join('\n')) throw new Error(`the words on screen are not ${line.id}'s`);
-    const ctx = this.context();
-    if (ctx.state === 'suspended') ctx.resume?.()?.catch?.(() => {});
-    const clips = await Promise.all(line.ids.map((id) => this.clip(id)));
+    const ctx = this.wake();
+    if (!ctx) { this.finish(line, 'failed'); return; }
+    const loading = Promise.all(line.ids.map((id) => this.clip(id)));
+    loading.catch(() => {});
+    // the browser holds the audio until the player clicks (a refresh, a direct link): the line gives way at once and
+    // the screen types its words, without waiting for the clips; the next click's line sounds
+    if (!(await this.running(ctx))) { this.finish(line, 'failed'); return; }
+    const clips = await loading;
     if (line !== this.current) return;
     line.parts = clips;
     line.track = MentatTrack.join(clips.map((c) => c.track));
     line.duration = line.track.duration;
-    if (ctx.state !== 'running') await waitRunning(ctx);   // no gesture yet: the line waits (the screen falls back to typing meanwhile)
-    if (line !== this.current) return;
+    if (ctx.state !== 'running') { this.finish(line, 'failed'); return; }   // held again while the clips loaded
     this.play(line, 0);
     line.state = 'playing';
     line.resolveStarted(true);
@@ -316,14 +390,36 @@ export class MentatVoice {
     this.emit('line', line);
   }
 
-  /** (Re)starts the line's sound at `offset` seconds: each part scheduled on the context's clock. */
+  /**
+   * Resolves true once the context runs, false when it does not within RUN_WAIT ms (RUN_WAIT_CLICKED once the page has
+   * had a click): the browser keeps it suspended until the player clicks or presses a key.
+   */
+  running(ctx) {
+    if (ctx.state === 'running') return Promise.resolve(true);
+    const clicked = this.activation?.() === true;
+    return new Promise((resolve) => {
+      const look = () => { if (ctx.state === 'running') done(true); };
+      const done = (ok) => { ctx.removeEventListener?.('statechange', look); resolve(ok); };
+      ctx.addEventListener?.('statechange', look);
+      this.later(() => done(ctx.state === 'running'), clicked ? RUN_WAIT_CLICKED : RUN_WAIT);
+    });
+  }
+
+  /**
+   * (Re)starts the line's sound at `offset` seconds: each part scheduled on the context's clock. A restart in
+   * mid-speech (a read-on) fades the old sound out and the new one in over SEEK_FADE, so the cut does not click.
+   */
   play(line, offset) {
     const ctx = this.ctx;
-    this.silence(line, 0);
+    this.silence(line, SEEK_FADE);
     this.master.gain.value = this.level();
     const gain = ctx.createGain();
     gain.connect(this.master);
     const now = ctx.currentTime + 0.02;
+    if (offset > 0 && gain.gain.linearRampToValueAtTime) {
+      gain.gain.setValueAtTime?.(0, now);
+      gain.gain.linearRampToValueAtTime(1, now + SEEK_FADE);
+    }
     let at = 0;
     line.sources = [];
     line.parts.forEach((part, k) => {
@@ -345,15 +441,19 @@ export class MentatVoice {
     line.t0 = now - offset;   // heard at now + the output latency, which clock() takes off
   }
 
-  /** Fades the line's sound out over `fade` seconds and lets its nodes go. */
+  /** Fades the line's sound out over `fade` seconds (a ramp to nothing, so it is silent when the source stops) and lets its nodes go. */
   silence(line, fade = FADE) {
     const gain = line.gain, sources = line.sources;
     line.gain = null;
     line.sources = [];
     if (!gain) return;
-    const ctx = this.ctx, t = ctx.currentTime;
+    const ctx = this.ctx, t = ctx.currentTime, g = gain.gain;
     try {
-      if (fade > 0 && gain.gain.setTargetAtTime) { gain.gain.setTargetAtTime(0, t, fade / 3); }
+      if (fade > 0 && g.linearRampToValueAtTime) {
+        g.cancelScheduledValues?.(t);
+        g.setValueAtTime?.(g.value, t);
+        g.linearRampToValueAtTime(0, t + fade);
+      } else if (fade > 0 && g.setTargetAtTime) g.setTargetAtTime(0, t, fade / 3);
       for (const s of sources) { s.onended = null; s.stop?.(t + fade); }
     } catch { /* already stopped */ }
     this.later(() => { try { gain.disconnect(); for (const s of sources) s.disconnect?.(); } catch { /* gone */ } }, fade * 1000 + 50);
@@ -407,13 +507,4 @@ export class MentatVoice {
     return { enabled: this.enabled, context: this.ctx?.state ?? null, manifest: this.manifestData === undefined ? 'not loaded' : !!this.manifestData,
       ducked: this.ducked, line: line && { id: line.id, state: line.state, time: +line.time.toFixed(3), duration: +line.duration.toFixed(3), frame: { ...line.now(restFrame()) } } };
   }
-}
-
-/** Resolves once the context runs (the player's first gesture), or never. */
-function waitRunning(ctx) {
-  return new Promise((resolve) => {
-    if (ctx.state === 'running') { resolve(); return; }
-    const look = () => { if (ctx.state === 'running') { ctx.removeEventListener?.('statechange', look); resolve(); } };
-    ctx.addEventListener?.('statechange', look);
-  });
 }
