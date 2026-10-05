@@ -1,7 +1,8 @@
 // The pixel-art scaler (src/ui/campaign/pixel-scale.js: Scale2x, run once, twice or three times), the palette PNG
 // written straight from its indices (src/formats/png.js encodeIndexedPng), and the original Mentat's frames enlarged
-// in place (original-mentat-art.js enlargeFigure): laid over the enlarged head, each shows exactly what the whole
-// picture enlarged with that frame in it would.
+// in place (original-mentat-art.js enlargeFigure): laid over the enlarged head, each shows what the whole picture
+// enlarged with that frame in it would — everywhere when cut REACH pixels wider than the frame, inside the frame's
+// own box when not.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { inflateSync } from 'node:zlib';
@@ -113,19 +114,20 @@ function scene(seed) {
   return { room, W, H, top, parts };
 }
 
-test('each frame enlarged in place, over the enlarged head, is the whole picture enlarged with it, edges included', () => {
+test('each frame enlarged in place, over the enlarged head, is the whole picture enlarged with it: everywhere with REACH of padding, inside its box without', () => {
   for (const seed of [1, 2, 3]) {
     const { room, W, H, top, parts } = scene(seed), s = 4;
     const fig = enlargeFigure(room, W, H, parts, top, s);
     assert.ok(fig.colours && fig.colours[0] === 0 && fig.colours.length <= 256, 'one palette, see-through first');
     const code = (rgba) => Uint8Array.from(rgbaWords(rgba), (c) => fig.colours.indexOf(c));
     assert.deepEqual([...fig.head], [...scaleIndexed(code(room), W, H, s)], 'the head is the room enlarged');
+    let outside = 0;
     for (const q of parts) {
       const [x, y, w, h] = [q.x, q.y - top, q.width, q.height];
-      const part = fig.part(q);
-      assert.equal(part.length, w * s * h * s);
-      if (x + w > W || y + h > H) {   // reaching out of the figure: enlarged alone
-        assert.deepEqual([...part], [...scaleIndexed(code(q.rgba), w, h, s)]);
+      if (x + w > W || y + h > H) {   // reaching out of the figure: enlarged alone, in its own box
+        const { values, box } = fig.part(q, { pad: REACH });
+        assert.deepEqual(box, [x, y, w, h]);
+        assert.deepEqual([...values], [...scaleIndexed(code(q.rgba), w, h, s)]);
         continue;
       }
       const whole = room.slice();
@@ -134,12 +136,24 @@ test('each frame enlarged in place, over the enlarged head, is the whole picture
         if (q.rgba[o + 3]) whole.set(q.rgba.subarray(o, o + 4), ((y + r) * W + x + c) * 4);
       }
       const truth = scaleIndexed(code(whole), W, H, s);
-      for (let r = 0; r < h * s; r++) for (let c = 0; c < w * s; c++) {
-        const v = part[r * w * s + c], under = fig.head[(y * s + r) * W * s + x * s + c], want = truth[(y * s + r) * W * s + x * s + c];
-        assert.equal(v || under, want, `seed ${seed}, frame at ${x},${y}: pixel ${c},${r}`);
-        if (v) assert.notEqual(v, under, 'only what differs from the head is drawn');
+      for (const pad of [0, REACH]) {
+        const { values, box: [bx, by, bw, bh] } = fig.part(q, { pad });
+        const want = [Math.max(0, x - pad), Math.max(0, y - pad)];
+        assert.deepEqual([bx, by, bw, bh], [...want, Math.min(W, x + w + pad) - want[0], Math.min(H, y + h + pad) - want[1]], 'its box, as far as the figure goes');
+        assert.equal(values.length, bw * s * bh * s);
+        // over the whole picture: the part where its box is, the head elsewhere
+        for (let r = 0; r < H * s; r++) for (let c = 0; c < W * s; c++) {
+          const i = r * W * s + c, under = fig.head[i];
+          const inBox = c >= bx * s && c < (bx + bw) * s && r >= by * s && r < (by + bh) * s;
+          const v = inBox ? values[(r - by * s) * bw * s + c - bx * s] : 0;
+          if (v) assert.notEqual(v, under, 'only what differs from the head is drawn');
+          if (pad === REACH) assert.equal(v || under, truth[i], `seed ${seed}, frame at ${x},${y}, padded: pixel ${c},${r}`);
+          else if (inBox) assert.equal(v || under, truth[i], `seed ${seed}, frame at ${x},${y}: pixel ${c},${r}`);
+          else if (under !== truth[i]) outside++;
+        }
       }
     }
+    if (seed === 1) assert.ok(outside > 0, 'without padding a frame changes a few pixels just outside its box (the test sees them)');
   }
   assert.ok(REACH >= 2, 'the room around a frame reaches as far as the scaler looks');
   const { room, W, H, top, parts } = scene(4);

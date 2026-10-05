@@ -206,14 +206,18 @@ export async function pictureUrl(rgba, width, height, scale = SCALE) {
  * The figure's pictures for the pixel-art scaler (pixel-scale.js), in one palette: the room at rest (W x H RGBA,
  * the figure's top at `top` in the room) and the frames of its parts (eyes, mouth, book; `frames`) as colour
  * indices, index 0 see-through (as a colour word a pixel, 0 see-through, should they hold more than 255 colours).
- * Returns { head: the room enlarged `s` times, part(q): frame q enlarged in place, url(values, w, h): a PNG data:
- * URL }; the PNGs are written straight from the indices, so no pixel of the large pictures has its colour looked up.
+ * Returns { head: the room enlarged `s` times, part(q, { pad }): frame q enlarged in place, as { values, box },
+ * url(values, w, h): a PNG data: URL }; the PNGs are written straight from the indices, so no pixel of the large
+ * pictures has its colour looked up.
  *
  * A part's frame is drawn over the room at rest, enlarged there with REACH pixels of the room around it (the
- * scaler's corners look at their neighbours) and cut to the frame's own box, see-through wherever it leaves the
- * enlarged room as it was: laid over the enlarged head at its box it shows exactly what the whole picture enlarged
- * with this frame in it would, so the frame's edges meet the head's. A frame reaching out of the figure is enlarged
- * alone.
+ * scaler's corners look at their neighbours) and cut to its box — the frame's own, `pad` pixels of the figure wider
+ * on each side (as far as the figure goes) — see-through wherever it leaves the enlarged room as it was. Laid over
+ * the enlarged head at that box ([x, y, w, h] in the figure's pixels) it shows what the whole picture enlarged with
+ * this frame in it would, inside the box: a frame changes the enlarged picture up to REACH pixels beyond its own
+ * edges, so with `pad` REACH it is that picture everywhere, and with no pad (a box the face's rig fixes, as the
+ * mouth's) only inside the frame's box, the few pixels just outside keeping the head's at rest. A frame reaching out
+ * of the figure is enlarged alone, in its own box.
  */
 export function enlargeFigure(room, W, H, frames, top, s) {
   const colourAt = new Map([[0, 0]]);
@@ -225,28 +229,42 @@ export function enlargeFigure(room, W, H, frames, top, s) {
   const roomWords = note(rgbaWords(room));
   const frameWords = new Map(frames.filter(Boolean).map((q) => [q, note(rgbaWords(q.rgba))]));
   const colours = colourAt.size <= 256 ? Uint32Array.from(colourAt.keys()) : null;
-  const values = (words) => (colours ? Uint8Array.from(words, (c) => colourAt.get(c)) : words);
+  const values = (words) => {   // the colour words as indices (looked up once a run of one colour)
+    if (!colours) return words;
+    const out = new Uint8Array(words.length);
+    for (let i = 0, last = 0, at = 0; i < words.length; i++) {
+      const c = words[i];
+      if (c !== last) { last = c; at = colourAt.get(c); }
+      out[i] = at;
+    }
+    return out;
+  };
   const rest = values(roomWords), head = scaleIndexed(rest, W, H, s);
-  const part = (q) => {
+  const part = (q, { pad = 0 } = {}) => {
     if (!frameWords.has(q)) throw new Error('enlargeFigure: a frame it was not given');
     const x = q.x, y = q.y - top, w = q.width, h = q.height, own = values(frameWords.get(q));
-    if (x < 0 || y < 0 || x + w > W || y + h > H) return scaleIndexed(own, w, h, s);
-    const x0 = Math.max(0, x - REACH), y0 = Math.max(0, y - REACH);
-    const ww = Math.min(W, x + w + REACH) - x0, wh = Math.min(H, y + h + REACH) - y0;
+    if (x < 0 || y < 0 || x + w > W || y + h > H) return { values: scaleIndexed(own, w, h, s), box: [x, y, w, h] };
+    const bx = Math.max(0, x - pad), by = Math.max(0, y - pad), bw = Math.min(W, x + w + pad) - bx, bh = Math.min(H, y + h + pad) - by;
+    const x0 = Math.max(0, bx - REACH), y0 = Math.max(0, by - REACH);
+    const ww = Math.min(W, bx + bw + REACH) - x0, wh = Math.min(H, by + bh + REACH) - y0;
     const win = new rest.constructor(ww * wh);
     for (let r = 0; r < wh; r++) win.set(rest.subarray((y0 + r) * W + x0, (y0 + r) * W + x0 + ww), r * ww);
     for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (own[r * w + c]) win[(y - y0 + r) * ww + x - x0 + c] = own[r * w + c];
     const big = scaleIndexed(win, ww, wh, s);
-    const bw = w * s, bh = h * s, out = new rest.constructor(bw * bh);   // 0: see-through
-    for (let r = 0; r < bh; r++) {
-      const from = (r + (y - y0) * s) * ww * s + (x - x0) * s, at = (y * s + r) * W * s + x * s;
-      for (let c = 0; c < bw; c++) if (big[from + c] !== head[at + c]) out[r * bw + c] = big[from + c];
+    const ow = bw * s, oh = bh * s, out = new rest.constructor(ow * oh);   // 0: see-through
+    for (let r = 0; r < oh; r++) {
+      const from = (r + (by - y0) * s) * ww * s + (bx - x0) * s, at = (by * s + r) * W * s + bx * s;
+      for (let c = 0; c < ow; c++) if (big[from + c] !== head[at + c]) out[r * ow + c] = big[from + c];
     }
-    return out;
+    return { values: out, box: [bx, by, bw, bh] };
   };
   const url = async (v, w, h) => pngDataUrl(await (colours ? encodeIndexedPng(v, w, h, colours) : encodePng(wordsRgba(v), w, h)));
   return { colours, head, part, url };
 }
+
+/** Lets the page through (a frame drawn, a click taken) before the next part of the work: scheduler.yield() where
+ *  the browser has it, else a timer. */
+export const breathe = () => (typeof globalThis.scheduler?.yield === 'function' ? globalThis.scheduler.yield() : new Promise((r) => setTimeout(r, 0)));
 
 const pct = (t, cycle) => (Math.round((t / cycle) * 1e6) / 1e4).toString();
 
@@ -281,9 +299,10 @@ export function figureSizeCss(sel, W, H) {
  * the HTML portrait's contract the face engine takes (portraits.js mentatSvg of the face-art step): the root
  * `.cp-mentat-art` (a size container) holding the frame, which holds `.cpm-sway` with the head <img> first, the book
  * or ring (`.cpo-other`) and the eyes (`.cpm-blink`), each placed in % of the frame; `rig` the face's rig (null when
- * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks).
+ * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks). The work is done in
+ * steps, `pause()` awaited between them (by default breathe(): the page drawn and its input taken in between).
  */
-export async function buildMentatArt(record, { scale = ENLARGE } = {}) {
+export async function buildMentatArt(record, { scale = ENLARGE, pause = breathe } = {}) {
   const house = record.house, m = MENTATS[house];
   if (!m) throw new Error(`no Mentat for "${house}"`);
   const parts = record.parts ?? {}, eyes = parts.eyes ?? [], other = parts.other ?? [];
@@ -291,15 +310,25 @@ export async function buildMentatArt(record, { scale = ENLARGE } = {}) {
   const box = figureBox(record), [, top, W, H] = box;
   // the head: the room with what the original draws over it at rest (eyes ahead, mouth shut, the book's first
   // frame, the shoulder in front of the screen), enlarged by the pixel-art scaler; every other frame of a part
-  // enlarged in place over it (enlargeFigure), so it lines up with the head pixel for pixel
+  // enlarged in place over it (enlargeFigure), so it lines up with the head pixel for pixel — the eyes and the book
+  // in a box REACH pixels wider, all the frame changes; the mouth in its own box, the one the face's rig draws it in
   const room = cut(record.rgba, record.width, box);
   for (const q of [eyes[0], mouth[0], other[0], parts.shoulder]) if (drawn(q)) blit(room, W, H, q.rgba, q.width, q.height, q.x, q.y - top);
   const fig = enlargeFigure(room, W, H, [...eyes, ...mouth, ...other], top, scale);
+  await pause();
   const head = await fig.url(fig.head, W * scale, H * scale);
-  const url = (q) => fig.url(fig.part(q), q.width * scale, q.height * scale);
-  const eyeUrls = await Promise.all(eyes.map((q, k) => (q && k ? url(q) : null)));
-  const mouthUrls = await Promise.all(mouth.map((q, k) => (q && k ? url(q) : null)));
-  const otherUrls = await Promise.all(other.map((q, k) => (k && drawn(q) ? url(q) : null)));
+  // the frames a few at a time, the page let through between them (one long task would hold the menu still)
+  const enlarged = async (frames, pad, want) => {
+    await pause();
+    return Promise.all(frames.map((q, k) => {
+      if (!want(q, k)) return null;
+      const { values, box: b } = fig.part(q, { pad });
+      return fig.url(values, b[2] * scale, b[3] * scale).then((src) => ({ src, box: b }));
+    }));
+  };
+  const eyeArt = await enlarged(eyes, REACH, (q, k) => q && k);
+  const mouthUrls = (await enlarged(mouth, 0, (q, k) => q && k)).map((a) => a?.src ?? null);
+  const otherArt = await enlarged(other, REACH, (q, k) => k && drawn(q));
   const at = (q) => [q.x, q.y - top, q.width, q.height];
 
   // the eyes and the book on the original's schedules, as CSS animations of their frames over the head
@@ -308,17 +337,17 @@ export async function buildMentatArt(record, { scale = ENLARGE } = {}) {
   const otherSched = otherSchedule(house, other.map(drawn), seed), otherCycle = otherSched.at(-1)?.to ?? 1;
   const css = [], eyeImgs = [], otherImgs = [];
   const img = (src, b, extra = '') => `<img class="cpo-l${extra}" src="${src}" alt="" draggable="false" style="left:${share(b[0], W)};top:${share(b[1], H)};width:${share(b[2], W)};height:${share(b[3], H)}">`;
-  eyeUrls.forEach((u, k) => {
-    if (!u || !eyeSched.some((s) => s.frame === k)) return;
+  eyeArt.forEach((a, k) => {
+    if (!a || !eyeSched.some((s) => s.frame === k)) return;
     const name = `${cls}-eye${k}`;
     css.push(frameKeyframes(name, eyeSched, k, eyeCycle), `.${name}{opacity:0;animation:${name} ${(eyeCycle / TICKS).toFixed(3)}s step-end infinite}`);
-    eyeImgs.push(img(u, at(eyes[k]), ` cpo-anim ${name}`));
+    eyeImgs.push(img(a.src, a.box, ` cpo-anim ${name}`));
   });
-  otherUrls.forEach((u, k) => {
-    if (!u || !otherSched.some((s) => s.frame === k)) return;
+  otherArt.forEach((a, k) => {
+    if (!a || !otherSched.some((s) => s.frame === k)) return;
     const name = `${cls}-other${k}`;
     css.push(frameKeyframes(name, otherSched, k, otherCycle), `.${name}{opacity:0;animation:${name} ${(otherCycle / TICKS).toFixed(3)}s step-end infinite}`);
-    otherImgs.push(img(u, at(other[k]), ` cpo-anim ${name}`));
+    otherImgs.push(img(a.src, a.box, ` cpo-anim ${name}`));
   });
   const label = `${record.mentat ?? m.name}, Mentat of House ${HOUSE_NAMES[house]}, from your copy of the original game`;
   // the boxes fill the frame and stay still (a painting's rules for the same classes, global in an older
@@ -346,9 +375,9 @@ export async function buildMentatArt(record, { scale = ENLARGE } = {}) {
       expressions: Object.fromEntries(EXPRESSIONS.map((e) => [e, {}])),
       motion: { mouthEase: 0.035, speakNod: 0, swayTilt: 0, swayNod: 0, flash: 0, blink: { min: 1.6, max: 4.4, double: 0.08, close: 0.02, hold: 0.22, open: 0.03, seed } },
     };
-    if (eyes[4] && eyeUrls[4]) {
+    if (eyes[4] && eyeArt[4]) {   // the shut eyes' picture in its wider box; each eye shown in its half of the frame's
       const [ex, ey, ew, eh] = at(eyes[4]), half = ew / 2;
-      rig.lids = { src: eyeUrls[4], box: [ex, ey, ew, eh], soft: 0,
+      rig.lids = { src: eyeArt[4].src, box: eyeArt[4].box, soft: 0,
         left: { box: [ex, ey, half, eh], open: [ey, ey + eh] }, right: { box: [ex + half, ey, half, eh], open: [ey, ey + eh] } };
     }
   }

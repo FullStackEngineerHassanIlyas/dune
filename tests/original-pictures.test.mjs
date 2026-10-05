@@ -18,6 +18,7 @@ import { eyeSchedule, otherSchedule, mouthVisemes, measureMouth, buildMentatArt,
 import { loadOriginalPictures, loadOriginalPicturesWithin, currentPictures, originalEmblem, resetOriginalPictures } from '../src/ui/campaign/original-pictures.js';
 import { originalMentatFigure, originalMentatRig } from '../src/ui/campaign/original-mentat.js';
 import { validateRig, VISEMES, EXPRESSIONS } from '../src/ui/campaign/mentat-face-rig.js';
+import { REACH } from '../src/ui/campaign/pixel-scale.js';
 import { MentatTrack } from '../src/audio/mentat-voice.js';
 import { attachMentatFace } from '../src/ui/campaign/mentat-face.js';
 import { rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
@@ -307,7 +308,11 @@ test('his figure and rig: the room cut to him, the face engine\'s rig valid, his
     assert.equal(art.rig.mouth.sprites.MBP, null);
     for (const v of ['FV', 'A', 'E', 'O', 'L']) assert.match(art.rig.mouth.sprites[v], /^data:image\/png;base64,/);
     assert.notEqual(art.rig.mouth.sprites.A, art.rig.mouth.sprites.FV);
-    assert.deepEqual(art.rig.lids.box, [MENTATS[house].eyes[0], MENTATS[house].eyes[1] - top, ...EYES]);
+    // the shut eyes' picture REACH pixels wider each way (all the frame changes in the enlarged picture); each eye
+    // shown in its half of the frame's own box
+    const [ex, ey] = [MENTATS[house].eyes[0], MENTATS[house].eyes[1] - top];
+    assert.deepEqual(art.rig.lids.box, [ex - REACH, ey - REACH, EYES[0] + 2 * REACH, EYES[1] + 2 * REACH]);
+    assert.deepEqual([art.rig.lids.left.box, art.rig.lids.right.box], [[ex, ey, EYES[0] / 2, EYES[1]], [ex + EYES[0] / 2, ey, EYES[0] / 2, EYES[1]]]);
     assert.equal(art.rig.lids.soft, 0);
     assert.deepEqual(Object.keys(art.rig.expressions), EXPRESSIONS);
     assert.ok(Object.values(art.rig.expressions).every((e) => Object.keys(e).length === 0), 'no warps: pixel art does not bend');
@@ -318,8 +323,7 @@ test('his figure and rig: the room cut to him, the face engine\'s rig valid, his
     assert.match(art.figure, /<\/style><div class="cpm-frame cpo-frame"><div class="cpm-sway"><img class="cpo-l" src="data:image\/png;base64,[^"]+" alt="" draggable="false" style="left:0%;top:0%;width:100%;height:100%"><div class="cpo-other">/);
     assert.match(art.figure, /<div class="cpm-blink">(<img class="cpo-l cpo-anim cpo-\w+-eye[1-4]" src="data:image\/png;base64,[^"]+" alt="" draggable="false" style="[^"]+">){4}<\/div><\/div><\/div><\/div>$/);
     assert.ok(!/<svg|<image/.test(art.figure), 'no SVG of its own: the face engine lays its own over the head');
-    const [ex, ey] = [MENTATS[house].eyes[0], MENTATS[house].eyes[1] - top];
-    assert.ok(art.figure.includes(`left:${+((ex / box[2]) * 100).toFixed(4)}%;top:${+((ey / box[3]) * 100).toFixed(4)}%;width:${+((EYES[0] / box[2]) * 100).toFixed(4)}%`), 'the eyes at their place in the frame');
+    assert.ok(art.figure.includes(`left:${+(((ex - REACH) / box[2]) * 100).toFixed(4)}%;top:${+(((ey - REACH) / box[3]) * 100).toFixed(4)}%;width:${+(((EYES[0] + 2 * REACH) / box[2]) * 100).toFixed(4)}%`), 'the eyes at their place in the frame, in their wider box');
     // its size: filling the box at every size, never shrunk to a whole number of pixels a pixel, drawn smoothly from
     // pictures the pixel-art scaler enlarged ENLARGE times (each frame's picture its box's size, enlarged as much)
     const sel = `.cpo-${house}`, [W, H] = [box[2], box[3]];
@@ -329,7 +333,7 @@ test('his figure and rig: the room cut to him, the face engine\'s rig valid, his
     assert.equal(art.info.scale, ENLARGE);
     assert.deepEqual(pngSize(/<img class="cpo-l" src="([^"]+)"/.exec(art.figure)[1]), [W * ENLARGE, H * ENLARGE], 'the head');
     assert.deepEqual(pngSize(art.rig.mouth.sprites.A), [MOUTH[0] * ENLARGE, MOUTH[1] * ENLARGE], 'a mouth frame');
-    assert.deepEqual(pngSize(art.rig.lids.src), [EYES[0] * ENLARGE, EYES[1] * ENLARGE], 'the shut eyes');
+    assert.deepEqual(pngSize(art.rig.lids.src), [(EYES[0] + 2 * REACH) * ENLARGE, (EYES[1] + 2 * REACH) * ENLARGE], 'the shut eyes');
     assert.match(art.figure, /@media \(prefers-reduced-motion:reduce\)\{\.cpo \.cpo-anim\{animation:none;opacity:0\}\}/);
     assert.equal((art.figure.match(/cpo-anim cpo-\w+-other/g) ?? []).length, house === 'harkonnen' ? 0 : 3);
     assert.match(art.figure, /aria-label="(Cyril|Radnor|Ammon), Mentat of House \w+, from your copy of the original game"/);
@@ -382,6 +386,22 @@ test('the campaign\'s words wait for the pictures a moment at most', async () =>
   const value = await loadOriginalPicturesWithin(10000, { files: fakeStore(new Map(pictures.map((p) => [p.name, p]))) });
   assert.ok(value?.mentats?.ordos, 'in time: made');
   assert.ok(currentPictures() === value, 'and kept');
+  resetOriginalPictures();
+});
+
+test('the house on the screen comes first: its words wait for its Mentat and the emblems, the others are made after', async () => {
+  resetOriginalPictures();
+  const { pictures } = extractPictures(pakLookup(fakeDunePak()));
+  const store = fakeStore(new Map(pictures.map((p) => [p.name, p])));
+  const value = await loadOriginalPicturesWithin(10000, { files: store, first: 'ordos' });
+  assert.ok(currentPictures() === value, 'given to the screens as soon as that one is made');
+  assert.deepEqual(Object.keys(value.mentats), ['ordos']);
+  assert.deepEqual(Object.keys(value.emblems).sort(), HOUSES.slice().sort(), 'the house selection\'s emblems first of all');
+  assert.ok(originalMentatFigure('ordos'));
+  assert.equal(originalMentatFigure('atreides'), null, 'not made yet: our painting for now');
+  assert.ok(await loadOriginalPictures({ files: store }) === value, 'the same pictures, the others added');
+  assert.deepEqual(Object.keys(value.mentats).sort(), HOUSES.slice().sort());
+  assert.ok(originalMentatFigure('atreides'));
   resetOriginalPictures();
 });
 

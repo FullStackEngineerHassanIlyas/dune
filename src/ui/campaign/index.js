@@ -17,7 +17,7 @@ import { loadWords } from './words.js';
 import { CampaignMap } from './map.js';
 import { mentatStage, reducedMotion } from './stage.js';
 import { crestSvg } from './crests.js';
-import { loadOriginalPicturesWithin, originalEmblem } from './original-pictures.js';
+import { loadOriginalPicturesWithin, originalEmblem, PICTURES_WAIT } from './original-pictures.js';
 import { victoryCard, scoreScreen, passwordReveal } from './results.js';
 import { MentatVoice } from '../../audio/mentat-voice.js';
 import { clipId } from '../../audio/mentat-lines.js';
@@ -91,7 +91,7 @@ export class CampaignScreens {
   ensureWords() {
     this.voice?.prepare?.();
     if (this.words || this.wordsLoading) return;
-    this.wordsLoading = Promise.all([loadWords(this.load), loadOriginalPicturesWithin()]).then(([w]) => {
+    this.wordsLoading = Promise.all([loadWords(this.load), loadOriginalPicturesWithin(PICTURES_WAIT, { first: this.state.house })]).then(([w]) => {
       this.words = w;
       if (isCampaignScreen(this.menu.screen) && !this.menu.el.hidden) this.menu.go(this.menu.screen);
     });
