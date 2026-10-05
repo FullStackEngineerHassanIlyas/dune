@@ -124,6 +124,7 @@ export class MentatFace {
     if (this.destroyed) return;
     if (this.el.isConnected === false && this.wasConnected) { this.destroy(); return; }
     this.s[S_SINCE] = 0;
+    this.s[S_FIRST] = 1;   // its first frame catches up a late start, also when the face is still awake (Advice right after the briefing)
     this.start();
   }
 

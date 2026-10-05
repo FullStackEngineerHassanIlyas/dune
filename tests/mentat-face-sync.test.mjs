@@ -10,6 +10,7 @@ import { rigFor } from '../src/ui/campaign/mentat-face-rigs.js';
 import { DEFAULT_MOTION } from '../src/ui/campaign/mentat-face-rig.js';
 import { Blinker } from '../src/ui/campaign/mentat-face-motion.js';
 import { ADVICE } from './mentat-face-fakes.mjs';
+import { MentatTrack, MentatLine } from '../src/audio/mentat-voice.js';
 import { synth, clone, makeStage, fakeVoice, frames } from './mentat-face-fakes.mjs';
 
 /** The fakes' voice, its line answering smooth() (the heard time carried on) as MentatLine does. */
@@ -69,6 +70,56 @@ test('a line\'s first frame catches up the time heard (a late first frame), not 
   voice.clock[0] = 0.074;
   d.step(16);
   assert.ok(face.w[3] > 0.7, `late, the first frame catches up: A ${face.w[3].toFixed(2)}`);
+});
+
+test('a line that starts while the face is still awake (Advice right after the briefing) catches up a late first frame too', () => {
+  const json = synth([[0, 1500, 'neutral']], { cycle: 'a', every: 400 });
+  const { voice, d, face } = setup(json);
+  voice.play();
+  d.run(0.5);
+  voice.end('stopped');   // Advice: the briefing stops …
+  d.run(0.3);
+  assert.equal(face.running, true, 'the face is awake, holding the look');
+  assert.ok(face.w[0] > 0.99, 'with the mouth shut');
+  voice.play();           // … and the advice starts, its first frame late (90 ms heard)
+  voice.clock[0] = 0.074;
+  d.step(16);
+  assert.ok(face.w[3] > 0.7, `its first frame catches up: A ${face.w[3].toFixed(2)}`);
+});
+
+/**
+ * A real MentatLine of `json` (its time from the audio clock, smooth() carried on by the page's clock), the clocks set by
+ * hand ([audio s, page ms]), and a voice around it as MentatVoice is to the face.
+ */
+function realLine(json) {
+  const clock = new Float64Array(2);
+  const track = new MentatTrack(json);
+  const line = new MentatLine({ clock: () => clock[0], perf: () => clock[1] }, ['test/real'], track.duration);
+  line.track = track;
+  const listeners = new Set();
+  const voice = {
+    enabled: true, current: null,
+    on(type, fn) { if (type !== 'line') return () => {}; listeners.add(fn); return () => listeners.delete(fn); },
+    now(out) { return this.current !== null && this.current.state === 'playing' ? this.current.now(out) : out; },
+    play() { line.state = 'playing'; line.t0 = clock[0]; this.current = line; for (const fn of [...listeners]) fn(line); },
+  };
+  return { voice, line, clock };
+}
+
+test('on a real MentatLine: the face reads line.at(line.smooth() + lead), carried on between the audio clock\'s steps, and a late first frame catches up what was heard', () => {
+  const { voice, line, clock } = realLine(synth([[0, 1500, 'neutral']], { cycle: 'a', every: 400 }));
+  const stage = makeStage('ordos', voice), d = frames(null);
+  const face = attachMentatFace(stage, clone(rigFor('ordos')), { raf: d.raf, caf: d.caf, reducedMotion: false });
+  clock[0] = 10; clock[1] = 5000;
+  voice.play();
+  clock[0] = 10.09; clock[1] = 5090;   // the first frame comes 90 ms into the sound
+  d.step(16);
+  assert.ok(Math.abs(line.time - 0.09) < 1e-9 && Math.abs(face.frame.t - (line.smooth() + DEFAULT_MOTION.lead)) < 1e-9, `the frame read is ${face.frame.t}, heard ${line.time}`);
+  assert.ok(face.w[3] > 0.7, `the first frame catches up the 90 ms heard: A ${face.w[3].toFixed(2)}`);
+  clock[1] = 5106;                      // no step of the audio clock: the page's clock carries the line on
+  d.step(16);
+  assert.ok(Math.abs(face.frame.t - (0.106 + DEFAULT_MOTION.lead)) < 1e-9, `carried on: ${face.frame.t}`);
+  face.destroy();
 });
 
 test('screen after screen the same Mentat does not blink at the same moments: each face starts at its own place in his blinks', () => {
