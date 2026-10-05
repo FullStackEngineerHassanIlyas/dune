@@ -341,8 +341,8 @@ test('the campaign makes them once, gives the briefing the original Mentat and t
   const { pictures } = extractPictures(pakLookup(fakeDunePak()));
   const store = fakeStore(new Map(pictures.map((p) => [p.name, p])));
   const value = await loadOriginalPictures({ files: store });
-  assert.equal(currentPictures(), value);
-  assert.equal(await loadOriginalPictures({ files: store }), value, 'made once');
+  assert.ok(currentPictures() === value);
+  assert.ok(await loadOriginalPictures({ files: store }) === value, 'made once');
   for (const house of HOUSES) {
     assert.match(originalMentatFigure(house), /class="cp-mentat-art cpo /);
     const rig = originalMentatRig(house);
@@ -372,7 +372,7 @@ test('the campaign\'s words wait for the pictures a moment at most', async () =>
   const { pictures } = extractPictures(pakLookup(fakeDunePak()));
   const value = await loadOriginalPicturesWithin(10000, { files: fakeStore(new Map(pictures.map((p) => [p.name, p]))) });
   assert.ok(value?.mentats?.ordos, 'in time: made');
-  assert.equal(currentPictures(), value, 'and kept');
+  assert.ok(currentPictures() === value, 'and kept');
   resetOriginalPictures();
 });
 
@@ -380,7 +380,11 @@ test('the campaign\'s words wait for the pictures a moment at most', async () =>
 // and a voice playing a made-up track
 const VOID = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'source', 'wbr']);
 class El {
-  constructor(doc, tag) { Object.assign(this, { ownerDocument: doc, localName: tag, tagName: tag.toUpperCase(), nodeType: 1, attrs: new Map(), childNodes: [], parentNode: null, style: { visibility: '' }, dataset: {}, html: '' }); }
+  constructor(doc, tag) {
+    // the ways back up are not enumerable, so a failed assertion prints an element's own subtree, not the whole page (mentat-face-fakes.mjs)
+    Object.defineProperties(this, { ownerDocument: { value: doc, writable: true, configurable: true }, parentNode: { value: null, writable: true, configurable: true } });
+    Object.assign(this, { localName: tag, tagName: tag.toUpperCase(), nodeType: 1, attrs: new Map(), childNodes: [], style: { visibility: '' }, dataset: {}, html: '' });
+  }
   get className() { return this.attrs.get('class') ?? ''; }
   set className(v) { this.attrs.set('class', String(v)); }
   setAttribute(k, v) { this.attrs.set(k, String(v)); }

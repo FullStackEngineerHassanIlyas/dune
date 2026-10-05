@@ -4,7 +4,7 @@
 // only with reduced motion. The stage is built by the real mentatStage over the real portrait markup, in the counting
 // fake DOM of mentat-face-fakes.mjs; the voices are the fakes' (lines of real timing tracks on a hand-cranked clock) and,
 // for Off, the real MentatVoice.
-import { test } from 'node:test';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { FakeEl, fakeDocument, parseSvg, fakeVoice, frames, shape, ADVICE, synth } from './mentat-face-fakes.mjs';
 import { VISEMES, MentatVoice } from '../src/audio/mentat-voice.js';
@@ -36,20 +36,24 @@ const sprite = (stage, v) => art(stage).querySelector(`.cpmf-v-${v}`);
 const opacity = (el) => Number(el.getAttribute('opacity'));
 
 /** A stage as CampaignScreens builds it, on the page, with a voice playing real tracks and a hand-cranked frame clock. */
+const built = [];
 function build(house = 'atreides', json = ADVICE, faceOptions = {}, extra = {}) {
   const voice = fakeVoice(json), d = frames(voice);
   const stage = mentatStage(house, { mentatName: 'Cyril', label: house, later: () => {}, voice, faceOptions: { raf: d.raf, caf: d.caf, reducedMotion: false, ...faceOptions }, ...extra });
   doc.body.appendChild(stage.el);
+  built.push(stage);
   return { stage, voice, d };
 }
 const leave = (stage) => stage.el.parentNode?.removeChild(stage.el);
+// each test's stages leave the page with it: the page does not pile up screens from test to test
+afterEach(() => { for (const stage of built.splice(0)) { stage.face?.destroy(); leave(stage); } });
 
 test('a stage with a voice has a face, and the portrait is untouched until the face is made ready, ahead of his first word', async () => {
   const { stage, voice, d } = build();
   assert.ok(stage.face instanceof MentatFace);
   assert.equal(art(stage).getAttribute('class').includes('cp-mentat-art'), true);
   const before = shape(stage.portrait);
-  assert.equal(art(stage).querySelector('.cpmf-head'), null, 'built at the next turn, not inside the screen\'s own construction');
+  assert.ok(art(stage).querySelector('.cpmf-head') === null, 'built at the next turn, not inside the screen\'s own construction');
   await new Promise((r) => setTimeout(r, 5));
   assert.ok(art(stage).querySelector('.cpmf-head'), 'the stage asked for it: the face is built without anyone calling warm()');
   assert.equal(await stage.face.warm(), true, 'ready');

@@ -38,10 +38,10 @@ test('attached, the face waits for a line; then it is drawn into the portrait, i
   const sway = stage.svg.querySelector('.cpm-sway');
   const head = sway.querySelector('.cpmf-head');
   assert.equal(sway.childNodes.length, 1, 'the head box holds what the sway held');
-  assert.equal(head.parentNode, sway);
+  assert.ok(head.parentNode === sway);
   // the head's boxes: one nods, one rolls about the pivot, and inside it the painting, the face's SVG, the CSS blink
   const roll = head.querySelector('.cpmf-roll');
-  assert.equal(roll.parentNode, head);
+  assert.ok(roll.parentNode === head);
   assert.match(roll.getAttribute('style'), /transform-origin:50% 62\.\d+%/, 'rolls about the neck\'s root');
   assert.deepEqual(roll.childNodes.map((n) => n.attrs.get('class')), ['cpm-l', 'cpmf-svg', 'cpm-l cpm-blink'], 'the face sits over the head painting, under the blink');
   assert.match(roll.childNodes[0].attrs.get('src'), /atreides-head\.webp$/);
@@ -49,14 +49,14 @@ test('attached, the face waits for a line; then it is drawn into the portrait, i
   assert.equal(svg.localName, 'svg');
   assert.match(svg.getAttribute('viewBox'), /^[\d.]+ [\d.]+ [\d.]+ [\d.]+$/, 'the SVG covers the face in frame units');
   const root = head.querySelector('.cpmf-face');
-  assert.equal(root.parentNode, svg);
+  assert.ok(root.parentNode === svg);
   assert.equal(root.getAttribute('display'), 'inline');
   // the layers in the SVG: the brows' bare patches of head first, the brows' own sprites last (over the lids)
   assert.deepEqual(root.childNodes.map((n) => n.attrs.get('class')).filter((c) => /^cpmf-(bases|brows)$/.test(c)), ['cpmf-bases', 'cpmf-brows']);
   assert.equal(root.childNodes.at(-1).attrs.get('class'), 'cpmf-brows');
   assert.ok(root.childNodes.findIndex((n) => /lid/.test(n.attrs.get('class') ?? '')) < root.childNodes.length - 1);
   assert.equal(stage.svg.querySelector('.cpm-blink').style.visibility, 'hidden', 'the face blinks for the CSS while it runs');
-  assert.equal(sprite(stage, 'rest'), null, 'at rest the painting\'s own mouth shows');
+  assert.ok(sprite(stage, 'rest') === null, 'at rest the painting\'s own mouth shows');
   for (const v of VISEMES.slice(1)) assert.ok(sprite(stage, v));
   for (const id of stage.svg.querySelectorAll('mask').map((m) => m.attrs.get('id'))) assert.match(id, /^cpmf\d+-/);
 });
@@ -171,7 +171,7 @@ test('he blinks as he speaks (the lids close on his own schedule and at phrases)
   assert.ok(held > 0.1, 'the last look holds a moment');
   d.run(3);
   assert.equal(face.running, false, 'and the loop sleeps');
-  assert.equal(d.pending, null);
+  assert.ok(d.pending === null);
   assert.equal(stage.svg.querySelector('.cpmf-face').getAttribute('display'), 'none', 'the painting again');
   assert.equal(stage.svg.querySelector('.cpm-blink').style.visibility, '', 'the CSS blinks again');
 });
@@ -198,7 +198,7 @@ test('the loop stops on the voice\'s end, starts again with the next line, and e
   stage.el.parentNode.removeChild(stage.el);
   d.step();
   assert.equal(face.destroyed, true);
-  assert.equal(d.pending, null);
+  assert.ok(d.pending === null);
   assert.equal(voice.listeners.line.size + voice.listeners.end.size, 0, 'the voice is let go');
   assert.equal(shape(stage.svg), pristine);
   face.destroy();   // twice is harmless
@@ -211,7 +211,7 @@ test('destroy() mid-line puts the portrait back; a line for a stage already gone
   a.d.run(1);
   a.face.destroy();
   assert.equal(shape(a.stage.svg), pristine);
-  assert.equal(a.d.pending, null);
+  assert.ok(a.d.pending === null);
   assert.equal(a.voice.listeners.line.size, 0);
   // a stage built, shown, then replaced before its Mentat spoke: the next line (the new screen's) ends it
   const b = setup('harkonnen');
@@ -241,9 +241,9 @@ test('Mentat voice Off: no line ever sounds, so the portrait stays the still pai
   assert.equal(shape(stage.svg), before);
   assert.equal(face.running, false);
   // and nothing to attach to
-  assert.equal(attachMentatFace({ ...stage, voice: null }, rigFor('harkonnen')), null);
-  assert.equal(attachMentatFace({ ...stage, portrait: null }, rigFor('harkonnen')), null);
-  assert.equal(attachMentatFace(stage, null), null);
+  assert.ok(attachMentatFace({ ...stage, voice: null }, rigFor('harkonnen')) === null);
+  assert.ok(attachMentatFace({ ...stage, portrait: null }, rigFor('harkonnen')) === null);
+  assert.ok(attachMentatFace(stage, null) === null);
 });
 
 test('a bad rig does not break the briefing: attach warns and gives null; createMentatFace throws', () => {
@@ -252,7 +252,7 @@ test('a bad rig does not break the briefing: attach warns and gives null; create
   delete bad.expressions.sad;
   const warn = console.warn, said = [];
   console.warn = (...a) => said.push(a.join(' '));
-  try { assert.equal(attachMentatFace(stage, bad), null); } finally { console.warn = warn; }
+  try { assert.ok(attachMentatFace(stage, bad) === null); } finally { console.warn = warn; }
   assert.match(said[0], /expressions\.sad is missing/);
   assert.throws(() => createMentatFace({ rig: bad, voice, el: stage.el }), TypeError);
   assert.equal(voice.listeners.line.size, 0);
@@ -368,7 +368,7 @@ test('a brow is a cut-out over a bare patch of the head, drawn only while it is 
   d.step();
   const root = stage.svg.querySelector('.cpmf-face');
   const bases = stage.svg.querySelector('.cpmf-bases'), brows = stage.svg.querySelector('.cpmf-brows');
-  assert.equal(root.childNodes[0], bases, 'the patches under everything');
+  assert.ok(root.childNodes[0] === bases, 'the patches under everything');
   for (const side of ['left', 'right']) {
     const base = bases.querySelector(`.cpmf-brow-${side}-base`), brow = brows.querySelector(`.cpmf-brow-${side}`);
     assert.ok(base && brow);

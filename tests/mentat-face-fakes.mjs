@@ -34,8 +34,14 @@ export const clone = (o) => JSON.parse(JSON.stringify(o));
 // ---- a counting fake DOM, enough for the portrait's boxes and the face's SVG ----
 export class FakeEl {
   constructor(doc, tag) {
-    this.ownerDocument = doc; this.localName = tag; this.tagName = tag; this.nodeType = 1;
-    this.attrs = new Map(); this.childNodes = []; this.parentNode = null;
+    // the ways back up (the document, the parent) are not enumerable: an assertion that fails on an element prints
+    // the element and what is under it, not the whole fake page again through every element's way back up (node's
+    // assert diffs what it prints, and a page of faces printed that way took gigabytes). Tests still compare nodes
+    // by identity (assert.ok(a === b)), never with assert.equal.
+    Object.defineProperty(this, 'ownerDocument', { value: doc, writable: true, configurable: true, enumerable: false });
+    Object.defineProperty(this, 'parentNode', { value: null, writable: true, configurable: true, enumerable: false });
+    this.localName = tag; this.tagName = tag; this.nodeType = 1;
+    this.attrs = new Map(); this.childNodes = [];
     // the style's transform is counted (and watched) like an attribute: the head's boxes are moved by it
     const el = this;
     this.style = { visibility: '', set transform(v) { el.ownerDocument.sets++; this.t = v; if (el.ownerDocument.watch !== null) el.ownerDocument.watch(v); }, get transform() { return this.t ?? ''; } };
