@@ -307,6 +307,8 @@ test('PNG: the pixels come back exactly, as a palette picture up to 256 colours,
     const a = (y * 30 + x) * 4, b = ((y * 3 + dy) * 90 + x * 3 + dx) * 4;
     assert.deepEqual([...db.rgba.subarray(b, b + 4)], [...few.subarray(a, a + 4)], 'each pixel a 3 x 3 block');
   }
+  sameBytes(decodePng(await encodePng(few, 30, 20, { scale: 3 })).rgba, db.rgba, 'enlarged while written: the same blocks');
+  sameBytes(decodePng(encodePngSync(many, 40, 40, { scale: 2 })).rgba, scaleNearest(many, 40, 40, 2), 'RGBA too');
   assert.match(pngDataUrl(encodePngSync(few, 30, 20)), /^data:image\/png;base64,iVBORw0KGgo/);
   assert.deepEqual([...inflateSync(Buffer.from(storedZlib(new Uint8Array(70000).fill(3))))].length, 70000, 'stored blocks past 64 KB');
   assert.throws(() => encodePngSync(new Uint8Array(10), 2, 2), RangeError);

@@ -67,41 +67,50 @@ function chunk(type, data) {
   return out;
 }
 
-/** The PNG's parts before packing: the header, the palette chunks (if any) and the filtered rows. */
-function layout(rgba, width, height) {
-  const colours = new Map(), view = new Uint32Array(rgba.buffer, rgba.byteOffset, width * height);
+/**
+ * The PNG's parts before packing: the header, the palette chunks (if any) and the filtered rows — the picture
+ * enlarged `k` times by whole pixels on the way (each pixel a k x k block), which costs only the copying.
+ */
+function layout(rgba, width, height, k = 1) {
+  const n = width * height, colours = new Map(), view = new Uint32Array(rgba.buffer, rgba.byteOffset, n), index = new Uint8Array(n);
   let indexed = true;
-  for (let i = 0; i < view.length && indexed; i++) {
+  for (let i = 0; i < n; i++) {
     const c = rgba[i * 4 + 3] === 0 ? 0 : view[i];   // every see-through pixel is one colour
-    if (!colours.has(c)) { if (colours.size === 256) indexed = false; else colours.set(c, colours.size); }
+    let at = colours.get(c);
+    if (at === undefined) {
+      if (colours.size === 256) { indexed = false; break; }
+      at = colours.size;
+      colours.set(c, at);
+    }
+    index[i] = at;
   }
+  const W = width * k, H = height * k;
   const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
-  dv.setUint32(0, width); dv.setUint32(4, height);
+  dv.setUint32(0, W); dv.setUint32(4, H);
   ihdr[8] = 8; ihdr[9] = indexed ? 3 : 6;   // 8 bits; palette or RGBA
   const extra = [];
-  let raw;
+  const bpp = indexed ? 1 : 4, stride = W * bpp + 1, raw = new Uint8Array(stride * H);   // each row: filter 0, then the pixels
   if (indexed) {
     const plte = new Uint8Array(colours.size * 3), trns = new Uint8Array(colours.size);
     let lastSeeThrough = -1;
-    for (const [c, k] of colours) {
+    for (const [c, at] of colours) {
       const bytes = new Uint8Array(new Uint32Array([c]).buffer);
-      plte.set(bytes.subarray(0, 3), k * 3);
-      trns[k] = bytes[3];
-      if (bytes[3] !== 255) lastSeeThrough = k;
+      plte.set(bytes.subarray(0, 3), at * 3);
+      trns[at] = bytes[3];
+      if (bytes[3] !== 255) lastSeeThrough = at;
     }
     extra.push(chunk('PLTE', plte));
     if (lastSeeThrough >= 0) extra.push(chunk('tRNS', trns.subarray(0, lastSeeThrough + 1)));
-    raw = new Uint8Array((width + 1) * height);
-    for (let y = 0; y < height; y++) {
-      const o = y * (width + 1) + 1;
-      for (let x = 0; x < width; x++) {
-        const i = y * width + x;
-        raw[o + x] = colours.get(rgba[i * 4 + 3] === 0 ? 0 : view[i]);
-      }
+  }
+  const px = indexed ? null : new Uint32Array(1), pxBytes = indexed ? null : new Uint8Array(px.buffer);
+  for (let y = 0; y < height; y++) {
+    const row = y * k * stride;
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x, o = row + 1 + x * k * bpp;
+      if (indexed) raw.fill(index[i], o, o + k);
+      else { px[0] = view[i]; for (let d = 0; d < k; d++) raw.set(pxBytes, o + d * 4); }
     }
-  } else {
-    raw = new Uint8Array((width * 4 + 1) * height);
-    for (let y = 0; y < height; y++) raw.set(rgba.subarray(y * width * 4, (y + 1) * width * 4), y * (width * 4 + 1) + 1);
+    for (let d = 1; d < k; d++) raw.copyWithin(row + d * stride, row, row + stride);
   }
   return { ihdr, extra, raw };
 }
@@ -120,15 +129,15 @@ const rgbaOf = (rgba, width, height) => {
   return b.byteOffset % 4 ? b.slice() : b;
 };
 
-/** A PNG (Uint8Array) of `rgba` (4 bytes a pixel), unpacked: synchronous. */
-export function encodePngSync(rgba, width, height) {
-  const l = layout(rgbaOf(rgba, width, height), width, height);
+/** A PNG (Uint8Array) of `rgba` (4 bytes a pixel), unpacked: synchronous. `scale`: whole-pixel enlargement. */
+export function encodePngSync(rgba, width, height, { scale = 1 } = {}) {
+  const l = layout(rgbaOf(rgba, width, height), width, height, scale);
   return assemble(l, storedZlib(l.raw));
 }
 
-/** A PNG (Uint8Array) of `rgba` (4 bytes a pixel), deflated where the platform can. */
-export async function encodePng(rgba, width, height) {
-  const l = layout(rgbaOf(rgba, width, height), width, height);
+/** A PNG (Uint8Array) of `rgba` (4 bytes a pixel), deflated where the platform can. `scale`: whole-pixel enlargement. */
+export async function encodePng(rgba, width, height, { scale = 1 } = {}) {
+  const l = layout(rgbaOf(rgba, width, height), width, height, scale);
   return assemble(l, await zlib(l.raw));
 }
 
