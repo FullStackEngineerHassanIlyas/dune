@@ -1,5 +1,6 @@
 // Skirmish set-up (spec §5.8): the player's house, one to three computer opponents (each its own house and
-// difficulty), tech level, sandworms, map size and seed, starting credits, map visibility and game speed. The
+// difficulty) and whether the computers are allied against the player (default: a free-for-all), tech level,
+// sandworms, map size and seed, starting credits, map visibility and game speed. The
 // choice is remembered for next time and becomes the battle's URL (opponents=harkonnen:hard,ordos:normal …).
 // House rule (docs/superpowers/notes/2026-10-03-phase2-opponents.md): no house plays twice; the player picks a
 // Great House, the computer may also field the Sardaukar or the Mercenaries; a Small map holds two opponents.
@@ -12,7 +13,11 @@ import { changeSetting } from './options.js';
 
 export const MAP_SIZES = [[48, 'Small'], [64, 'Medium'], [96, 'Large'], [128, 'Huge']];
 export const CREDITS = [1000, 3000, 5000, 10000];
-export const DEFAULT_SETUP = { house: 'atreides', opponents: [{ house: 'random', difficulty: 'normal' }], techLevel: 9, worms: 'few', size: 64, seed: null, credits: 3000, visibility: 'shroud' };
+export const DEFAULT_SETUP = { house: 'atreides', opponents: [{ house: 'random', difficulty: 'normal' }], allied: false, techLevel: 9, worms: 'few', size: 64, seed: null, credits: 3000, visibility: 'shroud' };
+const ALLIED_NOTES = {
+  false: 'Free for all: the computers fight each other as well as you.',
+  true: 'The computers are one side: they never fight each other, share what they see and all come for you. You win when every one of them is out.',
+};
 export const VISIBILITY_CHOICES = [['shroud', 'Dune II shroud'], ['fog', 'Fog of war'], ['revealed', 'Revealed']];
 const VISIBILITY_NOTES = {
   shroud: 'As in the original: black until explored; ground once seen stays in view, enemies on it too.',
@@ -41,6 +46,7 @@ export function cleanSetup(raw = {}) {
   return {
     house,
     opponents: opponents.length ? opponents : DEFAULT_SETUP.opponents.map((o) => ({ ...o })),
+    allied: s.allied === true,
     techLevel: pick(Number(s.techLevel), TECH_LEVELS, DEFAULT_SETUP.techLevel),
     worms: pick(s.worms, WORMS, DEFAULT_SETUP.worms),
     size,
@@ -63,7 +69,7 @@ export function skirmishQuery(setup, random = Math.random) {
     return { house: id, difficulty: o.difficulty };
   });
   const seed = s.seed ?? 1 + Math.floor(random() * 99999);
-  return new URLSearchParams({ scene: 'skirmish', house: s.house, opponents: formatOpponents(opponents), tech: String(s.techLevel), worms: s.worms,
+  return new URLSearchParams({ scene: 'skirmish', house: s.house, opponents: formatOpponents(opponents), ...(s.allied ? { allied: '1' } : {}), tech: String(s.techLevel), worms: s.worms,
     size: String(s.size), seed: String(seed), credits: String(s.credits), visibility: s.visibility }).toString();
 }
 
@@ -122,7 +128,7 @@ export function skirmishPanel(settings, { onBack, onStart }) {
       setup.opponents.map(opponentLine),
       setup.opponents.length < cap && h('button', { type: 'button', class: 'dm-btn small', dataset: { act: 'add' },
         onclick: () => { setup.opponents = [...setup.opponents, { house: 'random', difficulty: setup.opponents.at(-1)?.difficulty ?? 'normal' }]; save(); } }, 'Add opponent'),
-      h('small', {}, `Every house for itself; each house plays once. The Sardaukar and the Mercenaries fight only as computer houses. ${cap < 3 ? 'A Small map holds two opponents.' : 'Up to three, one in each corner.'}`)));
+      h('small', {}, `${setup.allied && setup.opponents.length > 1 ? 'The computers fight as one side' : 'Every house for itself'}; each house plays once. The Sardaukar and the Mercenaries fight only as computer houses. ${cap < 3 ? 'A Small map holds two opponents.' : 'Up to three, one in each corner.'}`)));
   };
   const render = () => {
     const seed = h('input', { type: 'number', min: 1, max: 999999, placeholder: 'random', value: setup.seed ?? '', 'aria-label': 'Map seed',
@@ -135,6 +141,8 @@ export function skirmishPanel(settings, { onBack, onStart }) {
           h('b', {}, HOUSES[id].name),
           h('small', {}, SPECIALS[id])))),
       opponentRows(),
+      seg('Computers allied', [[false, 'Off'], [true, 'On']], setup.allied, (v) => set('allied', v),
+        `${ALLIED_NOTES[setup.allied]}${setup.allied && setup.opponents.length < 2 ? ' It takes two opponents or more.' : ''}`),
       seg('Tech level', TECH_LEVELS.map((n) => [n, String(n)]), setup.techLevel, (v) => set('techLevel', v), techNote(setup.techLevel, setup.house)),
       seg('Sandworms', [['off', 'Off'], ['few', 'Few'], ['many', 'Many']], setup.worms, (v) => set('worms', v), WORM_NOTES[setup.worms]),
       seg('Map size', MAP_SIZES.map(([n, text]) => [n, `${text} ${n}`]), setup.size, (v) => set('size', v)),
