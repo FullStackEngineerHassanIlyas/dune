@@ -16,6 +16,7 @@ import { loadWords } from './words.js';
 import { CampaignMap } from './map.js';
 import { mentatStage, reducedMotion } from './stage.js';
 import { crestSvg } from './crests.js';
+import { loadOriginalPicturesWithin, originalEmblem } from './original-pictures.js';
 import { victoryCard, scoreScreen, passwordReveal } from './results.js';
 import { MentatVoice } from '../../audio/mentat-voice.js';
 import { clipId } from '../../audio/mentat-lines.js';
@@ -89,7 +90,7 @@ export class CampaignScreens {
   ensureWords() {
     this.voice?.prepare?.();
     if (this.words || this.wordsLoading) return;
-    this.wordsLoading = loadWords(this.load).then((w) => {
+    this.wordsLoading = Promise.all([loadWords(this.load), loadOriginalPicturesWithin()]).then(([w]) => {
       this.words = w;
       if (isCampaignScreen(this.menu.screen) && !this.menu.el.hidden) this.menu.go(this.menu.screen);
     });
@@ -287,7 +288,7 @@ export class CampaignScreens {
     this.mood('houseSelect');
     const cards = SEGA_ORDER.map((id, i) => {
       const art = h('span', { class: 'cp-crest' });
-      art.innerHTML = crestSvg(id);
+      art.innerHTML = originalEmblem(id) ?? crestSvg(id);
       const saved = this.progress.houses[id];
       return h('button', { type: 'button', class: 'cp-house', style: `--house:${hex(id)}`, dataset: { act: 'house', house: id, ...(i === 0 ? { autofocus: '1' } : {}) },
         'aria-label': `House ${name(id)}`, onclick: () => this.go({ type: 'pick', house: id }) },
