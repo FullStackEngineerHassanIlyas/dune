@@ -1,5 +1,10 @@
 // Everything between the simulation and the screen (spec §3): renderer, the BattleStage (terrain, views,
 // effects, event effects), RTS camera, input, overlay, HUD and the frame loop. Scenes build a World and hand it over.
+// A campaign mission (world.mission, game/mission.js) adds its objective line to the HUD, says Restart mission and
+// Quit mission in the game menu, and ends its own way (C2): a win brings seven Carryalls over the battlefield
+// (render/flyover.js), then the result goes to the menu shell as 'missionEnd' — or, with no shell, to the end screen.
+// Once a mission is over its result is never thrown away: Esc or the menu button skip to the hand-off, and Quit
+// mission or Restart mission before it hand the result over instead.
 import { Renderer3D } from '../render/renderer.js';
 import { CameraRig } from '../render/camera-rig.js';
 import { screenToGround, screenToPlane, worldToScreen, pixelsPerUnit } from '../render/picking.js';
@@ -16,9 +21,9 @@ import { Selection } from '../input/selection.js';
 import { Groups } from '../input/groups.js';
 import { Controller } from '../input/controller.js';
 import { makeCursorSetter, makeScrollCursor } from '../ui/cursors.js';
-import { GameMenu } from '../ui/game-menu.js';
+import { GameMenu, menuWords } from '../ui/game-menu.js';
 import { toggleFullscreen, isFullscreen } from '../ui/fullscreen.js';
-import { quitToMenu } from '../core/shell.js';
+import { quitToMenu, postToShell, inShell } from '../core/shell.js';
 import { wakeCheck } from '../render/wake.js';
 import { Hud } from '../ui/hud.js';
 import { Sidebar } from '../ui/sidebar.js';
@@ -37,11 +42,17 @@ import { checkInvariants } from '../sim/invariants.js';
 import { createDebugApi } from './debug.js';
 import { BattleStage } from './battle-stage.js';
 import { Announcer } from './announcer.js';
+import { BattleMusic } from '../audio/music/music.js';
+import { Flyover } from '../render/flyover.js';
+
+const HANDOFF_WAIT = 5000;   // ms for the menu shell to take a mission's result before the end screen shows instead
 
 export class GameView {
-  constructor({ world, house, settings, params, focus }) {
+  constructor({ world, house, settings, params, focus, scene = 'skirmish' }) {
     this.world = world;
     this.house = house;
+    this.sceneName = scene;
+    this.handoff = null;   // a mission's end: 'flyover', 'posted' (to the menu shell) or 'screen'
     this.settings = settings;
     this.params = params;
     this.debug = params.bool('debug');
@@ -53,7 +64,7 @@ export class GameView {
     const dist = params.num('dist');
     if (dist) this.rig.goalDistance = this.rig.distance = dist;
     this.rig.lookAt(focus.x, focus.z, true);
-    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume });
+    this.sound = new SoundEngine({ enabled: settings.sound, volume: settings.volume, early: inShell() });   // the shell's frame may play at once
     this.stage = new BattleStage({
       world, scene: r3d.scene, quality: r3d.quality, viewer: house, sound: this.sound, rig: this.rig,
       onShake: (amount) => { this.rig.shake = Math.max(this.rig.shake, amount); },
@@ -71,6 +82,8 @@ export class GameView {
       world, house, player: new VoicePlayer({ output: new WebVoiceOutput(this.sound, house), volume: settings.voiceVolume }),
       onMessage: (text) => this.hud.message(text),
     });
+    // the soundtrack (spec §6 Music): peace and battle tracks as the fighting comes and goes, through the master
+    this.music = new BattleMusic({ world, house, engine: this.sound, settings });
     const click = (fn) => (...args) => { this.sound.play('click'); return fn(...args); };
     this.icons = new IconFactory(r3d.renderer, { environment: r3d.scene.environment });
     this.sidebar = new Sidebar(document.getElementById('ui'), {
@@ -100,6 +113,7 @@ export class GameView {
     });
     this.endScreen = new EndScreen(document.getElementById('ui'), {
       onReplay: () => {
+        if (world.mission) { location.reload(); return; }   // the same mission, the same map
         const q = new URLSearchParams(location.search);
         q.set('seed', String((Number(q.get('seed')) || 1) + 1));
         location.search = q.toString();
@@ -111,11 +125,12 @@ export class GameView {
     this.menu = new GameMenu(document.getElementById('ui'), {
       settings,
       onClose: () => this.setMenuOpen(false),
-      onRestart: () => location.reload(),
-      onQuit: () => quitToMenu(),
+      onRestart: () => this.restart(),
+      onQuit: () => this.quit(),
       onFullscreen: () => toggleFullscreen(),
       isFullscreen: () => isFullscreen(),
       onSettings: (key, value) => this.applySetting(key, value),
+      words: menuWords({ mission: !!world.mission, inShell: inShell() }),
     });
 
 
@@ -183,10 +198,76 @@ export class GameView {
   onEvent(e) {
     this.stage.onEvent(e, this.stageNow);
     this.announcer.onEvent(e, performance.now() / 1000);
+    this.music.onEvent(e);
     if (e.type === 'eva' && e.house === this.house) this.hud.message(e.text);
     else if (e.type === 'deployed' && e.house === this.house) this.hud.message('Construction Yard deployed.');
     else if (e.type === 'sold' && e.house === this.house) this.hud.message('Structure sold.');
-    if (e.type === 'gameOver') this.endAt = performance.now() + 2500;
+    else if (e.type === 'houseDefeated' && e.house !== this.house && e.text) this.hud.message(e.text);   // 'House Ordos has been defeated.' (sim/victory.js)
+    if (e.type === 'gameOver') {
+      if (this.world.mission) { if (!this.handoff) this.missionEndAt = performance.now() + (e.winner === this.house ? 1500 : 2500); }   // "Mission accomplished" first
+      else this.endAt = performance.now() + 2500;
+    }
+  }
+
+  /** Quit mission goes back to the campaign in the menu shell (C2) — with the result, once the mission is over;
+   *  anything else, or a battle on its own, to the main menu. */
+  quit() {
+    if (this.world.mission && inShell()) {
+      if (this.resultPending) { this.menu.close(); this.finishNow(); return; }
+      if (postToShell({ dune: 'quit', screen: 'campaign' })) return;
+    }
+    quitToMenu();
+  }
+
+  /** Restart mission plays it again (the same seed) — but a mission that is over hands its result to the campaign first. */
+  restart() {
+    if (this.resultPending && inShell()) { this.menu.close(); this.finishNow(); return; }
+    location.reload();
+  }
+
+  /** A mission that is over and whose result has gone nowhere yet: the wait after the outcome, or the fly-over. */
+  get resultPending() {
+    return !!this.world.mission && !!this.world.outcome && (!this.handoff || this.handoff === 'flyover');
+  }
+
+  /** Skips what is left of a mission's end and hands the result over now; false when there is nothing to skip. */
+  finishNow() {
+    if (!this.resultPending) return false;
+    this.missionEndAt = 0;
+    this.flyover?.dispose();
+    this.flyover = null;
+    this.handOff(performance.now());
+    return true;
+  }
+
+  /** A mission's objective line, and its end: the fly-over after a win, then the hand-off. */
+  missionFrame(now, live) {
+    const m = this.world.mission;
+    if (this.world.tick >= (this.objectiveTick ?? 0)) { this.objectiveTick = this.world.tick + 5; this.hud.objective(m.hudLine()); }
+    if (this.missionEndAt && now >= this.missionEndAt) {
+      this.missionEndAt = 0;
+      if (this.world.outcome?.winner === this.house) {
+        this.flyover = new Flyover(this.r3d.scene, { house: this.house, heightAt: this.heightAt });
+        this.flyover.start(this.rig);
+        this.handoff = 'flyover';
+        this.music.end(true);   // the house's victory theme over the Carryalls, as the Sega game plays it
+      } else this.handOff(now);
+    }
+    if (this.flyover?.update(live)) { this.flyover.dispose(); this.flyover = null; this.handOff(now); }
+    if (this.handoff === 'posted' && now >= this.handoffAt) this.showMissionEnd();   // nobody in the shell took it
+  }
+
+  /** The result (C2 'missionEnd') to the menu shell, whose campaign saves it and moves on; alone, the end screen. */
+  handOff(now) {
+    if (postToShell(this.world.mission.result())) { this.handoff = 'posted'; this.handoffAt = now + HANDOFF_WAIT; }
+    else this.showMissionEnd();
+  }
+
+  showMissionEnd() {
+    this.handoff = 'screen';
+    const stats = endStats(this.world, this.house);
+    this.endScreen.show(stats, { mission: { title: this.world.mission.title } });
+    this.music.end(stats.won, stats.draw);
   }
 
   /** The camera's view on the ground (tile coordinates), for the radar outline. */
@@ -245,6 +326,7 @@ export class GameView {
     if (paused) this.pausedAt = now;
     else this.announcer.player.held(now - this.pausedAt);
     this.sound.setPaused(paused);
+    this.music.setPaused(paused);   // the FM music holds with the context; a player's file has to be paused itself
   }
 
   /** A hidden page is a stopped game: it falls silent (the wind would blow on in a background tab) and has nothing stale to say on return. */
@@ -254,7 +336,7 @@ export class GameView {
   }
 
   openMenu() {
-    if (this.menu.isOpen) return;
+    if (this.menu.isOpen || this.finishNow()) return;   // at a mission's end Esc skips the fly-over: the result goes on
     this.menu.open();
     this.setMenuOpen(true);
   }
@@ -262,6 +344,7 @@ export class GameView {
   /** The menu stops the battle, the scrolling and any half-drawn selection box. */
   setMenuOpen(open) {
     this.cameraControl.suspended = open;
+    if (!open) this.music.reroll?.();   // Sega mode: a new tune when the game menu closes, as on the Mega Drive
     if (open) { this.controller.setMode(null); this.overlay.setDragBox(null); }
     this.updatePaused();
     this.last = performance.now();
@@ -293,6 +376,7 @@ export class GameView {
       if (problems.length) console.error('invariants:', problems.slice(0, 5).join('; '));
     }
     this.handleEvents();
+    this.music.frame();   // the mood (paused, the battle's clock stands still), the music volume read live
     this.selection.prune((id) => { const u = world.units.get(id); return !!u && (!u.inside || !!u.docked) && unitVisibleTo(world, this.house, u); }, (id) => { const s = world.structures.get(id); return !!s && structureVisibleTo(world, this.house, s); });
     this.onFrame?.(dt);
     this.cameraControl.update(dt);
@@ -306,18 +390,24 @@ export class GameView {
     this.controller.frame();
     this.overlay.draw({
       world, selection: this.selection, hoverId: this.controller.hoverId, hoverStructureId: this.controller.hoverStructureId,
-      project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars,
+      project: this.project, positionOf: this.positionOf, groups: this.groups, dt, healthBars: this.settings.healthBars, house: this.house,
       canSee: (u) => unitVisibleTo(world, this.house, u),
       canSeeStructure: (s) => structureVisibleTo(world, this.house, s),
     });
     this.panel.update(selectionPanelModel(world, this.selection, this.house));
     this.hud.update(dt);
+    if (world.mission) this.missionFrame(now, live);
     const sidebar = sidebarModel(world, this.house);
     this.sidebar.update(sidebar, dt);
     this.radar.update(dt, { online: sidebar.radar, view: this.viewQuad() });
     if (this.radarWas !== undefined && sidebar.radar !== this.radarWas) this.sound.play('static');
     this.radarWas = sidebar.radar;
-    if (this.endAt && now >= this.endAt) { this.endAt = 0; this.endScreen.show(endStats(world, this.house)); }
+    if (this.endAt && now >= this.endAt) {
+      this.endAt = 0;
+      const stats = endStats(world, this.house);
+      this.endScreen.show(stats);
+      this.music.end(stats.won, stats.draw);   // victory or defeat once through; a draw stays silent
+    }
     this.fps?.frame();
     this.wake.idle();
   }
@@ -329,7 +419,8 @@ export class GameView {
       this.last = now;
       this.rig.update(1, this.heightAt);
       if (!tick(now)) return;
-      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller, view: this });
+      window.__dune = createDebugApi({ world: this.world, house: this.house, selection: this.selection, project: this.project, positionOf: this.positionOf, rig: this.rig, controller: this.controller, view: this, scene: this.sceneName });
+      window.__dune.music = this.music.debug();
       window.__dune.ready = true;
       requestAnimationFrame(loop);
     });

@@ -1,5 +1,6 @@
 // Renderer, lights, sky and post-processing (spec §5.1): ACES tone mapping, soft sun shadows that
-// follow the camera, hemisphere sky/sand bounce, exponential haze, bloom and FXAA or MSAA.
+// follow the camera, hemisphere sky/sand bounce, exponential haze, bloom and FXAA or MSAA, as the
+// graphics preset sets them (spec §8, render/quality.js) — and can set them again while a battle runs.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -7,7 +8,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js';
 import { createSky, createEnvironment } from './sky.js';
-import { qualityPreset } from './quality.js';
+import { QUALITY, qualityPreset, pixelRatioFor, bloomSize } from './quality.js';
 import { createGradePass } from './grade-pass.js';
 
 export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.9, 0.42).normalize();
@@ -25,31 +26,33 @@ function guardBloom(bloom) {
   m.needsUpdate = true;
 }
 
+/** Bloom whose blur starts at the preset's resolution (Medium half the frame, High the full frame). */
+function createBloom(r3d) {
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
+  guardBloom(bloom);
+  const setSize = bloom.setSize.bind(bloom);
+  bloom.setSize = (w, h) => setSize(...bloomSize(r3d.quality, w, h));
+  return bloom;
+}
+
 export class Renderer3D {
   constructor(canvas, qualityName = 'medium') {
     this.canvas = canvas;
-    this.quality = qualityPreset(qualityName);
-    const q = this.quality;
     const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false }));
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
-    r.shadowMap.enabled = q.shadows > 0;
-    r.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft was removed in r186
+    r.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft was removed in r186: soft is PCF with a wider radius
 
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(FOG_COLOR, 0.0085);
     this.camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.5, 700);
 
     this.sun = new THREE.DirectionalLight(0xfff0d6, 3.1);
-    this.sun.castShadow = q.shadows > 0;
-    if (this.sun.castShadow) {
-      this.sun.shadow.mapSize.set(q.shadows, q.shadows);
-      const c = this.sun.shadow.camera;
-      c.near = 1; c.far = 160;
-      this.sun.shadow.bias = -0.0005;
-      this.sun.shadow.normalBias = 0.03;
-    }
+    this.sun.shadow.camera.near = 1;
+    this.sun.shadow.camera.far = 160;
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun, this.sun.target);
     this.hemi = new THREE.HemisphereLight(0xcfe0ff, 0xb0824c, 0.75);
     this.scene.add(this.hemi);
@@ -59,19 +62,10 @@ export class Renderer3D {
     this.scene.add(this.sky);
     this.shadowExtent = 0;
 
-    const target = q.msaa ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: q.msaa }) : undefined;
-    this.composer = new EffectComposer(r, target);
     this.renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(this.renderPass);
-    if (q.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.9);
-      guardBloom(this.bloom);
-      this.composer.addPass(this.bloom);
-    }
     this.grade = createGradePass();   // the menu backdrop eases its vignette out in the haze of the dive
-    this.composer.addPass(this.grade);
-    this.composer.addPass(new OutputPass());
-    if (q.fxaa) this.composer.addPass(new FXAAPass());
+    this.output = new OutputPass();
+    this.setQuality(qualityName);
 
     this.resize();
     addEventListener('resize', () => this.resize());
@@ -88,6 +82,35 @@ export class Renderer3D {
       try { this.scene.environment = createEnvironment(this.renderer); probe?.dispose(); } catch { /* keep the old one */ }
       this.onContextRestored?.();
     });
+  }
+
+  /**
+   * Applies a graphics preset (spec §8): shadows, anti-aliasing, bloom and pixel ratio change at once — the next
+   * frame recompiles the materials for the new shadow state, a short stall. Particle budgets, flash lights and
+   * terrain detail are read when a battle is built, so those follow in the next battle.
+   */
+  setQuality(name) {
+    const q = qualityPreset(name), live = !!this.quality, r = this.renderer, sun = this.sun;
+    this.qualityName = QUALITY[name] ? name : 'medium';
+    this.quality = q;
+    r.shadowMap.enabled = sun.castShadow = q.shadows > 0;
+    if (sun.shadow.map && sun.shadow.mapSize.x !== q.shadows) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    if (q.shadows) sun.shadow.mapSize.set(q.shadows, q.shadows);
+    sun.shadow.radius = q.shadowRadius;
+    this.shadowExtent = 0;   // follow() sizes the new frustum
+    const own = [this.renderPass, this.bloom, this.grade, this.output, this.fxaa];
+    const extras = this.composer?.passes.filter((p) => !own.includes(p)) ?? [];   // such as the menu backdrop's dust, ahead of the grade
+    this.composer?.dispose();
+    const target = q.msaa ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: q.msaa }) : undefined;
+    this.composer = new EffectComposer(r, target);
+    this.composer.addPass(this.renderPass);
+    if (q.bloom) this.composer.addPass(this.bloom ??= createBloom(this));
+    else if (this.bloom) { this.bloom.dispose(); this.bloom = null; }
+    for (const p of extras) this.composer.addPass(p);
+    this.composer.addPass(this.grade);
+    this.composer.addPass(this.output);
+    if (q.fxaa) this.composer.addPass(this.fxaa ??= new FXAAPass());
+    if (live) this.resize();
   }
 
   /** Drop the WebGL context and take it straight back: three.js re-uploads every buffer, texture and
@@ -117,7 +140,7 @@ export class Renderer3D {
   resize() {
     const w = Math.max(1, this.canvas.clientWidth || innerWidth);
     const h = Math.max(1, this.canvas.clientHeight || innerHeight);
-    const pr = Math.min(devicePixelRatio || 1, this.quality.pixelRatio);
+    const pr = pixelRatioFor(this.quality, devicePixelRatio);
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(pr);

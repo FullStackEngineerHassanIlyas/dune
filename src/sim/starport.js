@@ -8,8 +8,9 @@
 import { UNITS } from '../data/units.js';
 import { DT, STARPORT, AIR, airSpeed } from '../data/tuning.js';
 import { DEFERRED } from '../data/phase.js';
-import { spend, addCredits } from './economy.js';
+import { spend, refund } from './economy.js';
 import { nearestEdge, hoverTo, climb } from './air.js';
+import { starportSells } from './tech.js';
 import { findFreeTile } from './spawn.js';
 
 const eva = (world, house, key, text) => world.events.push('eva', { house: house.id, key, text });
@@ -32,7 +33,7 @@ export function market(world, house) {
   if (house.starport) return house.starport;
   if (!starportOf(world, house.id)) return null;
   const m = { stock: {}, price: {}, restockAt: world.time + STARPORT.restock, repriceAt: world.time + STARPORT.reprice, batch: null };
-  for (const t of wares(house.id)) {
+  for (const t of wares(house.id).filter((w) => starportSells(house, w))) {   // a Sega campaign sells by mission
     m.stock[t] = STARPORT.stock[0] + world.rng.int(STARPORT.stock[1] - STARPORT.stock[0] + 1);
     m.price[t] = priceOf(world, t);
   }
@@ -104,7 +105,7 @@ export function cancelStarport(world, houseId, typeId) {
   const k = b.items.map((i) => i.typeId).lastIndexOf(typeId);
   if (k < 0) return;
   const [item] = b.items.splice(k, 1);
-  addCredits(world, house, item.paid);
+  refund(house, item.paid);   // a cancelled Starport order: the money back in full
   m.stock[typeId] = Math.min(STARPORT.maxStock, m.stock[typeId] + 1);
   eva(world, house, 'cancelled', 'Cancelled.');
   if (!b.items.length) {   // nothing left to bring: the Frigate turns back

@@ -1,5 +1,5 @@
 // Web Audio sound engine (spec §6, §9): one AudioContext opened by the first click or key press (browser
-// autoplay rules), every synthesized effect and its variations turned into AudioBuffers once — rendered
+// autoplay rules) — or at once in the menu shell's frame, which may play — every synthesized effect and its variations turned into AudioBuffers once — rendered
 // ahead by a worker thread from the moment the engine exists (or in the main thread's idle time, or at
 // the first click, where there is no worker), so neither the frame rate nor the first click waits. A
 // sound whose samples have not arrived yet is skipped rather than waited for. play(id, {x, z})
@@ -8,7 +8,9 @@
 // send into one shared convolution reverb (a subtle open-desert space; far sounds are wetter). Voices are
 // capped per sound and overall, with a few slots kept for the sounds that matter; a limiter guards the
 // output. Under it all, once the wind has been rendered, a soft stereo desert wind loops. Without Web
-// Audio — or if it fails to start — the engine stays silent and never throws.
+// Audio — or if it fails to start — the engine stays silent and never throws. With "Use the original
+// sounds" on (spec §6 Original files), the effects found in the player's own Dune II clips stand in for
+// the synthesized ones they map to (src/formats/dune2-sounds.js), at the same level; the rest stay ours.
 import { RECIPES, RATE, render, variants, reverbImpulse } from './synth.js';
 
 export const MAX_VOICES = 24;
@@ -17,6 +19,7 @@ export const VOICE_GAIN = 0.5;   // each voice at -6 dB, and a limiter before th
 export const VOICE_LIMITS = {
   rifle: 5, mg: 5, cannon: 4, heavyCannon: 3, rocket: 4, rocketFly: 3, hit: 4, sandHit: 4, bulletHit: 4,
   explosionSmall: 4, explosionMedium: 3, explosionLarge: 2, explosionHuge: 1, launchHeavy: 1, debris: 3, collapse: 2, crush: 2, click: 3,
+  shipPass: 3, shipEntry: 3, scream: 3,   // the opening's three ships: each one's boom still rolls as the next comes in
 };
 const DEFAULT_LIMIT = 2;
 const PRIORITY = new Set(['explosionLarge', 'explosionHuge', 'launchHeavy', 'collapse', 'alarm', 'ready', 'error', 'sell', 'click', 'beep', 'static']);
@@ -40,6 +43,13 @@ export const RENDER_ORDER = [...FIRST, ...Object.keys(RECIPES).filter((id) => !F
 function renderQueue() {
   const ids = RENDER_ORDER.filter((id) => id !== AMBIENT), more = (id, from) => Array.from({ length: Math.max(0, variants(id) - from) }, (_, v) => [id, v + from]);
   return [...ids.map((id) => [id, 0]), ...ids.flatMap((id) => more(id, 1)), ...more(AMBIENT, 0)];
+}
+
+/** The player's original effects (src/core/user-files.js, loaded only now), followed so a change on the Original Game Files page applies at once. */
+async function storedEffects(engine) {
+  const files = await import('../core/user-files.js');
+  if (!engine.following) { engine.following = true; files.follow(engine); }
+  return files.originalEffects();
 }
 
 /** Pan, level, low-pass cutoff and reverb send for a sound at (x, z) heard from a camera looking at (listener.x, listener.z). */
@@ -83,7 +93,12 @@ export class VoiceLimiter {
 }
 
 export class SoundEngine {
-  constructor({ enabled = true, volume = 0.8, win = globalThis.window, random = Math.random } = {}) {
+  /**
+   * early: open the context now, not at the first gesture — a battle in the menu shell's frame, which the player's
+   * gestures on the menu let play at once (allow="autoplay"), so a mission starts with its sound; where the browser
+   * still holds the context, the first gesture lets it run as usual.
+   */
+  constructor({ enabled = true, volume = 0.8, win = globalThis.window, random = Math.random, originals = storedEffects, early = false } = {}) {
     this.win = win ?? {};
     this.available = typeof (this.win.AudioContext ?? this.win.webkitAudioContext) === 'function';
     this.enabled = this.available;   // `enabled: false` only starts muted: M can still turn sound on
@@ -108,12 +123,18 @@ export class SoundEngine {
     this.listener = { x: 0, z: 0, rightX: 1, rightZ: 0, range: 16 };
     this.ducked = false;   // an announcer line is being spoken
     this.asleep = false;   // off stage: the context is kept suspended (sleep)
+    this.originals = originals;   // (engine) → { id: [samples at RATE] } of the player's original effects, or null
+    this.originalSamples = null;
+    this.override = new Map();   // id → AudioBuffers made from them, played instead of the synthesized bank
+    this.asked = 0;
     if (this.enabled) {
+      this.loadOriginals();
       // kept until the context really runs: a first key such as Escape or Shift is not a user activation
       this.onGesture = () => this.unlock();
       this.win.addEventListener('pointerdown', this.onGesture);
       this.win.addEventListener('keydown', this.onGesture);
       this.renderAhead();
+      if (early) this.unlock();   // after renderAhead: a worker at work keeps the rendering off this thread
     }
   }
 
@@ -250,6 +271,7 @@ export class SoundEngine {
       this.reverb = this.openReverb();
       for (const id of RENDER_ORDER) for (const data of this.samples.get(id) ?? []) if (data) this.addBuffer(id, data);
       this.samples.clear();
+      this.buildOverrides();
       if (!this.worker) this.renderRest();   // a worker still at work delivers the rest as it goes
     } catch (err) {
       console.warn('sound disabled:', err);
@@ -287,6 +309,34 @@ export class SoundEngine {
     this.impulse = null;
   }
 
+  /** Asks for the player's original effects again (also what the store calls when the player changes them). */
+  loadOriginals() {
+    if (typeof this.originals !== 'function') return Promise.resolve(null);
+    const asked = ++this.asked;
+    return Promise.resolve().then(() => this.originals(this)).catch(() => null).then((s) => { if (asked === this.asked) this.useOriginals(s); return s; });
+  }
+
+  originalsChanged() { return this.loadOriginals(); }
+
+  /** Original samples ({ id: [Float32Array at RATE] }) to play instead of the synthesized ones; null: ours again. */
+  useOriginals(samples) {
+    this.originalSamples = samples && Object.keys(samples).length ? samples : null;
+    this.override.clear();
+    if (this.ctx) this.buildOverrides();
+  }
+
+  buildOverrides() {
+    for (const [id, list] of Object.entries(this.originalSamples ?? {})) {
+      try {
+        this.override.set(id, list.map((data) => {
+          const b = this.ctx.createBuffer(1, data.length, RATE);
+          b.copyToChannel(data, 0);
+          return b;
+        }));
+      } catch { /* this one stays synthesized */ }
+    }
+  }
+
   setListener(x, z, rightX, rightZ, range) {
     const l = this.listener, n = Math.hypot(rightX, rightZ) || 1;
     l.x = x;
@@ -308,7 +358,7 @@ export class SoundEngine {
   play(id, { x = null, z = null, volume = 1, rate = 1 } = {}) {
     if (!this.running || this.muted) return false;   // a suspended context would hold voices it cannot finish
     if (this.ducked && HERALDS.has(id)) return false;
-    const bank = this.buffers.get(id);
+    const bank = this.override.get(id) ?? this.buffers.get(id);
     if (!bank?.length) return false;
     let pan = 0, gain = volume, cutoff = AIR.open, wet = DRY.has(id) ? 0 : WET.ui;
     if (x !== null && z !== null) {

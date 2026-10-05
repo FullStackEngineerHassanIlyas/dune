@@ -1,7 +1,8 @@
 // Main menu (spec §5.8): Arrakis turning in space, then a live battle, behind the title and the menu
 // screens (menu backdrop spec); the old flight over the dunes stays as the fallback. Each battle runs
 // in a frame laid over the menu: full screen carries from the menu into the battle and back, and
-// quitting simply throws the frame away.
+// quitting simply throws the frame away. The title theme (spec §6 Music) plays from the first click or
+// key and rests while a battle is in the frame.
 import * as THREE from 'three';
 import { Renderer3D } from '../render/renderer.js';
 import { terrainSubFor } from '../render/quality.js';
@@ -16,6 +17,7 @@ import { MainMenu } from '../ui/main-menu.js';
 import { changeSetting } from '../ui/options.js';
 import { toggleFullscreen, isFullscreen, onFullscreenChange } from '../ui/fullscreen.js';
 import { MenuBackdrop } from './menu-backdrop.js';
+import { MenuMusic } from '../audio/music/music.js';
 
 const SIZE = 128;   // wide enough that the flight never shows the edge of the world
 
@@ -73,10 +75,22 @@ export async function start({ search }) {
     try { backdrop = flyover(settings, seed); } catch (err2) { console.warn('menu flyover:', err2); }
   }
   let frame = null;
+  // the title theme from the first click or key (spec §6 Music); ?music=<track id> plays any track instead
+  const music = new MenuMusic({ settings, track: params.str('music') });
+  // the player's own Sega soundtrack, kept beside the game in its git-ignored original/ folder, joins their music by
+  // itself on a local server (not in automated runs, which start from an empty browser on purpose)
+  const automated = navigator.webdriver || /HeadlessChrome/.test(navigator.userAgent);
+  if (!automated && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+    import('../core/user-files.js').then((m) => Promise.all([
+      m.importLocalMusic().catch((err) => console.warn('local music:', err)),
+      m.importLocalPaks().catch((err) => console.warn('local game files:', err)),
+    ])).catch((err) => console.warn('local files:', err));
+  }
 
   const launch = (query) => {
     menu.hide();
     backdrop.stop();
+    music.leave();   // the battle in the frame has music of its own
     frame = document.createElement('iframe');
     frame.className = 'game-frame';
     frame.title = 'Battle';
@@ -98,30 +112,55 @@ export async function start({ search }) {
     };
     wait();
   };
-  const quit = () => {
+  // back from a battle: to the title, or to the screen the battle asked for (a campaign screen)
+  const quit = (screen) => {
     frame?.remove();
     frame = null;
     Object.assign(settings, loadSettings(params));   // what the battle's own options changed
     app.classList.add('in-menu');
-    backdrop.setPaused?.(!settings.menuMotion);
+    // the campaign's results and defeat screens hold the backdrop still, but its GPU context must be back for
+    // what follows them (the ending draws the planet on it): start it paused there, a still frame and no loop
+    const hold = screen === 'campaign-results' || screen === 'campaign-defeat';
+    backdrop.setPaused?.(hold || !settings.menuMotion);
     backdrop.start();
-    menu.show();
+    music.enter();
+    menu.show(screen);
     window.focus();
   };
+  // Messages from the battle in the frame: { dune: '<type>', ... } goes to the handler registered for the type.
+  // 'quit' is the shell's own; the campaign screens register theirs through shell.on (e.g. a mission's result).
+  const handlers = new Map([['quit', (data) => quit(data?.screen)]]);
+  const shell = { launch, quit, on: (type, handler) => { handlers.set(type, handler); } };
 
-  const menu = new MainMenu(document.getElementById('ui'), { settings, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
+  const menu = new MainMenu(document.getElementById('ui'), { settings, music, shell, backdrop, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
     // Pause background (WCAG 2.2.2), remembered; the flyover fallback cannot pause
     isBackdropPaused: () => !settings.menuMotion,
     onBackdropPause: (paused) => { changeSetting(settings, 'menuMotion', !paused); backdrop.setPaused?.(paused); menu.refresh(); } });
   onFullscreenChange(() => menu.refresh());
   addEventListener('message', (e) => {
-    if (e.origin === location.origin && frame && e.source === frame.contentWindow && e.data?.dune === 'quit') quit();
+    if (e.origin !== location.origin || !frame || e.source !== frame.contentWindow) return;
+    handlers.get(e.data?.dune)?.(e.data);
   });
   addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.altKey && !e.repeat) { e.preventDefault(); toggleFullscreen(); }
   });
-  window.__duneShell = { launch, quit };
-  backdrop.setPaused?.(!settings.menuMotion);
-  backdrop.start();
-  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, get frame() { return frame; } };
+  window.__duneShell = shell;
+  let started = false;
+  const startBackdrop = (opts) => {
+    if (started) return;
+    started = true;
+    backdrop.setPaused?.(!settings.menuMotion);
+    backdrop.start(opts);
+  };
+  window.__dune = { ready: true, scene: 'menu', menu, launch, quit, backdrop: backdrop.debug?.() ?? null, music: music.debug(), get frame() { return frame; } };
+  // The opening (scenes/menu-intro.js) plays before the title; it hides the menu while it runs and starts the
+  // backdrop when it wants it. Whatever happens, the backdrop and the menu end up running. ?screen=<name> then
+  // opens a menu screen straight away (screenshots, development).
+  (async () => {
+    try { await (await import('./menu-intro.js')).runIntro({ params, settings, app, backdrop, menu, music, startBackdrop, debug: window.__dune }); }
+    catch (err) { console.warn('intro:', err); menu.show(); }
+    startBackdrop();
+    const screen = params.str('screen');
+    if (screen) menu.go(screen);
+  })();
 }

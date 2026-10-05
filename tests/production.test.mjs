@@ -150,7 +150,7 @@ test('primary factory is where new units appear', () => {
   assert.ok(s.tx >= 20 && s.tx <= 21 && s.ty === 12, `soldier at ${s.tx},${s.ty}`);
 });
 
-test('a cancel refund never lifts credits above storage (the overflow is lost with a warning)', () => {
+test('a cancel refund comes back in full even above storage: it is money, not spice', () => {
   const { world, h } = base();
   h.startBuffer = 0;
   world.spawnStructure('windtrap', 'atreides', 0, 0);
@@ -165,8 +165,8 @@ test('a cancel refund never lifts credits above storage (the overflow is lost wi
   world.issue('atreides', { type: 'hold', typeId: 'windtrap' });
   world.step();
   assert.equal(h.lines.structure.current, null);
-  assert.equal(h.credits, 1005);
-  assert.ok(world.events.drain().some((e) => e.key === 'storageFull'));
+  assert.equal(h.credits, 1005 + paid);
+  assert.ok(!world.events.drain().some((e) => e.key === 'storageFull'));
 });
 
 test('a READY structure is refunded when the Construction Yard is lost', () => {

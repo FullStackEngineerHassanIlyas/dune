@@ -434,14 +434,25 @@ export const RECIPES = {
   },
 
   // ——— impacts ———
-  hit: (d) => {   // a shell striking armour: a crack, a burst, and the hull ringing like a struck plate
-    const p = d.u(0.85, 1.15);
+  hit: (d) => {   // a shell striking armour: a hard crack, a heavy punch into thick steel and a short, deep, damped clang; sparks
+    const p = d.u(0.88, 1.12);
     return out([
-      [crack(d, 1600, 0.003, 3), 0.9],
-      [blast(d, 3500, 600, 0.03, 0.07), 0.7],
-      [thump(180, 80, 0.012, 0.045), 0.4],
-      [metal(d, 520 * p, 0.07, PLATE), 0.6],
-      [grit(d, 3000, 0.05, 4500, 1), 0.25],   // sparks
+      [crack(d, 1200, 0.0025, 3), 0.7],
+      [thump(150 * p, 60, 0.012, 0.06, 2.4), 0.85],
+      [chest(d, 900 * p, 320, 0.03, 0.05, 2), 0.7],
+      [blast(d, 2600, 400, 0.025, 0.06), 0.55],
+      [metal(d, 190 * p, 0.035, PLATE), 0.35],   // thick steel: a low clang, gone almost at once (a thin plate rang like tin)
+      [grit(d, 2500, 0.04, 3800, 1), 0.15],
+    ], -18);
+  },
+  hitStructure: (d) => {   // a shell bursting on a building: a crack, a heavy concussion and concrete raining down
+    const p = d.u(0.9, 1.1);
+    return out([
+      [crack(d, 1100, 0.003, 3), 0.7],
+      [thump(120 * p, 50, 0.015, 0.07, 2.4), 0.85],
+      [chest(d, 800 * p, 300, 0.03, 0.06, 2), 0.75],
+      [blast(d, 3000, 400, 0.03, 0.07), 0.6],
+      [grit(d, 3200, 0.12, 2400, 0.9), 0.5, 0.02],
     ], -18);
   },
   sandHit: (d) => out([   // a shell burying itself in sand: a dull whump and a spray of sand pattering down
@@ -450,11 +461,35 @@ export const RECIPES = {
     [chest(d, 700, 350, 0.03, 0.05, 1.5), 0.8],
     [grit(d, 4000, 0.12, 3200, 0.8), 0.6, 0.02],
   ], -19),
-  bulletHit: (d) => out([   // a bullet striking home: a dull smack, and in one variation in three a metallic ping
-    [crack(d, 2200, 0.0015, 2), 0.6],
-    [decay(biquad(noise(0.08, d.s()), 'bp', d.u(500, 800), 1.4), 0.0005, 0.014), 1],
-    [d.n === 2 ? metal(d, d.u(2600, 3400), 0.03, BAR) : grit(d, 5000, 0.03, 3000, 1), d.n === 2 ? 0.45 : 0.25, 0.001],
+  bulletHit: (d) => out([   // a bullet on armour: a dull, hard knock, and in one variation in four a ricochet whining off
+    [crack(d, 1400, 0.001, 2), 0.35],
+    [thump(d.u(260, 340), 140, 0.004, 0.012, 2), 0.7],
+    [decay(biquad(noise(0.06, d.s()), 'bp', d.u(700, 1000), 1.1), 0.0005, 0.01), 0.7],
+    d.n === 3
+      ? [shape(biquad(glide(0.22, (t) => 2600 - 5200 * t, 'saw'), 'bp', 2000, 1.2), [[0, 0], [0.01, 1], [0.08, 0.5], [0.22, 0]]), 0.22, 0.004]
+      : [metal(d, d.u(700, 900), 0.008, PLATE), 0.12, 0.001],   // a short low knock of steel, not a ping
   ], -25),
+  scream: (d) => {   // a man going down: a short ragged cry through an open 'ah', falling as he falls; never twice the same
+    const s = d.u(0.5, 0.75), f0 = d.u(300, 430), drop = d.u(0.4, 0.55), vib = d.u(5, 7.5);
+    const pitch = (t) => f0 * (1 - drop * Math.pow(Math.min(1, t / s), 1.4)) * (1 + 0.035 * Math.sin(2 * Math.PI * vib * t));
+    const voice = glide(s, pitch, 'saw'), env = [[0, 0], [0.025, 1], [s * 0.45, 0.8], [s, 0]];
+    return out([
+      [shape(biquad(voice, 'bp', d.u(760, 880), 5), env), 1],      // the formants of 'ah'
+      [shape(biquad(voice, 'bp', d.u(1150, 1300), 6), env), 0.55],
+      [shape(biquad(voice, 'bp', d.u(2450, 2750), 7), env), 0.22],
+      [shape(biquad(noise(s, d.s()), 'bp', 1600, 0.7), env), 0.16],   // breath and rasp
+    ], -21);
+  },
+  bulletSoft: (d) => out([   // a bullet finding a man: a soft, dull thwack with no ring at all
+    [thump(d.u(150, 190), 90, 0.004, 0.018, 1.4), 0.8],
+    [decay(biquad(noise(0.05, d.s()), 'lp', d.u(900, 1300), 0.7), 0.0008, 0.012), 0.8],
+  ], -27),
+  bulletChip: (d) => out([   // a bullet chipping concrete: a sharp tick, a puff of grit and a few crumbs falling
+    [crack(d, 1300, 0.0012, 2), 0.4],
+    [thump(d.u(220, 280), 120, 0.003, 0.01, 1.6), 0.5],
+    [decay(biquad(noise(0.06, d.s()), 'bp', d.u(850, 1200), 1), 0.0005, 0.012), 0.7],
+    [grit(d, 2000, 0.04, 1800, 1), 0.3, 0.004],
+  ], -26),
   explosionSmall: (d) => {   // a vehicle or rocket going up: crack, fireball, a deep thump, rumble and grit falling
     const p = d.u(0.9, 1.1);
     return out([
@@ -533,6 +568,47 @@ export const RECIPES = {
     return out(parts, -19);
   },
 
+  // ——— the desert ———
+  wormRumble: (d) => {   // a worm passing under the sand: a deep grinding rumble with the sand hissing over it, swelling and fading
+    const s = 1.6, env = [[0, 0], [0.4, 1], [1.1, 1], [s, 0]];
+    return out([
+      [shape(wobble(biquad(brown(s, d.s()), 'lp', 110, 0.8), d.s(), 6, 0.5), env), 1],
+      [shape(drive(wobble(biquad(noise(s, d.s()), 'bp', 260, 1.2), d.s(), 11, 0.7), 1.6), env), 0.55],   // the grind a small speaker can play
+      [shape(wobble(biquad(crackle(s, d.s(), 2600), 'bp', 2200, 0.8), d.s(), 8, 0.6), env), 0.3],
+    ], -22, s);
+  },
+  wormRoar: (d) => {   // a worm breaking the sand: a burst of sand, then a deep guttural roar that rattles and falls away
+    const s = 1.8, env = [[0, 0], [0.12, 1], [0.9, 0.85], [s, 0]];
+    const growl = glide(s, (t) => 92 - 30 * t + 6 * Math.sin(t * 37), 'saw');
+    return out([
+      [thump(90, 40, 0.05, 0.18, 2.2), 0.6],
+      [decay(biquad(noise(0.9, d.s()), 'lp', (t) => 300 + 2600 * Math.exp(-t / 0.08), 0.7), 0.004, 0.18), 0.7],   // the sand bursting up
+      [shape(wobble(drive(stack([[biquad(Float32Array.from(growl), 'bp', 420, 2.2), 1], [biquad(Float32Array.from(growl), 'bp', 950, 3), 0.5]]), 2), d.s(), 18, 0.45), env), 0.9],
+      [shape(wobble(biquad(noise(s, d.s()), 'bp', 650, 0.9), d.s(), 9, 0.5), env), 0.45],   // its breath
+      [shape(biquad(brown(s, d.s()), 'lp', 140, 0.7), env), 0.5],
+      [grit(d, 1500, 0.5, 2400, 0.8), 0.25, 0.1],   // sand raining back
+    ], -14, s);
+  },
+  wormGulp: (d) => {   // a worm swallowing its prey: the maw slams shut, metal crumples and sand pours, a deep gulp and a growl
+    const growl = glide(1, (t) => 78 - 22 * t + 5 * Math.sin(t * 41), 'saw');
+    const parts = [[thump(110, 45, 0.03, 0.12, 2.6), 0.55], [metal(d, 260, 0.12, PLATE), 0.45, 0.02], [crack(d, 900, 0.006, 3), 0.6], [chest(d, 700, 300, 0.08, 0.14, 2.2), 0.6]];
+    for (let k = 0, at = 0.03; k < 5; k++, at += d.u(0.03, 0.07)) parts.push([decay(biquad(noise(0.08, d.s()), 'bp', d.u(400, 1600), 1.4), 0.0005, 0.02), d.u(0.6, 1), at]);
+    parts.push([decay(drive(biquad(glide(0.5, (t) => 160 * Math.exp(-t * 3) + 45, 'saw'), 'lp', 700), 1.8), 0.03, 0.15), 0.55, 0.25]);
+    parts.push([grit(d, 1800, 0.35, 2000, 0.8), 0.3, 0.1]);
+    parts.push([shape(drive(stack([[biquad(Float32Array.from(growl), 'bp', 380, 2.2), 1], [biquad(Float32Array.from(growl), 'bp', 880, 3), 0.4]]), 2), [[0, 0], [0.12, 1], [0.6, 0.6], [1, 0]]), 0.5, 0.3]);
+    return out(parts, -15, 1.5);
+  },
+  bloom: (d) => {   // a spice bloom bursting: a deep whump under the ground, a geyser of sand hissing up, grains pattering down
+    const s = 2;
+    return out([
+      [thump(70, 30, 0.08, 0.3, 2.6), 0.6],
+      [chest(d, 600, 220, 0.25, 0.35, 2.2), 0.85],
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 900 + 1400 * Math.exp(-t / 0.5), 0.6), [[0, 0], [0.06, 1], [0.5, 0.6], [1.4, 0.15], [s, 0]]), 1],
+      [shape(biquad(brown(s, d.s()), 'lp', 160, 0.7), [[0, 0], [0.1, 1], [s, 0]]), 0.35],
+      [grit(d, 2200, 0.7, 2600, 0.7), 0.4, 0.3],
+    ], -14, s);
+  },
+
   // ——— the base at work ———
   clunk: (d) => {   // something heavy set down: a deep metal thunk, the frame ringing, a latch clanking home
     const p = d.u(0.92, 1.08);
@@ -589,6 +665,24 @@ export const RECIPES = {
       [shape(biquad(noise(s, d.s()), 'bp', (t) => 650 + 1350 * by(t), 0.7), bell), 0.7],
       [shape(glide(s, (t) => 2000 + 1000 * by(t)), bell), 0.05],
     ], -17);
+  },
+  shipPass: (d) => {   // a house ship of the opening sweeping past on its way to Arrakis: a beating drive hum and a whine falling as it goes by
+    const s = 1.9, mid = d.u(0.6, 0.72), by = passing(mid, 0.13), bell = [[0, 0], [mid * 0.45, 0.4], [mid, 1], [mid + 0.4, 0.45], [s, 0]];
+    return out([
+      [shape(biquad(glide(s, (t) => 66 + 30 * by(t), 'saw'), 'lp', 380), bell), 0.9],
+      [shape(biquad(glide(s, (t) => 69.5 + 31 * by(t), 'saw'), 'lp', 380), bell), 0.6],   // a little apart: the drive beats
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 480 + 1600 * by(t), 0.9), bell), 0.65],   // the rush of its passing
+      [shape(glide(s, (t) => 820 + 640 * by(t)), bell), 0.05],
+    ], -16);
+  },
+  shipEntry: (d) => {   // the ship meeting the atmosphere far off: a hiss of fire swelling, then a soft distant boom rolling away
+    const s = 2.2;
+    return out([
+      [shape(biquad(crackle(s, d.s(), 1500), 'bp', 1400, 0.8), [[0, 0], [0.45, 0.7], [0.8, 1], [1.5, 0.2], [s, 0]]), 0.45],
+      [shape(biquad(noise(s, d.s()), 'bp', (t) => 280 + 900 * Math.exp(-t / 0.9), 0.7), [[0, 0], [0.35, 0.6], [0.8, 1], [s, 0]]), 0.7],
+      [thump(68, 36, 0.05, 0.4, 2.2), 0.8, 0.8],
+      [rumble(d, 150, 0.45, 0.08), 0.55, 0.85],
+    ], -19);
   },
 
   // ——— interface ———
@@ -649,7 +743,7 @@ function loop(a, seconds, lufs) {
 }
 
 /** How many seeded variations each sound has; the engine picks one at random per play. */
-export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, sandHit: 3, bulletHit: 3, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
+export const VARIANTS = { wind: 2, rifle: 4, mg: 4, cannon: 3, heavyCannon: 3, rocket: 3, rocketFly: 2, sonic: 2, gas: 2, hit: 3, hitStructure: 2, sandHit: 3, bulletHit: 4, bulletSoft: 2, scream: 4, bulletChip: 2, explosionSmall: 3, explosionMedium: 2, explosionLarge: 2, debris: 3, collapse: 2, crush: 3, clunk: 3, slab: 2, ratchet: 2, weld: 3, click: 2 };
 export const variants = (id) => VARIANTS[id] ?? 1;
 
 /** Variation v of sound `id`: the same samples every time. */

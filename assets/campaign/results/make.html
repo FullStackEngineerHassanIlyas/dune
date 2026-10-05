@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Results art renderer</title>
+<!-- Opened by make.mjs (headless Chrome on the real GPU): renders the pictures of the screens after a mission. -->
+<script type="importmap">
+{ "imports": { "three": "../../../vendor/three/three.module.js", "three/addons/": "../../../vendor/three/addons/" } }
+</script>
+</head>
+<body style="margin:0;background:#000">
+<script type="module">
+import { renderResultArt, RESULT_ART } from '../../../src/ui/campaign/results-render.js';
+window.resultArtNames = Object.keys(RESULT_ART);
+window.renderArt = async (job, type = 'image/webp', quality = 0.8) => (await renderResultArt(job)).toDataURL(type, quality);
+window.__ready = true;
+</script>
+</body>
+</html>

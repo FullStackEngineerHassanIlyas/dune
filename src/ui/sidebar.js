@@ -2,9 +2,11 @@
 // power bar, Repair and Sell toggles, the Palace weapon (a charging clock; click, then aim) and two build strips (structures | units) — factory upgrades close the structure strip — with model icons,
 // clock-wipe progress, READY / ON HOLD and queue badges, scroll arrows and a tooltip. Left click
 // builds, resumes or (when READY) starts placement; right click holds, then cancels with a refund;
-// Shift + left click queues five. The tooltip follows what it describes while the pointer rests on it.
+// Shift + left click queues five. The tooltip (tooltip.js) opens when the pointer rests on an icon or the keyboard
+// focuses one, and keeps up with what it describes.
 // Above it all, the Menu and full screen buttons.
-import { rollCredits, tipText, clock, badgeOf, wipeOf } from './sidebar-model.js';
+import { rollCredits, clock, badgeOf, wipeOf } from './sidebar-model.js';
+import { BuildTooltip } from './tooltip.js';
 
 const SLOT = 92;   // icon height plus gap (px)
 
@@ -23,8 +25,7 @@ export class Sidebar {
         <div class="sb-power"><div class="sb-power-fill"></div><div class="sb-power-use"></div></div>
         <div class="sb-strip" data-strip="structures"><button class="sb-arrow" data-dir="-1">&#9650;</button><div class="sb-slots"><div class="sb-list"></div></div><button class="sb-arrow" data-dir="1">&#9660;</button></div>
         <div class="sb-strip" data-strip="units"><button class="sb-arrow" data-dir="-1">&#9650;</button><div class="sb-slots"><div class="sb-list"></div></div><button class="sb-arrow" data-dir="1">&#9660;</button></div>
-      </div>
-      <div class="sb-tip"><b></b><span></span></div>`;
+      </div>`;
     root.appendChild(el);
     this.digits = el.querySelector('.sb-digits');
     this.storageBar = el.querySelector('.sb-storage i');
@@ -32,7 +33,7 @@ export class Sidebar {
     this.power = el.querySelector('.sb-power');
     this.powerFill = el.querySelector('.sb-power-fill');
     this.powerUse = el.querySelector('.sb-power-use');
-    this.tip = el.querySelector('.sb-tip');
+    this.tooltip = new BuildTooltip(el);
     this.weapon = el.querySelector('.sb-weapon');
     this.weaponImg = this.weapon.querySelector('img');
     this.weaponState = this.weapon.querySelector('.sb-state');
@@ -41,20 +42,20 @@ export class Sidebar {
       if (item?.ready) this.onSpecial(item);
       else if (item) this.onCommand({ type: 'palace' });   // still charging: the Palace says it is not ready
     });
-    this.weapon.addEventListener('pointerenter', () => this.showTip(this.weapon));
-    this.weapon.addEventListener('pointerleave', () => this.hideTip());
-    this.tipFor = null;
+    this.hoverable(this.weapon);
     this.strips = {};
     for (const node of el.querySelectorAll('.sb-strip')) {
       const strip = { el: node, list: node.querySelector('.sb-list'), slots: node.querySelector('.sb-slots'), offset: 0, key: null, buttons: new Map() };
       this.strips[node.dataset.strip] = strip;
       for (const a of node.querySelectorAll('.sb-arrow')) a.addEventListener('click', () => this.scroll(strip, Number(a.dataset.dir)));
+      strip.slots.addEventListener('scroll', () => { if (strip.slots.scrollTop) strip.slots.scrollTop = 0; });   // the strip moves by its offset alone: focus must not scroll the box under it
       node.addEventListener('wheel', (e) => { e.preventDefault(); this.scroll(strip, Math.sign(e.deltaY)); }, { passive: false });
     }
     for (const b of el.querySelectorAll('.sb-tool')) b.addEventListener('click', () => this.onTool(b.dataset.tool));
     el.querySelector('.sb-menu').addEventListener('click', () => onMenu());
     el.querySelector('.sb-full').addEventListener('click', () => onFullscreen());
     el.addEventListener('contextmenu', (e) => e.preventDefault());
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.tooltip.leave(); });   // a tooltip can always be dismissed
     this.shown = null;
   }
 
@@ -77,8 +78,19 @@ export class Sidebar {
     this.fill(this.strips.structures, model.structures);
     this.fill(this.strips.units, model.units);
     this.showSpecial(model.special);
-    if (this.tipFor?.isConnected && this.tipFor.item) this.showTip(this.tipFor);   // prices, stock and clocks change under the pointer
-    else if (this.tipFor) this.hideTip();
+    this.tooltip.describe = model.describe;
+    this.tooltip.frame(model.power);   // prices, stock and clocks change under the pointer
+  }
+
+  /** The pointer resting on an icon, or the keyboard reaching it, opens its tooltip; a strip scrolls to a focused icon. */
+  hoverable(b, strip = null) {
+    b.addEventListener('pointerenter', () => this.tooltip.hover(b));
+    b.addEventListener('pointerleave', () => this.tooltip.leave(b));
+    b.addEventListener('focus', () => {
+      if (strip) this.reveal(strip, b);
+      if (b.matches(':focus-visible')) this.tooltip.hover(b, true);
+    });
+    b.addEventListener('blur', () => this.tooltip.leave(b));
   }
 
   fill(strip, items) {
@@ -89,6 +101,8 @@ export class Sidebar {
       strip.buttons.clear();
       for (const item of items) strip.list.appendChild(this.makeButton(strip, item));
       this.scroll(strip, 0);
+      const a = this.tooltip.anchor;
+      if (a && !a.isConnected) this.tooltip.reanchor(strip.buttons.get(a.dataset.type));   // e.g. an upgrade that went up a level
     }
     for (const item of items) {
       const b = strip.buttons.get(item.typeId);
@@ -119,8 +133,7 @@ export class Sidebar {
     b.append(img, b.stateEl, b.countEl);
     b.addEventListener('click', (e) => this.leftClick(b.item, e.shiftKey));
     b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.onCommand(b.item.cancel ?? { type: 'hold', typeId: b.item.typeId }); });
-    b.addEventListener('pointerenter', () => this.showTip(b));
-    b.addEventListener('pointerleave', () => this.hideTip());
+    this.hoverable(b, strip);
     strip.buttons.set(item.typeId, b);
     return b;
   }
@@ -145,26 +158,22 @@ export class Sidebar {
     if (this.weaponState.textContent !== label) this.weaponState.textContent = label;
   }
 
-  hideTip() {
-    this.tipFor = null;
-    this.tip.classList.remove('show');
-  }
-
-  showTip(b) {
-    this.tipFor = b;
-    const i = b.item;
-    const name = this.tip.querySelector('b'), line = this.tip.querySelector('span'), text = tipText(i);
-    if (name.textContent !== i.name) name.textContent = i.name;   // refreshed every frame: touch the page only when something changed
-    if (line.textContent !== text) line.textContent = text;
-    const top = `${b.getBoundingClientRect().top - this.el.getBoundingClientRect().top}px`;
-    if (this.tip.style.top !== top) this.tip.style.top = top;
-    this.tip.classList.add('show');
-  }
+  /** How many icons the strip shows at once. */
+  visible(strip) { return Math.max(1, Math.floor((strip.slots.clientHeight + 4) / SLOT)); }
 
   scroll(strip, dir) {
-    const visible = Math.max(1, Math.floor((strip.slots.clientHeight + 4) / SLOT));
-    const max = Math.max(0, strip.buttons.size - visible);
+    const max = Math.max(0, strip.buttons.size - this.visible(strip));
     strip.offset = Math.max(0, Math.min(max, strip.offset + dir));
+    strip.slots.scrollTop = 0;
     strip.list.style.transform = `translateY(${-strip.offset * SLOT}px)`;
+    this.tooltip?.track();   // the icon under the card slides: the card follows
+  }
+
+  /** Scrolls the strip just far enough to show icon `b` (Tab reaching one out of view). */
+  reveal(strip, b) {
+    const i = [...strip.buttons.values()].indexOf(b), visible = this.visible(strip);
+    if (i < 0) return;
+    if (i < strip.offset) this.scroll(strip, i - strip.offset);
+    else if (i >= strip.offset + visible) this.scroll(strip, i - visible + 1 - strip.offset);
   }
 }

@@ -1,15 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { VoiceQueue, VoicePlayer, WebVoiceOutput, lineForEvent, lineInfo, ackForCommand, namedLine, ACK_LINES, SELECT_ACKS, NAMED_HOUSES, EVA_KEYS, GAP, LEAD, VOICE_LEVEL } from '../src/audio/voice.js';
+import { VoiceQueue, VoicePlayer, WebVoiceOutput, announcerSet, lineForEvent, lineInfo, ackForCommand, namedLine, ACK_LINES, SELECT_ACKS, NAMED_HOUSES, EVA_KEYS, GAP, LEAD, VOICE_LEVEL } from '../src/audio/voice.js';
 import { PLAYABLE_HOUSES } from '../src/data/houses.js';
+import { unitLineIds } from '../src/data/unit-voices.js';
 import { DEFAULTS, sanitize } from '../src/core/settings.js';
 import { OPTION_ROWS } from '../src/ui/options.js';
 
 const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('assets/voice/manifest.json', root)));
 const lines = JSON.parse(readFileSync(new URL('scripts/voices/lines.json', root)));
-const setOf = (house) => manifest.sets[manifest.houses[house]];
+const setOf = (house) => manifest.sets[manifest.houses[house]];   // the house's own announcer (Options → Announcer "Each house")
+const sharedSet = () => manifest.sets[manifest.shared];             // every house's by default (tests/announcer-shared.test.mjs)
 
 // Every 'eva' key the simulation can raise, read from its source: eva(…, 'key' …), key: 'key', announce(…, 'key' …) and refusals.
 function simEvaKeys() {
@@ -29,8 +31,7 @@ test('every announcement the simulation raises has a voiced line for every playa
   const keys = simEvaKeys();
   assert.ok(keys.size >= 35, `found ${keys.size} keys`);
   for (const key of keys) assert.ok(EVA_KEYS.includes(key), `eva key ${key} has no line: map it in EVA_LINES (src/audio/voice.js) or list it in SILENT_EVA`);
-  for (const house of PLAYABLE_HOUSES) {
-    const set = setOf(house);
+  for (const house of PLAYABLE_HOUSES) for (const set of [setOf(house), sharedSet()]) {
     for (const key of keys) {
       if (lineForEvent({ type: 'eva', house, key }, house) === null && !['enemyUnitDestroyed', 'enemyStructureDestroyed'].includes(key)) continue;   // silent by choice
       const variants = key === 'enemyUnitDestroyed' || key === 'enemyStructureDestroyed' ? [...NAMED_HOUSES, 'mercenary'] : [null];
@@ -42,21 +43,30 @@ test('every announcement the simulation raises has a voiced line for every playa
   }
 });
 
+/** A set's words in lines.json, keyed as the manifest keys them: unit groups' lists become '<kind>.<n>'. */
+const tableOf = (name, set) => (set.role === 'unit'
+  ? Object.fromEntries(Object.entries(lines.unitVoices[set.group]).flatMap(([kind, texts]) => texts.map((t, i) => [`${kind}.${i + 1}`, t])))
+  : lines[name === 'units' ? 'units' : 'announcer']);
+const idOf = (set, key) => (set.role === 'unit' ? `unit.${set.group}.${key}` : key);
+
 test('every line the game can ask for exists in every set, and every file exists and is small', () => {
   const wanted = new Set([...ACK_LINES, ...SELECT_ACKS, 'radarOn', 'radarOff', 'wormsign', 'selectTarget', 'missileLaunched', 'missileApproaching',
-    'yardDeployed', 'structureSold', 'repairing', 'unitRepaired', ...NAMED_HOUSES.concat('enemy').map((h) => namedLine('approaching', h))]);
-  for (const house of PLAYABLE_HOUSES) {
-    const set = { ...manifest.sets.units.lines, ...setOf(house).lines };
-    for (const id of wanted) assert.ok(set[id], `${house}: ${id}`);
-    assert.ok(set[`weaponReady.${house === 'atreides' ? 'fremen' : house === 'harkonnen' ? 'deathHand' : 'saboteur'}`]);
+    'yardDeployed', 'structureSold', 'repairing', 'unitRepaired', 'reinforcements', ...NAMED_HOUSES.concat('enemy').map((h) => namedLine('approaching', h)),
+    ...unitLineIds()]);
+  for (const house of PLAYABLE_HOUSES) for (const announcer of ['one', 'house']) {
+    const out = new WebVoiceOutput(null, house, { fetchFn: null, announcer });   // the lines a battle of this house can say
+    out.useManifest(manifest);
+    for (const id of wanted) assert.ok(out.lines[id], `${house} (${announcer}): ${id}`);
+    assert.ok(out.lines[`weaponReady.${house === 'atreides' ? 'fremen' : house === 'harkonnen' ? 'deathHand' : 'saboteur'}`]);
   }
   let bytes = 0;
   for (const [name, set] of Object.entries(manifest.sets)) {
-    const table = lines[name === 'units' ? 'units' : 'announcer'];
+    const table = tableOf(name, set);
     assert.deepEqual(Object.keys(set.lines).sort(), Object.keys(table).sort(), `${name} renders every line of lines.json`);
-    for (const [id, line] of Object.entries(set.lines)) {
+    for (const [key, line] of Object.entries(set.lines)) {
+      const id = idOf(set, key);
       assert.ok(lineInfo(id), `${id} has a class`);
-      assert.equal(line.text, table[id], `${name}/${id} text`);
+      assert.equal(line.text, table[key], `${name}/${key} text`);
       const file = new URL(`assets/voice/${line.file}`, root);
       assert.ok(existsSync(file), line.file);
       const size = statSync(file).size;
@@ -68,7 +78,7 @@ test('every line the game can ask for exists in every set, and every file exists
   assert.ok(bytes < 2.5e6, `${bytes} bytes of voices`);
 });
 
-test('each Great House has an announcer of its own', () => {
+test('under "Each house", each Great House has an announcer of its own', () => {
   const voices = PLAYABLE_HOUSES.map((h) => setOf(h).voice);
   assert.equal(new Set(voices).size, 3, voices.join(', '));
 });
@@ -265,7 +275,7 @@ test('the browser output reads the manifest, decodes a line on demand and plays 
   assert.ok(out.has('constructionComplete') && out.has('reporting'));
   assert.equal(out.status('constructionComplete'), 'loading');
   await out.load('constructionComplete');
-  assert.ok(b.fetched.some((u) => u.endsWith(`/assets/voice/${manifest.sets[manifest.houses.ordos].lines.constructionComplete.file}`)));
+  assert.ok(b.fetched.some((u) => u.endsWith(`/assets/voice/${manifest.sets[announcerSet(manifest, 'ordos')].lines.constructionComplete.file}`)));
   assert.equal(out.status('constructionComplete'), 'ready');
   assert.equal(out.play('constructionComplete', 0.6), 1.2);
   assert.equal(b.started.length, 1);
@@ -342,4 +352,78 @@ test('the Voices option may be turned off; the master volume may not', () => {
   assert.equal(sanitize({ volume: 0 }).volume, DEFAULTS.volume);
   const row = OPTION_ROWS.find((r) => r.key === 'voiceVolume');
   assert.deepEqual([row.format(0), row.format(0.5)], ['Off', '50%']);
+});
+
+// ——— unit voices (src/data/unit-voices.js) ———
+
+test('a unit\'s order reply is not lost to the reply to its selection: it takes the waiting one\'s place, or cuts in', () => {
+  const q = new VoiceQueue();
+  assert.equal(q.push('unit.tanker.select.1', 0), true);
+  assert.equal(q.push('unit.tanker.move.2', 0.1), true, 'not the same class as the selection reply');
+  assert.deepEqual(q.items.map((i) => i.id), ['unit.tanker.move.2'], 'the order\'s answer replaces the selection\'s still waiting');
+  assert.equal(q.push('unit.tanker.select.2', 0.2), false, 'nor does a new selection push the order\'s answer out');
+  const out = fakeOutput();
+  const p = new VoicePlayer({ output: out });
+  p.say('unit.scout.select.1', 0);
+  p.update(0);
+  assert.equal(p.current, 'unit.scout.select.1');
+  p.say('unit.scout.move.1', 0.3);
+  p.update(0.3);
+  assert.equal(out.stopped, 1, 'the selection reply is cut short …');
+  assert.deepEqual(out.played.map(([id]) => id), ['unit.scout.select.1', 'unit.scout.move.1'], '… by the order\'s, at once');
+  p.say('unit.scout.attack.1', 0.5);
+  p.update(0.5);
+  assert.equal(out.played.length, 2, 'an order\'s reply is not cut by another');
+});
+
+test('a unit reply never cuts the announcer, and waits its turn behind it only while fresh', () => {
+  const out = fakeOutput();
+  const p = new VoicePlayer({ output: out });
+  p.say('baseAttack', 0);
+  p.update(LEAD);
+  p.say('unit.grunt.move.1', LEAD + 0.1);
+  p.update(LEAD + 0.2);
+  assert.equal(out.stopped, 0);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack']);
+  p.update(LEAD + 1 + GAP);
+  assert.deepEqual(out.played.map(([id]) => id), ['baseAttack', 'unit.grunt.move.1'], 'still fresh after a one-second line');
+  assert.ok(lineInfo('unit.grunt.select.1').maxAge < lineInfo('unit.grunt.move.1').maxAge, 'an order\'s answer may wait a little longer than a selection\'s');
+});
+
+test('the manifest\'s unit groups are spoken under their unit ids for every house; the old shared replies stay', () => {
+  const m = {
+    version: 1, houses: { atreides: 'atreides' },
+    sets: {
+      atreides: { voice: 'af_heart', role: 'announcer', lines: { building: { file: 'atreides/building.ogg' } } },
+      units: { voice: 'am_michael', role: 'units', lines: { reporting: { file: 'units/reporting.ogg' } } },
+      tanker: { voice: 'bm_fable', role: 'unit', group: 'tanker', lines: { 'move.1': { file: 'tanker/move.1.ogg' } } },
+    },
+  };
+  const out = new WebVoiceOutput(null, 'atreides', { fetchFn: null });
+  out.useManifest(m);
+  assert.deepEqual(Object.keys(out.lines).sort(), ['building', 'reporting', 'unit.tanker.move.1']);
+  assert.equal(out.lines['unit.tanker.move.1'].file, 'tanker/move.1.ogg');
+});
+
+test('reinforcements arriving are announced in the house\'s voice (the missions\' C9 line)', () => {
+  assert.equal(lineForEvent({ type: 'eva', house: 'ordos', key: 'reinforcements', text: 'Reinforcements have arrived.', x: 3, y: 4 }, 'ordos'), 'reinforcements');
+  assert.equal(lineForEvent({ type: 'eva', house: 'ordos', key: 'reinforcements' }, 'atreides'), null);
+  assert.ok(EVA_KEYS.includes('reinforcements'));
+  assert.equal(lineInfo('reinforcements').cls, 'news');
+  assert.equal(lines.announcer.reinforcements, 'Reinforcements have arrived.');
+  for (const house of PLAYABLE_HOUSES) assert.equal(setOf(house).lines.reinforcements?.text, 'Reinforcements have arrived.', house);
+  assert.equal(sharedSet().lines.reinforcements?.text, 'Reinforcements have arrived.', 'the shared announcer');
+});
+
+test('the browser output fetches lines it is told to expect, one after another, once', async () => {
+  const b = fakeBrowser();
+  const out = new WebVoiceOutput(b.sound, 'atreides', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn });
+  await out.ready;
+  const ids = ['unitReady', 'constructionComplete', 'nonsense'];
+  await out.prefetch(ids);
+  await out.prefetch(ids);
+  assert.equal(b.fetched.filter((u) => u.endsWith('/unitReady.ogg')).length, 1);
+  assert.equal(out.status('unitReady'), 'ready');
+  assert.equal(out.status('constructionComplete'), 'ready');
+  await new WebVoiceOutput(null, 'atreides', { fetchFn: null }).prefetch(ids);   // no audio, no manifest: nothing, and no throw
 });

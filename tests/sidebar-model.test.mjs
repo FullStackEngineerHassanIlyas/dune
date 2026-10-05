@@ -141,7 +141,8 @@ test('the Starport\'s wares close the unit strip with their price, stock and wha
   assert.equal(sidebarModel(world, 'atreides').units.find((i) => i.typeId === 'starport:mcv').state, 'locked');
 });
 
-import { tipText, badgeOf, wipeOf } from '../src/ui/sidebar-model.js';
+import { badgeOf, wipeOf } from '../src/ui/sidebar-model.js';
+import { statusLine as tipText } from '../src/ui/tooltip-model.js';   // the tooltip's state line
 
 test('the item an upgrade sets aside keeps its clock and a badge in the strip, and its tooltip says why it waits', () => {
   const { world } = base();

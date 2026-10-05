@@ -3,13 +3,17 @@
 // so only above half health. The Sonic Tank's wave runs its full range and hurts everything on its path
 // once — friend or foe, but never Sonic Tanks or walls. Turreted units aim independently and fire on the
 // move; the others turn the hull and fire only while standing. Stances: idle units engage what comes
-// into range, guards chase no further than their leash, attack-move engages on the way, an attack
+// into range, guards chase no further than their leash (a guard order may carry its own radius and leash: a
+// mission's area guards and ambushes, game/mission.js), attack-move engages on the way, an attack
 // order chases its target and gives up when it gets no closer. The player's side engages only what its
-// fog shows; the AI sees everything, as in the original.
+// fog shows; the AI sees everything, as in the original. A sandworm can be shot only while it is up out of
+// the sand (sim/worm.js), and a shot landing on a spice bloom sets it off (sim/bloom.js).
 import { WEAPONS, shotFor } from '../data/weapons.js';
 import { DT, TURN_RATE, TURRET_TURN_RATE, fireDelaySeconds, projectileSpeed, SECOND_SHOT_DELAY, SCATTER, AIM_TOLERANCE, GUARD_RADIUS, GUARD_LEASH, CHASE_GIVEUP_SECONDS, LOW_POWER_TURRET_RATE, RETALIATE_RANGE, AIR, SONIC, DEVIATOR } from '../data/tuning.js';
 import { angleDiff, turnToward } from './geometry.js';
 import { unitVisibleTo, structureVisibleTo } from './fog.js';
+import { friendly } from './alliance.js';
+import { onFoot } from '../data/units.js';
 
 const SCAN_TICKS = 4;   // targets are looked for five times a second
 
@@ -42,7 +46,7 @@ export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (k
 export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false, only = null } = {}) {
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
-    if (u.house === houseId || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate
+    if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate (a worm on the move is fair game, as in the original)
     const d = Math.hypot(u.x - x, u.y - y);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
@@ -50,7 +54,7 @@ export function findTarget(world, houseId, x, y, radius, { structures = true, ig
   }
   if (!structures) return best;
   for (const s of world.structures.values()) {
-    if (s.house === houseId || s.type.isWall || s.id === exclude) continue;
+    if (friendly(world, s.house, houseId) || s.type.isWall || s.id === exclude) continue;
     const d = distanceTo(x, y, { kind: 'structure' }, { entity: s });
     if (d > radius || d >= bestD - 0.5 || (!ignoreFog && !canSee(world, houseId, 'structure', s))) continue;   // units win close calls: they shoot back
     best = { kind: 'structure', id: s.id };
@@ -65,7 +69,7 @@ export function validTarget(world, houseId, t, force, canHitAir = false) {
   const e = t.kind === 'unit' ? world.units.get(t.id) : world.structures.get(t.id);
   if (!e || e.hp <= 0) return false;
   if (t.kind === 'unit' && (e.inside || e.type.untargetable || (!e.isGround && !canHitAir))) return false;   // held in a bay or a Carryall: safe; aircraft: anti-air only
-  return !!force || e.house !== houseId;
+  return !!force || !friendly(world, e.house, houseId);
 }
 
 /** Stop after the current tile, keeping the order. */
@@ -127,11 +131,12 @@ function sweep(world, p) {
     if (!map.inBounds(tx, ty)) continue;
     const i = map.idx(tx, ty);
     const amount = Math.round(p.damage * (1 - (SONIC.fade * Math.hypot(x - p.sx, y - p.sy)) / total));
-    for (const v of [world.units.get(map.unit[i]), world.structures.get(map.structure[i])]) {
+    for (const v of [world.units.get(map.unit[i]), world.structures.get(map.structure[i]), wormAt(world, x, y)]) {
       if (!v || v.hp <= 0 || v.inside || v.typeId === 'sonicTank' || v.type.isWall || p.wave.hit.includes(v.id)) continue;
       p.wave.hit.push(v.id);
       damage(world, v, amount, by);
     }
+    if (map.bloom[i]) world.onBloomHit?.(i, by);
   }
 }
 
@@ -164,12 +169,19 @@ function impact(world, p) {
   const map = world.map;
   let victim = p.target ? targetPoint(world, p.target)?.entity ?? null : null;   // an accurate shot hits its target if it still exists
   if (victim?.kind === 'unit' && victim.inside) victim = null;   // it drove into a bay or was lifted away: the shot lands on the spot
-  if (!victim && !p.airburst && !(p.toAlt > 0)) {   // a shot at an aircraft that is gone bursts in the air
-    const tx = Math.floor(p.x), ty = Math.floor(p.y);
-    if (map.inBounds(tx, ty)) { const i = map.idx(tx, ty); victim = world.units.get(map.unit[i]) ?? world.structures.get(map.structure[i]) ?? null; }
-  }
-  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim, alt: p.airburst || (victim && victim.kind === 'unit' && !victim.isGround) ? p.toAlt : 0 });
-  if (victim) damage(world, victim, p.damage, { house: p.house, id: p.sourceId, kind: p.sourceKind });
+  const ground = !p.airburst && !(p.toAlt > 0), tx = Math.floor(p.x), ty = Math.floor(p.y), at = map.inBounds(tx, ty) ? map.idx(tx, ty) : -1;
+  if (!victim && ground && at >= 0) victim = world.units.get(map.unit[at]) ?? world.structures.get(map.structure[at]) ?? wormAt(world, p.x, p.y);   // a shot at an aircraft that is gone bursts in the air
+  const target = !victim ? null : victim.kind === 'structure' ? 'structure' : !victim.isGround ? 'air' : onFoot(victim.move) ? 'foot' : 'vehicle';   // what the shot sounds on
+  world.events.push('impact', { weapon: p.weapon, projectile: p.projectile, x: p.x, y: p.y, hit: !!victim, target, alt: p.airburst || (victim && victim.kind === 'unit' && !victim.isGround) ? p.toAlt : 0 });
+  const by = { house: p.house, id: p.sourceId, kind: p.sourceKind };
+  if (victim) damage(world, victim, p.damage, by);
+  if (ground && at >= 0 && map.bloom[at]) world.onBloomHit?.(at, by);
+}
+
+/** A sandworm up out of the sand whose maw covers (x, y): it holds no tile, so stray shots find it here. */
+function wormAt(world, x, y) {
+  for (const u of world.units.values()) if (u.move === 'worm' && Math.hypot(u.x - x, u.y - y) <= 0.9) return u;
+  return null;
 }
 
 /** Flat damage (no armour). attacker: {house, id, kind} or null. */
@@ -189,7 +201,7 @@ export function damage(world, victim, amount, attacker = null) {
 function countLoss(world, victimHouse, attacker, lost, killed) {
   const h = world.houses.get(victimHouse);
   if (h) h.stats[lost]++;
-  if (attacker && attacker.house !== victimHouse) { const k = world.houses.get(attacker.house); if (k) k.stats[killed]++; }
+  if (attacker && !friendly(world, attacker.house, victimHouse)) { const k = world.houses.get(attacker.house); if (k) k.stats[killed]++; }
 }
 
 export function killUnit(world, u, attacker = null, cause = 'destroyed') {
@@ -198,7 +210,7 @@ export function killUnit(world, u, attacker = null, cause = 'destroyed') {
   world.removeUnit(u, cause);
   countLoss(world, u.house, attacker, 'unitsLost', 'unitsKilled');
   world.events.push('unitDestroyed', { id: u.id, typeId: u.typeId, house: u.house, x: u.x, y: u.y, by: attacker?.house ?? null, cause });
-  world.onUnitKilled?.(u, attacker);
+  world.onUnitKilled?.(u, attacker, cause);
 }
 
 export function destroyStructure(world, s, attacker = null) {
@@ -243,7 +255,8 @@ function scanRadius(u) {
   switch (u.order.type) {
     case 'idle': return u.type.range;
     case 'move': return u.type.turret ? u.type.range : 0;
-    case 'guard': case 'attackMove': return u.type.range + GUARD_RADIUS;
+    case 'guard': return u.type.range + (u.order.radius ?? GUARD_RADIUS);   // a mission's area guard looks further, an ambush no further than it shoots
+    case 'attackMove': return u.type.range + GUARD_RADIUS;
     default: return 0;
   }
 }
@@ -253,7 +266,7 @@ function stillWorthIt(world, u, t) {
   const p = targetPoint(world, t);
   if (!canSee(world, u.house, t.kind, p.entity)) return false;
   const o = u.order, d = distanceTo(u.x, u.y, t, p);
-  if (o.type === 'guard') return Math.hypot(p.x - o.x - 0.5, p.y - o.y - 0.5) <= GUARD_LEASH + u.type.range;
+  if (o.type === 'guard') return Math.hypot(p.x - o.x - 0.5, p.y - o.y - 0.5) <= (o.leash ?? GUARD_LEASH) + u.type.range;
   if (o.type === 'attackMove') return d <= u.type.range + GUARD_RADIUS + 2;
   return d <= u.type.range + 0.5;
 }
@@ -357,7 +370,7 @@ function aimAndFire(world, u, t, p, dist) {
 
 /** An idle armed unit that is shot at from close by answers fire (busy units keep their orders). */
 export function retaliate(world, victim, attacker) {
-  if (victim.destructAt !== undefined || victim.kind !== 'unit' || !attacker || attacker.house === victim.house || !victim.isGround || !isArmed(victim.type)) return;
+  if (victim.destructAt !== undefined || victim.kind !== 'unit' || !attacker || friendly(world, attacker.house, victim.house) || !victim.isGround || !isArmed(victim.type)) return;
   if (victim.order.type !== 'idle' || victim.target) return;
   const t = { kind: attacker.kind, id: attacker.id };
   const p = targetPoint(world, t);

@@ -1,6 +1,9 @@
 // Map generator after the original Dune II algorithm (seeded noise → blur → thresholds →
 // spice blobs, docs/research/raw/mechanics-campaign.md §1.4) plus the spec §4.2 guarantees:
 // a 13x13 rock plateau under every start, tracked connectivity between starts, spice near each start.
+// A campaign mission (phase 3, C10) passes `sites` instead: a plateau of radius r at each site (where its
+// bases and outposts stand), the same connectivity, and a spice field just off every site's plateau on the
+// side facing the map centre, the first (the player's) first. Without sites the output is unchanged.
 import { Rng } from '../core/rng.js';
 import { G } from '../data/terrain.js';
 import { SPICE_PER_TILE, THICK_SPICE_PER_TILE } from '../data/tuning.js';
@@ -52,6 +55,13 @@ export function startPositions(w, h, count, rng) {
   const corners = [[m, m], [w - 1 - m, h - 1 - m], [w - 1 - m, m], [m, h - 1 - m]];
   const order = rng.chance(0.5) ? [0, 1, 2, 3] : [2, 3, 0, 1];
   return order.slice(0, count).map((k) => ({ x: corners[k][0], y: corners[k][1] }));
+}
+
+/** Half the side of the square a plateau of radius `r` is sure to cover with rock (6 for the skirmish radius 8: 13x13). */
+export function plateauHalf(r) {
+  let s = 0;
+  while (2 * ((s + 1) / r) ** 4 <= 1) s++;
+  return s;
 }
 
 function stampPlateau(map, cx, cy, r) {
@@ -174,7 +184,65 @@ function placeBlooms(map, rng, starts, count) {
   }
 }
 
-export function generateMap({ w = 64, h = 64, seed = 1, players = 2, spiceFields = null, blooms = null } = {}) {
+// ---- campaign sites ----
+
+/** Is tile (x, y) on, or within `margin` tiles of, the sure square of any site's plateau? */
+const nearSite = (sites, x, y, margin = 0) => sites.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= plateauHalf(o.r) + margin);
+
+/** Where a site's spice field lies: a few tiles past the edge of its sure square, towards the map centre or, when
+ *  another site is in the way (a small map), turned aside from it (a mission lays the site's Refinery out on that
+ *  side, data/missions/layout.js). */
+export function siteSpiceSpot(site, w, h, sites = [site]) {
+  const half = plateauHalf(site.r ?? PLATEAU_RADIUS);
+  const ang = Math.atan2((h - 1) / 2 - site.y, (w - 1) / 2 - site.x);
+  const clear = (x, y) => sites.every((o) => (o.x === site.x && o.y === site.y) || Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > plateauHalf(o.r ?? PLATEAU_RADIUS) + 3);
+  let first = null;
+  for (const turn of [0, 0.5, -0.5, 1, -1]) for (const gap of [5, 4, 3]) {
+    const c = Math.cos(ang + turn), s = Math.sin(ang + turn);
+    const t = (half + gap) / Math.max(Math.abs(c), Math.abs(s));
+    const x = Math.round(site.x + c * t), y = Math.round(site.y + s * t);
+    const spot = { x: Math.max(3, Math.min(w - 4, x)), y: Math.max(3, Math.min(h - 4, y)) };
+    first ??= spot;
+    if (spot.x === x && spot.y === y && clear(x, y)) return spot;
+  }
+  return first;
+}
+
+/** A spice field at the site's spot: a basin of sand is opened there first if rock or mountain stands in the way. */
+function siteSpice(map, rng, s, sites) {
+  const { x, y } = siteSpiceSpot(s, map.w, map.h, sites);
+  for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+    const tx = x + dx, ty = y + dy;
+    if (dx * dx + dy * dy > 12.5 || !map.inBounds(tx, ty) || nearSite(sites, tx, ty, 1)) continue;
+    const i = map.idx(tx, ty);
+    if (!isSandGround(map, i)) map.ground[i] = G.SAND;
+  }
+  growField(map, rng, x, y, 28 + rng.int(14));
+}
+
+function siteMap(map, rng, given, spiceFields, blooms) {
+  const sites = given.map((s) => ({ x: s.x, y: s.y, r: s.r ?? PLATEAU_RADIUS }));
+  for (const s of sites) stampPlateau(map, s.x, s.y, s.r);
+  connectStarts(map, sites);
+  for (const s of sites) siteSpice(map, rng, s, sites);   // spice and blooms lie on sand only, so never on a plateau's sure square
+  const count = spiceFields ?? Math.max(3, Math.round(map.w * map.h / 420));
+  let made = 0, attempts = 0;
+  while (made < count && attempts++ < count * 40) {
+    const x = rng.int(map.w), y = rng.int(map.h), i = map.idx(x, y);
+    if (!isSandGround(map, i) || map.spice[i] || nearSite(sites, x, y, 3)) continue;
+    if (growField(map, rng, x, y, 18 + rng.int(30)) > 0) made++;
+  }
+  made = 0; attempts = 0;
+  const wanted = blooms ?? Math.max(1, Math.round(map.w * map.h / 1400));
+  while (made < wanted && attempts++ < wanted * 60) {
+    const x = rng.int(map.w), y = rng.int(map.h), i = map.idx(x, y);
+    if (!isSandGround(map, i) || map.spice[i] || map.bloom[i] || nearSite(sites, x, y, 4)) continue;
+    map.bloom[i] = 1;
+    made++;
+  }
+}
+
+export function generateMap({ w = 64, h = 64, seed = 1, players = 2, sites = null, spiceFields = null, blooms = null } = {}) {
   const rng = new Rng(seed);
   const map = new GameMap(w, h);
   map.seed = seed;
@@ -190,6 +258,11 @@ export function generateMap({ w = 64, h = 64, seed = 1, players = 2, spiceFields
   const rockCut = quantile(height, 0.63), mountainCut = quantile(height, 0.93), duneCut = quantile(dune, 0.62);
   for (let i = 0; i < n; i++) {
     map.ground[i] = height[i] >= mountainCut ? G.MOUNTAIN : height[i] >= rockCut ? G.ROCK : dune[i] >= duneCut ? G.DUNE : G.SAND;
+  }
+  if (sites?.length) {
+    siteMap(map, rng, sites, spiceFields, blooms);
+    map.spiceRevision++;
+    return { map, starts: sites.map((s) => ({ x: s.x, y: s.y })) };
   }
   const starts = startPositions(w, h, players, rng);
   for (const s of starts) stampPlateau(map, s.x, s.y, PLATEAU_RADIUS);

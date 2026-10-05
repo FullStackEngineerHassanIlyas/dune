@@ -1,6 +1,8 @@
-// 2D overlay (spec §5.6): C&C white corner brackets, health bars, group numbers, drag box and
+// 2D overlay (spec §5.6): C&C white corner brackets, health bars, spice bars, group numbers, drag box and
 // order markers, drawn over the 3D view every frame.
 import { onFoot } from '../data/units.js';
+import { builtStorage } from '../sim/economy.js';
+import { HARVEST_CAPACITY } from '../sim/harvest.js';
 import { modelDef, unitModelId } from './models/index.js';
 
 export class Overlay {
@@ -25,9 +27,11 @@ export class Overlay {
   setDragBox(box) { this.dragBox = box; }
   marker(x, z) { this.markers.push({ x, z, t: 0 }); }
 
-  draw({ world, selection, hoverId, hoverStructureId = null, project, positionOf, groups, dt, healthBars = 'selected', canSee = () => true, canSeeStructure = () => true }) {
+  draw({ world, selection, hoverId, hoverStructureId = null, project, positionOf, groups, dt, healthBars = 'selected', house = null, canSee = () => true, canSeeStructure = () => true }) {
     const c = this.ctx;
     c.clearRect(0, 0, this.w, this.h);
+    let store;   // the house's storage fill, worked out once a frame and only when a storage building shows it
+    const stored = () => (store ??= storageLevel(world, world.houses.get(house)));
     for (const u of world.units.values()) {
       if (!canSee(u)) continue;
       const selected = selection.has(u.id), hovered = u.id === hoverId;
@@ -38,7 +42,9 @@ export class Overlay {
       if (!s.visible) continue;
       const half = Math.max(8, s.pxPerUnit * (onFoot(u.move) ? 0.2 : Math.max(0.3, modelDef(unitModelId(u.typeId)).radius * 0.72)));
       if (selected || hovered) brackets(c, s.x, s.y, half, selected ? '#ffffff' : 'rgba(255,255,255,0.45)');
-      healthBar(c, s.x, s.y - half - 7, half * 2, u.hp / u.maxHp);
+      const load = u.harvest && u.house === house ? u.harvest.load / HARVEST_CAPACITY : null;
+      healthBar(c, s.x, s.y - half - (load === null ? 7 : 12), half * 2, u.hp / u.maxHp);
+      if (load !== null) spiceBar(c, s.x, s.y - half - 7, half * 2, load);
       const g = selected ? groups.groupOf(u.id) : null;
       if (g !== null) {
         c.font = 'bold 12px "Trebuchet MS", sans-serif';
@@ -56,7 +62,9 @@ export class Overlay {
       if (!p.visible) continue;
       const half = Math.max(12, p.pxPerUnit * Math.max(s.w, s.h) * 0.52);
       if (selected || hovered) brackets(c, p.x, p.y, half, selected ? '#ffffff' : 'rgba(255,255,255,0.45)');
-      healthBar(c, p.x, p.y - half - 7, Math.min(half * 2, 96), s.hp / s.maxHp);
+      const fill = s.type.storage && s.house === house ? stored() : null;
+      healthBar(c, p.x, p.y - half - (fill === null ? 7 : 12), Math.min(half * 2, 96), s.hp / s.maxHp);
+      if (fill !== null) spiceBar(c, p.x, p.y - half - 7, Math.min(half * 2, 96), fill);
       if (!selected) continue;
       if (s.rally) {
         const r = project(s.rally.x + 0.5, s.rally.y + 0.5, 0.05);
@@ -126,6 +134,23 @@ function path(c, x, y, h, l) {
     c.lineTo(cx, cy);
     c.lineTo(cx - sx * l, cy);
   }
+}
+
+/** How full a house's spice storage is, 0..1: the same for every Refinery and Silo, as storage is shared.
+ *  Reads the starting allowance without ending it (storageCapacity does that inside the simulation). */
+export function storageLevel(world, house) {
+  if (!house) return 0;
+  const cap = Math.max(builtStorage(world, house.id), house.startBuffer ?? 0);
+  return cap > 0 ? Math.min(1, house.credits / cap) : 0;
+}
+
+function spiceBar(c, x, y, w, frac) {
+  c.fillStyle = 'rgba(0,0,0,0.65)';
+  c.fillRect(x - w / 2 - 1, y - 1, w + 2, 5);
+  c.fillStyle = 'rgba(240,160,48,0.25)';
+  c.fillRect(x - w / 2, y, w, 3);
+  c.fillStyle = '#f0a030';
+  c.fillRect(x - w / 2, y, w * Math.max(0, Math.min(1, frac)), 3);
 }
 
 function healthBar(c, x, y, w, frac) {

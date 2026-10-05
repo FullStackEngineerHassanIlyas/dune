@@ -61,7 +61,8 @@
     "fremenArrived": "The Fremen have come.",
     "missionAccomplished": "Mission accomplished.",
     "missionFailed": "Mission failed.",
-    "draw": "The battle is a draw."
+    "draw": "The battle is a draw.",
+    "reinforcements": "Reinforcements have arrived."
   },
   "units": {
     "reporting": "Reporting.",
@@ -73,5 +74,80 @@
     "onOurWay": "On our way.",
     "engaging": "Engaging.",
     "attacking": "Attacking."
+  },
+  "unitVoices": {
+    "grunt": {
+      "select": ["Reporting.", "Ready, sir.", "Infantry here."],
+      "move": ["Moving out.", "On our way.", "Right away."],
+      "attack": ["Engaging.", "Open fire!", "Taking them down."],
+      "attackMove": ["Sweeping the area."],
+      "guard": ["Holding here.", "Standing guard."],
+      "scatter": ["Spread out!"],
+      "capture": ["Going in.", "Taking the building."]
+    },
+    "trooper": {
+      "select": ["Trooper ready.", "Armed and ready.", "Rockets loaded."],
+      "move": ["Advancing.", "Understood.", "On the move."],
+      "attack": ["Locked on.", "Rockets away!", "Firing rockets."],
+      "attackMove": ["Advancing to contact."],
+      "guard": ["Covering.", "Holding position."],
+      "scatter": ["Dispersing."],
+      "capture": ["Breaching.", "Storming it."]
+    },
+    "scout": {
+      "select": ["Ready to roll.", "Wheels ready.", "Scout here."],
+      "move": ["On my way.", "Here we go.", "Hitting the gas."],
+      "attack": ["Guns hot.", "Taking the shot.", "Strafing!"],
+      "attackMove": ["Scouting ahead."],
+      "guard": ["Eyes open.", "Keeping watch."],
+      "scatter": ["Scattering."],
+      "repair": ["Heading for repairs."]
+    },
+    "tanker": {
+      "select": ["Tank ready.", "Crew standing by.", "Armour ready."],
+      "move": ["Rolling.", "Moving out.", "Tracks turning."],
+      "attack": ["Firing.", "Target acquired.", "Guns on target."],
+      "attackMove": ["Advancing."],
+      "guard": ["Holding position.", "Covering the area."],
+      "scatter": ["Breaking formation."],
+      "repair": ["Going for repairs."],
+      "destruct": ["Self-destruct armed.", "Detonation set."]
+    },
+    "harvester": {
+      "select": ["Harvester here.", "Ready to work.", "Spice crew ready."],
+      "move": ["Moving.", "On our way.", "Understood."],
+      "harvest": ["Heading to the spice.", "Off to the spice.", "Harvesting."],
+      "return": ["Returning to refinery.", "Heading back.", "Bringing it home."],
+      "repair": ["Going for repairs."]
+    },
+    "carryall": {
+      "select": ["Carryall ready.", "Pilot standing by.", "Ready to lift."],
+      "move": ["Heading out.", "On my way.", "Flying there."],
+      "lift": ["Picking it up.", "Lifting.", "Coming to collect."],
+      "duty": ["On duty.", "Back to work."],
+      "drop": ["Releasing.", "Setting it down."],
+      "deliver": ["Delivering."]
+    },
+    "mcv": {
+      "select": ["M C V ready.", "Standing by."],
+      "move": ["Moving out.", "Rolling slowly.", "Understood."],
+      "deploy": ["Deploying.", "Setting up base."]
+    },
+    "ornithopter": {
+      "select": ["Thopter ready.", "Pilot ready.", "Wings ready."],
+      "move": ["Banking.", "On approach.", "Flying."],
+      "attack": ["Attack run.", "Diving!", "Rockets away!"],
+      "attackMove": ["Hunting."],
+      "guard": ["Circling.", "Holding the sky."]
+    },
+    "saboteur": {
+      "select": ["Ready.", "Listening.", "In the shadows."],
+      "move": ["Quietly.", "Understood.", "Slipping through."],
+      "sabotage": ["Going in.", "Consider it done.", "It ends here."],
+      "attack": ["As you wish."]
+    },
+    "fremen": {
+      "select": ["We are here.", "The desert listens.", "Our blades are ready."]
+    }
   }
 }

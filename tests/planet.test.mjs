@@ -301,3 +301,73 @@ test('the planet turns, slower under reduced motion; the stars stay within the p
   a.update(1, { pixelRatio: 2 });
   assert.equal(a.stars.material.uniforms.uPixelRatio.value, 2);
 });
+
+// The opening and the ending drive the camera themselves (scenes/menu-intro.js): additive options of update().
+test('travel at no offset is the framing shot exactly: the opening hands over to the backdrop on the same frame', () => {
+  for (const [name, aspect] of [...WIDE, ['9:16', 9 / 16]]) {
+    const p = new PlanetShot({ seed: 3 });
+    p.update(0, { dive: 0, aspect, menu: menuShare(1600) });
+    const framed = { position: p.camera.position.clone(), quaternion: p.camera.quaternion.clone(), view: { ...p.camera.view }, altitude: p.altitude };
+    p.update(0, { travel: { x: 0, y: 0, z: 0 }, aspect, menu: menuShare(1600) });
+    assert.ok(p.camera.position.distanceTo(framed.position) < 1e-12, name);
+    assert.ok(p.camera.quaternion.angleTo(framed.quaternion) < 1e-9, name);
+    assert.deepEqual({ ...p.camera.view }, framed.view, `${name}: the lens shift`);
+    assert.equal(p.altitude, framed.altitude);
+    p.dispose();
+  }
+});
+
+test('travel moves the camera off the framing shot looking the same way; centred takes the lens shift out', () => {
+  const p = new PlanetShot({ seed: 3 });
+  p.update(0, { travel: { x: -20, y: 0, z: 3 } });
+  const f = planetFraming(16 / 9), forward = new THREE.Vector3();
+  assert.ok(p.camera.position.distanceTo(new THREE.Vector3(-20, 0, f.distance + 3)) < 1e-9);
+  p.camera.getWorldDirection(forward);
+  assert.ok(forward.distanceTo(new THREE.Vector3(0, 0, -1)) < 1e-9);
+  assert.ok(p.altitude > 15 && p.haze === 0, 'far out in space: no haze');
+  assert.ok(p.stars.material.uniforms.uFade.value === 1);
+  p.update(0, { travel: { x: -20, y: 0, z: 3 }, nebula: 0 });
+  const far = p.stars.material.uniforms.uFade.value;
+  assert.ok(far > 0 && far < 0.2, `the far stars faint in the opening's empty stars (${far}), so the drifting near ones lead`);
+  p.update(0, { centred: 1 });
+  assert.equal(Math.abs(p.camera.view.offsetX), 0);
+  assert.equal(Math.abs(p.camera.view.offsetY), 0);
+  p.update(0, { centred: 0.5 });
+  assert.ok(Math.abs(-p.camera.view.offsetX / (16 / 9) - f.shiftX / 2) < 1e-9, 'half the shift');
+  p.dispose();
+});
+
+test('the ending\'s tint sweeps the victor\'s colour in, and is gone without it', () => {
+  const p = new PlanetShot({ seed: 3 }), u = p.surface.material.uniforms.uTint.value;
+  p.update(0, { tint: { color: 0x2f6fe0, amount: 0.4 } });
+  const blue = new THREE.Color(0x2f6fe0);
+  assert.deepEqual([u.x, u.y, u.z, u.w], [blue.r, blue.g, blue.b, 0.4]);
+  p.update(0, { tint: { color: 0x2f6fe0, amount: 3 } });
+  assert.equal(u.w, 1);
+  p.update(0, {});
+  assert.equal(u.w, 0);
+  p.dispose();
+});
+
+test('a layer of space follows the planet\'s fade; the opening\'s near stars keep to the budget and never cover the planet', async () => {
+  const { SpaceTravel } = await import('../src/render/space-travel.js');
+  const { travelCorridor } = await import('../src/game/intro-timeline.js');
+  const p = new PlanetShot({ seed: 3 }), f = planetFraming(16 / 9);
+  const travel = p.attach(new SpaceTravel({ seed: 3, corridor: travelCorridor(f.distance) }));
+  assert.ok(p.scene.children.includes(travel.group));
+  p.update(0, { pixelRatio: 2 });
+  assert.equal(travel.stars.material.uniforms.uFade.value, 1);
+  assert.equal(travel.stars.material.uniforms.uPixelRatio.value, 2);
+  p.update(0, { dive: 1 });
+  assert.equal(travel.stars.material.uniforms.uFade.value, 0, 'gone deep in the dive, with the rest of space');
+  assert.equal(travel.group.visible, false);
+  assert.ok(p.stars.geometry.attributes.position.count + travel.stars.geometry.attributes.position.count <= 3000);
+  const pos = travel.stars.geometry.attributes.position;
+  const T = Math.tan((19 * Math.PI) / 180);   // half the planet camera's field of view
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    // nearer than the planet's far side only out of the shot the camera stops on (behind it, or left of its left edge)
+    assert.ok(z <= -1.5 || z >= f.distance || x / ((f.distance - z) * T * (16 / 9)) + f.shiftX < -1, `star ${i} at (${x}, ${z}) could cover the planet`);
+  }
+  p.dispose();
+});

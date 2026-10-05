@@ -102,7 +102,8 @@ export async function openPage(chrome, url) {
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, windowsVirtualKeyCode: key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0 });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers });
     },
-    close() { ws.close(); },
+    // closes the tab too: a scene left open keeps drawing, and a long run (smoke) would pile them up until it ran out of memory
+    close() { ws.close(); return fetch(`http://127.0.0.1:${chrome.port}/json/close/${target.id}`).then((r) => r.text()).catch(() => {}); },
   };
   return page;
 }

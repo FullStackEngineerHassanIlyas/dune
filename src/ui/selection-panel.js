@@ -2,12 +2,14 @@
 // points and what the selection is doing, with order buttons: Stop / Guard / Scatter / Deploy /
 // Destruct / Return for units, Stop / Duty / Drop for a house's own Carryalls (Duty lit while on
 // automatic duty; they reuse the Stop, Guard and Deploy commands and keys), Repair / Sell / Set primary
-// for own structures. The model part is pure.
+// for own structures. Under the details, compact facts from the build tooltips (tooltip-model.js): a unit's or
+// turret's weapon and what it is strong and weak against, an own factory's build speed. The model part is pure.
 import { UNITS } from '../data/units.js';
 import { HOUSES } from '../data/houses.js';
-import { LINE_FACTORIES, upgradeLevel } from '../sim/tech.js';
+import { LINE_FACTORIES, upgradeLevel, maxUpgradeLevel } from '../sim/tech.js';
 import { HARVEST_CAPACITY } from '../sim/harvest.js';
 import { isLifter } from '../sim/carryall.js';
+import { compactFacts, lineSpeedText } from './tooltip-model.js';
 
 const UNIT_FACTORIES = new Set(Object.entries(LINE_FACTORIES).filter(([line]) => line !== 'structure').flatMap(([, types]) => types));
 const HARVEST_TEXT = { seek: 'Looking for spice', toField: 'Heading to spice', harvesting: 'Harvesting', toRefinery: 'Returning to refinery', queued: 'Waiting to unload', docking: 'Docking', unloading: 'Unloading', undocking: 'Leaving the refinery' };
@@ -16,14 +18,18 @@ const ORDER_TEXT = { idle: 'Idle', move: 'Moving', guard: 'Guarding', stop: 'Idl
 
 function structureModel(world, s, houseId) {
   const own = s.house === houseId, t = s.type, details = [];
-  if (!own) return { kind: 'structure', typeId: s.typeId, house: s.house, own, name: t.name, hp: s.hp, maxHp: s.maxHp, count: 1, details, buttons: [] };   // no intel on enemy buildings
+  if (!own) return { kind: 'structure', typeId: s.typeId, house: s.house, own, name: t.name, hp: s.hp, maxHp: s.maxHp, count: 1, details, facts: [], buttons: [] };   // no intel on enemy buildings
   if (t.power < 0) details.push(`Power output ${Math.round(-t.power * Math.max(0.5, Math.min(1, s.hp / s.maxHp)))}`);
   else if (t.power > 0) details.push(`Power use ${t.power}`);
   if (t.storage) details.push(`Storage ${t.storage}`);
-  if (t.upgrades) details.push(`Upgrade level ${upgradeLevel(world.houses.get(houseId), s.typeId)} of ${t.upgrades.length}`);
+  const top = t.upgrades && maxUpgradeLevel(world.houses.get(houseId), s.typeId);   // the Sega ladder tops out lower in a campaign
+  if (top) details.push(`Upgrade level ${upgradeLevel(world.houses.get(houseId), s.typeId)} of ${top}`);
+  let facts = compactFacts(s.typeId);
   if (UNIT_FACTORIES.has(s.typeId)) {
     if (s.primary) details.push('Primary factory');
     if (s.rally) details.push('Rally point set');
+    const speed = lineSpeedText(world, houseId, s.typeId);
+    if (speed) facts = [{ label: 'Build speed', text: speed, tone: null }, ...facts];   // a new list: compactFacts keeps its own
   }
   if (s.typeId === 'refinery') details.push(REFINERY_TEXT[s.slot?.state] ?? (s.incoming ? 'Harvester due' : 'Landing pad free'));
   if (s.typeId === 'repair') {
@@ -40,7 +46,7 @@ function structureModel(world, s, houseId) {
     { id: 'sell', label: 'Sell' },
     ...(UNIT_FACTORIES.has(s.typeId) && !s.primary ? [{ id: 'primary', label: 'Set primary' }] : []),
   ] : [];
-  return { kind: 'structure', typeId: s.typeId, house: s.house, own, name: t.name, hp: s.hp, maxHp: s.maxHp, count: 1, details, buttons };
+  return { kind: 'structure', typeId: s.typeId, house: s.house, own, name: t.name, hp: s.hp, maxHp: s.maxHp, count: 1, details, facts, buttons };
 }
 
 function unitButtons(own) {
@@ -89,7 +95,7 @@ export function selectionPanelModel(world, selection, houseId) {
     if (u.harvest) details.push(`Spice ${Math.round((u.harvest.load / HARVEST_CAPACITY) * 100)} %`);
     if (u.deviated) details.push(`Deviated · back to ${HOUSES[u.deviated.from]?.name ?? 'its side'} in ${Math.max(0, Math.ceil(u.deviated.until - world.time))} s`);
     details.push(unitText(world, u));
-    return { kind: 'unit', typeId: u.typeId, house: u.house, own: u.house === houseId, name: u.type.name, hp: u.hp, maxHp: u.maxHp, count: 1, details, buttons };
+    return { kind: 'unit', typeId: u.typeId, house: u.house, own: u.house === houseId, name: u.type.name, hp: u.hp, maxHp: u.maxHp, count: 1, details, facts: compactFacts(u.typeId), buttons };
   }
   const counts = new Map();
   for (const u of units) counts.set(u.typeId, (counts.get(u.typeId) ?? 0) + 1);
@@ -97,7 +103,7 @@ export function selectionPanelModel(world, selection, houseId) {
   return {
     kind: 'group', typeId: types[0][0], house: units[0].house, own: own.length > 0, name: `${units.length} units`,
     hp: units.reduce((n, u) => n + u.hp, 0), maxHp: units.reduce((n, u) => n + u.maxHp, 0), count: units.length,
-    details: types.slice(0, 4).map(([typeId, n]) => `${n} × ${UNITS[typeId].name}`), buttons,
+    details: types.slice(0, 4).map(([typeId, n]) => `${n} × ${UNITS[typeId].name}`), facts: [], buttons,
   };
 }
 
@@ -106,13 +112,14 @@ export class SelectionPanel {
     this.iconFor = iconFor;
     this.el = document.createElement('div');
     this.el.className = 'sel-panel';
-    this.el.innerHTML = '<img class="sel-portrait" alt=""><div class="sel-info"><div class="sel-name"></div><div class="sel-hp"><i></i><span></span></div><div class="sel-details"></div></div><div class="sel-buttons"></div>';
+    this.el.innerHTML = '<img class="sel-portrait" alt=""><div class="sel-info"><div class="sel-name"></div><div class="sel-hp"><i></i><span></span></div><div class="sel-details"></div><div class="sel-facts"></div></div><div class="sel-buttons"></div>';
     root.appendChild(this.el);
     this.portrait = this.el.querySelector('.sel-portrait');
     this.name = this.el.querySelector('.sel-name');
     this.hpBar = this.el.querySelector('.sel-hp i');
     this.hpText = this.el.querySelector('.sel-hp span');
     this.details = this.el.querySelector('.sel-details');
+    this.facts = this.el.querySelector('.sel-facts');
     this.buttons = this.el.querySelector('.sel-buttons');
     this.buttons.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) onButton(b.dataset.id); });
     this.el.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -122,13 +129,21 @@ export class SelectionPanel {
   update(model) {
     this.el.classList.toggle('show', !!model);
     if (!model) { this.key = null; return; }
-    const key = JSON.stringify([model.kind, model.typeId, model.house, model.name, model.details, model.buttons]);
+    const key = JSON.stringify([model.kind, model.typeId, model.house, model.name, model.details, model.facts, model.buttons]);
     if (key !== this.key) {
       this.key = key;
       this.portrait.src = this.iconFor(model.typeId, model.house);
       this.name.textContent = model.name;
       this.details.textContent = '';
       for (const line of model.details) { const d = document.createElement('div'); d.textContent = line; this.details.appendChild(d); }
+      this.facts.textContent = '';
+      for (const f of model.facts ?? []) {
+        const d = document.createElement('div'), b = document.createElement('b');
+        d.className = `sel-fact${f.tone ? ` ${f.tone}` : ''}`;
+        b.textContent = f.label;
+        d.append(b, f.text);
+        this.facts.appendChild(d);
+      }
       this.buttons.textContent = '';
       for (const b of model.buttons) {
         const el = document.createElement('button');

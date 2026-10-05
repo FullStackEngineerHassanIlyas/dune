@@ -1,5 +1,6 @@
 // Debug-mode consistency checks (spec §9): positions are finite, every ground unit holds its tile(s)
-// (a vehicle in a repair bay or a refinery's slot none, or the one it drives out to), no tile is held by a missing unit,
+// (a vehicle in a repair bay or a refinery's slot none, or the one it drives out to; a sandworm none, as it
+// travels under the sand and comes up beneath its prey — sim/worm.js), no tile is held by a missing unit,
 // structures own their footprint. Returns a list of problems.
 export function checkInvariants(world) {
   const problems = [];
@@ -10,6 +11,7 @@ export function checkInvariants(world) {
     if (!Number.isFinite(u.x) || !Number.isFinite(u.y) || !Number.isFinite(u.heading)) problems.push(`unit ${u.id} has a non-finite position`);
     if (!u.isGround) continue;
     const n = held.get(u.id) ?? 0;
+    if (u.move === 'worm') { if (n) problems.push(`worm ${u.id} holds ${n} tiles`); continue; }
     if (u.inside) {
       const holder = world.structures.get(u.inside) ?? world.units.get(u.inside);   // a repair bay, a refinery's slot or a Carryall
       if (!holder || (holder.occupant !== u.id && holder.dockedBy !== u.id && holder.cargo !== u.id)) problems.push(`unit ${u.id} is inside something that does not hold it`);

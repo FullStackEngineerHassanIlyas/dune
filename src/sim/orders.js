@@ -12,6 +12,7 @@ import { orderStarport, cancelStarport } from './starport.js';
 import { orderDestruct, orderSabotage } from './specials.js';
 import { orderPalace } from './palace.js';
 import { isLifter, orderCarryalls } from './carryall.js';
+import { friendly } from './alliance.js';
 
 export function applyCommand(world, houseId, cmd) {
   orderDocked(world, houseId, cmd);   // a harvester in a refinery's slot takes its orders once it has backed out
@@ -115,7 +116,7 @@ export function orderAttack(world, units, cmd) {
     if (!isArmed(u.type) || entity === u) continue;
     if (WEAPONS[u.type.weapon]?.gas && entity && !deviatable(entity)) continue;   // gas is wasted on buildings, Harvesters and MCVs
     if (entity?.kind === 'unit' && !entity.isGround && !u.type.targetAir) continue;   // only anti-air reaches aircraft
-    if (entity && entity.house === u.house && !force) continue;
+    if (entity && friendly(world, entity.house, u.house) && !force) continue;   // own and allied units only when forced
     u.order = { type: 'attack', target: { ...target }, force };
     u.target = null;
     u.chaseAt = 0;

@@ -2,7 +2,8 @@
 // sim state: position, heading, terrain tilt for vehicles, turret yaw, recoil, wheels, treads, legs;
 // vehicles in a repair bay or a refinery's slot stand on its pad. Infantry that die fall where they
 // stood (Dune II's death frames), or lie flattened when crushed, then sink away after a few seconds;
-// so do the men a squad loses when it drops to one figure.
+// so do the men a squad loses when it drops to one figure. What a sandworm swallows simply goes. Worms
+// themselves are drawn by render/worm-views.js (`others`), which also answers renderPos for them.
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { onFoot } from '../../data/units.js';
@@ -50,6 +51,7 @@ export class UnitViews {
     this.views = new Map();
     this.normal = { x: 0, y: 1, z: 0 };
     this.fallen = [];   // dead infantry figures: { model, h, x, y, z, heading, dir, delay, age, crushed }
+    this.others = null;   // the worm views, set by the battle stage
   }
 
   model(id) {
@@ -60,9 +62,9 @@ export class UnitViews {
 
   sync(world, alpha, dt) {
     this.clock = (this.clock ?? 0) + dt;
-    for (const u of world.units.values()) if (!this.views.has(u.id)) this.create(u);
+    for (const u of world.units.values()) if (!this.views.has(u.id) && u.move !== 'worm') this.create(u);
     for (const [id, v] of this.views) if (!world.units.has(id)) this.destroy(id, v);
-    for (const u of world.units.values()) this.pose(u, this.views.get(u.id), alpha, dt, world);
+    for (const u of world.units.values()) { const v = this.views.get(u.id); if (v) this.pose(u, v, alpha, dt, world); }
     this.poseFallen(dt);
     for (const m of this.models.values()) m.update();
   }
@@ -78,7 +80,7 @@ export class UnitViews {
   destroy(id, v) {
     for (let k = 0; k < v.handles.length; k++) {
       const h = v.handles[k];
-      if (v.foot && v.death && v.death !== 'detonated' && h.visible) this.fall(v.model, h, v.heading, k, v.death === 'crushed');
+      if (v.foot && v.death && v.death !== 'detonated' && v.death !== 'eaten' && h.visible) this.fall(v.model, h, v.heading, k, v.death === 'crushed');
       else v.model.remove(h);
     }
     this.views.delete(id);
@@ -119,6 +121,7 @@ export class UnitViews {
 
   renderPos(u) {
     const v = this.views.get(u.id);
+    if (!v && this.others && u.move === 'worm') return this.others.renderPos(u);
     return v ? { x: v.x, z: v.z } : { x: u.x, z: u.y };
   }
 

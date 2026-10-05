@@ -8,10 +8,15 @@
 // framing shot. The next battle is built, simulated ahead, primed and compiled while the planet stands still, so a
 // seam has no work left to do. Only a cold start (the menu opening, or back from a skirmish) comes in from black.
 // Reduced motion swaps the zooms for haze crossfades; paused, the picture holds still and silent.
+// The Sega-style opening (scenes/menu-intro.js) plays before the loop starts and the campaign's ending borrows it: both
+// draw space through drawSpace(), with the opening's near stars and dust (render/space-travel.js) always in the scene,
+// and hand back with a warm start, which carries straight on from their last frame instead of coming in from black.
 import { Renderer3D } from '../render/renderer.js';
 import { wakeCheck, WAKE_GAP_MS } from '../render/wake.js';
 import { CameraRig } from '../render/camera-rig.js';
-import { PlanetShot, SEAM_ALTITUDE, menuShare } from '../render/planet.js';
+import { PlanetShot, SEAM_ALTITUDE, menuShare, planetFraming } from '../render/planet.js';
+import { SpaceTravel } from '../render/space-travel.js';
+import { travelCorridor } from '../game/intro-timeline.js';
 import { DustVeil } from '../render/dust-veil.js';
 import { createDustPass } from '../render/dust-pass.js';
 import { BattleStage } from '../game/battle-stage.js';
@@ -21,9 +26,11 @@ import { BackdropClock, DURATIONS, HOLD_AT, fadeAt, captionAt, soundLevelAt, HAZ
 import { SoundEngine } from '../audio/engine.js';
 import { FixedLoop } from '../core/loop.js';
 import { DT } from '../data/tuning.js';
+import { modelDef, unitModelId, structureModelId } from '../render/models/index.js';
 
 const SOUND_SHARE = 0.3;      // the battle behind the menu plays at this share of the Options volume
 const PRESIM_BUDGET_MS = 6;   // simulation run ahead per frame while the planet is on screen
+const FINISH_BUDGET_MS = 6;   // and the battle's models, programs and textures readied per frame after it (finishSlice)
 const FOCUS_RIGHT = 0.25;     // wide screens: the fight sits this share of the half-width right of centre, clear of the menu
 const ZOOM_FADE = 0.6;        // seconds the last frame before a seam stays on the overlay, zooming on as it fades
 const VEIL = { near: 32, far: 60 };   // camera distances (tiles) between which the dust veil lifts off the map's edges
@@ -31,6 +38,14 @@ const DUST = 0.8;             // how strongly the dust in the air shows, deep in
 const PLANET_SIDE = new Set(['planet', 'dive', 'emerge']);   // drawn in space; the battle and the rise draw the battle
 const CAPTION = 'The planet Arrakis, known as Dune.';
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** The models a battle's views draw its units and buildings with (render/models: built once a page, then shared). */
+function modelIds(world) {
+  const ids = new Set();
+  for (const u of world.units.values()) if (u.move !== 'worm') ids.add(unitModelId(u.typeId));
+  for (const s of world.structures.values()) { ids.add(structureModelId(s.typeId, s.w, s.h)); if (s.type.isWall) ids.add('wallArm'); }
+  return [...ids];
+}
 
 export class MenuBackdrop {
   constructor({ settings, seed = 1, hold = null }) {
@@ -50,6 +65,7 @@ export class MenuBackdrop {
     this.dustLinked = false;
     this.r3d.composer.insertPass(this.dust, this.r3d.composer.passes.indexOf(this.r3d.grade));
     this.planet = new PlanetShot({ seed });
+    this.travel = this.planet.attach(new SpaceTravel({ seed, corridor: travelCorridor(planetFraming(this.r3d.width / this.r3d.height, undefined, menuShare(this.r3d.width)).distance) }));
     this.rig = new CameraRig(this.r3d.camera, SHOWCASE.w, SHOWCASE.h);
     this.clock = new BackdropClock({ hold });
     this.loop = new FixedLoop(DT);
@@ -107,8 +123,11 @@ export class MenuBackdrop {
 
   get paused() { return this.frozen; }
 
-  /** Shown (the menu opening, or back from a skirmish): a cold start in space, in from black; paused, a still planet with its caption. */
-  start() {
+  /**
+   * Shown (the menu opening, or back from a skirmish): a cold start in space, in from black; paused, a still planet with
+   * its caption. warm: straight on from the frame on screen (the opening's or the ending's framing shot), no black.
+   */
+  start({ warm = false } = {}) {
     if (this.running) return;
     this.running = true;
     this.r3d.reclaim();   // the GPU memory given back during the skirmish, rebuilt from scratch
@@ -116,6 +135,7 @@ export class MenuBackdrop {
     const c = this.clock;
     if (!c.hold) {
       c.restart();
+      if (warm) c.cold = false;
       if (this.frozen) c.t = HOLD_AT.planet;   // past the black, caption up: a still worth looking at, not a fade stuck half-way
       this.retire();
     }
@@ -126,6 +146,28 @@ export class MenuBackdrop {
     } catch (err) { this.fail(err); }
     this.overlays();   // fade, scrim and mute right before the first frame, which may take a while to build
     this.resume();
+  }
+
+  /**
+   * The opening or the ending takes the picture: the loop stops where it is (it starts again with start({ warm: true })),
+   * and the fade, the caption, the seam overlay and the battle's scrim are cleared off the canvas. Returns whether it ran.
+   */
+  lend() {
+    const was = this.running;
+    if (was) { this.running = false; this.halt(); }
+    this.hideZoom();
+    this.fade.style.opacity = '0';
+    this.caption.style.opacity = '0';
+    this.app.classList.remove('mb-battle');
+    return was;
+  }
+
+  /** While lent: one frame of space, the camera as PlanetShot.update's `view` options set it (travel, centred, tint). */
+  drawSpace(dt, view = {}) {
+    const r3d = this.r3d;
+    this.planet.update(dt, { aspect: r3d.width / r3d.height, menu: menuShare(r3d.width), reduced: this.reduced, pixelRatio: r3d.renderer.getPixelRatio(), ...view });
+    this.air(this.planet.haze, Math.log(SEAM_ALTITUDE / this.planet.altitude));
+    r3d.render(this.planet.scene, this.planet.camera);
   }
 
   /** A skirmish opens over the menu: nothing more to draw or hear. */
@@ -215,7 +257,7 @@ export class MenuBackdrop {
       do { n.director.run(DT, (e) => n.stage.onEvent(e)); n.ticksLeft--; } while (n.ticksLeft > 0 && performance.now() < until);
       return;
     }
-    if (!n.ready) this.finish(n);
+    if (!n.ready) this.finishSlice(n);
   }
 
   build() {
@@ -231,12 +273,70 @@ export class MenuBackdrop {
   /**
    * Every view exists and every material is compiled for the composer's target (before the old battle's programs are
    * released), and one frame is drawn off screen from where the battle will open, so its textures are uploaded and the
-   * shadow map's programs linked now, not on the seam's frame; the old battle goes.
+   * shadow map's programs linked now, not on the seam's frame; the old battle goes. All at once (ensureReady); the
+   * planet's frames do it in slices (finishSlice).
    */
   finish(n) {
     n.stage.prime(performance.now());
     this.r3d.compile();
     this.r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
+    this.disposeRetired();
+    n.ready = true;
+  }
+
+  /**
+   * finish(), a slice a frame, so no frame stalls on it (the page's first battle has every model to build, every program
+   * to compile and every texture to upload: half a second at once, a freeze on the opening's planet when the player was
+   * quick at its gate): the models its units and buildings need, a few a frame, then its views; each object's programs
+   * compiled in the driver's own time (compileAsync, KHR_parallel_shader_compile) and waited for before the next new
+   * one; the off-screen frame drawn a part of the battle at a time, so each part's textures and shadow programs go up on
+   * a frame of their own, then whole. A later battle finds nearly all of it there and is done in a frame or two.
+   */
+  finishSlice(n) {
+    const f = (n.finishing ??= { step: 'models', list: null, compiling: false });
+    if (f.compiling) return;
+    const r3d = this.r3d, until = performance.now() + FINISH_BUDGET_MS;
+    if (f.step === 'models') {
+      f.list ??= modelIds(n.director.world);
+      while (f.list.length && performance.now() < until) modelDef(f.list.pop());
+      if (f.list.length) return;
+      n.stage.prime(performance.now());
+      f.step = 'compile';
+      f.list = [];
+      r3d.scene.traverse((o) => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) f.list.push(o); });
+      return;
+    }
+    if (f.step === 'compile') {
+      const r = r3d.renderer, previous = r.getRenderTarget();
+      r.setRenderTarget(r3d.composer.readBuffer);   // the variant the battle is drawn with (Renderer3D.compile)
+      try {
+        while (f.list.length && performance.now() < until) {
+          const programs = r.info.programs.length;
+          const ready = r.compileAsync(f.list.pop(), r3d.camera, r3d.scene);
+          if (r.info.programs.length === programs) continue;
+          f.compiling = true;   // a new program: the next object waits for it
+          ready.then(() => { f.compiling = false; });
+          break;
+        }
+      } finally { r.setRenderTarget(previous); }
+      if (f.list.length) return;
+      f.step = 'warm';
+      f.list = n.stage.root.children.filter((part) => part.visible);
+      return;
+    }
+    const parts = n.stage.root.children;
+    if (f.list.length) {
+      const shown = parts.map((part) => part.visible);
+      try {
+        do {
+          const part = f.list.pop();
+          for (const p of parts) p.visible = p === part;
+          r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
+        } while (f.list.length && performance.now() < until);
+      } finally { parts.forEach((p, i) => { p.visible = shown[i]; }); }
+      return;
+    }
+    r3d.warm(SHOWCASE.w / 2, SHOWCASE.h / 2, ENTRY.distance);
     this.disposeRetired();
     n.ready = true;
   }

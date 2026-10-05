@@ -33,7 +33,7 @@ test('only the owner can sell or repair', () => {
   assert.equal(h.credits, 0);
 });
 
-test('selling a store clamps credits to the remaining capacity', () => {
+test('selling a store loses the spice it held, then pays the sale in full', () => {
   const { world, h } = world1();
   h.startBuffer = 0;
   world.spawnStructure('refinery', 'atreides', 2, 2);
@@ -41,7 +41,7 @@ test('selling a store clamps credits to the remaining capacity', () => {
   h.credits = 2000;
   world.issue('atreides', { type: 'sell', structureId: silo.id });
   world.step();
-  assert.equal(h.credits, 1005);
+  assert.equal(h.credits, 1005 + 75);   // the silo's spice above the Refinery's 1005 is gone; its half price comes back
 });
 
 test('repair heals in about twelve seconds for 40 % of the price from zero', () => {
@@ -83,13 +83,22 @@ test('a second repair command switches repair off', () => {
   assert.equal(trap.repairing, false);
 });
 
-test('selling at full storage warns that the refund could not be stored', () => {
+test('selling at full storage still pays in full: a sale is money, not spice', () => {
   const { world, h } = world1(1005);
   h.startBuffer = 0;
   world.spawnStructure('refinery', 'atreides', 4, 4);
   const trap = world.spawnStructure('windtrap', 'atreides', 10, 4);
   world.issue('atreides', { type: 'sell', structureId: trap.id });
   world.step();
-  assert.equal(h.credits, 1005);
-  assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'storageFull'));
+  assert.equal(h.credits, 1005 + 150);
+  assert.ok(!world.events.drain().some((e) => e.type === 'eva' && e.key === 'storageFull'));
+});
+
+test('a base with no Refinery or Silo left can still sell to rebuild one', () => {
+  const { world, h } = world1(0);
+  h.startBuffer = 0;
+  const trap = world.spawnStructure('windtrap', 'atreides', 10, 4);
+  world.issue('atreides', { type: 'sell', structureId: trap.id });
+  world.step();
+  assert.equal(h.credits, 150);
 });

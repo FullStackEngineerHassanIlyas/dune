@@ -6,7 +6,7 @@
 // chosen spot and hunt on their own; the Saboteur walks out beside the Palace.
 import { HOUSES } from '../data/houses.js';
 import { MOVE } from '../data/units.js';
-import { PALACE, DEATH_HAND, FREMEN } from '../data/tuning.js';
+import { PALACE, SEGA_PALACE, DEATH_HAND, FREMEN } from '../data/tuning.js';
 import { splash } from './aftermath.js';
 import { findTarget } from './combat.js';
 import { orderAttack } from './orders.js';
@@ -24,9 +24,15 @@ export function palaceOf(world, houseId) {
 
 export const palaceReady = (world, s) => !!s && world.time >= s.readyAt;
 
+/** Seconds the house's Palace takes to charge: the Mega Drive's per-house pace on the Sega ladder, else the weapon's. */
+export function palaceRecharge(world, houseId) {
+  const full = PALACE.recharge[palaceWeapon(houseId)];
+  return world.rules?.tech === 'sega' ? SEGA_PALACE.recharge[houseId] ?? full : full;
+}
+
 /** A new Palace, or one that has just fired, charges its weapon from empty. */
 export function armPalace(world, s) {
-  s.readyAt = world.time + PALACE.recharge[palaceWeapon(s.house)];
+  s.readyAt = world.time + palaceRecharge(world, s.house);
   s.announced = false;
 }
 

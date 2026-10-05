@@ -1,4 +1,10 @@
 // Scenes captured by `npm run smoke`. Each scene sets window.__dune.ready when its first frame is drawn.
+// Phase 3 streams add theirs in scripts/scenarios/<stream>.mjs, so no two of them edit this list.
+import intro from './scenarios/intro.mjs';
+import campaign from './scenarios/campaign.mjs';
+import atlas from './scenarios/atlas.mjs';
+import missions from './scenarios/missions.mjs';
+
 export const SCENARIOS = {
   boot: { query: 'scene=boot' },
   'menu-planet': { query: 'scene=menu&backdrop=planet&seed=5', settleMs: 2500 },
@@ -39,6 +45,7 @@ export const SCENARIOS = {
   'base-frigate': { query: 'scene=base&house=atreides&fog=0&frigate=1&ticks=585&dist=14', settleMs: 1200 },
   'base-palace': { query: 'scene=base&house=harkonnen&fog=0&palace=1&dist=14', settleMs: 1500 },
   'battle-specials': { query: 'scene=battle&specials=1&dist=24&ticks=140', settleMs: 1500 },
+  'battle-worms': { query: 'scene=battle&worms=many&dist=22&ticks=160', settleMs: 1500 },
   'skirmish-ai-base': { query: 'scene=skirmish&seed=11&house=atreides&fog=0&ticks=6000&dist=34&focus=rival', settleMs: 1500 },
   // the menu's planet alone (scene=planet): the framing with the moon mid-pass, the dive half-way and at the seam
   'planet-framing': { query: 'scene=planet&dive=0&moon=5&freeze=1' },
@@ -46,4 +53,8 @@ export const SCENARIOS = {
   'planet-dive-seam': { query: 'scene=planet&dive=1&moon=14' },
   'planet-moon-early': { query: 'scene=planet&moon=2&freeze=1' },
   'planet-moon-late': { query: 'scene=planet&moon=8&freeze=1' },
+  ...intro,
+  ...campaign,
+  ...atlas,
+  ...missions,
 };

@@ -1,0 +1,59 @@
+/* The opening before the title and the campaign's ending (phase 3 intro stream owns this file; scenes/menu-intro.js).
+   One layer over the menu and under a battle's frame (z 50): the black the stars come up out of, the gate's blinking
+   prompt and the credit lines in pixel capitals of our own, and the title as the Sega composes it: a widely spaced
+   dark red serif DUNE with a metallic sheen across the planet, "The Battle for Arrakis" in white below. */
+.intro, .ending { position: absolute; inset: 0; z-index: 40; pointer-events: auto; overflow: hidden; }
+.intro.out, .ending.out { pointer-events: none; }
+.intro.out.catch, .ending.out.catch { pointer-events: auto; }   /* a click's release after a skip lands here, not on the menu */
+.intro.frozen { pointer-events: none; }
+.intro-black { position: absolute; inset: 0; background: #000; opacity: 1; }
+.intro-gate { position: absolute; inset: 0; display: grid; place-items: center; outline: none; cursor: pointer; }
+.intro-gate .intro-px { animation: intro-blink 1.1s steps(1, end) infinite; }
+@keyframes intro-blink { 64% { visibility: hidden; } }
+.intro-px { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.intro-card { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 2.4vh; opacity: 0; pointer-events: none; }
+/* the still version shows the planet from the start: its words stand in the space left of it */
+.intro.still .intro-card { right: 48%; }
+@media (max-width: 900px), (max-aspect-ratio: 1/1) { .intro.still .intro-card { right: 0; } }
+
+/* the title: centred on what lies right of the menu column (7vw + 380px), across the planet */
+.intro-title { position: absolute; left: calc(7vw + 380px); right: 0; top: 33vh; display: grid; justify-items: center; opacity: 0; pointer-events: none; text-align: center; }
+.intro-dune { display: grid; font: 400 clamp(56px, 9.5vw, 172px)/1 "Times New Roman", "Liberation Serif", "Nimbus Roman", "DejaVu Serif", Georgia, serif;
+  text-transform: uppercase; letter-spacing: .42em; padding-left: .42em; }   /* the spacing after the last letter, balanced */
+.intro-dune > span { grid-area: 1 / 1; }
+/* a dark copy below for the shadow (a filter or a text-shadow on gradient-clipped text renders badly); the face is
+   positioned too, so it paints over the shifted copy */
+.intro-dune-shade { color: #1c0000; transform: translateY(3px); text-shadow: 0 0 22px rgba(0, 0, 0, .75); }
+.intro-dune-face { position: relative; background: linear-gradient(180deg, #ffb09a 0%, #e4442e 13%, #a90c05 36%, #6a0200 49%, #c62e1a 57%, #ff8f6c 63%, #8e0903 76%, #3a0000 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 1px rgba(36, 0, 0, .9); }
+.intro-sub { margin-top: .45em; font: 400 clamp(18px, 2.5vw, 42px)/1.1 "Times New Roman", "Liberation Serif", "Nimbus Roman", "DejaVu Serif", Georgia, serif;
+  letter-spacing: .02em; color: #fff; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+.intro.out .intro-title { opacity: 0 !important; transition: opacity .8s ease; }
+@media (max-width: 900px), (max-aspect-ratio: 1/1) { .intro-title { left: 0; } }
+
+/* the hand-over: the menu fades in over the shot the opening ended on; until the page knows whether the opening plays,
+   the menu stays out of sight (at most 0.4 s, so the menu shows even if the opening's module never loads): transparent
+   and out of the pointer's way, not hidden, so its first button keeps the focus it is given and Enter opens it */
+#app.intro-reveal .main-menu { animation: intro-menu-in .9s ease both; }
+@keyframes intro-menu-in { from { opacity: 0; } }
+/* the opening's title glides into the menu's lockup (scenes/menu-intro.js glide()): the lockup comes in as it lands */
+#app.intro-glide .mm-brand { animation: intro-menu-in .3s ease .6s both; }
+#app.in-menu:not(.intro-checked) .main-menu { animation: intro-wait .4s; }
+@keyframes intro-wait { from, to { opacity: 0; pointer-events: none; } }
+
+/* the ending: the credits roll up the left, clear of the planet on the right */
+.ending.black { background: #000; }
+.ending.out { opacity: 0; transition: opacity .6s ease; }
+.ending-roll { position: absolute; top: 0; left: 7vw; width: min(560px, 44vw); text-align: center; will-change: transform; }
+.ending-group { margin-bottom: 8vh; }
+.ending-role { margin-bottom: .6em; font: bold 14px "Trebuchet MS", sans-serif; letter-spacing: .34em; text-transform: uppercase; color: #d9a52e; text-shadow: 0 1px 4px #000; }
+.ending-name { font: 400 clamp(20px, 2vw, 30px)/1.35 "Times New Roman", "Liberation Serif", "Nimbus Roman", "DejaVu Serif", Georgia, serif; color: #fff; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+.ending.still .ending-roll { top: 38vh; }
+.ending.still .ending-group { position: absolute; left: 0; right: 0; top: 0; opacity: 0; }
+@media (max-width: 900px), (max-aspect-ratio: 1/1) { .ending-roll { left: 6vw; right: 6vw; width: auto; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-gate .intro-px { animation: none; }
+  #app.intro-reveal .main-menu { animation-duration: .01s; }
+}
+.intro.still .intro-gate .intro-px { animation: none; }
