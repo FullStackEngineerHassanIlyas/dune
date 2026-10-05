@@ -144,16 +144,24 @@ const made = new Map();
  * also costs nothing to show while the crest moves or glows. Other looks show the vector art (crestArt) as a
  * data: URL. variant 'framed' (the default) is for the house selection and anything from about 120 px up;
  * 'shield' (4:5) for small places such as a 48 px badge; detail as in crestArt.
+ * The framed crest comes with its bare shield after it (`narrow`, on by default): two <svg>s, the framed one
+ * .cp-crest-wide and the shield .cp-crest-narrow, and campaign.css shows the shield instead on a narrow screen
+ * (620 px and below), where a house card is about 120 px and the gold frame would take half of it.
  */
-export function crestSvg(house, { variant = 'framed', detail } = {}) {
-  const s = CREST_STYLES[house];
-  if (!s) return '';
+export function crestSvg(house, { variant = 'framed', detail, narrow = true } = {}) {
+  if (!CREST_STYLES[house]) return '';
+  if (variant === 'shield' || !narrow) return lookSvg(house, { variant, detail });
+  return lookSvg(house, { variant, detail, role: ' cp-crest-wide' }) + lookSvg(house, { variant: 'shield', role: ' cp-crest-narrow' });
+}
+
+/** One look of a house's crest as an <svg> (made once); `role` adds the class that says where CSS shows it. */
+function lookSvg(house, { variant, detail, role = '' }) {
   const framed = variant !== 'shield';
-  const key = crestKey(house, { variant, detail });
+  const look = crestKey(house, { variant, detail }), key = look + role;
   if (!made.has(key)) {
     const [x, y, w, h] = VIEWBOX[framed ? 'framed' : 'shield'];
-    const href = BAKED[key] ? bakedUrl(BAKED[key].file) : svgDataUrl(crestArt(house, { variant, detail }));
-    made.set(key, `<svg class="cp-crest-art${framed ? '' : ' cp-crest-shield'}" viewBox="${x} ${y} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${s.label}">`
+    const href = BAKED[look] ? bakedUrl(BAKED[look].file) : svgDataUrl(crestArt(house, { variant, detail }));
+    made.set(key, `<svg class="cp-crest-art${framed ? '' : ' cp-crest-shield'}${role}" viewBox="${x} ${y} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${CREST_STYLES[house].label}">`
       + `<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}"/></svg>`);
   }
   return made.get(key);

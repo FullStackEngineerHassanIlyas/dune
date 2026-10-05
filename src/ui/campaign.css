@@ -60,6 +60,7 @@
 .cp-house { display: grid; justify-items: center; gap: 6px; padding: 10px; width: clamp(170px, 21vw, 300px); color: #f2d7a0; background: none; border: 0; border-radius: 8px; transition: transform .15s; }
 .cp-crest { display: block; width: 100%; aspect-ratio: 1; transition: filter .15s; }
 .cp-crest svg { display: block; width: 100%; height: 100%; }
+.cp-crest-narrow, .cp-crest .cp-crest-narrow { display: none; }   /* the bare shield, for a narrow screen (below) */
 .cp-plaque { min-width: 72%; padding: 6px 14px 5px; font: bold clamp(13px, 1.25vw, 18px) "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #1c1004;
   background: linear-gradient(#fff0a8, #e2b043 45%, #9a6a18); border: 2px solid #3c2604; border-radius: 2px; box-shadow: 0 3px 0 #2a1706; }
 .cp-house small { font: 12px "Trebuchet MS", sans-serif; color: #c9b18a; text-shadow: 0 1px 2px #000; }
@@ -230,6 +231,10 @@
   .cp-houses-screen { align-content: center; gap: 24px; padding-left: 8px; padding-right: 8px; }
   .cp-houses { flex-wrap: nowrap; gap: 4px; }
   .cp-house { width: 32vw; padding: 4px 2px; }
+  /* a card is ~120 px: the bare shield (crests.js), its charge twice the size, instead of the frame taking half */
+  .cp-crest:has(.cp-crest-narrow) { aspect-ratio: 4 / 5; }
+  .cp-crest .cp-crest-wide { display: none; }
+  .cp-crest .cp-crest-narrow { display: block; }
   .cp-plaque { min-width: 0; width: 100%; box-sizing: border-box; padding: 5px 2px 4px; font-size: 11px; letter-spacing: .08em; }
   .cp-house small { font-size: 11px; text-align: center; }
   .cp-house small + small:not(.cp-saved) { display: none; }

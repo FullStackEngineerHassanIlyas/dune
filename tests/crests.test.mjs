@@ -3,6 +3,7 @@
 // resolves, ids are unique, no filter wraps the relief light, and the markup stays small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { crestSvg, crestArt, svgDataUrl, CREST_HOUSES, CREST_STYLES, VIEWBOX } from '../src/ui/campaign/crests.js';
 import { BAKED } from '../src/ui/campaign/crests-baked.js';
 import { smooth, spiral, tube, sample, shade } from '../src/ui/campaign/crests-geometry.js';
@@ -39,13 +40,36 @@ test('the three Great Houses and the minor houses of a skirmish have crests; oth
 
 test('a crest is an <svg> with its class, role and label, the art inside as an image filling the view box', () => {
   for (const house of CREST_HOUSES) {
-    const svg = crestSvg(house);
+    const svg = crestSvg(house, { narrow: false });
     assert.match(svg, /^<svg class="cp-crest-art" viewBox="0 0 400 400" xmlns="http:\/\/www\.w3\.org\/2000\/svg" role="img" aria-label="[^"]+">/, house);
     assert.match(svg, /<image href="[^"]+" x="0" y="0" width="400" height="400"\/><\/svg>$/, house);
+    assert.equal(svg.match(/<svg /g).length, 1, `${house}: the framed crest alone`);
     const small = crestSvg(house, { variant: 'shield' });
-    assert.match(small, /class="cp-crest-art cp-crest-shield" viewBox="76 52 248 310"/, house);
+    assert.match(small, /^<svg class="cp-crest-art cp-crest-shield" viewBox="76 52 248 310"/, house);
+    assert.equal(small.match(/<svg /g).length, 1, `${house}: the shield alone`);
     assert.deepEqual(VIEWBOX.shield, [76, 52, 248, 310]);
   }
+});
+
+test('the framed crest brings its bare shield for a narrow screen, and campaign.css swaps them at 620 px', () => {
+  for (const house of CREST_HOUSES) {
+    const pair = crestSvg(house);
+    const svgs = pair.match(/<svg [^>]*>/g);
+    assert.equal(svgs.length, 2, house);
+    assert.match(svgs[0], /^<svg class="cp-crest-art cp-crest-wide" viewBox="0 0 400 400" /, house);
+    assert.match(svgs[1], /^<svg class="cp-crest-art cp-crest-shield cp-crest-narrow" viewBox="76 52 248 310" /, house);
+    assert.ok(pair.startsWith(crestSvg(house, { narrow: false }).replace('class="cp-crest-art"', 'class="cp-crest-art cp-crest-wide"')), `${house}: the same framed picture`);
+    assert.ok(pair.endsWith(crestSvg(house, { variant: 'shield' }).replace('cp-crest-shield"', 'cp-crest-shield cp-crest-narrow"')), `${house}: the same shield picture`);
+  }
+  const css = readFileSync(new URL('../src/ui/campaign.css', import.meta.url), 'utf8');
+  const narrow = /@media \(max-width: 620px\) \{([\s\S]*?)\n\}/.exec(css)?.[1];
+  assert.ok(narrow, 'the narrow-screen block');
+  const outside = css.replace(narrow, '');
+  assert.match(outside, /\.cp-crest \.cp-crest-narrow \{ display: none; \}/, 'a wide screen hides the shield');
+  assert.doesNotMatch(outside, /\.cp-crest-wide \{[^}]*display: none/, 'and shows the frame');
+  assert.match(narrow, /\.cp-crest \.cp-crest-wide \{ display: none; \}/, 'a narrow one hides the frame');
+  assert.match(narrow, /\.cp-crest \.cp-crest-narrow \{ display: block; \}/, 'and shows the shield');
+  assert.match(narrow, /\.cp-crest:has\(\.cp-crest-narrow\) \{ aspect-ratio: 4 \/ 5; \}/, 'in a box of its shape');
 });
 
 test('the art is well formed: balanced tags, no NaN, every url(#id) and #id reference defined once', () => {
