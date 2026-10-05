@@ -115,9 +115,16 @@ export class MentatFace {
         Promise.all(decoded).then(() => resolve(!this.destroyed));
       };
       const head = headImageOf(this.art);
-      const wait = head && head.complete === false && typeof head.addEventListener === 'function';
-      const soon = () => setTimeout(build, 0);
-      if (wait) { head.addEventListener('load', soon, { once: true }); head.addEventListener('error', soon, { once: true }); } else soon();
+      if (!(head && head.complete === false && typeof head.addEventListener === 'function')) { setTimeout(build, 0); return; }
+      // the head painting is still loading: built once it has (or once it has failed: the masks then stand in for the
+      // patches), and the other listener let go
+      const loaded = () => {
+        head.removeEventListener?.('load', loaded);
+        head.removeEventListener?.('error', loaded);
+        setTimeout(build, 0);
+      };
+      head.addEventListener('load', loaded);
+      head.addEventListener('error', loaded);
     });
     return this.warming;
   }
