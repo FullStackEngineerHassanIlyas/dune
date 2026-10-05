@@ -1,5 +1,11 @@
 # Phase 3: what is left (hand-off, 2026-10-05)
 
+**Update, 2026-10-05 evening:** items 1–4 are done on phase3/mentat-talk (97d151c), which now contains all of
+phase3/integration and is a fast-forward of it; details in 2026-10-05-mentat-talk.md. Every suite passes there
+(npm test 1533/1534 with 1 skipped, e2e 29/29, e2e:menu, e2e:intro, e2e:campaign, smoke 77/77). Left: item 5 — push it
+to PR #24 (`git push origin phase3/mentat-talk:phase3/integration`); the GPU check with the real PAKs needs the
+player's Dune II files, which are not on this machine. The original text follows.
+
 State: phase3/integration (PR #24) has everything except the talking Mentat's hook-up. npm test on it: 1516 pass, 0 fail,
 1 skipped. The hook-up is WIP on phase3/mentat-talk (d874596, pushed, not merged). No agent is running.
 
