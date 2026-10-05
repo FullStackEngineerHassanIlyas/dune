@@ -7,6 +7,7 @@ import { h } from '../dom.js';
 import { mentatSvg } from './portraits.js';
 import { attachMentatFace } from './mentat-face.js';
 import { rigFor } from './mentat-face-rigs.js';
+import { originalMentatFigure, originalMentatRig } from './original-mentat.js';
 
 const CHAR_MS = 26, HOLD_MS = 2600;
 
@@ -185,7 +186,8 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
   const spoken = h('div', { class: 'cp-sr', 'aria-live': 'polite' });
   const note = h('p', { class: 'cp-note', hidden: true });
   const portrait = h('figure', { class: 'cp-mentat', 'aria-label': `${mentatName}, Mentat of House ${label || house}` });
-  portrait.innerHTML = mentatSvg(house);
+  const figure = originalMentatFigure(house);   // the player's own Dune II Mentat, when the original pictures are on
+  portrait.innerHTML = figure ?? mentatSvg(house);
   const mapBox = h('div', { class: 'cp-mapbox' });
   const bar = h('div', { class: 'cp-bar' });
   const el = h('section', { class: `cp-stage cp-mentat-stage ${className}`.trim(), dataset: { house } },
@@ -218,7 +220,8 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
     },
   };
   // the face is made ready while his first line loads, sleeps until it plays, rests between lines and ends when this
-  // section leaves the page; a voice that will not speak (Options → Mentat voice Off, no sound) leaves the painting
-  if (voice && voice.enabled !== false) stage.face = attachMentatFace(stage, rigFor(house), { warm: true, ...faceOptions });
+  // section leaves the page; a voice that will not speak (Options → Mentat voice Off, no sound) leaves the painting.
+  // The player's own Dune II Mentat moves on his own figure's rig.
+  if (voice && voice.enabled !== false) stage.face = attachMentatFace(stage, figure ? originalMentatRig(house) : rigFor(house), { warm: true, ...faceOptions });
   return stage;
 }
