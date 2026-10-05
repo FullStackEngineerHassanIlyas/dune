@@ -83,14 +83,17 @@ const QUIET = 1.2;   // no nudged blink within this long of the last one
  * Blinks on a seeded schedule: one every `min`..`max` seconds, now and then a second one at once (`double`, the
  * chance), and a nudge at a sentence's start (people blink at a phrase's edge) when the last one is a while ago.
  * A blink closes over `close` s, holds `hold` s and opens over `open` s; value(t) is the lids' closure 0..1.
+ * `start`: where in the seed's table of chances the schedule begins (0..255): two faces of one Mentat with different
+ * starts (two screens) do not blink in step.
  */
 export class Blinker {
-  constructor({ min = 2.4, max = 5.6, double = 0.15, close = 0.07, hold = 0.04, open = 0.13, seed = 1 } = {}) {
+  constructor({ min = 2.4, max = 5.6, double = 0.15, close = 0.07, hold = 0.04, open = 0.13, seed = 1, start = 0 } = {}) {
     this.min = min; this.max = max; this.double = double; this.close = close; this.hold = hold; this.open = open;
     // the chances, drawn ahead from the seed: the frame reads them from an array, so no number is made then
     const r = mulberry32(seed);
     this.chances = Float64Array.from({ length: CHANCES }, r);
     this.ci = new Uint8Array(1);
+    this.ci[0] = start;
     this.s = new Float64Array(4);
     this.t = new Float64Array(1);   // the time asked about
     this.c = new Float64Array(1);   // the closure then

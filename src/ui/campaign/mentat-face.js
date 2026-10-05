@@ -20,6 +20,7 @@ const J_JAW = 0, J_SLOW = 1, J_SPEAK = 2, J_FLASH = 3;
 // state cells
 const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6, S_FIRST = 7, S_LOOK = 8;
 const SETTLED = 0.01;   // a parameter this close to the painting is under a hundredth of a unit or a degree away
+const BLINK_STEP = 89;  // places in the blinks' table of chances (256, which 89 is prime to) between one face and the next
 let faces = 0;
 
 /** True when the player asked the system for less motion. */
@@ -54,7 +55,9 @@ export class MentatFace {
     this.e = new Float64Array(NP); this.ev = new Float64Array(NP); this.zero = new Float64Array(NP);
     this.x = new Float64Array(4); this.v = new Float64Array(4);
     this.s = new Float64Array(9); this.tmp = new Float64Array(2);
-    this.blinker = new Blinker(this.c.motion.blink);
+    // each face (each screen) starts at its own place in its Mentat's seeded blinks: screen after screen he would
+    // otherwise blink at the very same moments of his first line (Cyril 0.67 s and 3.72 s in, Radnor 2.75 s, on the GPU)
+    this.blinker = new Blinker({ ...this.c.motion.blink, start: (faces * BLINK_STEP) % 256 });
     this.rafId = 0;
     this.running = false;
     this.settled = false;
