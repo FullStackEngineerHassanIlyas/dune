@@ -257,17 +257,18 @@ test('warm() waits for the head painting: the face is built once it has loaded, 
     head.addEventListener = (type, fn) => listening[type].add(fn);
     head.removeEventListener = (type, fn) => listening[type].delete(fn);
     const face = attachMentatFace(stage, clone(rigFor('atreides')), { raf: d.raf, caf: d.caf, reducedMotion: false, warm: true });
-    let ready = null;
-    face.warm().then((ok) => { ready = ok; });
-    await later();
-    assert.ok(stage.svg.querySelector('.cpmf-head') === null && ready === null, `${event}: not built while the painting loads`);
-    head.complete = true;
-    for (const fn of [...listening[event]]) fn({ type: event });
-    assert.equal(listening.load.size + listening.error.size, 0, `${event}: both listeners let go`);
-    await later();
-    assert.ok(stage.svg.querySelector('.cpmf-head') !== null, `${event}: built`);
-    assert.equal(ready, true);
-    face.destroy();
+    try {
+      let ready = null;
+      face.warm().then((ok) => { ready = ok; });
+      await later();
+      assert.ok(stage.svg.querySelector('.cpmf-head') === null && ready === null, `${event}: not built while the painting loads`);
+      head.complete = true;
+      for (const fn of [...listening[event]]) fn({ type: event });
+      assert.equal(listening.load.size + listening.error.size, 0, `${event}: both listeners let go`);
+      await later();
+      assert.ok(stage.svg.querySelector('.cpmf-head') !== null, `${event}: built`);
+      assert.equal(ready, true);
+    } finally { face.destroy(); }
   }
 });
 
