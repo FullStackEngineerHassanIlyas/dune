@@ -66,6 +66,7 @@ function database(rec, quota) {
         },
         get: (key) => request(() => structuredClone(staged.get(key))),
         getAll: () => request(() => [...staged.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).map((k) => structuredClone(staged.get(k)))),
+        getAllKeys: () => request(() => [...staged.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))),
         delete: (key) => request(() => { write(); staged.delete(key); }),
         clear: () => request(() => { write(); staged.clear(); }),
       });
