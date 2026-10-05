@@ -1,6 +1,7 @@
 // A house's Mentat as the player's own Dune II PC files draw him (formats/dune2-pictures.js 'mentat:<house>'): his
 // room cut to where he sits, his eyes, mouth, shoulder and "other" (Cyril's book, Ammon's ring) at the original's
-// places, the picture enlarged by whole pixels and shown without smoothing, so it stays the original's pixel art.
+// places, the picture shown at a whole number of screen pixels a pixel, unsmoothed, wherever one fits the portrait
+// (figureSizeCss), else filling it from a 4x enlargement, so it stays the original's pixel art.
 // He moves as the original moved him (gui/mentat.c, GUI_Mentat_Animation, as OpenDUNE reads it):
 //   - his eyes, while he is not speaking, look ahead, to either side and down and now and then shut, on the
 //     original's own rules and timings (60 ticks a second), played as a CSS animation of the eye frames;
@@ -10,7 +11,7 @@
 //     whose mouth sprites are the original's mouth frames, each of the voice's mouth shapes shown by the frame
 //     that fits it best (mouthVisemes), and whose lids are the original's shut eyes, so he blinks with them as he
 //     talks; nothing tilts, nods, warps or scales (pixel art does not bend).
-// Pure: from a stored picture record to { figure (SVG markup for innerHTML), rig }; original-pictures.js keeps them.
+// Pure: from a stored picture record to { figure (HTML markup for innerHTML), rig }; original-pictures.js keeps them.
 import { RIG_VERSION, EXPRESSIONS, VISEMES } from './mentat-face-rig.js';
 import { encodePng, pngDataUrl } from '../../formats/png.js';
 import { MENTATS } from '../../formats/dune2-pictures.js';
@@ -109,16 +110,26 @@ export function measureMouth(frames) {
 }
 
 /**
+ * The known files' mouths, chosen by eye where the measure misses them: it counts only what darkens, so lips pushed
+ * forward or bright teeth read as less open than they are. Ammon (MENSHPO.SHP, five 64 x 40 frames): 1 lips
+ * parted (F V), 2 teeth showing (E, L), 3 wide open (A), 4 lips pursed (O). Cyril's and Radnor's measure right.
+ * Taken only for frames of that size, so another copy's frames go by the measure.
+ */
+export const KNOWN_MOUTHS = { ordos: { size: [64, 40], map: { FV: 1, A: 3, E: 2, O: 4, L: 2 } } };
+
+/**
  * The voice's mouth shapes (VISEMES) to the original's mouth frames (indices; null: the shut mouth of the picture):
  * rest and M B P shut; A the most open frame; F V the least open; of the frames between, O the roundest (tallest
  * for its width), E the widest for its height, L the one nearest halfway between F V and A — each from the frames
- * not yet taken while there are any, so the four open frames are all used. Frames that open nothing are left out;
- * with none open, every shape is shut.
+ * not yet taken while there are any. Frames that open nothing by the measure are left out (so a frame of pursed lips
+ * goes unused unless `known` names it); with none open, every shape is shut. `known` ({ viseme: frame }, as
+ * KNOWN_MOUTHS has them) is taken as it is when every frame it names is there.
  */
-export function mouthVisemes(frames) {
+export function mouthVisemes(frames, known = null) {
+  const map = Object.fromEntries(VISEMES.map((v) => [v, null]));
+  if (known && Object.values(known).every((k) => k > 0 && frames[k])) return Object.assign(map, known);
   const m = measureMouth(frames);
   const open = m.map((x, k) => (x && x.area > 0 ? { k, ...x } : null)).filter(Boolean);
-  const map = Object.fromEntries(VISEMES.map((v) => [v, null]));
   if (!open.length) return map;
   // the best by `score` of the frames not in `taken` (of all, when that leaves none); a tie goes to the more open
   const pick = (score, taken = []) => {
@@ -201,12 +212,34 @@ export function frameKeyframes(name, schedule, frame, cycle) {
 }
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const share = (v, of) => `${+((v / of) * 100).toFixed(4)}%`;
+const px = (v) => `${+v.toFixed(2)}px`;
 
 /**
- * The house's original Mentat from his stored record: { figure, rig, info } — `figure` SVG markup for the
- * portrait (as portraits.js mentatSvg: a `.cpm-sway` group holding the head <image> and a `.cpm-blink` group, so
- * the face engine can take it), `rig` the face's rig (null when the files hold no open mouth frame), `info` what
- * was used (for tests and the debug hooks).
+ * The figure's size, as CSS for `sel` (its own class) over a W x H picture. By default it fills the portrait's box
+ * as the painting does (as large as fits, centred, standing on the bottom edge) and is drawn smooth from the 4x
+ * enlarged pictures: every picture pixel equally wide, its edge at most a screen pixel soft. Where a whole number n
+ * of CSS pixels a picture pixel fits within half a step of that (the box holds n times the picture but not n + 1/2
+ * times), the figure is n times its size, unsmoothed: the original's pixels exactly. Only at 1, 2 or 3 screen pixels
+ * a CSS pixel, where whole CSS pixels are whole screen pixels; n up to `most`.
+ */
+export function figureSizeCss(sel, W, H, { most = 12 } = {}) {
+  const fit = `${sel} .cpo-frame{position:absolute;left:50%;bottom:0;transform:translateX(-50%);`
+    + `width:min(100cqw,${+((W / H) * 100).toFixed(4)}cqh);height:min(${+((H / W) * 100).toFixed(4)}cqw,100cqh)}`;
+  let whole = '';
+  for (let n = 1; n <= most; n++) {
+    whole += `@container (min-width:${px(n * W)}) and (min-height:${px(n * H)}) and ((max-width:${px((n + 0.5) * W - 0.01)}) or (max-height:${px((n + 0.5) * H - 0.01)})){`
+      + `${sel} .cpo-frame{width:${px(n * W)};height:${px(n * H)}}${sel} img,${sel} image{image-rendering:pixelated}}`;
+  }
+  return `${fit}@media (resolution:1dppx),(resolution:2dppx),(resolution:3dppx){${whole}}`;
+}
+
+/**
+ * The house's original Mentat from his stored record: { figure, rig, info } — `figure` markup for the portrait, on
+ * the HTML portrait's contract the face engine takes (portraits.js mentatSvg of the face-art step): the root
+ * `.cp-mentat-art` (a size container) holding the frame, which holds `.cpm-sway` with the head <img> first, the book
+ * or ring (`.cpo-other`) and the eyes (`.cpm-blink`), each placed in % of the frame; `rig` the face's rig (null when
+ * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks).
  */
 export async function buildMentatArt(record, { scale = SCALE } = {}) {
   const house = record.house, m = MENTATS[house];
@@ -230,28 +263,34 @@ export async function buildMentatArt(record, { scale = SCALE } = {}) {
   const eyeSched = eyes[0] ? eyeSchedule(seed) : [], eyeCycle = eyeSched.at(-1)?.to ?? 1;
   const otherSched = otherSchedule(house, other.map(drawn), seed), otherCycle = otherSched.at(-1)?.to ?? 1;
   const css = [], eyeImgs = [], otherImgs = [];
-  const img = (href, b, extra = '') => `<image href="${href}" x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" preserveAspectRatio="none" image-rendering="optimizeSpeed"${extra}/>`;
+  const img = (src, b, extra = '') => `<img class="cpo-l${extra}" src="${src}" alt="" draggable="false" style="left:${share(b[0], W)};top:${share(b[1], H)};width:${share(b[2], W)};height:${share(b[3], H)}">`;
   eyeUrls.forEach((u, k) => {
     if (!u || !eyeSched.some((s) => s.frame === k)) return;
     const name = `${cls}-eye${k}`;
     css.push(frameKeyframes(name, eyeSched, k, eyeCycle), `.${name}{opacity:0;animation:${name} ${(eyeCycle / TICKS).toFixed(3)}s step-end infinite}`);
-    eyeImgs.push(img(u, at(eyes[k]), ` class="cpo-anim ${name}"`));
+    eyeImgs.push(img(u, at(eyes[k]), ` cpo-anim ${name}`));
   });
   otherUrls.forEach((u, k) => {
     if (!u || !otherSched.some((s) => s.frame === k)) return;
     const name = `${cls}-other${k}`;
     css.push(frameKeyframes(name, otherSched, k, otherCycle), `.${name}{opacity:0;animation:${name} ${(otherCycle / TICKS).toFixed(3)}s step-end infinite}`);
-    otherImgs.push(img(u, at(other[k]), ` class="cpo-anim ${name}"`));
+    otherImgs.push(img(u, at(other[k]), ` cpo-anim ${name}`));
   });
   const label = `${record.mentat ?? m.name}, Mentat of House ${HOUSE_NAMES[house]}, from your copy of the original game`;
-  // portraits.js's rules for its own classes are global once a painting is on the page: here they do nothing
-  const style = `<style>.cpo image{image-rendering:pixelated}.cpo .cpm-sway,.cpo .cpm-blink{animation:none;opacity:1;transform:none}${css.join('')}`
-    + '@media (prefers-reduced-motion:reduce){.cpo .cpo-anim{animation:none;opacity:0}}</style>';
-  const figure = `<svg class="cp-mentat-art cpo ${cls}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(label)}" preserveAspectRatio="xMidYMax meet" style="filter:none">${style}`
-    + `<g class="cpm-sway">${img(head, [0, 0, W, H])}<g class="cpo-other">${otherImgs.join('')}</g><g class="cpm-blink">${eyeImgs.join('')}</g></g></svg>`;
+  // the boxes fill the frame and stay still (a painting's rules for the same classes, global in an older
+  // portraits.js, do nothing here); the pictures are placed in % of the frame
+  const sel = `.${cls}`;
+  const style = `<style>${sel} .cpm-sway,${sel} .cpo-other,${sel} .cpm-blink{position:absolute;inset:0;animation:none;opacity:1;transform:none}`
+    + `${sel} .cpo-l{position:absolute;display:block;max-width:none;margin:0;user-select:none;-webkit-user-drag:none}`
+    + `${figureSizeCss(sel, W, H)}${css.join('')}@media (prefers-reduced-motion:reduce){.cpo .cpo-anim{animation:none;opacity:0}}</style>`;
+  const figure = `<div class="cp-mentat-art cpo ${cls}" role="img" aria-label="${esc(label)}" style="filter:none;position:relative;overflow:hidden;container-type:size">${style}`
+    + `<div class="cpm-frame cpo-frame"><div class="cpm-sway">${img(head, [0, 0, W, H])}<div class="cpo-other">${otherImgs.join('')}</div>`
+    + `<div class="cpm-blink">${eyeImgs.join('')}</div></div></div></div>`;
 
   // the face's rig: the mouth frames for the voice's shapes, the shut eyes for its blinks
-  const visemes = mouthVisemes(mouth);
+  const known = KNOWN_MOUTHS[house];
+  const asKnown = known && mouth.length === 5 && mouth.every((q) => q && q.width === known.size[0] && q.height === known.size[1]);
+  const visemes = mouthVisemes(mouth, asKnown ? known.map : null);
   const sprites = Object.fromEntries(VISEMES.map((v) => [v, visemes[v] === null ? null : mouthUrls[visemes[v]]]));
   let rig = null;
   if (mouth[0] && VISEMES.some((v) => sprites[v])) {

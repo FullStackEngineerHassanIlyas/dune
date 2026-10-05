@@ -49,6 +49,19 @@ export function loadOriginalPictures({ files = null } = {}) {
   return state.loading;
 }
 
+export const PICTURES_WAIT = 1500;   // ms the campaign's first words wait for the pictures at most
+
+/**
+ * loadOriginalPictures(), waited for `wait` ms at most: resolves what was made, or null when it failed or takes
+ * longer (a browser whose store never answers, as Safari's indexedDB.open has been known to hang, must not hold the
+ * campaign's words up). What is made later is still kept for the screens after.
+ */
+export function loadOriginalPicturesWithin(wait = PICTURES_WAIT, options = {}) {
+  let timer = null;
+  const late = new Promise((resolve) => { timer = setTimeout(() => resolve(null), wait); });
+  return Promise.race([loadOriginalPictures(options).catch(() => null), late]).finally(() => clearTimeout(timer));
+}
+
 /** What loadOriginalPictures() made, or null (not loaded yet, off, or not there). */
 export function currentPictures() { return state.value; }
 

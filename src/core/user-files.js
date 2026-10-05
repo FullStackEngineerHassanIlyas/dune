@@ -142,13 +142,14 @@ const bytesOf = async (f) => (f.data !== undefined ? f.data : await f.arrayBuffe
 
 /**
  * Reads the player's files ([File] or [{ name, data: ArrayBuffer }]): .PAK archives for the .VOC clips and the
- * pictures in them, or loose .VOC files. Keeps every clip it can read and switches the original sounds on; makes
+ * pictures in them, or loose .VOC files. Keeps every clip it can read and switches the original sounds on (not with
+ * `switchSounds: false`: the copy found by itself on a local server keeps them, the switch stays as it was); makes
  * the pictures (formats/dune2-pictures.js) from the archives' picture files, with those kept from archives read
  * before, and switches the original pictures on when it made any. Returns { added, pictures, files: [{ name,
  * clips, pictures, skipped, error, note }] } — `error` for a file that could not be read at all, `skipped` for
  * clips inside it that were damaged, `pictures` the picture files taken from it, `note` what was wrong first.
  */
-export async function importFiles(files) {
+export async function importFiles(files, { switchSounds = true } = {}) {
   const report = [], clips = new Map(), found = new Map();   // picture files: NAME → { bytes, row }
   for (const f of files) {
     const name = String(f.name ?? 'file'), row = { name, clips: 0, pictures: 0, skipped: 0, error: null, note: null };
@@ -187,7 +188,7 @@ export async function importFiles(files) {
     const sources = new Set(await meta('sources', []));
     for (const r of report) if (r.clips) sources.add(r.name.toUpperCase());
     await setMeta('sources', [...sources].sort());
-    await setMeta('useOriginals', true);
+    if (switchSounds) await setMeta('useOriginals', true);
     notify();
   }
   const pictures = found.size ? await keepPictures(found, report) : 0;
@@ -465,9 +466,11 @@ export const LOCAL_PAK_NAMES = ['DUNE', 'ENGLISH', 'ATRE', 'HARK', 'ORDOS', 'MEN
 
 /**
  * The player's own Dune II PC files kept in the game's git-ignored original/ folder (or original/dune2/) are read
- * by themselves on a local server, as the Original Game Files page reads them: the sounds and the pictures. A
- * server lists no folder, so each archive the PC game has is asked for by name (upper or lower case); the files are
- * read again only when one of them changed. Nothing is fetched from anywhere else; with none there, nothing happens.
+ * by themselves on a local server, as the Original Game Files page reads them: the sounds and the pictures. The
+ * pictures switch on as there; the sounds are kept but their switch stays as the player set it (before this, the
+ * original sounds came in only through the page). A server lists no folder, so each archive the PC game has is asked
+ * for by name (upper or lower case); the files are read again only when one of them changed, or when one could not
+ * be downloaded or read last time. Nothing is fetched from anywhere else; with none there, nothing happens.
  * Resolves importFiles' report, or null.
  */
 export async function importLocalPaks({ fetch: get = globalThis.fetch, dirs = LOCAL_PAK_DIRS, names = LOCAL_PAK_NAMES } = {}) {
@@ -489,11 +492,12 @@ export async function importLocalPaks({ fetch: get = globalThis.fetch, dirs = LO
     try {
       const res = await get(f.url, { cache: 'no-store' });
       if (res?.status === 200) files.push({ name: f.url.split('/').pop().toUpperCase(), data: await res.arrayBuffer() });
-    } catch { /* gone since it was asked about: the next visit tries again */ }
+    } catch { /* gone since it was asked about: the next visit tries again (no stamp below) */ }
   }
   if (!files.length) return null;
-  const report = await importFiles(files);
-  await setMeta('localPaks', stamp);
+  const report = await importFiles(files, { switchSounds: false });
+  // the stamp only when every archive found came in whole: one that failed is asked for again on the next visit
+  if (files.length === found.length && !report.files.some((f) => f.error)) await setMeta('localPaks', stamp);
   return report;
 }
 

@@ -197,6 +197,13 @@ test('a shape file, 1.07 or 1.0, packed or plain, with see-through pixels and co
     }
     assert.ok(s.shapes[1].table instanceof Uint8Array);
   }
+  // the first shape missing: the version is told by the first shape that is there
+  for (const version of ['1.07', '1.0']) {
+    const s = readShp(shpFile([null, shapes[0], shapes[1]], { version }), 'S.SHP');
+    assert.equal(s.version, version, `${version} without its first shape`);
+    assert.equal(s.shapes[0], null);
+    assert.deepEqual([s.shapes[1].width, s.shapes[1].height, s.shapes[2].width], [24, 8, 16]);
+  }
 });
 
 test('a damaged shape file is refused, naming the file, the shape and the byte', () => {

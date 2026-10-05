@@ -4,7 +4,7 @@
 // painting. Take the rig only with the figure: it is drawn in the figure's frame, not the painting's.
 import { currentPictures } from './original-pictures.js';
 
-/** SVG markup for the portrait (in place of portraits.js mentatSvg(house)), or null. */
+/** Markup for the portrait (in place of portraits.js mentatSvg(house): the same HTML contract), or null. */
 export function originalMentatFigure(house, pictures = currentPictures()) {
   return pictures?.mentats?.[house]?.figure ?? null;
 }

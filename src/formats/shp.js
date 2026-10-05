@@ -50,7 +50,11 @@ export function readShp(data, label = 'shapes.shp') {
   const count = u16(0);
   if (!count) throw new PictureError(`${label}: no shapes in it`);
   if (count > MAX_SHAPES) throw new PictureError(`${label}: ${count} shapes (byte 0) — not a shape file`);
-  const wide = n >= 6 && u32(2) === 4 + 4 * count;   // 1.07: 32-bit offsets from byte 2
+  // 1.07: 32-bit offsets from byte 2, the first shape there starting right after them and their end offset (shape 0
+  // may be missing: its offset is 0, so the first that is not is the one that tells)
+  let first = 0;
+  for (let i = 0; i < count && 6 + 4 * i <= n && !first; i++) first = u32(2 + 4 * i);
+  const wide = first === 4 + 4 * count;
   const table = 2 + (wide ? 4 : 2) * count;   // 1.07 has one more offset (the end); 1.0 may not
   if (table > n) throw new PictureError(`${label}: the offsets of ${count} shapes run past the end of the file (${n} bytes)`);
   const shapes = [];

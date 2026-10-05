@@ -15,9 +15,13 @@ pictures are read in the browser from the player's own Dune II PC .PAK files and
   clips and pictures (the music stays). A file's report line says how many picture files it gave and what was wrong
   with a damaged one.
 - **The briefing's Mentat** (every Mentat stage: house pages, join, briefing, advice, win and lose lines, ending):
-  with the switch on, Cyril, Radnor and Ammon as the PC game drew them — his room cut to where he sits, enlarged by
-  whole pixels and drawn without smoothing (`image-rendering: pixelated`; the PNGs are also enlarged 4x so a browser
-  that smooths still stays sharp). As the original moved him (OpenDUNE `gui/mentat.c`, `GUI_Mentat_Animation`):
+  with the switch on, Cyril, Radnor and Ammon as the PC game drew them — his room cut to where he sits, in the
+  portrait's box as the painting is (HTML, the face-art step's portrait contract). Wherever a whole number n of CSS
+  pixels a picture pixel fits within half a step (the box holds n times the figure but not n + 1/2 times; at 1, 2 or
+  3 screen pixels a CSS pixel) he is drawn n times his size, unsmoothed (`image-rendering: pixelated`): the
+  original's pixels exactly. Elsewhere he fills the box, drawn smooth from PNGs enlarged 4x by whole pixels (every
+  pixel equally wide, its edge at most one screen pixel soft) rather than nearest-neighbour at a fraction, which makes
+  pixels 2 and 3 wide by turns. As the original moved him (OpenDUNE `gui/mentat.c`, `GUI_Mentat_Animation`):
   - silent, his eyes look ahead, left, right and down and shut on the original's own rules and timings (a seeded
     90-second cycle of the eye frames as a CSS animation; shutting passes "down" for a tick, side to side passes
     ahead), Cyril's book and Ammon's ring move through their frames and back on the original's timings;
@@ -47,7 +51,7 @@ pictures are read in the browser from the player's own Dune II PC .PAK files and
 | `src/core/user-files.js` | the `pictures` store (database version 2), import, switch, forget, `importLocalPaks` |
 | `src/ui/original-files.js` | the page: Pictures line, Original pictures switch, report lines |
 | `src/ui/campaign/original-mentat-art.js` | pure: figure crop, eye and book schedules, mouth measure and viseme map, figure markup, rig, emblem markup |
-| `src/ui/campaign/original-pictures.js` | `loadOriginalPictures()` (made once a session, again when the store changes), `currentPictures()`, `originalEmblem(house)` |
+| `src/ui/campaign/original-pictures.js` | `loadOriginalPictures()` (made once a session, again when the store changes), `loadOriginalPicturesWithin(ms)` (the same, waited for 1.5 s at most), `currentPictures()`, `originalEmblem(house)` |
 | `src/ui/campaign/original-mentat.js` | `originalMentatFigure(house)`, `originalMentatRig(house)` for `mentatStage` |
 
 The decoders are written from the published format descriptions (ModdingWiki: Westwood LCW, XOR Delta, CPS, Dune II
@@ -74,8 +78,9 @@ was copied.
   than the shut mouth's at the same place, their count and box — and A takes the most open, F V the least, then O the
   roundest, E the widest for its height and L the one nearest halfway, each from the frames not yet taken; rest and
   M B P are the shut mouth. On the real files: Cyril FV 4 (teeth together), A 1, E 2, O 3, L 3; Radnor FV 4, A 2,
-  E 1, O 3, L 1; Ammon FV 2, A 3, E 1, O 1, L 1 (his fifth frame opens no darker than the shut one, so it is not
-  used).
+  E 1, O 3, L 1. The measure counts only what darkens, so it misreads Ammon (his teeth are bright, his fifth frame,
+  lips pursed, opens nothing darker): his five 64 x 40 frames take a map chosen by eye (`KNOWN_MOUTHS`): FV 1 (lips
+  parted), A 3 (wide open), E 2 and L 2 (teeth showing), O 4 (pursed). Frames of another size go by the measure.
 - `HERALD.ENG` (ENGLISH.PAK; `HERALD.CPS` in 1.0): the house selection; the pieces in 96 x 104 boxes at x 16
   (Atreides), 112 (Ordos), 208 (Harkonnen), y 56; banner, chains and plate fill the top 89 rows.
 
@@ -101,13 +106,16 @@ the file's line, and nothing half-kept is switched on.
 `importLocalPaks()`: a server lists no folder, so each PC archive name (DUNE, ENGLISH, ATRE, HARK, ORDOS, MENTAT,
 VOC, SOUND, INTRO, INTROVOC, FINALE, MERC, HERC, XTRE, SCENARIO) is asked for with HEAD in `original/` and
 `original/dune2/`, upper and lower case (the dev server answers 204 for a missing file there); found files are read
-only when their size or date changed. It imports sounds and pictures alike, as the page does.
+only when their size or date changed, or when one of them could not be downloaded or read last time (the stamp is
+kept only when every archive found came in). It keeps sounds and pictures alike, as the page does, and switches
+the pictures on; the original sounds' switch stays as the player set it (`importFiles(files, { switchSounds:
+false })`), as before this step, when they came in only through the page.
 
 ## Real check
 
-The manager's files arrived during this stream: 13 archives in `/home/hassan/games/Dune/original/dune2/` (and the
-same in `Dune-p3/original/dune2/`), English 1.07. They were read through a symlink in this worktree's git-ignored
-`original/` and never committed.
+The manager's files arrived during this stream: 13 archives in the main checkout's git-ignored `original/dune2/`,
+English 1.07. They were read through a symlink in this worktree's git-ignored `original/` and never committed.
+(This check was made on the first, SVG figure; see "Review fixes" for what has not been run again since.)
 
 - Every picture file in them decodes: 118 of 124 (CPS, SHP, PAL, the .ENG pictures, WSA); the 6 refused are WSAs
   that continue another animation (HFINALC, OFINALB, OFINALC, INTRO7B, INTRO8B, INTRO8C: "it carries on from another
@@ -131,34 +139,38 @@ same in `Dune-p3/original/dune2/`), English 1.07. They were read through a symli
 
 ## Hook for the lead
 
-Three files; tests pass with it (campaign-screens, campaign-stage, campaign-flow, menu, menu-entries, mentat-face,
-phase3-seams, campaign-map, imports: 86/86).
+Three files. The figure is built to the face-art step's HTML portrait (`phase3/mentat-face-art`, 8bdfae9), so merge
+that step first and put its own stage hook in (`attachMentatFace`, `rigFor` from `mentat-face-rigs.js`); this hook
+builds on it. With only the first engine step (763e1ab, which looks for an `<svg>` portrait) the original Mentat
+shows, eyes and book moving, but his mouth does not follow the voice (`attachMentatFace` finds no `<svg>` and gives
+null; nothing breaks).
 
 `src/ui/campaign/stage.js`:
 
 ```js
-import { attachMentatFace } from './mentat-face.js';                       // (there once the face-art step lands)
+import { attachMentatFace } from './mentat-face.js';                       // (the face-art step's hook)
+import { rigFor } from './mentat-face-rigs.js';                            // (the face-art step's hook)
 import { originalMentatFigure, originalMentatRig } from './original-mentat.js';
 
 // in mentatStage(), in place of `portrait.innerHTML = mentatSvg(house);`
 const figure = originalMentatFigure(house);
 portrait.innerHTML = figure ?? mentatSvg(house);
 
-// before `return stage;` — the rig goes with the figure (the original's rig is drawn in its frame, not the painting's)
-stage.face = voice ? attachMentatFace(stage, figure ? originalMentatRig(house) : MENTAT_RIGS[house]) : null;
-// without the face-art step's MENTAT_RIGS yet: stage.face = voice && figure ? attachMentatFace(stage, originalMentatRig(house)) : null;
+// before `return stage;`, in place of the face-art step's `stage.face = voice ? attachMentatFace(stage, rigFor(house)) : null;`
+// (the rig goes with the figure: the original's rig is drawn in its frame, not the painting's)
+stage.face = voice ? attachMentatFace(stage, figure ? originalMentatRig(house) : rigFor(house)) : null;
 ```
 
-`src/ui/campaign/index.js` (the pictures are made while the words load, so the first screen already has them; and
-the house page's crests):
+`src/ui/campaign/index.js` (the pictures are made while the words load, so the first screen already has them, but
+the words wait 1.5 s for them at most; and the house page's crests):
 
 ```js
-import { loadOriginalPictures, originalEmblem } from './original-pictures.js';
+import { loadOriginalPicturesWithin, originalEmblem } from './original-pictures.js';
 
-// ensureWords():
-this.wordsLoading = Promise.all([loadWords(this.load), loadOriginalPictures().catch(() => null)]).then(([w]) => {
+// ensureWords(), in place of `this.wordsLoading = loadWords(this.load).then((w) => {`:
+this.wordsLoading = Promise.all([loadWords(this.load), loadOriginalPicturesWithin()]).then(([w]) => {
 
-// houses():
+// houses(), in place of `art.innerHTML = crestSvg(id);`:
 art.innerHTML = originalEmblem(id) ?? crestSvg(id);
 ```
 
@@ -174,10 +186,13 @@ import('../core/user-files.js').then((m) => Promise.all([
 Optional, `src/ui/main-menu.js` line 17: the entry's note "Voices and music from your own Dune II" could say
 "Voices, Mentats and music from your own Dune II".
 
-A test for the hook, as `tests/original-pictures.test.mjs` "the briefing (mentatStage with the lead's hook)" does
-by hand: `loadOriginalPictures({ files: fakeStore })` with pictures from `fakeDunePak()` (tests/original-art-fakes.mjs),
-then `mentatStage(house, { voice })` puts `cpo-<house>` markup in `stage.portrait.innerHTML` and `stage.face` is set;
-with `resetOriginalPictures()` it is the painting again.
+The tests for the hook are already in `tests/original-pictures.test.mjs` and are skipped, saying why, until it is in:
+"the briefing (mentatStage with the hook)" runs once `stage.js` imports `./original-mentat.js` (the real
+`mentatStage`: `cpo-<house>` markup and `stage.face` set; after `resetOriginalPictures()` the painting with its own
+face), "the house selection (with the hook)" once `index.js` imports `./original-pictures.js` (the real menu: three
+cards with `cpo-emblem`), and "the face engine takes the original figure" once `mentat-face-rigs.js` (the face-art
+step) is in the tree. Run `node --test tests/original-pictures.test.mjs` after the merge and check that none is
+skipped.
 
 ## Integration notes
 
@@ -190,8 +205,11 @@ with `resetOriginalPictures()` it is the painting again.
   expressions are all empty (the original had none).
 - "Forget the game files" keeps the local copy's stamp, so a copy still in `original/` is not read again until it
   changes.
-- Our own `.cpm-*` rules from `portraits.js` are global once a painting is on the page; the figure's own `<style>`
-  turns them off for itself (`.cpo .cpm-sway, .cpo .cpm-blink`).
+- The figure keeps the face-art step's portrait contract: the root `.cp-mentat-art` (a size container, as the
+  painting's), a frame, `.cpm-sway` holding the head `<img>` first, then `.cpo-other` (book, ring) and `.cpm-blink`
+  (the eye frames), every picture placed in % of the frame. The engine moves `.cpm-sway`'s children into its head
+  boxes and lays its SVG over the head picture, under the book and the eyes, and hides `.cpm-blink` while he
+  speaks. The figure's own `<style>` keeps any painting's rules for the same classes off it (`.cpo-<house> .cpm-sway`).
 
 ## How to test
 
@@ -200,9 +218,43 @@ the readers (round trips through writers of our own in `tests/original-art-fakes
 damage case naming file and byte, fuzzing), the PNG writer read back with zlib, what is made from which file, the
 store (import, switch, forget, archives read at different times, a damaged file, a full browser, the version-1
 database, memory), the local import (once, again when changed, both cases of a name read once), the eye and book
-schedules by the original's rules, the mouth map, the figure and its rig (`validateRig`), the campaign's loader
-following the switch, the briefing with the hook and the face engine on the original figure (a fake SVG DOM and a
-voice holding an A: the A sprite is the original's most open frame). No original data is in the repository.
+schedules by the original's rules, the mouth map (and Ammon's chosen by eye), the figure's markup, size rules and
+rig (`validateRig`), the campaign's loader following the switch and its time limit, and — skipped until the face-art
+step and the hooks are in — the face engine on the original figure (a fake HTML DOM that parses innerHTML, and a
+voice holding an A: the A sprite is the original's most open frame), the real briefing stage and the real house
+page. No original data is in the repository.
+
+## Review fixes
+
+The review (on a scratch merge with the face-art step and the real files) found, and this step did:
+
+- **Critical: the original Mentat vanished while he spoke once the face-art step is merged.** That step's engine
+  builds into an HTML portrait (`div.cp-mentat-art`, its children moved into HTML head boxes); in the SVG figure
+  those boxes drew nothing. The figure is now HTML on that contract (above, "Integration notes"); the hook takes
+  `rigFor(house)` from the face-art step. Its test needs that engine, which is not on this branch (the step is
+  another agent's live work, not merged here), so it is skipped here and runs after the lead's merge.
+- **Important: the briefing test copied the hook instead of testing stage.js.** It is now three tests of the real
+  thing (engine, `mentatStage`, the house page), each skipped, saying why, until what it needs is in the tree.
+- `importLocalPaks` kept its stamp when an archive failed to download: now only when every archive found came in
+  and read. Test: a failed download is read on the next visit.
+- A 1.07 SHP whose first shape is missing was read as 1.0: the version is now told by the first shape present (its
+  offset right after the table and the end offset). Test: both versions without their first shape.
+- Ammon's pursed-lips frame went unused and his O, E and L shared one frame: `KNOWN_MOUTHS` (above). Tests: the
+  map, and that frames of another size go by the measure. The doc comment no longer says all four are used.
+- The local import switched the original sounds on: now it keeps them and leaves their switch alone.
+- The words waited for an IndexedDB read with no time limit: `loadOriginalPicturesWithin()` (1.5 s) for the hook.
+  Test: a store that never answers.
+- The figure was drawn at fractional scales (2.71x at 1600 x 900): whole factors where one fits within half a step,
+  else a smooth fill from the 4x PNGs (above). Floor-only would have left Cyril 26% smaller in that box; the choice
+  is the lead's to revisit (`figureSizeCss`, one rule).
+- The notes printed a local absolute path: now `original/dune2/`.
+
+Not done in this round, and why: the shell was refused for the rest of the session (the scratch merge with the
+face-art step was refused as a change to shared work, and every later command with it), so **none of the fixes above
+has been run**: not the tests, not the suite, not the GPU check with the real files, and nothing is committed. Before
+merging: run `node --test tests/formats-pictures.test.mjs tests/original-pictures.test.mjs tests/original-files.test.mjs`
+and the suite, then on a tree with the face-art step and the hooks look at the three briefings at 1600 x 900 and
+1920 x 1080 (`?scene=menu&intro=0&screen=campaign-briefing&house=<house>&mission=<n>`) while he speaks.
 
 ## For the README
 
