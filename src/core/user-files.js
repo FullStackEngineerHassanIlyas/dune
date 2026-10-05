@@ -1,20 +1,22 @@
-// The player's own files (spec §6 Original files): clips read out of the .PAK files of their own Dune II
-// PC copy, and music: the Mega Drive game's soundtrack as VGM files (.vgm, .vgz, or a .zip of them, as rips
+// The player's own files (spec §6 Original files): clips and pictures read out of the .PAK files of their own
+// Dune II PC copy, and music: the Mega Drive game's soundtrack as VGM files (.vgm, .vgz, or a .zip of them, as rips
 // come), or MP3/OGG/WAV tracks, each in the slots it plays in (src/audio/music/sega-tracks.js). All of it
 // stays in this browser — IndexedDB, or memory for the session where the browser keeps no site data — and
 // nothing is uploaded. The Original Game Files page (src/ui/original-files.js) fills it; the announcer
 // (src/audio/voice.js) and the sound engine (src/audio/engine.js) read the clips when "Use the original
-// sounds" is on, the music reads its slots through playlists() / playlistTracks(). Whoever reads them can
-// follow() the store and is told (originalsChanged(), playlistsChanged(), auditionChanged()) when the player
-// changes them; the store holds followers weakly, so a finished battle's engine is not kept alive by it.
+// sounds" is on, the campaign's screens (src/ui/campaign/original-pictures.js) read the pictures when "Original
+// pictures" is on, the music reads its slots through playlists() / playlistTracks(). Whoever reads them can
+// follow() the store and is told (originalsChanged(), picturesChanged(), playlistsChanged(), auditionChanged()) when
+// the player changes them; the store holds followers weakly, so a finished battle's engine is not kept alive by it.
 import { readPak } from '../formats/pak.js';
 import { readVoc } from '../formats/voc.js';
 import { clipKey, summarize, resolveEffects, effectSample } from '../formats/dune2-sounds.js';
+import { extractPictures, summarizePictures, PICTURE_FILES } from '../formats/dune2-pictures.js';
 import { SLOTS, autoSlots, isGerman } from '../audio/music/sega-tracks.js';
 
 export const PLAYLISTS = SLOTS;
-const DB_NAME = 'dune2-3d.user-files', DB_VERSION = 1;
-const STORES = { clips: { keyPath: 'name' }, tracks: { keyPath: 'id', autoIncrement: true }, meta: { keyPath: 'key' } };
+const DB_NAME = 'dune2-3d.user-files', DB_VERSION = 2;   // 2: the pictures
+const STORES = { clips: { keyPath: 'name' }, tracks: { keyPath: 'id', autoIncrement: true }, meta: { keyPath: 'key' }, pictures: { keyPath: 'name' } };
 
 // ——— storage: IndexedDB, else memory ———
 
@@ -45,6 +47,7 @@ class IdbStore {
 
   get(name, key) { return this.run(name, 'readonly', (s) => s.get(key)); }
   all(name) { return this.run(name, 'readonly', (s) => s.getAll()); }
+  keys(name) { return this.run(name, 'readonly', (s) => s.getAllKeys()); }
   put(name, value) { return this.run(name, 'readwrite', (s) => s.put(value)); }
   putMany(name, values) { return this.run(name, 'readwrite', (s) => values.map((v) => s.put(v))); }
   delete(name, key) { return this.run(name, 'readwrite', (s) => s.delete(key)); }
@@ -56,6 +59,7 @@ class MemoryStore {
   constructor(root) {
     this.kind = 'memory';
     this.m = root.__duneUserFiles ??= { clips: new Map(), tracks: new Map(), meta: new Map(), next: 1 };
+    for (const name of Object.keys(STORES)) this.m[name] ??= new Map();   // a store added since this page's maps were made
   }
 
   key(name, value) {
@@ -66,6 +70,7 @@ class MemoryStore {
 
   async get(name, key) { return this.m[name].get(key); }
   async all(name) { return [...this.m[name].values()]; }
+  async keys(name) { return [...this.m[name].keys()]; }
   async put(name, value) { const v = { ...value }, k = this.key(name, v); this.m[name].set(k, v); return k; }
   async putMany(name, values) { const keys = []; for (const v of values) keys.push(await this.put(name, v)); return keys; }
   async delete(name, key) { this.m[name].delete(key); }
@@ -103,8 +108,8 @@ async function setMeta(key, value) { await (await db()).put('meta', { key, value
 
 const followers = new Set();
 
-/** `target.originalsChanged()` will be called when the clips or the switch change, and `target.playlistsChanged()`
- *  when a playlist does (the music), while the target lives. */
+/** `target.originalsChanged()` will be called when the clips or their switch change, `target.picturesChanged()` when
+ *  the pictures or theirs do, and `target.playlistsChanged()` when a playlist does (the music), while the target lives. */
 export function follow(target) {
   if (typeof WeakRef === 'function') followers.add(new WeakRef(target));
 }
@@ -117,7 +122,7 @@ export function followed() {
 }
 
 export function notify(what = 'originals') {
-  const call = what === 'playlists' ? 'playlistsChanged' : 'originalsChanged';
+  const call = what === 'playlists' ? 'playlistsChanged' : what === 'pictures' ? 'picturesChanged' : 'originalsChanged';
   for (const t of followed()) try { t[call]?.(); } catch (err) { console.warn('original files:', err); }
 }
 
@@ -136,15 +141,18 @@ const extension = (name) => String(name).split('.').pop().toUpperCase();
 const bytesOf = async (f) => (f.data !== undefined ? f.data : await f.arrayBuffer());
 
 /**
- * Reads the player's files ([File] or [{ name, data: ArrayBuffer }]): .PAK archives for the .VOC clips in
- * them, or loose .VOC files. Keeps every clip it can read and switches the original sounds on. Returns
- * { added, files: [{ name, clips, skipped, error }] } — `error` for a file that could not be read at all,
- * `skipped` for clips inside it that were damaged.
+ * Reads the player's files ([File] or [{ name, data: ArrayBuffer }]): .PAK archives for the .VOC clips and the
+ * pictures in them, or loose .VOC files. Keeps every clip it can read and switches the original sounds on (not with
+ * `switchSounds: false`: the copy found by itself on a local server keeps them, the switch stays as it was); makes
+ * the pictures (formats/dune2-pictures.js) from the archives' picture files, with those kept from archives read
+ * before, and switches the original pictures on when it made any. Returns { added, pictures, files: [{ name,
+ * clips, pictures, skipped, error, note }] } — `error` for a file that could not be read at all, `skipped` for
+ * clips inside it that were damaged, `pictures` the picture files taken from it, `note` what was wrong first.
  */
-export async function importFiles(files) {
-  const report = [], clips = new Map();
+export async function importFiles(files, { switchSounds = true } = {}) {
+  const report = [], clips = new Map(), found = new Map();   // picture files: NAME → { bytes, row }
   for (const f of files) {
-    const name = String(f.name ?? 'file'), row = { name, clips: 0, skipped: 0, error: null, note: null };
+    const name = String(f.name ?? 'file'), row = { name, clips: 0, pictures: 0, skipped: 0, error: null, note: null };
     report.push(row);
     try {
       const ext = extension(name);
@@ -152,6 +160,10 @@ export async function importFiles(files) {
       const data = await bytesOf(f);
       const entries = ext === 'VOC' ? [{ name, bytes: data }] : (() => {
         const pak = readPak(data, name);
+        for (const e of pak.entries) {
+          const key = e.name.toUpperCase();
+          if (PICTURE_NAMES.has(key)) { found.set(key, { bytes: pak.file(e.name).slice(), row }); row.pictures++; }
+        }
         return pak.entries.filter((e) => extension(e.name) === 'VOC').map((e) => ({ name: e.name, bytes: pak.file(e.name) }));
       })();
       for (const e of entries) {
@@ -165,7 +177,7 @@ export async function importFiles(files) {
           row.note ??= err.message;   // the first damaged clip says what was wrong
         }
       }
-      if (ext === 'PAK' && !row.clips && !row.skipped) row.note = 'no sound clips in it';
+      if (ext === 'PAK' && !row.clips && !row.skipped && !row.pictures) row.note = 'no sound clips or pictures in it';
     } catch (err) {
       row.error = err.message.startsWith(`${name}: `) ? err.message.slice(name.length + 2) : err.message;   // the page names the file itself
     }
@@ -176,10 +188,76 @@ export async function importFiles(files) {
     const sources = new Set(await meta('sources', []));
     for (const r of report) if (r.clips) sources.add(r.name.toUpperCase());
     await setMeta('sources', [...sources].sort());
-    await setMeta('useOriginals', true);
+    if (switchSounds) await setMeta('useOriginals', true);
     notify();
   }
-  return { added: clips.size, files: report };
+  const pictures = found.size ? await keepPictures(found, report) : 0;
+  return { added: clips.size, pictures, files: report };
+}
+
+// ——— the original game's pictures ———
+
+const PICTURE_NAMES = new Set(PICTURE_FILES);
+
+/** Makes the pictures from the picture files `found` (NAME → { bytes, row }) and those kept before; keeps both. */
+async function keepPictures(found, report) {
+  const s = await db();
+  const kept = new Map(Object.entries(await meta('pictureFiles', {})));
+  for (const [key, f] of found) kept.set(key, f.bytes);
+  const { pictures, problems } = extractPictures((n) => kept.get(String(n).toUpperCase()) ?? null);
+  for (const p of problems) {
+    const row = found.get(p.file.toUpperCase())?.row;
+    if (row) row.note ??= p.error;   // the archive the damaged file came from says what was wrong with it
+  }
+  try {
+    await setMeta('pictureFiles', Object.fromEntries(kept));
+    if (pictures.length) await s.putMany('pictures', pictures);
+  } catch (err) {
+    for (const f of found.values()) f.row.note ??= `the pictures could not be kept: ${storageError(err)}`;
+    return 0;
+  }
+  if (!pictures.length) return 0;
+  const sources = new Set(await meta('pictureSources', []));
+  for (const r of report) if (r.pictures) sources.add(r.name.toUpperCase());
+  await setMeta('pictureSources', [...sources].sort());
+  await setMeta('usePictures', true);
+  notify('pictures');
+  return pictures.length;
+}
+
+export async function usingPictures() { return (await meta('usePictures', false)) === true; }
+
+export async function setUsePictures(on) {
+  await setMeta('usePictures', !!on);
+  notify('pictures');
+}
+
+/** For the page: what the stored pictures cover (formats/dune2-pictures.js summarizePictures), where from, and the switch. */
+export async function pictureSummary() {
+  const s = await db();
+  return { ...summarizePictures(await s.keys('pictures')), sources: await meta('pictureSources', []), on: await usingPictures(), storage: s.kind };
+}
+
+/** The stored pictures (name → { name, kind, house, width, height, rgba, … }) while "Original pictures" is on, else null. */
+export async function originalPictures() {
+  if (!(await usingPictures())) return null;
+  const all = await (await db()).all('pictures');
+  return all.length ? new Map(all.map((p) => [p.name, p])) : null;
+}
+
+/** Forgets every picture and the files they were made from, and switches the original pictures off. */
+export async function clearPictures() {
+  await (await db()).clear('pictures');
+  await setMeta('pictureFiles', {});
+  await setMeta('pictureSources', []);
+  await setMeta('usePictures', false);
+  notify('pictures');
+}
+
+/** "Forget the game files": the clips and the pictures (the music stays). */
+export async function forgetGameFiles() {
+  await clearClips();
+  await clearPictures();
 }
 
 /** Forgets every clip (the playlists stay) and switches the original sounds off. */
@@ -379,6 +457,47 @@ export async function importLocalMusic({ fetch: get = globalThis.fetch, url = LO
   const data = await res.arrayBuffer();
   const report = await importMusic([{ name: url.split('/').pop(), data }], format ? { format } : {});
   if (!report.files.some((f) => f.error && !f.from)) await setMeta('localMusic', stamp);
+  return report;
+}
+
+/** Where a player may keep their own Dune II PC copy beside the game (git-ignored), and its archives' names. */
+export const LOCAL_PAK_DIRS = ['original/', 'original/dune2/'];
+export const LOCAL_PAK_NAMES = ['DUNE', 'ENGLISH', 'ATRE', 'HARK', 'ORDOS', 'MENTAT', 'VOC', 'SOUND', 'INTRO', 'INTROVOC', 'FINALE', 'MERC', 'HERC', 'XTRE', 'SCENARIO'];
+
+/**
+ * The player's own Dune II PC files kept in the game's git-ignored original/ folder (or original/dune2/) are read
+ * by themselves on a local server, as the Original Game Files page reads them: the sounds and the pictures. The
+ * pictures switch on as there; the sounds are kept but their switch stays as the player set it (before this, the
+ * original sounds came in only through the page). A server lists no folder, so each archive the PC game has is asked
+ * for by name (upper or lower case); the files are read again only when one of them changed, or when one could not
+ * be downloaded or read last time. Nothing is fetched from anywhere else; with none there, nothing happens.
+ * Resolves importFiles' report, or null.
+ */
+export async function importLocalPaks({ fetch: get = globalThis.fetch, dirs = LOCAL_PAK_DIRS, names = LOCAL_PAK_NAMES } = {}) {
+  if (typeof get !== 'function') return null;
+  const urls = [...new Set(dirs.flatMap((d) => names.flatMap((n) => [`${d}${n}.PAK`, `${d}${n.toLowerCase()}.pak`])))];
+  const heads = await Promise.all(urls.map(async (url) => {
+    try {
+      const res = await get(url, { method: 'HEAD', cache: 'no-store' });
+      return res?.status === 200 ? { url, stamp: `${url}|${res.headers?.get?.('content-length') ?? ''}|${res.headers?.get?.('last-modified') ?? ''}` } : null;
+    } catch { return null; }
+  }));
+  const found = [], seen = new Set();
+  for (const h of heads) if (h && !seen.has(h.url.toUpperCase())) { seen.add(h.url.toUpperCase()); found.push(h); }   // a disk that ignores case answers both spellings
+  if (!found.length) return null;
+  const stamp = found.map((f) => f.stamp).join(';');
+  if ((await meta('localPaks', null)) === stamp) return null;   // already in: nothing is downloaded
+  const files = [];
+  for (const f of found) {
+    try {
+      const res = await get(f.url, { cache: 'no-store' });
+      if (res?.status === 200) files.push({ name: f.url.split('/').pop().toUpperCase(), data: await res.arrayBuffer() });
+    } catch { /* gone since it was asked about: the next visit tries again (no stamp below) */ }
+  }
+  if (!files.length) return null;
+  const report = await importFiles(files, { switchSounds: false });
+  // the stamp only when every archive found came in whole: one that failed is asked for again on the next visit
+  if (files.length === found.length && !report.files.some((f) => f.error)) await setMeta('localPaks', stamp);
   return report;
 }
 

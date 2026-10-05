@@ -28,6 +28,7 @@ export const MENU_SLOTS = SLOTS.filter((n) => !IN_GAME.includes(n));
 
 export const DEFAULT_VOLUME = 0.5;
 export const DUCK = 0.6;            // the music under an announcer line: about -4.4 dB
+export const SPEECH_DUCK = 0.4;     // the menu's music under a Mentat's words (src/audio/mentat-voice.js): about -8 dB
 export const PLAYLISTS = SLOTS;     // the moments the player's own files can take over (one list: sega-tracks.js)
 const PLAYLIST_WAIT = 3000;         // ms to wait for the player's playlists before playing the game's own music
 const MENU_LIST_WAIT = 8000;        // the menu waits longer: at page load the first read can be slow, and the intro's cue must be the player's
@@ -128,6 +129,7 @@ export class Conductor {
     this.after = null;       // or the item to start when it ends (a media file is involved)
     this.chain = null;       // the mood the queued/after item belongs to (the intro's hand-over to the menu)
     this.ducked = false;
+    this.duckLevel = DUCK;   // the level under a line, as a share of the music's
     this.held = false;       // the game's sound is muted (M, Sound off), or a track is being auditioned: the synth rests
     this.auditioning = false;
     this.paused = false;
@@ -206,7 +208,7 @@ export class Conductor {
 
   /** Settings, the context, the mood: anything changed since the last call is applied. Cheap; call it often. */
   update() {
-    const level = musicVolume(this.settings) * (this.ducked ? DUCK : 1);
+    const level = musicVolume(this.settings) * (this.ducked ? this.duckLevel : 1);
     if (level <= 0) {
       if (this.on || this.output.synthUp || this.output.loading) this.halt();
       return;
@@ -733,6 +735,13 @@ export class MenuMusic {
     const c = this.conductor, [kind, house] = String(name ?? 'menu').split(':');
     if ((kind === 'briefing' || kind === 'victory' || kind === 'defeat') && house) c.house = house;
     if (!this.track) c.want(name ?? 'menu');
+    this.update();
+  }
+
+  /** A Mentat speaks (on): the music steps back under his words, and comes back up after (off). */
+  duck(on) {
+    this.conductor.duckLevel = SPEECH_DUCK;
+    this.conductor.ducked = !!on;
     this.update();
   }
 

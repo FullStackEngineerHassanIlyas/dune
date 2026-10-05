@@ -81,7 +81,10 @@ export async function start({ search }) {
   // itself on a local server (not in automated runs, which start from an empty browser on purpose)
   const automated = navigator.webdriver || /HeadlessChrome/.test(navigator.userAgent);
   if (!automated && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
-    import('../core/user-files.js').then((m) => m.importLocalMusic()).catch((err) => console.warn('local music:', err));
+    import('../core/user-files.js').then((m) => Promise.all([
+      m.importLocalMusic().catch((err) => console.warn('local music:', err)),
+      m.importLocalPaks().catch((err) => console.warn('local game files:', err)),
+    ])).catch((err) => console.warn('local files:', err));
   }
 
   const launch = (query) => {
