@@ -250,11 +250,34 @@ export class GameView {
         this.flyover = new Flyover(this.r3d.scene, { house: this.house, heightAt: this.heightAt });
         this.flyover.start(this.rig);
         this.handoff = 'flyover';
-        this.music.end(true);   // the house's victory theme over the Carryalls, as the Sega game plays it
+        this.fanfare();
       } else this.handOff(now);
     }
+    this.holdFanfare();
     if (this.flyover?.update(live)) { this.flyover.dispose(); this.flyover = null; this.handOff(now); }
     if (this.handoff === 'posted' && now >= this.handoffAt) this.showMissionEnd();   // nobody in the shell took it
+  }
+
+  /**
+   * The house's victory theme over the Carryalls, as the Sega game plays it from the fly-over through the win
+   * picture and the score: in the menu shell on the menu's music (C2 'fanfare'), so that it plays on into the
+   * results once this frame closes instead of starting again there; alone, on the battle's own, which plays on under
+   * the end screen.
+   */
+  fanfare() {
+    this.fanfareHeld = this.fanfareRests();
+    this.fanfareInShell = postToShell({ dune: 'fanfare', house: this.house, held: this.fanfareHeld });
+    if (!this.fanfareInShell) this.music.end(true);
+  }
+
+  /** Paused (P) or muted (M): the battle's own music would rest, and so does the shell's fanfare. */
+  fanfareRests() { return !!this.paused || !!this.sound?.muted; }
+
+  /** Tells the shell when its fanfare is to rest or play on again (once a change). */
+  holdFanfare() {
+    if (!this.fanfareInShell || this.fanfareRests() === this.fanfareHeld) return;
+    this.fanfareHeld = !this.fanfareHeld;
+    postToShell({ dune: 'fanfare', house: this.house, held: this.fanfareHeld });
   }
 
   /** The result (C2 'missionEnd') to the menu shell, whose campaign saves it and moves on; alone, the end screen. */
@@ -267,7 +290,7 @@ export class GameView {
     this.handoff = 'screen';
     const stats = endStats(this.world, this.house);
     this.endScreen.show(stats, { mission: { title: this.world.mission.title } });
-    this.music.end(stats.won, stats.draw);
+    if (!this.fanfareInShell) this.music.end(stats.won, stats.draw);   // the shell's fanfare plays on: not a second one
   }
 
   /** The camera's view on the ground (tile coordinates), for the radar outline. */
@@ -356,6 +379,7 @@ export class GameView {
     else if (key === 'volume') { this.sound.volume = value; this.sound.setMuted(this.sound.muted); }
     else if (key === 'sound') this.sound.setMuted(!value);
     else if (key === 'voiceVolume') this.announcer.player.setVolume(value);
+    else if (key === 'announcer') this.announcer.player.output?.setAnnouncer?.(value);   // the next line comes in that voice
   }
 
   frame(now) {

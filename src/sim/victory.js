@@ -56,7 +56,9 @@ export function endStats(world, houseId) {
   const all = [...world.houses.values()];
   const order = [...all.filter((h) => h.id === houseId), ...all.filter((h) => h.id !== houseId)];
   const winner = world.outcome?.winner ?? null;
-  const houses = order.map((h) => ({ id: h.id, name: shown(h.id), color: HOUSES[h.id]?.color ?? 0xffffff, you: h.id === houseId, winner: h.id === winner,
+  // allies left standing won together (a skirmish's allied computers, a mission's side): each is marked a winner
+  const winners = new Set(winner ? [winner, ...(world.outcome?.standing ?? []).filter((id) => friendly(world, id, winner))] : []);
+  const houses = order.map((h) => ({ id: h.id, name: shown(h.id), color: HOUSES[h.id]?.color ?? 0xffffff, you: h.id === houseId, winner: winners.has(h.id),
     out: h.defeated ? Math.round(h.defeatedAt ?? world.time) : null }));
   const row = (label, k) => {
     const values = order.map((h) => Math.round(statsOf(h)[k]));

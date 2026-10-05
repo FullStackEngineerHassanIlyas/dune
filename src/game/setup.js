@@ -1,12 +1,16 @@
 // Skirmish set-up (spec §5.8): map, houses and the Dune II style opening force — an MCV on the plateau centre
 // with an escort parked at least two tiles away so the Construction Yard has room. The player and one to three
-// computer opponents, each its own house in its own corner, every house at the set-up's tech level.
+// computer opponents, each its own house in its own corner, every house at the set-up's tech level. A free-for-all
+// by default; with `allied` the computers are one side against the player (sim/alliance.js, as a campaign mission
+// has them): they never fight each other, share what they see and all come for the player, who wins only when every
+// one of them is out.
 import { generateMap } from '../sim/mapgen.js';
 import { World } from '../sim/world.js';
 import { LIGHT_VEHICLE, INFANTRY, SKIRMISH_HOUSES } from '../data/houses.js';
 import { UNITS } from '../data/units.js';
 import { createBrain, DIFFICULTY } from '../sim/ai.js';
 import { updateFog } from '../sim/fog.js';
+import { setAlliances } from '../sim/alliance.js';
 import { findFreeTile } from '../sim/spawn.js';
 
 export { findFreeTile };
@@ -40,11 +44,13 @@ export function parseOpponents(text, difficulty = 'normal') {
 export const formatOpponents = (list) => list.map((o) => `${o.house}:${o.difficulty}`).join(',');
 
 /** setupSkirmish's arguments from a battle URL (core/params.js readParams): opponents=house:difficulty,…, tech=,
- *  worms=, or an older URL's enemy= and ai=. A battle URL is a player's skirmish: a few worms unless it says otherwise. */
+ *  worms=, allied=1 (the computers one side), or an older URL's enemy= and ai=. A battle URL is a player's skirmish:
+ *  a few worms unless it says otherwise. */
 export function skirmishOptions(params) {
   const difficulty = params.str('ai', 'normal');
   return { seed: params.num('seed', 1), size: params.num('size', 64), house: params.str('house', 'atreides'), enemy: params.str('enemy'), opponents: parseOpponents(params.str('opponents'), difficulty),
-    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: WORMS.includes(params.str('worms')) ? params.str('worms') : 'few' };
+    credits: params.num('credits', 3000), fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined, difficulty, techLevel: params.num('tech', 9), worms: WORMS.includes(params.str('worms')) ? params.str('worms') : 'few',
+    allied: params.bool('allied') };
 }
 
 /** Each opponent its own house: a clash, an unknown house or 'random' takes the first house still free. */
@@ -60,7 +66,7 @@ function resolveOpponents(house, list, size, difficulty) {
 }
 
 export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, opponents = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed',
-  difficulty = 'normal', techLevel = 9, worms = 'off', aiPlayer = false } = {}) {   // no worms unless asked: scenes and tests stay as they were
+  difficulty = 'normal', techLevel = 9, worms = 'off', aiPlayer = false, allied = false } = {}) {   // no worms unless asked: scenes and tests stay as they were
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
   const rivals = resolveOpponents(house, opponents?.length ? opponents : [{ house: enemy, difficulty: level }], size, level);
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 1 + rivals.length });
@@ -75,6 +81,7 @@ export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy =
   for (const r of rivals) world.addHouse(r.house, { credits, ai: true, techLevel: tech });
   spawnStartingForces(world, house, starts[0]);
   rivals.forEach((r, k) => spawnStartingForces(world, r.house, starts[k + 1]));
+  if (allied === true) setAlliances(world, [rivals.map((r) => r.house)]);   // one opponent alone is no alliance (world.teams stays null)
   for (const r of rivals) createBrain(world, r.house, r.difficulty);
   if (aiPlayer) createBrain(world, house, level);
   if (world.fogOfWar) updateFog(world);   // shroud from the very first frame

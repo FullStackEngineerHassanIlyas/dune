@@ -655,7 +655,9 @@ export class MenuMusic {
     this.introDelay = null;  // ms from intro() to the cue sounding (debug)
     this.away = false;       // a battle is in the frame
     this.behind = false;     // and the music has faded out behind it
-    this.hidden = false;
+    this.fanfareMood = null; // or plays its won mission's fanfare (fanfare()), until the menu is back
+    this.still = false;      // which rests while the battle is paused or muted
+    this.paused = false;     // a player's file is paused (a hidden page, or the fanfare resting)
     this.timer = win?.setInterval?.(() => this.update(), POLL_MS);
     win?.document?.addEventListener?.('visibilitychange', () => this.rest());
   }
@@ -683,12 +685,12 @@ export class MenuMusic {
 
   now() { return this.win?.performance?.now?.() ?? Date.now(); }
 
-  /** The context suspended whenever nothing is to be heard, and a player's file paused on a hidden page. */
+  /** The context suspended whenever nothing is to be heard, and a player's file paused on a hidden page (or with the fanfare resting). */
   rest() {
-    const hidden = !!this.win?.document?.hidden, a = this.audio;
-    const held = this.behind || hidden || a.muted || musicVolume(a.settings) <= 0;
+    const a = this.audio, paused = !!this.win?.document?.hidden || this.still;
+    const held = this.behind || paused || a.muted || musicVolume(a.settings) <= 0;
     if (held !== a.held) a.hold(held);
-    if (hidden !== this.hidden) { this.hidden = hidden; this.conductor.setPaused(hidden); }
+    if (paused !== this.paused) { this.paused = paused; this.conductor.setPaused(paused); }
   }
 
   /** At page load, before any gesture: the context (suspended), the synth loading, the intro's cue queued in it. */
@@ -777,16 +779,37 @@ export class MenuMusic {
   /** A battle opens in the frame over the menu: the music fades out and the menu's audio rests. */
   leave() {
     this.away = true;
+    this.fanfareMood = null;
     this.conductor.want(null);
     this.conductor.update();
-    this.win?.setTimeout?.(() => { if (this.away) { this.behind = true; this.rest(); } }, 1000);
+    this.win?.setTimeout?.(() => { if (this.away && !this.fanfareMood) { this.behind = true; this.rest(); } }, 1000);
   }
 
-  /** Back from the battle: the menu's music again from its start (never the intro). */
-  enter() {
-    this.away = this.behind = false;
-    this.conductor.playing = null;
-    this.conductor.want('menu');
+  /**
+   * A won mission's Carryalls fly over the battle in the frame (its 'fanfare', C2): the house's victory theme starts
+   * here, on the menu's music, as the Sega game plays it from the fly-over on — so that it plays on into the results
+   * once the frame closes (enter({ carry: true })) instead of starting again there. `held`: the battle is paused or
+   * muted, and the fanfare rests with it. Asked again, it only rests or plays on.
+   */
+  fanfare(house, { held = false } = {}) {
+    this.fanfareMood = `victory:${house}`;
+    this.behind = false;
+    this.still = !!held;
+    this.mood(this.fanfareMood);
+  }
+
+  /**
+   * Back from the battle: the menu's music again from its start (never the intro) — or, `carry` (the campaign's
+   * results follow), the battle's fanfare plays on.
+   */
+  enter({ carry = false } = {}) {
+    const c = this.conductor, keep = carry && this.fanfareMood !== null && c.wanted === this.fanfareMood;
+    this.away = this.behind = this.still = false;
+    this.fanfareMood = null;
+    if (!keep) {
+      c.playing = null;
+      c.want('menu');
+    }
     this.update();
     this.reloadPlaylists();
   }

@@ -141,6 +141,32 @@ export async function encodePng(rgba, width, height, { scale = 1 } = {}) {
   return assemble(l, await zlib(l.raw));
 }
 
+/**
+ * A palette PNG (Uint8Array) straight from colour indices: `index` a byte a pixel (width x height) into `colours`,
+ * at most 256 words r | g << 8 | b << 16 | a << 24. For a picture already in indices (a palette picture enlarged by a
+ * pixel-art scaler, ui/campaign/pixel-scale.js) it skips looking every pixel's colour up. Deflated where the
+ * platform can.
+ */
+export async function encodeIndexedPng(index, width, height, colours) {
+  if (index.length !== width * height) throw new RangeError(`png: ${index.length} indices are not ${width} x ${height} pixels`);
+  if (!(colours.length >= 1 && colours.length <= 256)) throw new RangeError(`png: ${colours.length} colours do not fit a palette`);
+  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, width); dv.setUint32(4, height);
+  ihdr[8] = 8; ihdr[9] = 3;   // 8 bits, palette
+  const plte = new Uint8Array(colours.length * 3), trns = new Uint8Array(colours.length);
+  let lastSeeThrough = -1;
+  colours.forEach((c, k) => {
+    plte[k * 3] = c & 255; plte[k * 3 + 1] = (c >>> 8) & 255; plte[k * 3 + 2] = (c >>> 16) & 255;
+    trns[k] = c >>> 24;
+    if (trns[k] !== 255) lastSeeThrough = k;
+  });
+  const extra = [chunk('PLTE', plte)];
+  if (lastSeeThrough >= 0) extra.push(chunk('tRNS', trns.subarray(0, lastSeeThrough + 1)));
+  const raw = new Uint8Array((width + 1) * height);   // each row: filter 0, then the indices
+  for (let y = 0; y < height; y++) raw.set(index.subarray(y * width, (y + 1) * width), y * (width + 1) + 1);
+  return assemble({ ihdr, extra }, await zlib(raw));
+}
+
 /** `rgba` enlarged `k` times by whole pixels (each pixel becomes a k x k block). */
 export function scaleNearest(rgba, width, height, k) {
   if (k === 1) return rgba;

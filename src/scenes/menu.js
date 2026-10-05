@@ -60,6 +60,31 @@ function flyover(settings, seed) {
   };
 }
 
+/**
+ * The shell's side of the battle in its frame, apart from the page: the battle's messages ({ dune: '<type>', ... })
+ * go to the handler registered for the type — 'quit' and 'fanfare' are the shell's own, the campaign screens
+ * register theirs through on() (e.g. a mission's result) — and the menu's music follows the battle's end. A won
+ * mission's Carryalls ('fanfare') start its house's victory theme on the menu's music (resting while the battle is
+ * paused or muted), and back from the battle (quit) it plays on into the campaign's results, one fanfare; anywhere
+ * else the menu's music starts again. The battle's options come first: reload() reads them as saved.
+ * close(screen): the frame away and the backdrop back; show(screen): the menu screen.
+ */
+export function battleShell({ music, settings, reload, close, show }) {
+  const quit = (screen) => {
+    Object.assign(settings, reload());   // what the battle's own options changed
+    close(screen);
+    music.enter({ carry: screen === 'campaign-results' });   // a won mission's fanfare plays on into its results
+    show(screen);
+  };
+  const fanfare = (data) => {
+    if (typeof data?.house !== 'string') return;
+    Object.assign(settings, reload());
+    music.fanfare(data.house, { held: !!data.held });
+  };
+  const handlers = new Map([['quit', (data) => quit(data?.screen)], ['fanfare', fanfare]]);
+  return { quit, handle: (data) => handlers.get(data?.dune)?.(data), on: (type, handler) => { handlers.set(type, handler); } };
+}
+
 export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
@@ -112,25 +137,21 @@ export async function start({ search }) {
     };
     wait();
   };
-  // back from a battle: to the title, or to the screen the battle asked for (a campaign screen)
-  const quit = (screen) => {
-    frame?.remove();
-    frame = null;
-    Object.assign(settings, loadSettings(params));   // what the battle's own options changed
-    app.classList.add('in-menu');
-    // the campaign's results and defeat screens hold the backdrop still, but its GPU context must be back for
-    // what follows them (the ending draws the planet on it): start it paused there, a still frame and no loop
-    const hold = screen === 'campaign-results' || screen === 'campaign-defeat';
-    backdrop.setPaused?.(hold || !settings.menuMotion);
-    backdrop.start();
-    music.enter();
-    menu.show(screen);
-    window.focus();
-  };
-  // Messages from the battle in the frame: { dune: '<type>', ... } goes to the handler registered for the type.
-  // 'quit' is the shell's own; the campaign screens register theirs through shell.on (e.g. a mission's result).
-  const handlers = new Map([['quit', (data) => quit(data?.screen)]]);
-  const shell = { launch, quit, on: (type, handler) => { handlers.set(type, handler); } };
+  // back from a battle: to the title, or to the screen the battle asked for (a campaign screen); the battle's
+  // messages ('quit', 'fanfare', and the campaign screens' own through shell.on) to their handlers
+  const { quit, handle, on } = battleShell({ music, settings, reload: () => loadSettings(params),
+    close: (screen) => {
+      frame?.remove();
+      frame = null;
+      app.classList.add('in-menu');
+      // the campaign's results and defeat screens hold the backdrop still, but its GPU context must be back for
+      // what follows them (the ending draws the planet on it): start it paused there, a still frame and no loop
+      const hold = screen === 'campaign-results' || screen === 'campaign-defeat';
+      backdrop.setPaused?.(hold || !settings.menuMotion);
+      backdrop.start();
+    },
+    show: (screen) => { menu.show(screen); window.focus(); } });
+  const shell = { launch, quit, on };
 
   const menu = new MainMenu(document.getElementById('ui'), { settings, music, shell, backdrop, onStart: launch, onFullscreen: () => toggleFullscreen(), isFullscreen: () => isFullscreen(),
     // Pause background (WCAG 2.2.2), remembered; the flyover fallback cannot pause
@@ -139,7 +160,7 @@ export async function start({ search }) {
   onFullscreenChange(() => menu.refresh());
   addEventListener('message', (e) => {
     if (e.origin !== location.origin || !frame || e.source !== frame.contentWindow) return;
-    handlers.get(e.data?.dune)?.(e.data);
+    handle(e.data);
   });
   addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.altKey && !e.repeat) { e.preventDefault(); toggleFullscreen(); }
