@@ -86,6 +86,17 @@ each house, the Mentats' briefing, advice, victory and defeat lines for the nine
 Cyril of House Atreides fair and calm, Radnor of House Harkonnen cruel and sly, Ammon of House Ordos mercantile
 and curt — their last words after the final battle, a caption for each step of the map and the credits roll.
 
+The Mentats speak every one of those lines — Cyril warm and unhurried by the sea window of Caladan, Radnor
+low and flat in the Harkonnen furnace hall, Ammon smooth and cool in the Ordos ice hall — and the words on
+screen follow the voice two lines at a time, the word being said marked; any key or a click on the words
+reads on. The music steps back while they speak. Options → Mentat voice turns them off (`mentatVoice=0` in
+the URL); the Voices slider sets their level.
+
+The Mentat's face moves with his voice: his lips take the shape of each sound a moment before you hear it, his
+jaw opens with its loudness, and his brows, eyes and mouth take each sentence's mood (Cyril's kindly concern,
+Radnor's sneer, Ammon's sly half-smile). He blinks and moves his head a little as he talks, and rests between
+lines. With Options → Mentat voice Off he is the still painting; with reduced motion only his mouth moves.
+
 Development: `?scene=mission&house=atreides&mission=3` plays one mission on its own (`seed=` changes the map);
 `?scene=atlas&house=ordos&step=3&zoom=4` shows the map; `?scene=menu&intro=0&screen=campaign-briefing&house=ordos&mission=3`
 opens any campaign screen (`campaign`, `campaign-house`, `campaign-join`, `campaign-briefing`, `campaign-region`,
@@ -254,6 +265,11 @@ with ffmpeg (band-limit, presence, compression, a short console room or a field 
 normalised to −16 LUFS). espeak-ng (GPL-3.0) turned the text into phonemes at generation time only; it is
 not part of the game. The generated lines are distributed with this project under the same terms as its
 code. No original game audio is used.
+
+The Mentats' 123 lines (about 4.6 MB with their timing tracks) are in `assets/voice/mentat/`, rendered the same way by
+`scripts/voices/mentat.py` (blends of `bm_george` and `bm_fable` for Cyril, `bm_daniel` and `am_onyx` for
+Radnor, `am_eric` and `bm_lewis` for Ammon, each in a light reverb of his chamber, at about −19.7 LUFS), each with a
+timing track of its words, mouth shapes and expressions taken from the model's own phoneme durations.
 
 ## Scenes and URL flags
 
