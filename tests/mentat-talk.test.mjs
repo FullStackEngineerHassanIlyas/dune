@@ -110,7 +110,7 @@ test('the face is gone with the screen: Proceed, Back or leaving take the stage 
   d.step();
   assert.equal(stage.face.destroyed, true);
   assert.equal(voice.listeners.line.size + voice.listeners.end.size, 0, 'the voice is let go');
-  assert.equal(d.pending, null, 'no frame is asked for any more');
+  assert.ok(d.pending === null, 'no frame is asked for any more');
   assert.equal(shape(stage.portrait), before, 'and the portrait is put back as it was');
   // (b) it leaves while he is asleep between lines: the next line ends the face without a frame
   ({ stage, voice, d } = build());
@@ -120,31 +120,31 @@ test('the face is gone with the screen: Proceed, Back or leaving take the stage 
   leave(stage);
   voice.play();
   assert.equal(stage.face.destroyed, true);
-  assert.equal(d.pending, null);
+  assert.ok(d.pending === null);
   // (c) it leaves before the face is ready, or the face is destroyed before its first line
   ({ stage } = build());
   stage.face.destroy();
   assert.equal(await stage.face.warm(), false, 'a face that is gone is never built');
-  assert.equal(art(stage).querySelector('.cpmf-head'), null);
+  assert.ok(art(stage).querySelector('.cpmf-head') === null);
 });
 
 test('Options → Mentat voice Off: the stage has no face, the portrait stays the still painting with its mouth shut', async () => {
   // no voice at all (a stage for something that is not spoken)
   let { stage } = build('ordos', ADVICE, {}, { voice: null });
-  assert.equal(stage.face, null);
-  assert.equal(art(stage).querySelector('.cpmf-head'), null);
+  assert.ok(stage.face === null, 'no face');
+  assert.ok(art(stage).querySelector('.cpmf-head') === null);
   // the voice is there but silent: a fake that says it is not enabled, and the real one with the setting Off
   const silent = fakeVoice(ADVICE);
   silent.enabled = false;
   stage = mentatStage('ordos', { mentatName: 'Ammon', later: () => {}, voice: silent });
-  assert.equal(stage.face, null);
+  assert.ok(stage.face === null, 'no face');
   assert.equal(silent.listeners.line.size, 0, 'nobody listens to the voice');
   const off = new MentatVoice({ settings: { mentatVoice: false }, context: () => ({}), fetch: async () => ({ ok: false }), later: () => {} });
   stage = mentatStage('atreides', { mentatName: 'Cyril', later: () => {}, voice: off });
   const before = shape(stage.portrait);
   assert.equal(off.enabled, false);
-  assert.equal(stage.face, null);
-  assert.equal(off.say(['atreides/m1-briefing']), null, 'no line is ever made, so no face ever starts');
+  assert.ok(stage.face === null, 'no face');
+  assert.ok(off.say(['atreides/m1-briefing']) === null, 'no line is ever made, so no face ever starts');
   await new Promise((r) => setTimeout(r, 5));
   assert.equal(shape(stage.portrait), before, 'the portrait is exactly as portraits.js made it');
   assert.equal(art(stage).querySelector('.cpm-blink').style.visibility, '');
@@ -186,7 +186,7 @@ test('the player\'s own setting is read when the stage is built: prefers-reduced
 });
 
 test('a house without a Mentat has no face, and nothing breaks', () => {
-  assert.equal(rigFor('fremen'), null);
+  assert.ok(rigFor('fremen') === null);
   const none = mentatStage('fremen', { mentatName: 'Stilgar', later: () => {}, voice: fakeVoice(ADVICE) });
-  assert.equal(none.face, null);
+  assert.ok(none.face === null, 'no face');
 });

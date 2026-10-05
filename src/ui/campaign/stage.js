@@ -218,7 +218,7 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
     },
   };
   // the face is made ready while his first line loads, sleeps until it plays, rests between lines and ends when this
-  // section leaves the page
-  if (voice) stage.face = attachMentatFace(stage, rigFor(house), { warm: true, ...faceOptions });
+  // section leaves the page; a voice that will not speak (Options → Mentat voice Off, no sound) leaves the painting
+  if (voice && voice.enabled !== false) stage.face = attachMentatFace(stage, rigFor(house), { warm: true, ...faceOptions });
   return stage;
 }
