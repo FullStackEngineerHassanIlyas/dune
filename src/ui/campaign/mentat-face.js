@@ -10,15 +10,15 @@
 // prefers-reduced-motion: the mouth alone moves. All a rig's art is data (mentat-face-rig.js); the three Mentats' rigs, baked
 // from the very sculpt of their heads, are in mentat-face-rigs.js.
 import { restFrame, VISEMES } from '../../audio/mentat-voice.js';
-import { compileRig, P, PARAMS } from './mentat-face-rig.js';
+import { compileRig, rigFiles, P, PARAMS } from './mentat-face-rig.js';
 import { springStep, omegaFor, visemeTargets, normalizeWeights, stackAlphas, openness, Blinker, sway, clamp01 } from './mentat-face-motion.js';
-import { createFaceSvg, POSE, POSE_SIZE } from './mentat-face-svg.js';
+import { createFaceSvg, headImageOf, POSE, POSE_SIZE } from './mentat-face-svg.js';
 
 const NV = VISEMES.length, NP = PARAMS.length;
 // scalar springs (x/v cells): the jaw (fast), its slow average, how much he is speaking, the brows' lift on a loud syllable
 const J_JAW = 0, J_SLOW = 1, J_SPEAK = 2, J_FLASH = 3;
 // state cells
-const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6;
+const S_T = 0, S_LAST_TS = 1, S_SINCE = 2, S_SENTENCE = 3, S_BLINK = 4, S_PHASE = 5, S_DT = 6, S_FIRST = 7;
 const SETTLED = 0.01;   // a parameter this close to the painting is under a hundredth of a unit or a degree away
 let faces = 0;
 
@@ -32,10 +32,10 @@ export class MentatFace {
    * rig: a rig (mentat-face-rig.js; throws a TypeError naming what is wrong). voice: a MentatVoice (or anything
    * with now(frame), current and on('line' | 'end')). el: the element whose leaving the page ends the face (the
    * stage's section); art: the portrait's `.cp-mentat-art` (default: the first in `el`; `svg` is the old name).
-   * reducedMotion: the mouth alone.
+   * reducedMotion: the mouth alone. warm: get ready before the first line (see warm()).
    * raf / caf: the frame scheduler (tests pass their own).
    */
-  constructor({ rig, voice, el = null, art = null, svg = null, reducedMotion = prefersReducedMotion(), raf = null, caf = null } = {}) {
+  constructor({ rig, voice, el = null, art = null, svg = null, reducedMotion = prefersReducedMotion(), raf = null, caf = null, warm = false } = {}) {
     this.c = compileRig(rig);
     this.rig = rig;
     this.voice = voice;
@@ -53,12 +53,14 @@ export class MentatFace {
     this.w = new Float64Array(NV); this.wv = new Float64Array(NV); this.wt = new Float64Array(NV); this.alpha = new Float64Array(NV); this.ws = new Float64Array(NV);
     this.e = new Float64Array(NP); this.ev = new Float64Array(NP); this.zero = new Float64Array(NP);
     this.x = new Float64Array(4); this.v = new Float64Array(4);
-    this.s = new Float64Array(7); this.tmp = new Float64Array(2);
+    this.s = new Float64Array(8); this.tmp = new Float64Array(2);
     this.blinker = new Blinker(this.c.motion.blink);
     this.rafId = 0;
     this.running = false;
     this.settled = false;
     this.destroyed = false;
+    this.warming = null;
+    this.images = [];
     this.wasConnected = false;
     this.missing = 0;
     this.frames = 0;
@@ -67,6 +69,37 @@ export class MentatFace {
     this.offLine = voice?.on?.('line', () => this.onLine()) ?? null;
     this.offEnd = voice?.on?.('end', () => { this.s[S_SINCE] = 0; }) ?? null;
     if (voice?.current?.state === 'playing') this.start();
+    else if (warm) this.warm();
+  }
+
+  /**
+   * Gets the face ready before his first word, so the line does not pay for it: once the head painting has loaded (the
+   * corners' and the chin's patches are cut from it) the face is built, out of the picture, and its own pictures (the
+   * mouth's sprites, the brows, the lids) are fetched and decoded. Built at the line's start otherwise: a few frames
+   * of stall just as he opens his mouth, and the first shapes drawn late. Resolves true when ready, false when the
+   * face went first (destroyed, or a bad build). Safe to call again: the same promise.
+   */
+  warm() {
+    this.warming ??= new Promise((resolve) => {
+      const build = () => {
+        if (this.destroyed) { resolve(false); return; }
+        try { this.view ??= createFaceSvg({ art: this.art, rig: this.rig, uid: this.uid, visemes: VISEMES }); } catch (err) { console.warn('mentat face:', err?.message ?? err); resolve(false); return; }
+        if (typeof Image !== 'function') { resolve(true); return; }
+        // each file once through an image of its own: fetched, and decoded ahead of the first frame that shows it
+        const decoded = rigFiles(this.rig).map((src) => {
+          const im = new Image();
+          im.src = src;
+          this.images.push(im);
+          return im.decode?.().catch(() => {});
+        });
+        Promise.all(decoded).then(() => resolve(!this.destroyed));
+      };
+      const head = headImageOf(this.art);
+      const wait = head && head.complete === false && typeof head.addEventListener === 'function';
+      const soon = () => setTimeout(build, 0);
+      if (wait) { head.addEventListener('load', soon, { once: true }); head.addEventListener('error', soon, { once: true }); } else soon();
+    });
+    return this.warming;
   }
 
   /** The face at the painting: mouth at rest, no expression, no blink. */
@@ -93,6 +126,7 @@ export class MentatFace {
     this.settled = false;
     this.missing = 0;
     this.s[S_LAST_TS] = -1;
+    this.s[S_FIRST] = 1;
     this.blinker.reset(this.s[S_T]);
     this.view.setActive(true, !this.reduced);
     this.rafId = this.raf(this.tick);
@@ -115,6 +149,7 @@ export class MentatFace {
     this.offLine?.(); this.offEnd?.();
     this.view?.restore();
     this.view = null;
+    this.images = [];
   }
 
   /** One animation frame (the scheduler's timestamp in ms). */
@@ -147,20 +182,24 @@ export class MentatFace {
     s[S_T] += dt;
     const t = s[S_T];
     const voice = this.voice;
-    voice.now(f);
+    this.look(f);
     const line = voice.current;
     const live = line != null && line.state === 'playing';
     if (live) s[S_SINCE] = 0; else s[S_SINCE] += dt;
     const speaking = live && f.speaking === true;
 
-    // the mouth: the shapes' weights spring to the frame's (co-articulation: no shape pops in or out)
+    // the mouth: the shapes' weights spring to the frame's (co-articulation: no shape pops in or out). The first frame
+    // of a line may come late (the page was busy as the sound began): the mouth catches up the time the voice has run
+    // (not past 0.1 s), so his first word is not shown a stall late
+    let dm = dt;
+    if (s[S_FIRST] === 1) { s[S_FIRST] = 0; if (step === undefined && f.t > dt) dm = f.t < 0.1 ? f.t : 0.1; }
     visemeTargets(f, speaking, this.wt);
     const wo = omegaFor(m.mouthEase);
-    for (let i = 0; i < NV; i++) springStep(this.w, this.wv, i, this.wt[i], wo, dt);
+    for (let i = 0; i < NV; i++) springStep(this.w, this.wv, i, this.wt[i], wo, dm);
     normalizeWeights(this.w);
     const loud = speaking ? clamp01(+f.open || 0) : 0;
-    springStep(x, v, J_JAW, loud, omegaFor(m.jawEase), dt);
-    springStep(x, v, J_SLOW, loud, omegaFor(0.45), dt);
+    springStep(x, v, J_JAW, loud, omegaFor(m.jawEase), dm);
+    springStep(x, v, J_SLOW, loud, omegaFor(0.45), dm);
     springStep(x, v, J_SPEAK, speaking ? 1 : 0, omegaFor(0.5), dt);
     if (x[J_JAW] < 0) x[J_JAW] = 0;
     const rise = x[J_JAW] - x[J_SLOW];
@@ -194,6 +233,16 @@ export class MentatFace {
       this.settled = still;
     }
     return this.pose;
+  }
+
+  /**
+   * The voice's frame into `f`: what is heard now, looked at `motion.lead` ahead (the mouth moves before the sound it
+   * makes, and the blend and springs trail the frame by about as much), or the voice's own frame when it cannot say.
+   */
+  look(f) {
+    const voice = this.voice, lead = this.c.motion.lead, line = voice.current;
+    if (lead > 0 && line != null && line.state === 'playing' && typeof line.smooth === 'function' && typeof line.at === 'function') return line.at(line.smooth() + lead, f);
+    return voice.now(f);
   }
 
   /** The pose from the springs: head, brows, corners, jaw, mouth, lids and the sprites' opacities. */

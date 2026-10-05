@@ -1,9 +1,12 @@
 // The Mentat's stage (research.md §4, §6: the Sega screens): the house's Mentat at the bottom left, the territory map
 // beside him, his words typed at the top two lines at a time, and the buttons below the map. The house pages, the
 // "join?" question, the briefing and its advice, the win and lose lines and the final words all play on it.
-// The whole text is also in a visually hidden live region, so a screen reader hears it at once.
+// The whole text is also in a visually hidden live region, so a screen reader hears it at once. The Mentat's face
+// (mentat-face.js, notes docs/superpowers/notes/2026-10-05-mentat-talk.md) moves with his voice: stage.face.
 import { h } from '../dom.js';
 import { mentatSvg } from './portraits.js';
+import { attachMentatFace } from './mentat-face.js';
+import { rigFor } from './mentat-face-rigs.js';
 
 const CHAR_MS = 26, HOLD_MS = 2600;
 
@@ -167,11 +170,14 @@ export function followSpeech(box, lines, speech, { later, instant = reducedMotio
 
 /**
  * Builds the stage for `house`: { el, say(lines, { kicker, title, speech }), actions(buttons), mapBox, portrait,
- * voice }. Buttons are [label, act, onclick, { primary }]; every one carries data-act. `warn` (a save failed)
- * stands above the note. `voice` (src/audio/mentat-voice.js MentatVoice, or null) is kept for the portrait: the
- * face follows voice.now() (the contract in docs/superpowers/notes/2026-10-05-mentat-voice.md).
+ * voice, face }. Buttons are [label, act, onclick, { primary }]; every one carries data-act. `warn` (a save failed)
+ * stands above the note. `voice` (src/audio/mentat-voice.js MentatVoice, or null) is kept for the portrait and gives
+ * it a face: the Mentat's lips, brows and eyes follow voice.now() (the contract in
+ * docs/superpowers/notes/2026-10-05-mentat-voice.md), line after line, until the stage leaves the page (stage.face
+ * .destroy() ends it at once). Without a voice, or with Options → Mentat voice Off, the portrait stays the painting
+ * (stage.face is null). `faceOptions` is for tests ({ reducedMotion, raf, caf }).
  */
-export function mentatStage(house, { mentatName, later, className = '', label = '', warn = null, voice = null } = {}) {
+export function mentatStage(house, { mentatName, later, className = '', label = '', warn = null, voice = null, faceOptions = {} } = {}) {
   const kicker = h('div', { class: 'cp-kicker' });
   const title = h('h2', { class: 'cp-title' });
   const box = h('div', { class: 'cp-lines', 'aria-hidden': 'true', title: 'Click to read on', dataset: { act: 'read-on' } });
@@ -188,7 +194,7 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
   let typer = null;
   box.addEventListener('click', () => typer?.skip());
   const stage = {
-    el, mapBox, portrait, voice,
+    el, mapBox, portrait, voice, face: null,
     get typer() { return typer; },
     /** New words: typed in the box (following `speech`, the Mentat's voice saying them, when given), the whole of them in the live region. */
     say(lines, { kicker: k = null, title: t = null, onDone, speech = null } = {}) {
@@ -211,5 +217,8 @@ export function mentatStage(house, { mentatName, later, className = '', label = 
       return els;
     },
   };
+  // the face is made ready while his first line loads, sleeps until it plays, rests between lines and ends when this
+  // section leaves the page
+  if (voice) stage.face = attachMentatFace(stage, rigFor(house), { warm: true, ...faceOptions });
   return stage;
 }

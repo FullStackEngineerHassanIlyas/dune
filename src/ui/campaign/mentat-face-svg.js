@@ -91,6 +91,13 @@ const W_HEAD_TY = 0, W_HEAD_ROT = 1, W_BROWS = 2, W_CORNERS = 8, W_JAW = 10, W_M
 // the display slots: a part out of the picture while it would only repaint the painting (a warp at rest, a sprite at 0)
 const D_BROWS = 0, D_CORNERS = 2, D_JAW = 4, D_LIDS = 5, D_ALPHA = 7, D_BASE = 14, D_COUNT = 16;
 
+/** The portrait's head painting (the `<img>` in its `.cpm-sway` that is not the blink), or null; only before the face is built. */
+export function headImageOf(art) {
+  const sway = art?.querySelector?.('.cpm-sway');
+  if (!sway) return null;
+  return Array.from(sway.childNodes).find((n) => n.nodeType === 1 && (n.localName ?? n.tagName ?? '').toLowerCase() === 'img' && !n.matches?.('.cpm-blink')) ?? null;
+}
+
 /**
  * Builds the face into the portrait `art` (the `.cp-mentat-art` element portraits.js makes: a `.cpm-sway` box holding the
  * head `<img>` and the `.cpm-blink` closed eyes). `rig`: a valid rig (mentat-face-rig.js). `uid` keeps the ids unique
@@ -178,7 +185,7 @@ export function createFaceSvg({ art, svg, rig, uid = 'cpmf', visemes }) {
       if (typeof c.getContext !== 'function') return null;
       const [x, y, w, h] = box;
       c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
-      const g = c.getContext('2d');
+      const g = c.getContext('2d', { willReadFrequently: true });   // read back once, at once: a CPU canvas, no wait for the GPU
       g.drawImage(headImage, (x - rig.head.box[0]) * k, (y - rig.head.box[1]) * k, w * k, h * k, 0, 0, c.width, c.height);
       const f = Math.min(0.5, Math.max(0, feather / 2));
       g.globalCompositeOperation = 'destination-in';

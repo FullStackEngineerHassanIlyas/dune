@@ -5,7 +5,8 @@
 // (C6) come from other modules that may not be there yet: each has a plain fallback. The menu's backdrop is held
 // still behind the full-screen stages (no frames drawn: the laptop's GPU is shared with the map) and resumes on
 // the panels and the title. The Mentat speaks his words (src/audio/mentat-voice.js; Options → Mentat voice): the
-// text follows the voice, the music ducks under it, and leaving the screen or a new line stops it.
+// text follows the voice, the music ducks under it, his face moves with it (stage.js) and leaving the screen or a
+// new line stops it.
 import { h } from '../dom.js';
 import { HOUSES } from '../../data/houses.js';
 import { SCREENS, SEGA_ORDER, step, resolveScreen, backOf } from '../../campaign/flow.js';
@@ -95,10 +96,12 @@ export class CampaignScreens {
     });
   }
 
-  /** The Mentat is done with the words on screen: his typing stops (a clip still loading must not start it) and his voice. */
+  /** The Mentat is done with the words on screen: his typing stops (a clip still loading must not start it), his voice and his face. */
   quiet() {
     this.typer?.stop?.();
     this.voice?.stop();
+    this.face?.destroy?.();   // the painting is put back whole, and the face lets the voice go (it would find out at the next frame)
+    this.face = null;
   }
 
   /** One flow step; saves when the flow says so. */
@@ -314,6 +317,7 @@ export class CampaignScreens {
       warn: this.saved === false ? 'This browser is not keeping your progress: note the passwords you are given.' : null, voice: this.voice });
     this.map.mount(stage.mapBox);
     if (step !== null) this.map.show({ house, step });
+    this.face = stage.face;   // moves with his voice until the screen changes (quiet())
     const say = stage.say;
     // `clips`: the Mentat's clips that say these lines (mentat-lines.js ids); the words then follow his voice. The
     // typer keeps them (typer.clips), so a face can ask voice.track(typer.clips) for the sentences' expressions

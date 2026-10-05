@@ -30,9 +30,10 @@ export const DEFAULT_OPEN = { rest: 0, MBP: 0, FV: 0.2, A: 1, E: 0.55, O: 0.75, 
 export const DEFAULT_MOTION = {
   ease: 0.2,        // an expression settles in this long (critically damped) …
   headEase: 0.35,   // … and the head's tilt and nod, which is heavier, in this long
-  mouthEase: 0.075, // a mouth shape settles in this long: the co-articulation that keeps it from popping
-  sharpen: 2,       // the sprites cross-fade along an S: their weights are raised to this power (1: a straight blend) before they are stacked
+  mouthEase: 0.05,  // a mouth shape settles in this long (about three frames): the co-articulation that keeps it from popping, short enough that the two-mouths ghost of a half-way shape is one frame, not three
+  sharpen: 3,       // the sprites cross-fade along an S: their weights are raised to this power (1: a straight blend) before they are stacked
   jawEase: 0.06,    // the jaw follows the loudness this fast
+  lead: 0.04,       // the mouth is shown this far ahead of the sound: lips move before the voice, and the blend and springs trail the voice's frame by about this much
   hold: 1.4,        // after the line the last expression is held this long …
   release: 0.6,     // … then eases back to the painting over this
   speakNod: 0.9,    // units the head dips with the voice's loudness while he speaks
@@ -163,6 +164,16 @@ export function validateRig(rig) {
     }
   }
   return { ok: errors.length === 0, errors };
+}
+
+/** Every picture file the face draws besides the head painting (the mouth's sprites, the brows' cut-outs and their bare patches, the lids), once each. */
+export function rigFiles(rig) {
+  const urls = new Set();
+  for (const url of Object.values(rig.mouth?.sprites ?? {})) if (url) urls.add(url);
+  for (const b of [rig.brows?.left, rig.brows?.right]) { if (b?.src) urls.add(b.src); if (b?.base?.src) urls.add(b.base.src); }
+  for (const l of [rig.lids?.left, rig.lids?.right]) if (l?.src) urls.add(l.src);
+  if (rig.lids?.src) urls.add(rig.lids.src);
+  return [...urls];
 }
 
 /** Throws a TypeError listing what is wrong with the rig (for the art step: a bad rig says so at once). */

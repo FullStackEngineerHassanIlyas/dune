@@ -24,19 +24,19 @@ const OPEN = { rest: 0, MBP: 0, FV: 0.13, A: 1, E: 0.38, O: 0.9, L: 0.56 };
  */
 const GEOMETRY = {
   atreides: {
-    brow: { raise: 3.6, furrow: 8, inward: 1.4 },
+    brow: { raise: 5, furrow: 11, inward: 1.9 },
     eye: { left: { box: [182, 156, 34, 22], open: [162, 173] }, right: { box: [237, 160, 32, 22], open: [166, 177] } },
     corner: { left: [196, 219, 20, 22], right: [238, 219, 20, 22], lift: 3.6 },
     jaw: { box: [196, 238, 62, 34], drop: 3 },
   },
   harkonnen: {
-    brow: { raise: 4.6, furrow: 10, inward: 1.8 },
+    brow: { raise: 6.2, furrow: 13, inward: 2.4 },
     eye: { left: { box: [172, 150, 36, 20], open: [156, 165] }, right: { box: [246, 156, 30, 16], open: [160, 167] } },
     corner: { left: [183, 222, 22, 24], right: [244, 222, 22, 24], lift: 4.2 },
     jaw: { box: [188, 244, 70, 36], drop: 3.4 },
   },
   ordos: {
-    brow: { raise: 3.8, furrow: 8, inward: 1.3 },
+    brow: { raise: 5.2, furrow: 11, inward: 1.8 },
     eye: { left: { box: [168, 138, 40, 18], open: [142, 153] }, right: { box: [227, 134, 38, 18], open: [138, 150] } },
     corner: { left: [192, 202, 18, 20], right: [230, 202, 18, 20], lift: 3.2 },
     jaw: { box: [196, 224, 54, 32], drop: 2.6 },
