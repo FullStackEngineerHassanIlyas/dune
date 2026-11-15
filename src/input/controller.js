@@ -307,7 +307,8 @@ export class Controller {
 
   onDragEnd(x0, y0, x1, y1, mods) {
     this.onDragBox(null);
-    let ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    const v = this.viewport();   // the box can end over the sidebar, and project() keeps units 60 px past the canvas edge: only what is in the view counts
+    let ids = inBox(this.candidates().filter((c) => c.own && c.sx >= v.left && c.sx <= v.right && c.sy >= v.top && c.sy <= v.bottom), x0, y0, x1, y1);
     // a box round the army leaves out the Carryalls waiting on duty over it — an order would take them off duty and
     // along to the front; a box round Carryalls alone (or a click, or a double click) still picks them up
     const lifter = (id) => isLifter(this.world.units.get(id));

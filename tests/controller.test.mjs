@@ -593,3 +593,12 @@ test('Ctrl + click on an own vehicle is force fire: a Carryall in the group does
   assert.ok(!issued.some((cmd) => cmd.type === 'lift'), JSON.stringify(issued));
   assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'unit', targetId: tank2.id, force: true });
 });
+
+test('a drag box that ends over the sidebar leaves out own units drawn past the right edge of the 3D view', () => {
+  const { world, tank, tank2, mcv, c } = setup();
+  const far = world.spawnUnit('combatTank', 'atreides', 11, 5);   // projects to x = 460, past the view's right edge at 400
+  c.viewport = () => ({ left: 0, top: 0, right: 400, bottom: 2000 });
+  c.onDragEnd(0, 0, px(14), px(9), NONE);
+  assert.deepEqual(c.selection.list().sort(), [tank.id, tank2.id, mcv.id].sort());
+  assert.ok(!c.selection.has(far.id), 'the unit beyond the canvas stays out');
+});
