@@ -53,11 +53,12 @@ export function clampToStorage(world, house) {
   house.credits = Math.min(house.credits, storageCapacity(world, house));
 }
 
-/** Called after a refinery or silo was destroyed: the house loses that store's share of its credits. */
+/** Called after a refinery or silo was destroyed: the house loses that store's share of the spice it had in store.
+ *  Credits above what the stores could hold are cash (refund), which no store held: they stay. */
 export function loseStorageShare(world, house, storage) {
   const after = builtStorage(world, house.id), buffer = house.startBuffer ?? 0;
   const capBefore = Math.max(after + storage, buffer), capAfter = Math.max(after, buffer);   // the starting allowance keeps holding what it held
-  if (capBefore > capAfter) house.credits = Math.max(0, house.credits - house.credits * ((capBefore - capAfter) / capBefore));
+  if (capBefore > capAfter) house.credits = Math.max(0, house.credits - Math.min(house.credits, capBefore) * ((capBefore - capAfter) / capBefore));
 }
 
 export function computePower(world, houseId) {

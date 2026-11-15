@@ -56,6 +56,21 @@ test('losing a store burns its share; clamping trims to capacity', () => {
   assert.equal(h.credits, 1005);
 });
 
+test('a lost store takes its share of the spice in store, never the cash held above it', () => {   // refund() is cash, "storage or not": the only Refinery falling wiped 1500 of sale money with the spice
+  const world = world2();
+  const h = world.houses.get('atreides');
+  h.startBuffer = 0;
+  const refinery = world.spawnStructure('refinery', 'atreides', 2, 2);
+  const silo = world.spawnStructure('silo', 'atreides', 6, 2);
+  h.credits = 2005 + 1500;   // both stores full, and 1500 from a sale on top
+  world.removeStructure(silo);
+  loseStorageShare(world, h, 1000);
+  assert.ok(Math.abs(h.credits - (1005 + 1500)) < 1e-6, 'the Silo held 1000 of the 2005 in store');
+  world.removeStructure(refinery);
+  loseStorageShare(world, h, 1005);
+  assert.ok(Math.abs(h.credits - 1500) < 1e-6, 'the last store takes what was in store; the sale money stays to rebuild with');
+});
+
 test('wind traps power the base; damage lowers output but never below half', () => {
   const world = world2();
   const trap = world.spawnStructure('windtrap', 'atreides', 2, 2);
