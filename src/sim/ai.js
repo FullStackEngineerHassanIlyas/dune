@@ -154,7 +154,7 @@ function think(world, house) {
   rally(world, house, view);
   const repairing = sendForRepairs(world, house, view);
   const defending = defend(world, house, view, repairing);
-  attack(world, house, view, defending);
+  attack(world, house, view, [...defending, ...repairing]);
   usePalace(world, house, view);
   sabotage(world, house, view);
 }
@@ -528,7 +528,7 @@ function sendForRepairs(world, house, view) {
   return ids;
 }
 
-function attack(world, house, view, defending = []) {
+function attack(world, house, view, unavailable = []) {
   const b = house.brain, d = tuning(house);
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
@@ -546,7 +546,7 @@ function attack(world, house, view, defending = []) {
   // Survivors of earlier waves count toward the army cap, so no more than the rest can ever stand ready at home:
   // a wave that waited for more would never go, and with the cap full nothing more would be built either.
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
-  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
+  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !unavailable.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // neither pending defenders/repairs nor a mission's posted guards
   // A battered house may never assemble the later, larger waves. Give reinforcements one
   // normal wave interval to gather, then send what is ready instead of waiting forever.
   if (ready.length < size) {
