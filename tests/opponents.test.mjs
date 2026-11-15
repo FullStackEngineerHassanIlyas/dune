@@ -62,13 +62,19 @@ test('the tech level gates buildings level by level, as the campaign opened them
 
 test('computer houses keep to the tech level too', () => {
   const { world, house, opponents } = setupSkirmish({ seed: 4, techLevel: 3, aiPlayer: true, fog: false, opponents: [{ house: 'harkonnen' }, { house: 'sardaukar' }] });
-  for (let t = 0; t < 8 * 60 * 20; t++) world.step();
+  // Check everything built, including structures later destroyed in combat. An attack
+  // must not hide an illegal building or turn this tech-cap test into a survival test.
+  const seen = new Map();
+  for (let t = 0; t < 8 * 60 * 20; t++) {
+    world.step();
+    for (const s of world.structures.values()) seen.set(s.id, { house: s.house, typeId: s.typeId, type: s.type });
+  }
   for (const id of [house, ...opponents]) {
-    const built = [...world.structures.values()].filter((s) => s.house === id);
+    const built = [...seen.values()].filter((s) => s.house === id);
     assert.ok(built.length >= 4, `${id} built ${built.length}`);
     for (const s of built) assert.ok(structureTechLevel(s.type, id) <= 3, `${id} put up a ${s.typeId}`);
   }
-  assert.ok([...world.structures.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'heavyFactory'), 'level 3 opens the Harkonnen Heavy Factory');
+  assert.ok([...seen.values()].some((s) => s.house === 'harkonnen' && s.typeId === 'heavyFactory'), 'level 3 opens the Harkonnen Heavy Factory');
 });
 
 test('the set-up screen can say what each tech level opens', () => {

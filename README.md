@@ -152,7 +152,8 @@ green = concrete, yellow = bare rock, red = blocked). Wind Traps power the base 
 production and switches the radar off. Every Refinery comes with a Harvester; full loads are worth 700
 credits, Refineries and Silos store them. A Harvester drives into its Refinery's docking pad to unload
 (one at a time, the others wait by the entrance), then backs out and returns to the field. Selling refunds half the price times the health left;
-repairs cost up to 40 % of the price. An Outpost with enough power turns the radar on. Explored ground
+repairs cost up to 40 % of the price. Building repairs run at a quarter of their normal rate for three
+seconds after taking damage, for players and computers alike; they charge only for the health restored. An Outpost with enough power turns the radar on. Explored ground
 stays visible; enemies show only inside your units' and buildings' sight.
 
 Vehicles come from one factory, as on the Genesis: the Heavy Factory, on offer as soon as a Refinery

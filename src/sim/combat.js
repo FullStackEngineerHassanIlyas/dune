@@ -189,6 +189,7 @@ export function damage(world, victim, amount, attacker = null) {
   if (!(amount > 0) || victim.hp <= 0) return;
   if (victim.kind === 'unit' ? !world.units.has(victim.id) : !world.structures.has(victim.id)) return;
   victim.hp -= amount;
+  if (victim.kind === 'structure') victim.lastDamagedAt = world.time;
   world.events.push('damaged', { kind: victim.kind, id: victim.id, house: victim.house, by: attacker?.house ?? null, amount });
   if (victim.hp <= 0) {
     if (victim.kind === 'unit') killUnit(world, victim, attacker);

@@ -1,11 +1,14 @@
 // Sell and repair (spec §4.3): selling refunds half the price scaled by health; repairing restores
-// the structure in about twelve seconds from zero for 40 % of its price, pausing without credits.
+// the structure in about twelve peaceful seconds from zero for 40 % of its price, pausing without credits.
+// Sustained fire reduces healing, so affordable repairs cannot indefinitely cancel a siege.
 import { DT } from '../data/tuning.js';
 import { spend, storageCapacity, refund as giveBack } from './economy.js';
 import { emptyBay } from './repair-bay.js';
 
 export const REPAIR_SECONDS = 12;
 export const REPAIR_COST_FRACTION = 0.4;
+export const REPAIR_UNDER_FIRE_SECONDS = 3;
+export const REPAIR_UNDER_FIRE_RATE = 0.25;
 
 export function orderSell(world, houseId, structureId) {
   const s = world.structures.get(structureId);
@@ -36,7 +39,9 @@ export function updateRepairs(world) {
   for (const s of world.structures.values()) {
     if (!s.repairing) continue;
     const house = world.houses.get(s.house);
-    const hp = Math.min(s.maxHp - s.hp, (s.maxHp / REPAIR_SECONDS) * DT);
+    const underFire = world.time - (s.lastDamagedAt ?? -Infinity) < REPAIR_UNDER_FIRE_SECONDS;
+    const rate = underFire ? REPAIR_UNDER_FIRE_RATE : 1;
+    const hp = Math.min(s.maxHp - s.hp, (s.maxHp / REPAIR_SECONDS) * DT * rate);
     const cost = (hp * REPAIR_COST_FRACTION * s.type.cost) / s.maxHp;
     if (!house || !spend(house, cost)) { s.repairStalled = true; continue; }
     s.repairStalled = false;
