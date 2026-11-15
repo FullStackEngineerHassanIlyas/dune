@@ -340,3 +340,52 @@ test('survivors of earlier waves that cannot reach anything do not stop the next
   assert.ok(sent, 'a wave goes out within a minute');
   assert.equal(sent.size, 9);
 });
+
+// Review (logistics, factories): units leave a Barracks, WOR or Heavy Factory by the tiles around it.
+test('the AI never shuts a factory in: nothing goes up on its last way out, and a new factory needs a way out of its own', () => {
+  const world = flatWorld(24, 24, G.ROCK);
+  world.spawnStructure('barracks', 'harkonnen', 8, 8);   // 8,8 to 9,9
+  for (const [x, y] of [[7, 7], [8, 7], [9, 7], [10, 7], [7, 8], [10, 8], [7, 9], [10, 9], [7, 10], [9, 10], [10, 10]]) world.spawnStructure('wall', 'harkonnen', x, y);   // one gap left, 8,10
+  const fits = keepsWaysIn(world, 'harkonnen', 'windtrap');
+  assert.equal(fits(14, 14), true, 'far from the factory');
+  assert.equal(fits(8, 10), false, 'on the gap itself');
+  assert.equal(fits(8, 11), false, 'on the way out of the gap');
+  assert.equal(fits(12, 9), true, 'beside the walls, the way out still open');
+  const pocket = flatWorld(24, 24, G.ROCK);
+  pocket.spawnStructure('windtrap', 'harkonnen', 4, 4);
+  for (let x = 16; x <= 19; x++) for (let y = 16; y <= 19; y++) if (x < 17 || x > 18 || y < 17 || y > 18) pocket.spawnStructure('wall', 'harkonnen', x, y);   // 17,17 to 18,18 is a sealed pocket
+  assert.equal(keepsWaysIn(pocket, 'harkonnen', 'wor')(17, 17), false, 'a WOR inside a sealed pocket');
+  assert.equal(keepsWaysIn(pocket, 'harkonnen', 'heavyFactory')(10, 10), true, 'a Heavy Factory in the open');
+  assert.equal(keepsWaysIn(pocket, 'harkonnen', 'hiTech')(17, 17), true, 'a Hi-Tech Factory sends its aircraft up from its own roof and needs no way out');
+});
+
+test('a computer base on a real map leaves every Barracks, WOR and Heavy Factory a way out (Small map, seed 31, Harkonnen shut their WOR in on all four sides)', () => {
+  const { world } = setupSkirmish({ seed: 31, size: 48, house: 'atreides', aiPlayer: true, credits: 10000, difficulty: 'hard', opponents: [{ house: 'harkonnen', difficulty: 'hard' }] });
+  const map = world.map;
+  const leadsOut = (from) => {   // 8 tiles of open ground away from the tile, as a tracked vehicle drives
+    const fx = map.xOf(from), fy = map.yOf(from), seen = new Set([from]), queue = [from];
+    for (let k = 0; k < queue.length; k++) {
+      const x = map.xOf(queue[k]), y = map.yOf(queue[k]);
+      if (Math.max(Math.abs(x - fx), Math.abs(y - fy)) >= 8) return true;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const j = map.inBounds(x + dx, y + dy) ? map.idx(x + dx, y + dy) : -1;
+        if (j >= 0 && !seen.has(j) && !map.structure[j] && map.moveFactor(j, 'tracked') > 0) { seen.add(j); queue.push(j); }
+      }
+    }
+    return false;
+  };
+  const shutIn = [];
+  for (let s = 0; s < 8 * 60 * 20; s++) {
+    world.step();
+    if (s % 100) continue;
+    for (const f of world.structures.values()) {
+      if (!['barracks', 'wor', 'heavyFactory'].includes(f.typeId) || shutIn.includes(f.id)) continue;
+      const ring = [];
+      for (let y = f.y - 1; y <= f.y + f.h; y++) for (let x = f.x - 1; x <= f.x + f.w; x++) {
+        if ((x < f.x || x >= f.x + f.w || y < f.y || y >= f.y + f.h) && map.inBounds(x, y) && !map.structure[map.idx(x, y)] && map.moveFactor(map.idx(x, y), 'tracked') > 0) ring.push(map.idx(x, y));
+      }
+      if (!ring.some(leadsOut)) shutIn.push(f.id);
+    }
+  }
+  assert.deepEqual(shutIn, [], `factories with no way out: ${shutIn.map((id) => `${world.structures.get(id)?.typeId}#${id}`).join(', ')}`);
+});

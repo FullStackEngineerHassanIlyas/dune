@@ -293,10 +293,12 @@ function leadsOut(map, from, covers = () => false) {
  * A placement test for a building of `typeId`: it may not go up on the apron of one of the house's
  * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
  * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
- * a new one needs its own apron clear and an entrance that leads out.
+ * a new one needs its own apron clear and an entrance that leads out. The ground factories (Barracks, WOR, Heavy
+ * Factory) send their units out by the tiles around them (sim/spawn.js exitTile): nothing may shut the last way out
+ * of one, and a new one needs a way out of its own — else its troops and tanks appear in a pocket they cannot leave.
  */
 export function keepsWaysIn(world, houseId, typeId) {
-  const map = world.map, t = STRUCTURES[typeId], aprons = [];
+  const map = world.map, t = STRUCTURES[typeId], aprons = [], exits = [];
   if (!t || t.isConcrete) return () => true;
   const apron = (x, y) => {   // entrances face south
     const out = [];
@@ -309,6 +311,11 @@ export function keepsWaysIn(world, houseId, typeId) {
     if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
     aprons.push({ door, open: apron(map.xOf(door), map.yOf(door)).filter((i) => !map.structure[i]) });
   }
+  for (const s of world.structures.values()) {
+    if (s.house !== houseId || !groundFactory(s.type)) continue;
+    const ring = ringAround(map, s.x, s.y, s.w, s.h);
+    if (ring.some((i) => leadsOut(map, i))) exits.push(ring);   // one already shut in has nothing left to keep
+  }
   return (x, y) => {
     const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
     const clear = (i) => !covers(map.xOf(i), map.yOf(i));
@@ -316,8 +323,22 @@ export function keepsWaysIn(world, houseId, typeId) {
       const ex = x + t.entrance[0], ey = y + t.entrance[1];
       if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
     }
-    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers));
+    if (groundFactory(t) && !ringAround(map, x, y, t.w, t.h).some((i) => leadsOut(map, i, covers))) return false;
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers)) && exits.every((ring) => ring.some((i) => leadsOut(map, i, covers)));
   };
+}
+
+/** Factories whose units go out on foot or by wheel and track (the Hi-Tech's aircraft rise from its roof). */
+const groundFactory = (t) => t.produces === 'infantry' || t.produces === 'heavy';
+
+/** The tiles without a building around a footprint, corners included: where a factory's units step out. */
+function ringAround(map, x, y, w, h) {
+  const out = [];
+  for (let ty = y - 1; ty <= y + h; ty++) for (let tx = x - 1; tx <= x + w; tx++) {
+    if (tx >= x && tx < x + w && ty >= y && ty < y + h) continue;
+    if (map.inBounds(tx, ty) && !map.structure[map.idx(tx, ty)]) out.push(map.idx(tx, ty));
+  }
+  return out;
 }
 
 /** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
