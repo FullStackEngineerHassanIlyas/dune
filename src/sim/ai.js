@@ -547,7 +547,12 @@ function attack(world, house, view, defending = []) {
   // a wave that waited for more would never go, and with the cap full nothing more would be built either.
   const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
   const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
-  if (ready.length < size) { b.nextAttack = world.time + 15; return; }
+  // A battered house may never assemble the later, larger waves. Give reinforcements one
+  // normal wave interval to gather, then send what is ready instead of waiting forever.
+  if (ready.length < size) {
+    b.waveWaitSince ??= world.time;
+    if (!ready.length || world.time - b.waveWaitSince < d.waveEvery) { b.nextAttack = world.time + 15; return; }
+  }
   const units = ready.slice(0, size);
   const foe = chooseFoe(world, house, view, units.reduce((n, u) => n + u.type.cost, 0));
   if (!foe) return;
@@ -557,6 +562,7 @@ function attack(world, house, view, defending = []) {
   b.wave.push(...group);
   for (const id of group) b.waveFoe[id] = foe.house;
   b.waves++;
+  b.waveWaitSince = null;
   b.nextAttack = world.time + d.waveEvery;
   world.events.push('aiAttack', { house: house.id, target: foe.house, size: group.length, x: target.x, y: target.y });
 }
