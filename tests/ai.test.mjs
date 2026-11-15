@@ -315,3 +315,28 @@ test('the AI keeps a Refinery\'s entrance and the apron in front of it clear, an
   assert.equal(fits(14, 14), true);
   assert.equal(fits(9, 12), false, 'a building that would shut the entrance in');
 });
+
+test('survivors of earlier waves that cannot reach anything do not stop the next wave: it goes with what the army cap still allows', () => {
+  const world = flatWorld(64, 40, G.ROCK);
+  const m = world.map;
+  for (let y = 28; y <= 36; y++) for (let x = 50; x <= 58; x++) if (Math.max(Math.abs(x - 54), Math.abs(y - 32)) >= 3) m.ground[m.idx(x, y)] = G.MOUNTAIN;   // a closed pocket
+  m.revision++;
+  for (const [t, x, y] of [['constructionYard', 2, 2], ['windtrap', 5, 2], ['windtrap', 8, 2], ['refinery', 2, 6], ['outpost', 6, 6], ['heavyFactory', 9, 6]]) world.spawnStructure(t, 'harkonnen', x, y);
+  world.spawnStructure('constructionYard', 'atreides', 40, 4);   // the foe
+  const h = world.houses.get('harkonnen');
+  h.credits = 5000; h.startBuffer = 20000;
+  const brain = createBrain(world, 'harkonnen', 'easy');   // army cap 12, waves of at most 10
+  const stuck = [[53, 31], [54, 31], [55, 31]].map(([x, y]) => world.spawnUnit('combatTank', 'harkonnen', x, y));
+  for (let k = 0; k < 9; k++) world.spawnUnit('combatTank', 'harkonnen', 14 + (k % 3) * 2, 14 + Math.floor(k / 3) * 2);
+  brain.wave.push(...stuck.map((u) => u.id));
+  for (const u of stuck) brain.waveFoe[u.id] = 'atreides';
+  brain.waves = 7;          // the next wave would want min(10, 3 + 7) = 10, and only 9 can ever be at home
+  brain.nextAttack = 0;
+  let sent = null;
+  for (let s = 0; s < 60 * 20 && !sent; s++) {
+    world.step();
+    sent = world.events.drain().find((e) => e.type === 'aiAttack' && e.house === 'harkonnen') ?? null;
+  }
+  assert.ok(sent, 'a wave goes out within a minute');
+  assert.equal(sent.size, 9);
+});

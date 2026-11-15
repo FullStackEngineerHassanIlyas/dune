@@ -489,7 +489,9 @@ function attack(world, house, view, defending = []) {
     for (const [foe, members] of byFoe) hunt(world, house, members, foe);
   }
   if (world.time < b.nextAttack) return;
-  const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
+  // Survivors of earlier waves count toward the army cap, so no more than the rest can ever stand ready at home:
+  // a wave that waited for more would never go, and with the cap full nothing more would be built either.
+  const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
   const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
   if (ready.length < size) { b.nextAttack = world.time + 15; return; }
   const units = ready.slice(0, size);
