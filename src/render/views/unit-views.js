@@ -147,7 +147,8 @@ export class UnitViews {
     v.z = z;
     v.heading = heading;
     v.turret = turret;
-    v.alt = u.alt ?? 0;
+    const alt = u.alt === undefined ? undefined : u.alt + ((u.palt ?? u.alt) - u.alt) * (1 - alpha);   // flying or hanging under a Carryall: between the height a tick ago and now
+    v.alt = alt ?? 0;
     v.inside = !!u.inside && u.alt === undefined;   // held in a building; a load under its Carryall hangs in the open
     v.visible = !this.viewer || !world || unitVisibleTo(world, this.viewer, u);
     v.recoil = Math.max(0, v.recoil - dt * 0.3);
@@ -169,7 +170,7 @@ export class UnitViews {
     }
     v.shown = shown;
     const cos = Math.cos(heading), sin = Math.sin(heading);
-    let lift = u.alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
+    let lift = alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
     if (u.move === 'saboteur' && world) {   // up and over walls
       const top = (i) => (world.map.wall[i] ? WALL_TOP : 0), s = u.step;
       lift = s ? top(s.from) + (top(s.to) - top(s.from)) * Math.min(1, s.progress) : top(world.map.idx(u.tx, u.ty));

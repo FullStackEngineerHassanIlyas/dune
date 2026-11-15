@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { structureVisibleTo } from '../../sim/fog.js';
+import { lerpAngle } from '../../sim/geometry.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, structureModelId } from '../models/index.js';
 
@@ -52,14 +53,15 @@ export class StructureViews {
     }
   }
 
-  sync(world, now) {
+  /** `alpha` is how far the frame is between the last tick and the next (turrets turn through it); 1 shows the tick's end. */
+  sync(world, now, alpha = 1) {
     for (const s of world.structures.values()) if (!this.views.has(s.id)) this.create(s, now);
     for (const [id, v] of this.views) {
       if (world.structures.has(id)) continue;
       v.dying ??= now;
       if (now - v.dying >= (v.collapse ? COLLAPSE_MS : SINK_MS)) { for (const h of v.handles) v.model(h).remove(h); this.views.delete(id); }
     }
-    for (const [id, v] of this.views) this.pose(world, world.structures.get(id) ?? v.last, v, now);
+    for (const [id, v] of this.views) this.pose(world, world.structures.get(id) ?? v.last, v, now, alpha);
     for (const m of this.models.values()) m.update();
   }
 
@@ -82,7 +84,7 @@ export class StructureViews {
     this.views.set(s.id, { handles, model: (h) => owners.get(h), born: now, cx: s.x + s.w / 2, cz: s.y + s.h / 2, y: sum / n, house: s.house, doorUntil: 0, last: s });
   }
 
-  pose(world, s, v, now) {
+  pose(world, s, v, now, alpha = 1) {
     v.last = s;
     const dt = Math.min(0.1, Math.max(0, (now - (v.now ?? now)) / 1000));
     v.now = now;
@@ -104,7 +106,7 @@ export class StructureViews {
     if (s.typeId === 'refinery') refineryParams(s, v, p, now, dt);
     p.arm = s.bay?.state === 'repairing' && !s.bay.stalled ? armOffset(now) : 0;
     p.door = now < v.doorUntil ? 0.4 : 0;
-    p.turret = s.turret === undefined ? Math.PI / 2 : -s.turret;
+    p.turret = s.turret === undefined ? Math.PI / 2 : -lerpAngle(s.pturret ?? s.turret, s.turret, alpha);
     if (!arms.length) return;
     const map = world.map;
     arms.forEach((h, k) => {

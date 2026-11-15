@@ -357,3 +357,39 @@ test('dispose takes every unit, structure and missile mesh off the scene', () =>
   assert.equal(freedMeshes.size, meshes.length, 'every instanced mesh is freed');
   assert.equal(freedShared.size, 0, 'the shared geometry and materials are spared');
 });
+
+test('a gun turret turns smoothly between two ticks, not in one jump per tick', () => {   // it turns 10 degrees a tick: posed from the tick's end alone it stepped 20 times a second
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new StructureViews(new THREE.Scene(), hf);
+  const gun = world.spawnStructure('turret', 'atreides', 4, 4);
+  world.spawnUnit('combatTank', 'harkonnen', 7, 4);   // east of it: a quarter turn to make from its rest facing north
+  runUntil(world, () => Math.abs(gun.turret - gun.pturret) > 0.1, 3);   // it has seen the tank (turrets look every few ticks) and is turning
+  assert.ok(Math.abs(gun.turret - gun.pturret) > 0.1, 'it turned during the last tick');
+  const at = (alpha) => { views.sync(world, 1000, alpha); return -views.views.get(gun.id).handles[0].params.turret; };
+  assert.ok(Math.abs(at(0) - gun.pturret) < 1e-9, 'a frame right after the tick shows where the tick before left it');
+  assert.ok(Math.abs(at(0.5) - (gun.pturret + gun.turret) / 2) < 1e-9, 'half-way to the next tick it is half-way through the turn');
+  assert.ok(Math.abs(at(1) - gun.turret) < 1e-9);
+  views.sync(world, 1000);
+  assert.ok(Math.abs(-views.views.get(gun.id).handles[0].params.turret - gun.turret) < 1e-9, 'with no fraction given it stands at the tick\'s end');
+});
+
+test('an aircraft climbing or coming down moves smoothly between two ticks', () => {   // its height was read from the tick's end alone: a Carryall setting down stepped 20 times a second
+  const world = flatWorld(16, 16, G.ROCK);
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new UnitViews(new THREE.Scene(), hf);
+  const c = world.spawnUnit('carryall', 'atreides', 4, 4);
+  const before = c.alt;
+  world.step();
+  assert.equal(c.palt, before, 'the simulation keeps the height it had a tick ago');
+  c.palt = 1; c.alt = 1.075;   // one tick of climbing
+  const ground = hf.heightAt(c.x, c.y);
+  const y = (alpha) => { views.sync(world, alpha, 0.016); return pos(views.views.get(c.id).handles[0].matrix).y - ground; };
+  assert.ok(Math.abs(y(0) - 1.004) < 1e-6);
+  assert.ok(Math.abs(y(0.5) - 1.0415) < 1e-6, 'half-way to the next tick it is half-way up the step');
+  assert.ok(Math.abs(y(1) - 1.079) < 1e-6);
+  assert.ok(Math.abs(views.notifyDeath({ id: c.id }).alt - 1.075) < 1e-9, 'a blast at its death goes off at the height it was drawn at');
+  const fresh = world.spawnUnit('ornithopter', 'atreides', 8, 8);   // not stepped yet: no height of a tick ago
+  views.sync(world, 0.3, 0.016);
+  assert.ok(Math.abs(pos(views.views.get(fresh.id).handles[0].matrix).y - hf.heightAt(fresh.x, fresh.y) - fresh.alt - 0.004) < 1e-6);
+});

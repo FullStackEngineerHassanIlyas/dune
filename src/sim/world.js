@@ -148,7 +148,8 @@ export class World {
     this.pending = [];
     for (const { houseId, command } of commands) applyCommand(this, houseId, command);
     this.processPathQueue();
-    for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; }
+    for (const u of this.units.values()) { u.px = u.x; u.py = u.y; u.pheading = u.heading; u.pturret = u.turret; u.pdistance = u.distance; u.palt = u.alt; }
+    for (const s of this.structures.values()) if (s.turret !== undefined) s.pturret = s.turret;   // gun and rocket turrets, for the same render interpolation
     for (const u of [...this.units.values()]) {
       if (!this.units.has(u.id) || u.inside) continue;   // a vehicle in a repair bay or a refinery's slot is moved by the building
       if (u.move === MOVE.WORM) { updateWorm(this, u); continue; }

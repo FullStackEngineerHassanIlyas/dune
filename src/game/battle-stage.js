@@ -235,7 +235,7 @@ export class BattleStage {
     this.unitViews.sync(world, alpha, dt);
     this.worms.sync(world, alpha, dt, this.seenAt, !this.catchingUp);
     this.blooms.sync(world, dt, this.exploredAt);
-    this.structureViews.sync(world, now);
+    this.structureViews.sync(world, now, alpha);
     if (dt > 0) this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
     this.ambient(dt, now);
