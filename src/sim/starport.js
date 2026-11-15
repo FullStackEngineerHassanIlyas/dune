@@ -54,7 +54,7 @@ export function updateStarports(world) {
       for (const t of Object.keys(m.price)) m.price[t] = priceOf(world, t);
     }
     const b = m.batch;
-    if (b && !b.landed && !world.structures.has(b.structureId)) {   // its Starport is gone: another of the house's takes the delivery
+    if (b && !b.landed && world.structures.get(b.structureId)?.house !== house.id) {   // its Starport is gone, or the enemy's now: another of the house's takes the delivery
       const s = starportOf(world, house.id);
       if (s) { b.structureId = s.id; b.pad = { x: s.x + s.w / 2, y: s.y + s.h / 2 }; }
     }
