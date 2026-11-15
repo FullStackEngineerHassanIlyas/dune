@@ -91,10 +91,13 @@ function fnv(bytes, h = 2166136261) {
   return h >>> 0;
 }
 
-test('skirmish maps (no sites) stay byte-identical to the phase 2 generator', () => {
-  // hashes of ground, spice, blooms and starts taken from the generator before sites existed
+test('skirmish maps stay pinned with no campaign sites, including the fair three-house layout', () => {
+  // Hash ground, spice, blooms and starts, also with null/empty campaign sites.
+  // One/two/four-house hashes remain from phase 2. Three houses deliberately moved
+  // from three unequal corners (old hash 2022e60e) to the centred triangle; its
+  // distance, plateau and spice guarantees are covered by mapgen-three-starts.test.mjs.
   const pinned = [
-    [{ w: 64, h: 64, seed: 1 }, 'dfa3748c'], [{ w: 64, h: 64, seed: 7, players: 3 }, '2022e60e'], [{ w: 32, h: 32, seed: 2, players: 1 }, '12a623d8'],
+    [{ w: 64, h: 64, seed: 1 }, 'dfa3748c'], [{ w: 64, h: 64, seed: 7, players: 3 }, 'a9768742'], [{ w: 32, h: 32, seed: 2, players: 1 }, '12a623d8'],
     [{ w: 96, h: 96, seed: 42, players: 4 }, '6383fd3'], [{ w: 128, h: 128, seed: 3, players: 4, spiceFields: 20, blooms: 6 }, '6aa9b975'], [{ w: 48, h: 40, seed: 99, players: 2 }, '50189033'],
   ];
   for (const [opts, hash] of pinned) {
