@@ -125,3 +125,29 @@ test('compass names the eight scroll directions', () => {
   assert.equal(compass(-1, 1), 'nw');
   assert.equal(compass(0, 0), null);
 });
+
+// A button let go while another is still held arrives as a pointermove with fewer `buttons`, never as a pointerup.
+test('letting the right button go while the left is held ends the right-drag scroll', () => {
+  const { cc, fire, pans } = harness({ edgeScroll: false });
+  fire('pointerdown', { button: 2, buttons: 2, clientX: 500, clientY: 400 });
+  fire('pointermove', { button: -1, buttons: 2, clientX: 600, clientY: 400 });
+  cc.update(0.016);
+  assert.equal(pans.length, 1, 'scrolling while the right button pulls');
+  fire('pointermove', { button: 0, buttons: 3, clientX: 600, clientY: 400 });   // the left goes down too
+  fire('pointermove', { button: 2, buttons: 1, clientX: 600, clientY: 400 });   // the right comes up: no pointerup for it
+  fire('pointerup', { button: 0, buttons: 0, clientX: 600, clientY: 400 });     // the left comes up, the last one
+  pans.length = 0;
+  for (let k = 0; k < 10; k++) cc.update(0.016);
+  assert.equal(cc.pull, null);
+  assert.equal(pans.length, 0, 'no scrolling with every button up');
+});
+
+test('letting the middle button go while another is held ends the middle-drag pan', () => {
+  const { cc, fire } = harness({ edgeScroll: false });
+  fire('pointerdown', { button: 1, buttons: 4, clientX: 500, clientY: 400 });
+  assert.ok(cc.drag);
+  fire('pointermove', { button: 0, buttons: 5, clientX: 510, clientY: 400 });
+  assert.ok(cc.drag, 'still held');
+  fire('pointermove', { button: 1, buttons: 1, clientX: 520, clientY: 400 });
+  assert.equal(cc.drag, null);
+});
