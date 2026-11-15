@@ -94,6 +94,7 @@ export class ParticlePool {
   constructor(scene, capacity, { additive = false } = {}) {
     const N = (this.capacity = Math.max(16, Math.floor(capacity)));
     this.n = 0;
+    this.fresh = false;   // a particle was born since the last upload
     this.pos = new Float32Array(N * 3);
     this.vel = new Float32Array(N * 3);
     this.age = new Float32Array(N);
@@ -130,6 +131,7 @@ export class ParticlePool {
   spawn(t, x, y, z, vx, vy, vz, life, scale = 1, shade = 1) {
     if (this.n >= this.capacity) return -1;
     const i = this.n++, p = i * 3, q = i * 6, f = i * 4;
+    this.fresh = true;
     this.pos[p] = x; this.pos[p + 1] = y; this.pos[p + 2] = z;
     this.vel[p] = vx; this.vel[p + 1] = vy; this.vel[p + 2] = vz;
     this.age[i] = 0;
@@ -162,6 +164,8 @@ export class ParticlePool {
 
   update(dt) {
     if (this.n === 0 && this.mesh.count === 0) return;   // nothing alive and nothing left on screen: no upload
+    if (dt === 0 && !this.fresh) return;   // paused and nothing born since the last upload: the buffers already say what is shown
+    this.fresh = false;
     const m = this.mesh.instanceMatrix.array, c = this.mesh.instanceColor.array, a = this.alphaAttr.array;
     const pos = this.pos, vel = this.vel, phys = this.phys;
     let i = 0;
@@ -194,9 +198,17 @@ export class ParticlePool {
       i++;
     }
     this.mesh.count = this.n;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.instanceColor.needsUpdate = true;
-    this.alphaAttr.needsUpdate = true;
+    if (this.n === 0) return;   // nothing is drawn: nothing to upload
+    // only the span the live particles fill goes to the GPU (ranges of an earlier frame that was never drawn are dropped: this one rewrote them all)
+    this.upload(this.mesh.instanceMatrix, 16);
+    this.upload(this.mesh.instanceColor, 3);
+    this.upload(this.alphaAttr, 2);
+  }
+
+  upload(attr, size) {
+    attr.clearUpdateRanges();
+    attr.addUpdateRange(0, this.n * size);
+    attr.needsUpdate = true;
   }
 
   /** Takes the pool off the scene and frees its geometry, material and instance buffers (the shared noise stays). */

@@ -68,6 +68,24 @@ test('empty pools do not re-upload their buffers', () => {
   assert.equal(pool.alphaAttr.version, v);
 });
 
+test('a pool uploads only the buffer span its live particles fill, and nothing on a frame that changed nothing', () => {
+  const pool = new ParticlePool(new THREE.Scene(), 64, { additive: true });
+  for (let k = 0; k < 3; k++) pool.emit({ x: k, y: 0, z: 0, life: 5, size: [1, 1], color: [1, 1, 1], alpha: [1, 0] });
+  pool.update(0.1);
+  const spans = () => [pool.mesh.instanceMatrix, pool.mesh.instanceColor, pool.alphaAttr].map((a) => a.updateRanges.map((r) => [r.start, r.count]));
+  assert.deepEqual(spans(), [[[0, 48]], [[0, 9]], [[0, 6]]], 'three particles: 16, 3 and 2 numbers each');
+  const v = pool.alphaAttr.version;
+  pool.update(0);
+  assert.equal(pool.alphaAttr.version, v, 'a paused frame uploads nothing');
+  assert.equal(pool.mesh.instanceMatrix.version, v);
+  pool.emit({ x: 9, y: 0, z: 0, life: 5, size: [1, 1], color: [1, 1, 1], alpha: [1, 0] });
+  pool.update(0);
+  assert.equal(pool.alphaAttr.version, v + 1, 'a particle born while paused is uploaded');
+  assert.deepEqual(spans(), [[[0, 64]], [[0, 12]], [[0, 8]]], 'earlier spans are dropped, not piled up');
+  pool.update(0.1);
+  assert.equal(pool.alphaAttr.version, v + 2, 'a running frame uploads again');
+});
+
 test('welding throws a few short-lived sparks and no smoke', () => {
   const fx = new Effects(new THREE.Scene(), { particles: 400, flashLights: 0 });
   fx.weld(0, 0.4, 0);

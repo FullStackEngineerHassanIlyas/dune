@@ -240,6 +240,14 @@ test('damage states: smoke past half health, flames below a quarter, from fixed 
   for (const p of a) assert.ok(p.x > 10 && p.x < 12 && p.z > 10 && p.z < 12 && p.y > 0.2);
 });
 
+test('a badly hurt sandworm trails no smoke, flames or sparks: it is not a vehicle', () => {
+  const { d, world, effects } = stage();
+  const worm = world.spawnUnit('sandworm', 'atreides', 8, 8);
+  worm.hp = worm.maxHp * 0.1;
+  steps(2, (dt) => d.wounded(world, dt, (u) => ({ x: u.x, z: u.y })));
+  assert.equal(effects.glow.n + effects.smoke.n, 0);
+});
+
 test('lingering fire and smoke give way when the particle pools are nearly full', () => {
   const { d, effects } = stage({ particles: 800, shadows: 0, flashLights: 0 });
   d.structureDestroyed({ id: 3, typeId: 'windtrap', house: 'ordos', x: 6, y: 6, w: 2, h: 2 }, false);

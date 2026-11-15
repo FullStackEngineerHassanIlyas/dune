@@ -151,12 +151,15 @@ export class BattleStage {
     return map.concrete[i] ? 'concrete' : GROUND_NAME[map.ground[i]] ?? 'sand';
   }
 
-  /** Whether a shot landing at (x, z) that hit something struck metal — a vehicle or a building — rather than a soldier on the ground. */
+  /** Whether a shot landing at (x, z) that hit something struck metal — a vehicle or a building — rather than a soldier on the ground or a worm. */
   struckMetal(x, z) {
     const map = this.world.map, tx = Math.floor(x), ty = Math.floor(z);
     if (!map.inBounds(tx, ty)) return true;
     const i = map.idx(tx, ty), u = this.world.units.get(map.unit[i]);
-    return map.structure[i] ? true : u ? !onFoot(u.move) : true;
+    if (map.structure[i]) return true;
+    if (u) return !onFoot(u.move);
+    for (const w of this.world.units.values()) if (w.move === 'worm' && Math.hypot(w.x - x, w.y - z) <= 0.9) return false;   // a worm up out of the sand holds no tile (the simulation's own reach for a stray shot): it is hide, not metal
+    return true;
   }
 
   /**

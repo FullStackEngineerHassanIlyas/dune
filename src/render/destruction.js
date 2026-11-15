@@ -171,7 +171,7 @@ export class Destruction {
     this.woundClock = 0;
     const fx = this.fx, rate = Math.min(1, this.density);
     for (const u of world.units.values()) {
-      if (u.inside || u.hp > u.maxHp / 2 || onFoot(u.move)) continue;
+      if (u.inside || u.hp > u.maxHp / 2 || onFoot(u.move) || u.move === 'worm') continue;   // a worm is no machine: nothing smoulders on it
       const p = positionOf(u);
       if (!this.lingers(p.x, p.z)) continue;
       const r = modelDef(unitModelId(u.typeId)).radius ?? 0.5, crit = u.hp <= u.maxHp / 4;

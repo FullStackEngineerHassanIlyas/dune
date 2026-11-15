@@ -175,3 +175,13 @@ test('a paused battle (no time passing) holds its effects: shots in flight lay n
   for (let k = 0; k < 120; k++) s.sync(1, 0, 1000);   // two seconds under the game menu
   assert.ok(s.effects.glow.n <= glow, `tracers piled up on the frozen shell: ${glow} → ${s.effects.glow.n}`);
 });
+
+test('a shot that hits a sandworm throws sand, not metal sparks', () => {
+  const { world, s } = stage();
+  const worm = world.spawnUnit('sandworm', 'atreides', 8, 8);
+  worm.x = 8.4; worm.y = 8.4;   // up out of the sand: it holds no tile, so the map has no unit there
+  const tank = world.spawnUnit('combatTank', 'harkonnen', 14, 14);
+  assert.equal(s.struckMetal(8.4, 8.4), false, 'a worm is no metal');
+  assert.equal(s.struckMetal(tank.x, tank.y), true, 'a tank still is');
+  assert.equal(s.struckMetal(3.5, 3.5), true, 'a hit on nothing the map shows keeps the old answer');
+});
