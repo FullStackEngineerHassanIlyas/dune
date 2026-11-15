@@ -272,13 +272,21 @@ function buildBase(world, house, view) {
   const b = house.brain;
   const item = house.lines.structure.current;
   if (item?.state === 'ready') {
-    const turret = item.typeId === 'turret' || item.typeId === 'rocketTurret';
-    const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
-    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, item.typeId));
-    if (spot) issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
-    else { b.noRoom[item.typeId] = world.time; issue(world, house, { type: 'hold', typeId: item.typeId }); }   // a ready structure cancels at once, refunded
+    const spot = structureSpot(world, house, view, item.typeId);
+    if (spot) {
+      b.placeWaitSince = null;
+      issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
+    } else {
+      b.placeWaitSince ??= world.time;   // traffic may have occupied the spot while the building was under way
+      if (world.time - b.placeWaitSince >= NO_ROOM_RETRY) {
+        b.noRoom[item.typeId] = world.time;
+        b.placeWaitSince = null;
+        issue(world, house, { type: 'hold', typeId: item.typeId });   // still no room: refund the ready building
+      }
+    }
     return;
   }
+  b.placeWaitSince = null;
   if (item) return;
   const next = nextStructure(world, house, view);
   if (next) {
@@ -288,6 +296,13 @@ function buildBase(world, house, view) {
   }
   const yardUp = upgradeId('constructionYard'), upCost = upgradeCost(house, 'constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
   if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && affords(house, view, upCost + tuning(house).reserve, upCost)) issue(world, house, { type: 'build', typeId: yardUp });
+}
+
+/** Use the same footprint, anchor and access rules before production and again when placing. */
+function structureSpot(world, house, view, typeId) {
+  const turret = typeId === 'turret' || typeId === 'rocketTurret';
+  const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
+  return findPlacement(world, house.id, typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, typeId));
 }
 
 const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
@@ -365,7 +380,12 @@ function ringAround(map, x, y, w, h) {
 /** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
 function nextStructure(world, house, view) {
   const b = house.brain, id = house.id;
-  const can = (t) => canBuild(world, id, t) && world.time - (b.noRoom[t] ?? -1e9) >= NO_ROOM_RETRY;
+  const can = (t) => {
+    if (!canBuild(world, id, t) || world.time - (b.noRoom[t] ?? -1e9) < NO_ROOM_RETRY) return false;
+    if (structureSpot(world, house, view, t)) return true;
+    b.noRoom[t] = world.time;   // skip impossible footprints before tying up the construction line
+    return false;
+  };
   if (view.recover && can('refinery')) return 'refinery';   // the last Harvester is gone and none is for sale: a Refinery brings one
   const power = computePower(world, id);
   if (power.produced < power.used + 20 && can('windtrap')) return 'windtrap';
