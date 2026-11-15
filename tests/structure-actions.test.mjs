@@ -44,6 +44,41 @@ test('selling a store loses the spice it held, then pays the sale in full', () =
   assert.equal(h.credits, 1005 + 75);   // the silo's spice above the Refinery's 1005 is gone; its half price comes back
 });
 
+test('selling a building that stores nothing takes no credits: a base without a store keeps every sale', () => {
+  const { world, h } = world1(0);
+  h.startBuffer = 0;
+  const a = world.spawnStructure('windtrap', 'atreides', 2, 2);
+  const b = world.spawnStructure('windtrap', 'atreides', 10, 4);
+  world.issue('atreides', { type: 'sell', structureId: a.id });
+  world.step();
+  assert.equal(h.credits, 150);
+  world.issue('atreides', { type: 'sell', structureId: b.id });
+  world.step();
+  assert.equal(h.credits, 300);   // the first sale's money is still there
+});
+
+test('cash above full storage survives the sale of a building that stores nothing', () => {
+  const { world, h } = world1();
+  h.startBuffer = 0;
+  world.spawnStructure('refinery', 'atreides', 4, 4);
+  const trap = world.spawnStructure('windtrap', 'atreides', 10, 4);
+  h.credits = 1005 + 400;   // a cancelled order's refund on top of a full Refinery
+  world.issue('atreides', { type: 'sell', structureId: trap.id });
+  world.step();
+  assert.equal(h.credits, 1405 + 150);
+});
+
+test('a sold store never takes more than it could hold', () => {
+  const { world, h } = world1();
+  h.startBuffer = 0;
+  world.spawnStructure('refinery', 'atreides', 2, 2);
+  const silo = world.spawnStructure('silo', 'atreides', 6, 2);
+  h.credits = 2005 + 600;   // both stores full, and 600 of refunded cash on top
+  world.issue('atreides', { type: 'sell', structureId: silo.id });
+  world.step();
+  assert.equal(h.credits, 2605 - 1000 + 75);   // the Silo's 1000 goes with it; the cash stays
+});
+
 test('repair heals in about twelve seconds for 40 % of the price from zero', () => {
   const { world, h } = world1(1000);
   const trap = world.spawnStructure('windtrap', 'atreides', 2, 2);
