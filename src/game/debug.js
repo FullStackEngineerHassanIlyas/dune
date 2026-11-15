@@ -48,7 +48,7 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     upgradeLevel: (type) => world.houses.get(house).upgrades?.[type] ?? 0,
     weaponRect: () => rect(document.querySelector('.sidebar .sb-weapon')),
     toolRect: (tool) => rect(document.querySelector(`.sidebar .sb-tool[data-tool="${tool}"]`)),
-    lookAt: (x, z) => rig.lookAt(x, z, true),
+    lookAt: (x, z) => { rig.lookAt(x, z, true); rig.update(1, view.heightAt); },   // the camera is there at once: a page drawing 2 frames a second would aim a click with the old view
     camera: () => ({ x: rig.goal.x, z: rig.goal.z }),
     menuOpen: () => !!view?.menu?.isOpen,
     cursor: () => ({ canvas: document.getElementById('gl').style.cursor.slice(0, 40), scrolling: document.getElementById('app').classList.contains('scrolling') }),
