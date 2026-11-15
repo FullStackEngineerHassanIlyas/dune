@@ -313,3 +313,18 @@ test('only a house\'s own Carryalls take orders: never a visitor, nor another ho
   assert.equal(visitor.job.stage, 'carry', 'the visitor keeps to its delivery');
   assert.ok(!other.job && !other.manual, 'another house\'s Carryall ignores the order');
 });
+
+// Several Carryalls sent to the map's edge: the row is kept inside the map.
+for (const [edge, x, n] of [['west', 0, 2], ['east', 31, 3]]) {
+  test(`${n} Carryalls sent to the ${edge} edge all arrive and take their stations inside the map`, () => {
+    const world = flatWorld(32, 24, G.ROCK);
+    const cs = Array.from({ length: n }, (_, k) => world.spawnUnit('carryall', 'atreides', 14 + k, 10));
+    world.issue('atreides', { type: 'move', ids: cs.map((c) => c.id), x, y: 10 });
+    run(world, 60);
+    for (const c of cs) {
+      assert.notEqual(c.job?.stage, 'goto', `Carryall ${c.id} still flying to ${c.job?.x}`);
+      assert.ok(c.station && c.station.x >= 0.5 && c.station.x <= 31.5, `station ${JSON.stringify(c.station)}`);
+    }
+    assert.equal(new Set(cs.map((c) => c.station.x.toFixed(2))).size, n, 'each has a spot of its own');
+  });
+}

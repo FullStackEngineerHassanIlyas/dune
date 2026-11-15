@@ -394,13 +394,18 @@ export function orderCarryalls(world, houseId, lifters, cmd) {
     case 'move': {
       if (!Number.isFinite(cmd.x) || !Number.isFinite(cmd.y)) return;
       const tx = Math.max(0, Math.min(map.w - 1, Math.floor(cmd.x))), ty = Math.max(0, Math.min(map.h - 1, Math.floor(cmd.y)));
+      // Several go side by side. At the map's edge the row is moved inward: a spot off the map can never be
+      // reached (an aircraft is held inside the map), and its Carryall would hover there on that order for good.
+      const sideOf = (k) => (k === 0 ? 0 : (k % 2 ? -1 : 1) * Math.ceil(k / 2));
+      const free = lifters.filter((c) => !c.cargo).length, GAP = 0.8, lo = 0.5, hi = map.w - 0.5;
+      const left = tx + 0.5 - Math.floor(free / 2) * GAP, right = tx + 0.5 + Math.floor((free - 1) / 2) * GAP;
+      const shift = Math.max(0, lo - left) - Math.max(0, right - hi);
       let k = 0;
       for (const c of lifters) {
         if (c.cargo) { setDownAt(world, c, tx, ty); continue; }
         dropFetch(world, c);
-        const side = k === 0 ? 0 : (k % 2 ? -1 : 1) * Math.ceil(k / 2);   // several side by side
-        k++;
-        c.job = { stage: 'goto', x: tx + 0.5 + side * 0.8, y: ty + 0.5, manual: true };
+        const x = Math.max(lo, Math.min(hi, tx + 0.5 + sideOf(k++) * GAP + shift));
+        c.job = { stage: 'goto', x, y: ty + 0.5, manual: true };
         c.manual = true;
       }
       world.events.push('moveOrdered', { ids: lifters.map((c) => c.id), x: tx, y: ty });
