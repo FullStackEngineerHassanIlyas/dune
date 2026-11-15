@@ -49,6 +49,8 @@ export class PathFinder {
     this.g = new Float32Array(n);
     this.from = new Int32Array(n);
     this.opened = new Uint32Array(n);   // search generation that last touched the node
+    this.terrain = new Float64Array(n);
+    this.terrainSeen = new Uint32Array(n);
     this.closed = new Uint32Array(n);
     this.gen = 0;
     this.heap = new MinHeap(n);
@@ -64,7 +66,15 @@ export class PathFinder {
       const dx = Math.abs((i % w) - gx), dy = Math.abs(((i / w) | 0) - gy);
       return (Math.max(dx, dy) + (SQRT2 - 1) * Math.min(dx, dy)) * H_STEP;
     };
-    const passable = (i) => map.moveFactor(i, moveClass) > 0 && !(blocked && i !== goal && blocked(i));
+    // Terrain cannot change during this synchronous search. Cache only it, not dynamic blockers/costs.
+    const factor = (i) => {
+      if (this.terrainSeen[i] !== gen) {
+        this.terrainSeen[i] = gen;
+        this.terrain[i] = map.moveFactor(i, moveClass);
+      }
+      return this.terrain[i];
+    };
+    const passable = (i) => factor(i) > 0 && !(blocked && i !== goal && blocked(i));
     const heap = this.heap;
     heap.clear();
     this.g[start] = 0; this.from[start] = -1; this.opened[start] = gen;
@@ -85,7 +95,7 @@ export class PathFinder {
         const ni = ny * w + nx;
         if (this.closed[ni] === gen || !passable(ni)) continue;
         if (dx && dy && (!passable(cy * w + nx) || !passable(ny * w + cx))) continue;
-        const ng = this.g[cur] + (dist * TERRAIN_REF) / map.moveFactor(ni, moveClass) + (extraCost ? extraCost(ni) : 0);
+        const ng = this.g[cur] + (dist * TERRAIN_REF) / factor(ni) + (extraCost ? extraCost(ni) : 0);
         if (this.opened[ni] !== gen || ng < this.g[ni]) {
           this.opened[ni] = gen; this.g[ni] = ng; this.from[ni] = cur;
           heap.push(ni, ng + hOf(ni));
