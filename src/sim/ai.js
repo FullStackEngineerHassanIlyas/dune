@@ -330,8 +330,9 @@ function leadsOut(map, from, covers = () => false) {
  * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
  * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
  * a new one needs its own apron clear and an entrance that leads out. The ground factories (Barracks, WOR, Heavy
- * Factory) send their units out by the tiles around them (sim/spawn.js exitTile): nothing may shut the last way out
- * of one, and a new one needs a way out of its own — else its troops and tanks appear in a pocket they cannot leave.
+ * Factory) send their units out by the tiles around them (sim/spawn.js exitTile). Every usable exit left
+ * uncovered must still lead out, not just one: production may choose any free exit. A new factory must
+ * likewise have no usable exit in a sealed pocket, or troops and tanks can be born unable to leave.
  */
 export function keepsWaysIn(world, houseId, typeId) {
   const map = world.map, t = STRUCTURES[typeId], aprons = [], exits = [];
@@ -349,8 +350,8 @@ export function keepsWaysIn(world, houseId, typeId) {
   }
   for (const s of world.structures.values()) {
     if (s.house !== houseId || !groundFactory(s.type)) continue;
-    const ring = ringAround(map, s.x, s.y, s.w, s.h);
-    if (ring.some((i) => leadsOut(map, i))) exits.push(ring);   // one already shut in has nothing left to keep
+    const ring = ringAround(map, s.x, s.y, s.w, s.h).filter((i) => leadsOut(map, i));
+    if (ring.length) exits.push(ring);   // one already shut in has nothing left to keep
   }
   return (x, y) => {
     const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
@@ -359,8 +360,14 @@ export function keepsWaysIn(world, houseId, typeId) {
       const ex = x + t.entrance[0], ey = y + t.entrance[1];
       if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
     }
-    if (groundFactory(t) && !ringAround(map, x, y, t.w, t.h).some((i) => leadsOut(map, i, covers))) return false;
-    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers)) && exits.every((ring) => ring.some((i) => leadsOut(map, i, covers)));
+    if (groundFactory(t)) {
+      const ring = ringAround(map, x, y, t.w, t.h).filter((i) => map.moveFactor(i, 'harvester') > 0);
+      if (!ring.length || !ring.every((i) => leadsOut(map, i, covers))) return false;
+    }
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers)) && exits.every((ring) => {
+      const remaining = ring.filter(clear);
+      return remaining.length > 0 && remaining.every((i) => leadsOut(map, i, covers));
+    });
   };
 }
 
