@@ -474,11 +474,20 @@ function weightedPick(rng, pool) {
 export const LIGHT_SHARE = 1 / 3;   // of the vehicles in the field: the one vehicle factory keeps light ones coming
 
 /** The vehicle line's pick: a light vehicle whenever they make up less than a third of the army's vehicles, else a tank. */
-function vehicleChoice(view, pool) {
+function vehicleChoice(world, house, view, pool) {
   const wheeled = (t) => UNITS[t].move === MOVE.WHEELED;
   const vehicles = view.units.filter((u) => fighter(u) && u.type.builtAt === 'heavyFactory');
   const light = vehicles.filter((u) => wheeled(u.typeId)).length < LIGHT_SHARE * (vehicles.length + 1);
   const want = pool.filter((t) => wheeled(t) === light);
+  if (!light && want.length && [...world.structures.values()].some((s) => !friendly(world, house.id, s.house) && s.type.weapon)) {
+    // Fortifications need weapons that can reach them. Keep light escorts, and make
+    // at least half the heavy support the longest-range damaging choice available.
+    const damaging = want.filter((t) => UNITS[t].damage > 0);
+    const range = Math.max(...damaging.map((t) => UNITS[t].range));
+    const siege = damaging.filter((t) => UNITS[t].range === range);
+    const heavy = vehicles.filter((u) => !wheeled(u.typeId));
+    if (siege.length && heavy.filter((u) => siege.includes(u.typeId)).length < (heavy.length + 1) / 2) return siege;
+  }
   return want.length ? want : pool;
 }
 
@@ -490,7 +499,7 @@ function buildArmy(world, house, view) {
     const l = house.lines[line];
     if (l.current || l.queue.length) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
-    if (pool.length && affords(house, view, d.reserve)) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });   // the reserve covers any unit of the missions that keep money back
+    if (pool.length && affords(house, view, d.reserve)) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(world, house, view, pool) : pool) });   // the reserve covers any unit of the missions that keep money back
   }
 }
 
