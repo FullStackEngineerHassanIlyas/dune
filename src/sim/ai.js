@@ -22,6 +22,7 @@ import { isArmed, distanceTo } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
+import { REPAIR_COST_FRACTION } from './structure-actions.js';
 import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
 import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
@@ -139,6 +140,7 @@ function affords(house, view, need, cost = need) {
 
 function think(world, house) {
   const view = survey(world, house);
+  repairBuildings(world, house, view);
   if (!view.yard) {
     if (view.units.some((u) => u.type.deploysTo)) deployMcv(world, house, view);
     else rebuildMcv(world, house, view);
@@ -155,6 +157,25 @@ function think(world, house) {
   attack(world, house, view, defending);
   usePalace(world, house, view);
   sabotage(world, house, view);
+}
+
+/** Restore damaged buildings through the same paid order as a player, without spending production or recovery money. */
+function repairBuildings(world, house, view) {
+  const cost = (s) => (1 - s.hp / s.maxHp) * s.type.cost * REPAIR_COST_FRACTION;
+  let spare = house.credits - owed(house) - view.keep - tuning(house).reserve;
+  for (const s of view.mine) if (s.repairing) {
+    const price = cost(s);
+    spare -= price;
+    if (view.keep) view.spare -= price;   // production must also leave the rest of an ongoing repair funded
+  }
+  for (const s of view.mine) {
+    if (s.hp >= s.maxHp || s.repairing || s.type.isWall) continue;
+    const price = cost(s);
+    if (price > spare) continue;
+    spare -= price;
+    view.spare -= price;
+    issue(world, house, { type: 'repair', structureId: s.id, on: true });
+  }
 }
 
 function deployMcv(world, house, view) {
