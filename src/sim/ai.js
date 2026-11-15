@@ -558,6 +558,13 @@ function sendForRepairs(world, house, view) {
 function attack(world, house, view, unavailable = []) {
   const b = house.brain, d = tuning(house);
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
+  for (const id of b.wave) {
+    const u = world.units.get(id);
+    if (u.move !== MOVE.TRACKED || !(u.type.damage > 0) || u.order.type !== 'attackMove') continue;
+    const own = b.waveFoe[id], foe = own && !world.houses.get(own)?.defeated ? own : null;
+    const s = siegeTarget(world, house.id, u, foe);
+    if (s) issue(world, house, { type: 'attack', ids: [id], targetKind: 'structure', targetId: s.id });
+  }
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
   if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target, their own wave's foe first (at most every 10 s)
@@ -592,6 +599,20 @@ function attack(world, house, view, unavailable = []) {
   b.waveWaitSince = null;
   b.nextAttack = world.time + d.waveEvery;
   world.events.push('aiAttack', { house: house.id, target: foe.house, size: group.length, x: target.x, y: target.y });
+}
+
+/** Tanks that reach a base commit to its infrastructure; escorts keep handling the defenders.
+ * Only buildings already in range qualify, so tanks still fight on their approach instead of driving past threats. */
+function siegeTarget(world, houseId, u, foe) {
+  let best = null, bestRank = -1, bestDistance = Infinity;
+  for (const s of world.structures.values()) {
+    if (friendly(world, houseId, s.house) || s.type.isWall || (foe && s.house !== foe)) continue;
+    const distance = distanceTo(u.x, u.y, { kind: 'structure' }, { entity: s });
+    if (distance > u.type.range) continue;
+    const rank = s.typeId === 'constructionYard' ? 3 : s.type.produces || s.type.weapon ? 2 : s.typeId === 'refinery' ? 1 : 0;
+    if (rank > bestRank || (rank === bestRank && distance < bestDistance)) { best = s; bestRank = rank; bestDistance = distance; }
+  }
+  return best;
 }
 
 /** Idle members of one wave go for the nearest target of their foe (any rival's, when it is beaten). */
