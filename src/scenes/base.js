@@ -52,6 +52,7 @@ export async function start({ search }) {
     const spot = quietSpot(world, house, yard.x, yard.y);
     if (spot) {
       world.spawnStructure('silo', rival, spot.x, spot.y).hp = 25;
+      world.houses.get(rival).brain = null;   // its owner is not played here: a computer player repairs the silo before the squad gets there
       const tile = findFreeTile(world, spot.x, spot.y + 5, 'foot', 4);
       if (tile) world.spawnUnit(INFANTRY[house], house, tile.x, tile.y);
       focus = { x: spot.x + 1, z: spot.y + 3 };
