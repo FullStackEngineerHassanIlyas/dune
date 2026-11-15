@@ -370,3 +370,89 @@ test('a harvester whose entrance became a closed pocket with a unit stuck in it 
   assert.equal(ref.dockedBy || 0, 0);
   assert.deepEqual(checkInvariants(world), []);
 });
+
+// Spice a harvester cannot drive to is not a field for it.
+test('a harvest order on spice walled in by mountains goes to spice the harvester can reach', async () => {
+  const world = flatWorld(30, 20, G.ROCK);
+  const m = world.map;
+  for (let y = 3; y <= 9; y++) for (let x = 15; x <= 21; x++) m.ground[m.idx(x, y)] = (y === 3 || y === 9 || x === 15 || x === 21) ? G.MOUNTAIN : G.SAND;
+  field(m, 16, 4, 21, 9);   // the pocket
+  for (let x = 2; x < 8; x++) { m.ground[m.idx(x, 16)] = G.SAND; m.setSpice(m.idx(x, 16), 250); }   // the open field
+  m.revision++;
+  const hv = world.spawnUnit('harvester', 'atreides', 6, 12);
+  world.issue('atreides', { type: 'harvest', ids: [hv.id], x: 18, y: 6 });
+  const t = runUntil(world, () => hv.harvest.load > 0, 60);
+  assert.ok(t > 0, `the harvester loads spice (state ${hv.harvest.state} at ${hv.tx},${hv.ty})`);
+  assert.equal(hv.ty, 16);
+});
+
+test('spice behind a diagonal gap between two mountains is out of reach, and the harvester does not keep asking for a way', async () => {
+  const { findSpice } = await import('../src/sim/harvest.js');
+  const world = flatWorld(24, 12, G.ROCK);
+  const m = world.map;
+  for (let y = 0; y < 12; y++) m.ground[m.idx(y <= 5 ? 11 : 10, y)] = G.MOUNTAIN;
+  for (let y = 0; y < 12; y++) for (let x = 14; x < 20; x++) m.ground[m.idx(x, y)] = G.SAND;
+  field(m, 14, 0, 20, 12);
+  m.revision++;
+  const hv = world.spawnUnit('harvester', 'atreides', 4, 5);
+  assert.equal(findSpice(world, hv), -1);
+  let requests = 0;
+  const request = world.requestPath.bind(world);
+  world.requestPath = (u, goal, opts) => { if (u === hv) requests++; return request(u, goal, opts); };
+  world.issue('atreides', { type: 'harvest', ids: [hv.id] });
+  run(world, 30);
+  assert.equal(requests, 0);
+  assert.deepEqual([hv.tx, hv.ty], [4, 5]);
+});
+
+test('Stop given to a harvester while it steps aside for a friend is kept: the routine does not come back by itself', () => {
+  const world = flatWorld(40, 24, G.MOUNTAIN);
+  const m = world.map;
+  for (let x = 15; x < 35; x++) m.ground[m.idx(x, 10)] = G.SAND;
+  m.ground[m.idx(25, 11)] = G.SAND;   // a side pocket to step into
+  m.revision++;
+  for (let x = 24; x < 27; x++) m.setSpice(m.idx(x, 10), 600);
+  const hv = world.spawnUnit('harvester', 'atreides', 25, 10);
+  const tank = world.spawnUnit('combatTank', 'atreides', 18, 10, { heading: 0 });
+  run(world, 1);
+  world.issue('atreides', { type: 'move', ids: [tank.id], x: 32, y: 10 });
+  assert.ok(runUntil(world, () => hv.order.nudge && hv.step, 30) >= 0, 'the harvester is stepping aside, off the spice');
+  assert.equal(hv.resumeOrder?.type, 'harvest');
+  world.issue('atreides', { type: 'stop', ids: [hv.id] });
+  run(world, 5);
+  assert.equal(hv.order.type, 'idle');
+  assert.equal(hv.resumeOrder, null);
+  assert.deepEqual([hv.tx, hv.ty], [25, 11]);   // it finished the step it had begun and stays there
+});
+
+test('a tank guarding on a refinery\'s entrance keeps guarding, from where it was moved to', () => {
+  const { world, h, m } = spiceWorld();
+  h.startBuffer = 5000;
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  for (const u of harvesters(world)) world.removeUnit(u);
+  const tank = world.spawnUnit('combatTank', 'atreides', 10, 10);
+  world.issue('atreides', { type: 'guard', ids: [tank.id] });
+  world.step();
+  assert.equal(tank.order.type, 'guard');
+  loaded(world, 4, 16);
+  assert.ok(runUntil(world, () => h.credits >= 699.9, 90) > 0, `credits ${h.credits}`);
+  run(world, 10);
+  assert.notDeepEqual([tank.tx, tank.ty], [10, 10]);
+  assert.equal(tank.order.type, 'guard');
+  assert.deepEqual([tank.order.x, tank.order.y], [tank.tx, tank.ty]);   // its post moved with it, so it does not walk back onto the entrance
+  assert.equal(m.unit[m.idx(tank.tx, tank.ty)], tank.id);
+});
+
+test('a harvester backing out by another way leaves parked friends alone while a tile is free', () => {
+  const { world, h } = spiceWorld();
+  h.startBuffer = 5000;
+  world.spawnStructure('refinery', 'atreides', 8, 8);
+  for (const u of harvesters(world)) world.removeUnit(u);
+  const hv = loaded(world, 4, 16);
+  assert.ok(runUntil(world, () => hv.docked, 60) >= 0, 'the harvester drives in');
+  world.spawnUnit('mcv', 'harkonnen', 10, 10);   // an enemy vehicle stops on the entrance
+  const parked = [world.spawnUnit('mcv', 'atreides', 8, 10), world.spawnUnit('mcv', 'atreides', 9, 10)];
+  assert.ok(runUntil(world, () => !hv.docked, 90) >= 0, 'the harvester backs out');
+  run(world, 3);
+  assert.deepEqual(parked.map((p) => [p.tx, p.ty, p.order.type]), [[8, 10, 'idle'], [9, 10, 'idle']]);
+});
