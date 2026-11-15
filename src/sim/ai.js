@@ -420,6 +420,11 @@ function wantedStructure(world, house, view, can) {
     if (ixWorth && has('starport') && !has('ix') && can('ix')) return 'ix';
     if (has('ix') && !has('palace') && can('palace')) return 'palace';
   }
+  // Spend a mature skirmish economy on throughput: extra factories use the same
+  // paid 25% production bonus as the player, instead of banking credits forever.
+  if (!house.brain.params && has('heavyFactory') < 3 && house.lines.heavy.current?.state === 'building' &&
+      view.units.filter(fighter).length < d.armyCap && house.credits - owed(house) >= 2 * STRUCTURES.heavyFactory.cost + d.reserve &&
+      can('heavyFactory')) return 'heavyFactory';
   return null;
 }
 
