@@ -594,7 +594,32 @@ function hunt(world, house, members, foe) {
   const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
   const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
   if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
-  else if (t) issue(world, house, { type: 'attackMove', ids, x: t.x, y: t.y });
+  else if (t) {
+    const map = world.map, goal = map.idx(t.x, t.y);
+    // A path to a disconnected goal stops at the nearest reachable tile. Once there,
+    // leave the unit idle instead of reissuing the same impossible order every hunt.
+    // Recheck reachability next time: a destroyed building may open the way again.
+    const able = members.filter((u) => {
+      if (!u.isGround) return true;
+      const here = map.idx(u.tx, u.ty);
+      if (!world.reach.connected(here, goal, u.move)) {
+        const near = world.reach.nearestReachable(goal, here, u.move);
+        if (near === null || near === here) return false;
+      }
+      // Movement also gives up on parked units. Do not immediately undo that decision:
+      // retry from the same tile only after the target, terrain or neighbouring traffic changes.
+      const traffic = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = u.tx + dx, y = u.ty + dy;
+        if (map.inBounds(x, y)) traffic.push(map.unit[map.idx(x, y)]);
+      }
+      const attempt = `${house.id}:${here}:${u.distance}:${goal}:${map.revision}:${traffic.join(',')}`;
+      if (u.aiHuntAttempt === attempt) return false;
+      u.aiHuntAttempt = attempt;
+      return true;
+    }).map((u) => u.id);
+    if (able.length) issue(world, house, { type: 'attackMove', ids: able, x: t.x, y: t.y });
+  }
 }
 
 function nearestEnemyWall(world, houseId, x, y, radius) {
