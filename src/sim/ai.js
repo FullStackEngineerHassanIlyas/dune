@@ -538,7 +538,9 @@ function defend(world, house, view, repairing = []) {
   for (const u of world.units.values()) {
     if (friendly(world, u.house, house.id) || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm or an ally
     for (const s of view.mine) {
-      const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
+      const dx = u.x - s.x - s.w / 2, dy = u.y - s.y - s.h / 2;
+      if (Math.abs(dx) >= best || Math.abs(dy) >= best) continue;
+      const d = Math.hypot(dx, dy);
       if (d < best) { best = d; intruder = u; }
     }
   }
