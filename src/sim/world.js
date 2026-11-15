@@ -208,7 +208,9 @@ export class World {
         const other = this.units.get(o);
         return other && !other.step && other.pathState !== 'ready' ? 6 : 0.5;
       };
-      const start = map.idx(u.tx, u.ty);
+      // Between two tiles the unit is committed to the one it is entering: the route starts there.
+      const entering = u.step ? u.step.to : -1;
+      const start = entering >= 0 ? entering : map.idx(u.tx, u.ty);
       if (u.goal !== start && !this.reach.connected(start, u.goal, u.move)) {
         u.goal = this.reach.nearestReachable(u.goal, start, u.move) ?? start;   // retarget instead of an exhaustive search
       }
@@ -219,7 +221,8 @@ export class World {
         res = this.pathfinder.find(start, u.goal, u.move, { maxNodes: this.pathSearchCap, extraCost });
         budget -= this.pathfinder.expanded + 1;
       }
-      u.path = res.path;
+      // path[pathIndex] stays the tile being entered, which the end of the step counts off (movement.js advance)
+      u.path = entering >= 0 && res.path.length ? [entering, ...res.path] : res.path;
       u.pathIndex = 0;
       u.pathReached = res.reached;
       u.pathState = res.path.length ? 'ready' : 'none';
