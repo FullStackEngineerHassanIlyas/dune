@@ -359,6 +359,22 @@ test('the AI never shuts a factory in: nothing goes up on its last way out, and 
   assert.equal(keepsWaysIn(pocket, 'harkonnen', 'hiTech')(17, 17), true, 'a Hi-Tech Factory sends its aircraft up from its own roof and needs no way out');
 });
 
+test('an AI with no Harvester and no credits drops the Harvesters it cannot pay for, so the Refinery\'s free one can fly in (seed 25 left a house dead for five minutes)', () => {
+  const world = flatWorld(40, 40, G.ROCK);
+  world.rules.airDelivery = true;   // a real game's Refinery sends for its Harvester by Carryall, unless one is on order
+  for (const [t, x, y] of [['constructionYard', 4, 4], ['windtrap', 8, 4], ['refinery', 4, 8], ['heavyFactory', 12, 8]]) world.spawnStructure(t, 'harkonnen', x, y);
+  run(world, 30);   // the Refinery's own free Harvester arrives
+  const harvesters = () => [...world.units.values()].filter((u) => u.house === 'harkonnen' && u.typeId === 'harvester');
+  for (const u of harvesters()) world.removeUnit(u, 'eaten');   // a worm's meal, the last Harvester
+  const h = world.houses.get('harkonnen');
+  h.credits = 0;
+  world.issue('harkonnen', { type: 'build', typeId: 'harvester', count: 3 });   // ordered while there was money; spice is the only income and none is coming in
+  createBrain(world, 'harkonnen', 'normal');
+  run(world, 90);
+  assert.ok(harvesters().length >= 1, 'the free Harvester came');
+  assert.ok(!h.lines.heavy.queue.includes('harvester'), 'and the unpayable orders are gone');
+});
+
 test('a computer base on a real map leaves every Barracks, WOR and Heavy Factory a way out (Small map, seed 31, Harkonnen shut their WOR in on all four sides)', () => {
   const { world } = setupSkirmish({ seed: 31, size: 48, house: 'atreides', aiPlayer: true, credits: 10000, difficulty: 'hard', opponents: [{ house: 'harkonnen', difficulty: 'hard' }] });
   const map = world.map;

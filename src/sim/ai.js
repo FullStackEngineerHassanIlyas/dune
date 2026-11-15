@@ -384,7 +384,19 @@ function keepHarvesters(world, house, view) {
   const heavy = house.lines.heavy;
   const queued = (heavy.current?.typeId === 'harvester' ? 1 : 0) + heavy.queue.filter((t) => t === 'harvester').length;
   const have = view.units.filter((u) => u.typeId === 'harvester').length;
+  if (!have && dropUnpayableHarvesters(world, house, heavy)) return;
   if (have + queued < Math.min(6, 2 * refineries) && house.credits >= 300 && canBuild(world, house.id, 'harvester')) issue(world, house, { type: 'build', typeId: 'harvester' });
+}
+
+/** No Harvester anywhere and the one on order has stalled for want of credits: with no spice coming in none will ever
+ *  come, and while a Harvester is on order the Refinery's free one (sim/harvest.js ensureHarvesters) stays away, so the
+ *  house is left dead. Cancel the orders (what was paid comes back) and the free Harvester flies in. */
+function dropUnpayableHarvesters(world, house, heavy) {
+  const item = heavy.current;
+  if (!world.rules.airDelivery || item?.typeId !== 'harvester' || !item.starved || house.credits >= item.cost - item.paid) return false;
+  const orders = 2 + heavy.queue.filter((t) => t === 'harvester').length;   // two to cancel the one in hand (hold, then cancel), one for each queued
+  for (let k = 0; k < orders; k++) issue(world, house, { type: 'hold', typeId: 'harvester' });
+  return true;
 }
 
 /** One Carryall of its own for ferrying, never more (the original's AI rule). */
