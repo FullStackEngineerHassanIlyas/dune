@@ -47,7 +47,10 @@ export function findTarget(world, houseId, x, y, radius, { structures = true, ig
   let best = null, bestD = Infinity;
   for (const u of world.units.values()) {
     if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate (a worm on the move is fair game, as in the original)
-    const d = Math.hypot(u.x - x, u.y - y);
+    // Reject the distant bounding box first; keep hypot for exact radius and tie decisions.
+    const dx = u.x - x, dy = u.y - y;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD || Math.abs(dy) >= bestD) continue;
+    const d = Math.hypot(dx, dy);
     if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
     best = { kind: 'unit', id: u.id };
     bestD = d;
@@ -55,7 +58,10 @@ export function findTarget(world, houseId, x, y, radius, { structures = true, ig
   if (!structures) return best;
   for (const s of world.structures.values()) {
     if (friendly(world, s.house, houseId) || s.type.isWall || s.id === exclude) continue;
-    const d = distanceTo(x, y, { kind: 'structure' }, { entity: s });
+    const dx = Math.max(s.x + 0.5, Math.min(s.x + s.w - 0.5, x)) - x;
+    const dy = Math.max(s.y + 0.5, Math.min(s.y + s.h - 0.5, y)) - y;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD - 0.5 || Math.abs(dy) >= bestD - 0.5) continue;
+    const d = Math.hypot(dx, dy);
     if (d > radius || d >= bestD - 0.5 || (!ignoreFog && !canSee(world, houseId, 'structure', s))) continue;   // units win close calls: they shoot back
     best = { kind: 'structure', id: s.id };
     bestD = d;
