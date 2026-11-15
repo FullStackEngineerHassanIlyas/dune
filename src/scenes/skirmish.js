@@ -9,8 +9,7 @@ import { placeStructure, findPlacement } from '../sim/placement.js';
 export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
-  const options = skirmishOptions(params), house = options.house;
-  const { world, starts } = setupSkirmish(options);
+  const { world, starts, house } = setupSkirmish(skirmishOptions(params));   // the house the set-up settled on: an address can name one no skirmish has
   for (let i = 0, n = params.num('ticks', 0); i < n; i++) world.step();
   if (params.bool('deploy')) {
     const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');

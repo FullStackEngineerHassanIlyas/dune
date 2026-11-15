@@ -70,6 +70,7 @@ function resolveOpponents(house, list, size, difficulty) {
 export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, opponents = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed',
   difficulty = 'normal', techLevel = 9, worms = 'off', aiPlayer = false, allied = false } = {}) {   // no worms unless asked: scenes and tests stay as they were
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
+  if (!SKIRMISH_HOUSES.includes(house)) house = SKIRMISH_HOUSES[0];   // a house the skirmish has no forces for (a mistyped or hand-written address) is the first one, not a blank page
   size = Number.isFinite(size) ? Math.max(MAP_LIMITS[0], Math.min(MAP_LIMITS[1], Math.round(size))) : 64;   // an address may say anything: a fraction, nothing, a map no page could hold
   if (!Number.isFinite(credits) || credits < 0) credits = 3000;   // nor can a game start in debt, or with infinite money
   const rivals = resolveOpponents(house, opponents?.length ? opponents : [{ house: enemy, difficulty: level }], size, level);

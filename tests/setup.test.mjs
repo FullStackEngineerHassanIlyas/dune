@@ -63,3 +63,12 @@ test('a battle address with a size or credits that make no sense still sets up a
   assert.deepEqual(cash(NaN), [3000, 3000]);
   assert.deepEqual(cash(0), [0, 0], 'no credits at all is a game');
 });
+
+test('a battle address with a house no skirmish can be played as sets up a game as the first house', () => {   // ?house=fremen threw "Cannot read properties of undefined", ?house=bogus "unknown house bogus": a blank page
+  for (const house of ['fremen', 'bogus', '', undefined, null]) {
+    const r = setupSkirmish({ seed: 2, house });
+    assert.equal(r.house, 'atreides', `house ${house}`);
+    assert.ok(r.world.houses.get('atreides') && !r.opponents.includes('atreides'));
+  }
+  assert.equal(setupSkirmish({ seed: 2, house: 'sardaukar' }).house, 'sardaukar', 'a house of the skirmish stays');
+});
