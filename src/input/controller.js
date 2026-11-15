@@ -30,8 +30,8 @@ const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 const ALERTS = new Set(['baseAttack', 'harvesterAttack', 'structureLost']);
 
 export class Controller {
-  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
-    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, canSeeStructure, onMode, onGhost, onNotice });
+  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, structureAt = () => null, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
+    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, structureAt, onCursor, onMarker, onDragBox, canSee, canSeeStructure, onMode, onGhost, onNotice });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
     this.hoverStructureId = null;
@@ -56,6 +56,8 @@ export class Controller {
     const hit = pickAt(this.candidates(), x, y);
     if (hit) return { kind: 'unit', unit: hit.unit };
     const g = this.ground(x, y);
+    const body = this.structureAt(x, y, g);   // a roof or a back wall under the pointer: the building, not the ground the ray would reach behind it
+    if (body && this.canSeeStructure(body.structure)) return { kind: 'structure', structure: body.structure, tx: body.tx, ty: body.ty };
     if (!g) return null;
     const map = this.world.map, tx = Math.floor(g.x), ty = Math.floor(g.z);
     if (!map.inBounds(tx, ty)) return null;

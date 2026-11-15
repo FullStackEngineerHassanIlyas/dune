@@ -149,6 +149,7 @@ export class GameView {
     this.controller = new Controller({
       world, house, selection: this.selection, groups: this.groups, settings, project: this.project, ground: this.ground,
       rig: this.rig, positionOf: this.positionOf,
+      structureAt: (sx, sy, g) => this.stage.structureViews.under(r3d.camera, (sx / r3d.width) * 2 - 1, 1 - (sy / r3d.height) * 2, g),
       viewport: () => ({ left: 0, top: 0, right: r3d.width, bottom: r3d.height }),
       onCursor: makeCursorSetter(canvas),
       onMarker: (x, z) => this.overlay.marker(x, z),

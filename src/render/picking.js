@@ -37,6 +37,34 @@ export function screenToPlane(camera, ndcX, ndcY, h = 0) {
   return { x: o.x + d.x * t, z: o.z + d.z * t };
 }
 
+const box = new THREE.Box3(), entry = new THREE.Vector3();
+
+/**
+ * The building whose body the ray through an NDC point meets first, or null: seen from above and the south, a
+ * roof and a back wall stand in front of the ground behind the footprint, and a click on them means the building.
+ * `structures` are { x, y, w, h } footprints, `topOf` and `baseOf` give a body's height and the ground it stands
+ * on; `ground` is where the same ray meets the terrain, if it does (a body behind that point is hidden by it).
+ * Returns { structure, tx, ty } with the tile of the footprint the ray comes in over.
+ */
+export function screenToStructure(camera, ndcX, ndcY, structures, topOf, baseOf, ground = null) {
+  ndc.set(ndcX, ndcY);
+  raycaster.setFromCamera(ndc, camera);
+  const ray = raycaster.ray, o = ray.origin;
+  let best = null, x = 0, z = 0;
+  let nearest = ground ? (ground.x - o.x) ** 2 + (ground.y - o.y) ** 2 + (ground.z - o.z) ** 2 + 1e-6 : Infinity;
+  for (const s of structures) {
+    const y = baseOf(s);
+    box.min.set(s.x, y, s.y);
+    box.max.set(s.x + s.w, y + topOf(s), s.y + s.h);
+    if (!ray.intersectBox(box, entry)) continue;
+    const d = entry.distanceToSquared(o);
+    if (d < nearest) { nearest = d; best = s; x = entry.x; z = entry.z; }
+  }
+  if (!best) return null;
+  const tile = (v, from, n) => Math.max(from, Math.min(from + n - 1, Math.floor(v)));
+  return { structure: best, tx: tile(x, best.x, best.w), ty: tile(z, best.y, best.h) };
+}
+
 export function worldToScreen(camera, x, y, z, width, height, out = {}) {
   v.set(x, y, z).project(camera);
   out.x = ((v.x + 1) / 2) * width;

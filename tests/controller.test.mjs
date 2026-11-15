@@ -602,3 +602,19 @@ test('a drag box that ends over the sidebar leaves out own units drawn past the 
   assert.deepEqual(c.selection.list().sort(), [tank.id, tank2.id, mcv.id].sort());
   assert.ok(!c.selection.has(far.id), 'the unit beyond the canvas stays out');
 });
+
+test('a click on a building\'s roof or back wall means the building, though the ground under the pointer lies behind it', () => {
+  const { world, tank, c, issued } = setup();
+  const yard = world.spawnStructure('constructionYard', 'atreides', 10, 12), foe = world.spawnStructure('windtrap', 'harkonnen', 14, 12);
+  const roofs = new Map([[`${px(11)},${px(11)}`, { structure: yard, tx: 11, ty: 12 }], [`${px(15)},${px(11)}`, { structure: foe, tx: 15, ty: 12 }]]);   // the view's answer for the two pointers used here
+  c.structureAt = (x, y) => roofs.get(`${x},${y}`) ?? null;
+  assert.deepEqual(c.hitTest(px(11), px(11)), { kind: 'structure', structure: yard, tx: 11, ty: 12 }, 'the tile is one of the footprint, not the ground behind');
+  assert.equal(c.hitTest(px(11), px(10)).kind, 'ground', 'the ground past the roof is ground');
+  c.onClick(px(11), px(11), 0, NONE, false);
+  assert.equal(c.selection.structureId, yard.id, 'the click selects the yard');
+  c.onClick(px(5), px(5), 0, NONE, false);
+  c.onClick(px(15), px(11), 0, NONE, false);
+  assert.deepEqual(issued.at(-1), { type: 'attack', ids: [tank.id], targetKind: 'structure', targetId: foe.id, force: false }, 'a tank sent at an enemy roof attacks the building instead of driving behind it');
+  c.canSeeStructure = (s) => s !== foe;
+  assert.equal(c.hitTest(px(15), px(11)).kind, 'ground', 'a building the house cannot see is not picked by its body either');
+});

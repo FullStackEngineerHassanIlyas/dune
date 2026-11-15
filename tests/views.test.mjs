@@ -393,3 +393,31 @@ test('an aircraft climbing or coming down moves smoothly between two ticks', () 
   views.sync(world, 0.3, 0.016);
   assert.ok(Math.abs(pos(views.views.get(fresh.id).handles[0].matrix).y - hf.heightAt(fresh.x, fresh.y) - fresh.alt - 0.004) < 1e-6);
 });
+
+import { CameraRig } from '../src/render/camera-rig.js';
+import { worldToScreen } from '../src/render/picking.js';
+
+test('the building under the pointer is the one whose body the pointer is on: standing, and drawn for the viewer', () => {
+  const world = flatWorld(40, 40, G.ROCK);
+  world.fogOfWar = true;
+  const hf = new Heightfield(world.map, { sub: 2, seed: 1 });
+  const views = new StructureViews(new THREE.Scene(), hf, { viewer: 'atreides' });
+  const yard = world.spawnStructure('constructionYard', 'atreides', 20, 20);
+  const foe = world.spawnStructure('constructionYard', 'harkonnen', 30, 20);   // never seen: not drawn
+  const cam = new THREE.PerspectiveCamera(38, 16 / 9, 0.5, 700);
+  const rig = new CameraRig(cam, 40, 40);
+  const aim = (s) => {   // the pointer on the back of that building's roof: the ground behind it lies a row north of the footprint
+    rig.lookAt(s.x + 1, s.y + 1, true);
+    rig.update(1, () => 0);
+    const p = worldToScreen(cam, s.x + 1.3, views.views.get(s.id).y + 0.8, s.y + 0.05, 1600, 900);
+    return views.under(cam, (p.x / 1600) * 2 - 1, 1 - (p.y / 900) * 2);
+  };
+  views.sync(world, 5000);
+  const hit = aim(yard);
+  assert.equal(hit?.structure, yard);
+  assert.deepEqual([hit.tx, hit.ty], [21, 20]);
+  assert.equal(aim(foe), null, 'a building the viewer has not seen has no body to click');
+  world.removeStructure(yard, 'sold');
+  views.sync(world, 5100);
+  assert.equal(aim(yard), null, 'nor has one that is sinking away');
+});

@@ -11,6 +11,8 @@ import { structureVisibleTo } from '../../sim/fog.js';
 import { lerpAngle } from '../../sim/geometry.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, structureModelId } from '../models/index.js';
+import { modelTop } from '../wrecks.js';
+import { screenToStructure } from '../picking.js';
 
 const ARMS = [[1, 0, 0], [0, 1, -Math.PI / 2], [-1, 0, Math.PI], [0, -1, Math.PI / 2]];   // E, S, W, N and their yaw
 const RISE_MS = 900, SINK_MS = 700, COLLAPSE_MS = 1900, DOOR_MS = 2000;
@@ -127,6 +129,18 @@ export class StructureViews {
     lean.setFromAxisAngle(axis.set(c.az, 0, -c.ax), c.tilt * e);
     at.set(v.cx + Math.sin(now * 0.083) * shake, v.y - 0.1 * e, v.cz + Math.cos(now * 0.071) * shake);
     out.compose(at, lean, size.set(1 + 0.08 * e, Math.max(0.03, 1 - 0.95 * e), 1 + 0.08 * e));
+  }
+
+  /**
+   * The standing building, drawn for the viewer last frame, whose body the ray through an NDC point meets first:
+   * { structure, tx, ty } or null (render/picking.js screenToStructure). `ground` is where that ray meets the terrain.
+   */
+  under(camera, ndcX, ndcY, ground = null) {
+    return screenToStructure(camera, ndcX, ndcY, this.standing(), (s) => modelTop(modelDef(structureModelId(s.typeId, s.w, s.h))), (s) => this.views.get(s.id).y, ground);
+  }
+
+  *standing() {
+    for (const v of this.views.values()) if (v.dying === undefined && v.handles[0].visible) yield v.last;
   }
 
   /** Whether structure `id` was drawn for the viewer last frame (seen once, it is drawn whole, shroud or not). */

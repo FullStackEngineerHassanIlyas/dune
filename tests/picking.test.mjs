@@ -61,3 +61,34 @@ test('screenToPlane meets a flat plane; the top of the view lies farther north',
   assert.ok(Math.abs(c.x - 10) < 1e-6 && Math.abs(c.z - 10) < 1e-6);
   assert.ok(screenToPlane(cam, 0, 1, 0).z < screenToPlane(cam, 0, -1, 0).z);
 });
+
+import { screenToStructure } from '../src/render/picking.js';
+
+test('a click on a building\'s roof or back wall is a click on the building, not on the ground behind it', () => {
+  // seen from the south at 55 degrees a body 0.9 high covers 0.6 of a tile of the ground behind it: the ray to the ground lands a row north of the footprint
+  const cam = new THREE.PerspectiveCamera(38, 16 / 9, 0.5, 700);
+  const rig = new CameraRig(cam, 64, 64);
+  rig.lookAt(21, 21, true);
+  rig.update(1, () => 0);
+  const yard = { id: 1, x: 20, y: 20, w: 2, h: 2 }, far = { id: 2, x: 20, y: 17, w: 2, h: 2 }, front = { id: 3, x: 20, y: 22, w: 2, h: 2 };
+  const top = () => 0.9, base = () => 0;
+  const at = (x, y, z, list = [yard]) => {
+    const s = worldToScreen(cam, x, y, z, 1600, 900), nx = (s.x / 1600) * 2 - 1, ny = 1 - (s.y / 900) * 2;
+    const ground = screenToGround(cam, nx, ny, () => 0, 4);
+    return { hit: screenToStructure(cam, nx, ny, list, top, base, ground), ground };
+  };
+  const roof = at(21.3, 0.85, 20.05);   // the back of the roof
+  assert.equal(Math.floor(roof.ground.z), 19, 'the ground under the pointer is the row behind the building');
+  assert.equal(roof.hit.structure, yard);
+  assert.deepEqual([roof.hit.tx, roof.hit.ty], [21, 20], 'and the tile is the one of the footprint the ray comes in over');
+  assert.equal(at(21, 0, 21).hit.structure, yard, 'a click on its floor is the building too');
+  assert.equal(at(21, 0, 19.2).hit, null, 'the ground seen behind it, past the roof line, is ground');
+  assert.equal(at(21, 0, 22.5).hit, null, 'so is the ground in front of it');
+  assert.equal(at(19.5, 0, 21).hit, null, 'and beside it');
+  assert.equal(at(21, 0.5, 18.5, [far, yard]).hit.structure, far, 'a ray that passes over one building meets the one behind');
+  assert.equal(at(21, 0.3, 22, [yard, front]).hit.structure, front, 'of two bodies in the way the nearer one is meant: its roof hides the foot of the wall behind');
+  assert.equal(at(21, 0.3, 22, [front, yard]).hit.structure, front);
+  const hill = (x, z) => (z > 23 ? 5 : 0), s = worldToScreen(cam, 21, 0.5, 21, 1600, 900), nx = (s.x / 1600) * 2 - 1, ny = 1 - (s.y / 900) * 2;
+  assert.equal(screenToStructure(cam, nx, ny, [yard], top, base, screenToGround(cam, nx, ny, hill, 6)), null, 'a building behind a rise the ray meets first is not under the pointer');
+  assert.equal(screenToStructure(cam, 0, 0.99, [yard], top, base), null, 'a ray that meets nothing meets no building');
+});

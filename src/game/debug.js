@@ -21,6 +21,7 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     world,
     house,
     selection: () => selection.list(),
+    selectedStructure: () => selection.structureId || null,
     select: (ids) => selection.set(ids.filter((id) => world.units.get(id)?.house === house)),   // own units only, as a click would
     carryalls: (h = house) => [...world.units.values()].filter((u) => u.house === h && u.typeId === 'carryall').map((c) => ({ ...brief(c), alt: c.alt, job: c.job?.stage ?? null, why: c.job?.why ?? null, load: c.cargo || 0, target: c.job?.unit ?? 0, manual: !!c.manual })),
     units: (typeId = null, h = house) => [...world.units.values()].filter((u) => u.house === h && (!typeId || u.typeId === typeId)).map(brief),
@@ -28,6 +29,8 @@ export function createDebugApi({ world, house, selection, project, positionOf, r
     structures: (typeId = null) => [...world.structures.values()].filter((s) => !typeId || s.typeId === typeId).map((s) => ({ id: s.id, typeId: s.typeId, house: s.house, x: s.x, y: s.y, hp: s.hp, maxHp: s.maxHp })),
     screenOfUnit: (id) => { const u = world.units.get(id); if (!u) return null; const p = positionOf(u); return screen(p.x, p.z, u.alt ?? 0.12); },
     screenOfTile: (x, y) => screen(x + 0.5, y + 0.5, 0),
+    screenOfPoint: (x, z, lift = 0) => screen(x, z, lift),   // a point in the air, e.g. on a roof
+    tileAtScreen: (sx, sy) => { const g = controller.ground(sx, sy); return g ? { x: Math.floor(g.x), y: Math.floor(g.z) } : null; },   // the ground the pointer's ray reaches
     screenOfFootprint: (typeId, x, y) => { const t = STRUCTURES[typeId]; return screen(x + t.w / 2, y + t.h / 2, 0); },
     freeTileNear: (x, y, moveClass = 'tracked') => findFreeTile(world, x, y, moveClass, 6),
     findPlacement: (typeId) => { const y = yard(); return y ? findPlacement(world, house, typeId, y.x, y.y) : null; },

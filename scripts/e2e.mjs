@@ -73,6 +73,18 @@ try {
   }
   check('clicking the selected MCV again deploys a Construction Yard', deployed);
 
+  // the back of the yard's roof stands in front of the ground a row behind the yard: a click there means the yard
+  const yard = (await ev(`__dune.structures('constructionYard')`)).find((c) => c.house === 'atreides');
+  const north = new Set((await ev('__dune.units()')).filter((u) => u.ty === yard.y - 1).map((u) => u.tx));   // a unit standing behind the yard would take the click
+  const dx = [1.3, 0.5, 1.7, 0.2].find((d) => !north.has(Math.floor(yard.x + d))) ?? 1.3;
+  await deselect();
+  const roof = await ev(`__dune.screenOfPoint(${yard.x + dx}, ${yard.y + 0.08}, 0.75)`);
+  const behind = await ev(`__dune.tileAtScreen ? __dune.tileAtScreen(${roof.x}, ${roof.y}) : null`);
+  await page.click(roof.x, roof.y);
+  await sleep(150);
+  check('a click on the back of the yard\'s roof selects the yard', (await ev('__dune.selectedStructure()')) === yard.id, behind ? `the ground under the pointer is row ${behind.y}, the yard starts at row ${yard.y}` : '');
+  await deselect();
+
   let wt = null;
   for (let i = 0; i < 25 && !wt?.visible; i++) { await sleep(200); wt = await ev(`__dune.buttonRect('windtrap')`); }
   check('the deployed yard fills the structure strip', !!wt?.visible);
