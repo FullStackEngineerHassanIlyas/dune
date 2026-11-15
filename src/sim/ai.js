@@ -45,6 +45,8 @@ export const BUILD_ORDER = {
   mercenary: ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
 
+const SKIRMISH_MOBILIZE_AT = 20 * 60;   // late skirmishes commit larger waves, using the existing paid army
+
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
 
 /**
@@ -593,11 +595,16 @@ function attack(world, house, view, unavailable = []) {
   if (world.time < b.nextAttack) return;
   // Survivors of earlier waves count toward the army cap, so no more than the rest can ever stand ready at home:
   // a wave that waited for more would never go, and with the cap full nothing more would be built either.
-  const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
+  // Repeated small attacks can trade forever into a fully replenished home army.
+  // Easy/normal skirmishes may commit the available cap late; hard already sends
+  // larger, more frequent waves. Keep that cadence and authored mission limits.
+  const waveCap = !b.params && b.difficulty !== 'hard' && world.time >= SKIRMISH_MOBILIZE_AT ? d.armyCap : d.waveMax;
+  const size = Math.min(waveCap, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
   const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !unavailable.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // neither pending defenders/repairs nor a mission's posted guards
   // A battered house may never assemble the later, larger waves. Give reinforcements one
   // normal wave interval to gather, then send what is ready instead of waiting forever.
-  if (ready.length < size) {
+  // Extra late reinforcements are welcome, but never delay a full ordinary wave to wait for them.
+  if (ready.length < Math.min(size, d.waveMax)) {
     b.waveWaitSince ??= world.time;
     if (!ready.length || world.time - b.waveWaitSince < d.waveEvery) { b.nextAttack = world.time + 15; return; }
   }
