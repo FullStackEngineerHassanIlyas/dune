@@ -253,11 +253,13 @@ function fakeBrowser({ missing = [] } = {}) {
     if (missing.some((m) => path.endsWith(m))) return { ok: false, status: 404 };
     return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
   };
-  class Node { constructor() { this.to = []; } connect(n) { this.to.push(n); return n; } }
+  class Node { constructor() { this.to = []; this.disconnected = false; } connect(n) { this.to.push(n); return n; } disconnect() { this.disconnected = true; } }
   const started = [];
   const ctx = {
-    createGain: () => Object.assign(new Node(), { gain: { value: 1 } }),
-    createBufferSource: () => { const s = Object.assign(new Node(), { start: () => started.push(s), stop: () => {} }); return s; },
+    currentTime: 2,
+    // a gain keeps what was scheduled on it ([value, time, timeConstant]) and a source when it was told to stop, so a test can see the fade
+    createGain: () => { const fades = []; return Object.assign(new Node(), { fades, gain: { value: 1, cancelScheduledValues() {}, setTargetAtTime: (v, t, k) => fades.push([v, t, k]) } }); },
+    createBufferSource: () => { const s = Object.assign(new Node(), { start: () => started.push(s), stop: (t) => { s.stoppedAt = t ?? 0; } }); return s; },
     decodeAudioData: (bytes, ok) => { const b = { duration: 1.2 }; ok?.(b); return Promise.resolve(b); },
   };
   const master = new Node();
@@ -322,6 +324,27 @@ test('a line cut short lets the battle back up: the battle ending while muted, o
   p.setVolume(0);   // Options → Voices: Off, half-way through the line
   assert.deepEqual(ducks, [true, false, true, false], 'the line stops, and the battle is not left dipped under a silent line');
   assert.equal(p.speaking, false);
+});
+
+test('a line cut short fades out over a few milliseconds instead of stopping dead, and lets go of its own gain when it ends', async () => {
+  const b = fakeBrowser();
+  const out = new WebVoiceOutput(b.sound, 'atreides', { base: 'http://x/assets/voice/', fetchFn: b.fetchFn });
+  await out.ready;
+  await out.load('unitLost');
+  out.play('unitLost', 0.6);
+  const src = b.started[0], line = src.to[0];
+  assert.notEqual(line, out.bus, 'the line has a gain of its own between it and the bus');
+  assert.ok(line.to.includes(out.bus));
+  out.stop();
+  assert.equal(line.fades.length, 1, 'the line\'s gain is lowered at once');
+  const [to, at, constant] = line.fades[0];
+  assert.deepEqual([to, at], [0, b.sound.ctx.currentTime]);
+  assert.ok(constant > 0 && constant <= 0.01, `a time constant of ${constant} s fades within about 15 ms`);
+  assert.ok(src.stoppedAt >= at + 0.025 && src.stoppedAt <= at + 0.05, `the source stops once the fade has ended (${src.stoppedAt})`);
+  assert.equal(line.disconnected, false, 'still connected while it fades');
+  src.onended?.();
+  assert.equal(line.disconnected, true, 'the line\'s gain goes when its source has ended');
+  assert.equal(out.bus.fades?.length ?? 0, 0, 'the shared bus is not touched: the next line plays at its level');
 });
 
 test('the voice waits out the error buzz before it speaks; other lines follow the chirp sooner', () => {

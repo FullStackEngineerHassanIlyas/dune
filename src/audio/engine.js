@@ -451,7 +451,12 @@ export class SoundEngine {
 
   setMuted(muted) {
     this.muted = muted;
-    if (this.master) this.master.gain.value = muted ? 0 : this.volume;
+    if (!this.master) return;
+    const g = this.master.gain, target = muted ? 0 : this.volume;
+    if (this.ctx?.state === 'running' && g.setTargetAtTime) {   // a step in the level clicks mid-firefight: glide to it in a few milliseconds
+      g.cancelScheduledValues?.(this.ctx.currentTime);
+      g.setTargetAtTime(target, this.ctx.currentTime, 0.015);
+    } else g.value = target;   // no sound is rendering (the context is suspended or not yet open): set it outright, so waking it does not blip the old level
   }
 
   toggleMute() {

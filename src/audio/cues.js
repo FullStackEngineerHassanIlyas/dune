@@ -34,7 +34,7 @@ export function cueFor(e, me, seen) {
     case 'wormAte': return at('wormGulp', e.x, e.y);
     case 'bloomErupted': return at('bloom', e.x, e.y);
     case 'structureDestroyed': return STRUCTURES[e.typeId]?.isWall ? null : at('collapse', e.x + e.w / 2, e.y + e.h / 2);
-    case 'structurePlaced': case 'deployed': return mine ? at('clunk', e.x + 1, e.y + 1) : null;
+    case 'structurePlaced': return mine ? at('clunk', e.x + 1, e.y + 1) : null;   // a deploying MCV also reports 'deployed' (sim/deploy.js); the yard it spawns is this event, so one clunk
     case 'concretePlaced': return mine ? at('slab', e.x + e.w / 2, e.y + e.h / 2) : null;
     case 'sold': return mine ? { id: 'sell' } : null;
     case 'repairToggled': return mine && e.on ? { id: 'ratchet' } : null;

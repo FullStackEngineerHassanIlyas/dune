@@ -5,7 +5,7 @@ import { SoundEngine, VoiceLimiter, spatial, MAX_VOICES, PRIORITY_VOICES, VOICE_
 
 // Web Audio does not exist under Node: a minimal stand-in records what the engine does with it.
 // `full` adds the filters, the convolver and a clock, as a browser has them.
-function fakeWindow({ suspended = false, full = false, idle = false, worker = false } = {}) {
+function fakeWindow({ suspended = false, full = false, idle = false, worker = false, ramps = false } = {}) {
   const listeners = {};
   const win = { addEventListener: (type, fn) => { listeners[type] = fn; }, removeEventListener: (type) => { delete listeners[type]; }, listeners, userActivation: false };
   if (idle) {
@@ -41,8 +41,14 @@ function fakeWindow({ suspended = false, full = false, idle = false, worker = fa
       this.compressors = 0;
       this.convolvers = [];
       if (full) { this.sampleRate = 48000; this.currentTime = 0; }
+      if (ramps) this.currentTime = 4;
     }
-    createGain() { return Object.assign(new Node(), { gain: { value: 1 } }); }
+    // with `ramps` a gain keeps the automation it was given ([kind, value, time, timeConstant]) and its value stays where it was until the ramp runs
+    createGain() {
+      if (!ramps) return Object.assign(new Node(), { gain: { value: 1 } });
+      const calls = [];
+      return Object.assign(new Node(), { gain: { value: 1, calls, cancelScheduledValues: (t) => calls.push(['cancel', t]), setTargetAtTime: (v, t, k) => calls.push(['target', v, t, k]) } });
+    }
     createDynamicsCompressor() { this.compressors++; return Object.assign(new Node(), { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 1 }, attack: { value: 0 }, release: { value: 0 } }); }
     createStereoPanner() { return Object.assign(new Node(), { pan: { value: 0 } }); }
     createBuffer(channels, length, sampleRate) { return { numberOfChannels: channels, length, sampleRate, copyToChannel() {} }; }
@@ -176,6 +182,32 @@ test('a soft stereo wind loops under everything, through the master volume, once
   assert.equal(gain.outputs[0], e.fx, 'into the effects bus, which an announcer line ducks');
   assert.equal(e.fx.outputs[0], e.master, 'and on through the master, so mute and volume apply to it');
   assert.equal(e.limiter.total, 0, 'it takes no voice');
+});
+
+test('muting and the master volume glide to their level in a few milliseconds instead of stepping, which would click mid-firefight', () => {
+  const win = fakeWindow({ ramps: true });
+  const e = new SoundEngine({ win, volume: 0.8 });
+  e.setMuted(true);
+  e.setMuted(false);   // before the first gesture there is no master bus: nothing to move
+  win.listeners.pointerdown();
+  const g = e.master.gain;
+  assert.equal(g.value, 0.8);
+  e.setMuted(true);
+  assert.equal(g.value, 0.8, 'the level is not stepped');
+  assert.deepEqual(g.calls.slice(-2), [['cancel', 4], ['target', 0, 4, 0.015]]);
+  e.volume = 0.5;
+  e.setMuted(false);   // Options → Volume does this through the same path
+  assert.deepEqual(g.calls.slice(-2), [['cancel', 4], ['target', 0.5, 4, 0.015]]);
+});
+
+test('a master volume changed while the context is suspended is set outright, so waking it does not blip the old level', () => {
+  const win = fakeWindow({ ramps: true, suspended: true });
+  const e = new SoundEngine({ win });
+  win.listeners.pointerdown();
+  assert.equal(e.ctx.state, 'suspended');
+  e.setMuted(true);
+  assert.equal(e.master.gain.value, 0);
+  assert.deepEqual(e.master.gain.calls, []);
 });
 
 test('an announcer line ducks the effects bus about 4 dB and lets it back up afterwards', () => {
