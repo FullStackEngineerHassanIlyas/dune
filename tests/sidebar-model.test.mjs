@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { G } from '../src/data/terrain.js';
 import { sidebarModel, powerLevel, rollCredits } from '../src/ui/sidebar-model.js';
+import { computePower } from '../src/sim/economy.js';
 import { flatWorld, run } from './helpers.mjs';
 
 function base() {
@@ -83,10 +84,22 @@ test('the sidebar reads storage, power and radar without touching the house', ()
 });
 
 test('power level: green when production covers use, amber when short, red below half', () => {
-  assert.equal(powerLevel({ produced: 100, used: 100 }), 'ok');
-  assert.equal(powerLevel({ produced: 100, used: 150 }), 'low');
-  assert.equal(powerLevel({ produced: 100, used: 201 }), 'critical');
-  assert.equal(powerLevel({ produced: 0, used: 0 }), 'ok');
+  assert.equal(powerLevel({ ratio: 1 }), 'ok');
+  assert.equal(powerLevel({ ratio: 100 / 150 }), 'low');
+  assert.equal(powerLevel({ ratio: 0.5 }), 'low', 'exactly half is still amber');
+  assert.equal(powerLevel({ ratio: 100 / 201 }), 'critical');
+});
+
+test('the power bar is not green while the simulation counts the power as short, though the shown numbers round to equal', () => {
+  const { world } = base();
+  factories(world);
+  const trap = [...world.structures.values()].find((s) => s.typeId === 'windtrap');
+  trap.hp = trap.maxHp * 0.64675;   // 64.675 produced against 65 used: the ratio is 0.995, the shown 65 / 65
+  world.houses.get('atreides').power = computePower(world, 'atreides');
+  const m = sidebarModel(world, 'atreides');
+  assert.deepEqual([m.power.produced, m.power.used], [65, 65], 'the numbers shown are rounded');
+  assert.equal(m.radar, false);
+  assert.equal(m.power.level, 'low', 'the level follows the simulation\'s ratio, as the radar and the low-power warning do');
 });
 
 test('credits roll towards the target and settle within about a second', () => {

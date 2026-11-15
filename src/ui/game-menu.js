@@ -20,8 +20,10 @@ export class GameMenu {
     this.el = h('div', { class: 'dm-overlay game-menu', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Game menu', oncontextmenu: (e) => e.preventDefault() });
     this.el.addEventListener('pointerdown', (e) => { if (e.target === this.el) this.close(); });
     root.appendChild(this.el);
+    this.root = root;
     this.page = null;
     this.visit = 0;
+    this.held = null;   // the siblings this menu made inert, so closing lifts only those
   }
 
   get isOpen() { return this.page !== null; }
@@ -34,12 +36,27 @@ export class GameMenu {
     this.visit++;
     this.el.classList.remove('show');
     this.el.replaceChildren();
+    this.release();
     this.onClose();
+  }
+
+  /** aria-modal alone keeps no focus in: while the menu is open the rest of the interface (sidebar, panel,
+   *  end screen) is inert, or Tab and Enter would press its buttons and queue orders under the pause. */
+  hold() {
+    if (this.held) return;   // already open: a page change must not take the earlier inert marks for the page's own
+    this.held = [...this.root.children].filter((el) => el !== this.el && !el.inert);
+    for (const el of this.held) el.inert = true;
+  }
+
+  release() {
+    for (const el of this.held ?? []) el.inert = false;
+    this.held = null;
   }
 
   show(page) {
     this.page = page;
     const visit = ++this.visit;
+    this.hold();
     this.el.classList.add('show');
     const back = h('button', { type: 'button', class: 'dm-btn', onclick: () => this.show('main') }, 'Back');
     let body;
