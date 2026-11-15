@@ -53,7 +53,17 @@ function quantile(values, q) {
 export function startPositions(w, h, count, rng) {
   const m = Math.max(6, Math.min(10, Math.floor(Math.min(w, h) / 5)));
   const corners = [[m, m], [w - 1 - m, h - 1 - m], [w - 1 - m, m], [m, h - 1 - m]];
-  const order = rng.chance(0.5) ? [0, 1, 2, 3] : [2, 3, 0, 1];
+  const flip = rng.chance(0.5);
+  if (count === 3) {
+    // Three corners make the third house the close neighbour of both rivals. A centred
+    // equilateral triangle gives every house the same rival distances and access to the centre.
+    const cx = (w - 1) / 2, cy = (h - 1) / 2;
+    const r = Math.min(w - 1 - 2 * m, h - 1 - 2 * m) / 2;
+    const side = Math.sqrt(3) * r / 2, sign = flip ? 1 : -1;
+    return [[0, -r], [side, r / 2], [-side, r / 2]]
+      .map(([dx, dy]) => ({ x: Math.round(cx + sign * dx), y: Math.round(cy + sign * dy) }));
+  }
+  const order = flip ? [0, 1, 2, 3] : [2, 3, 0, 1];
   return order.slice(0, count).map((k) => ({ x: corners[k][0], y: corners[k][1] }));
 }
 
