@@ -25,8 +25,11 @@ function refineryParams(s, v, p, now, dt) {
   const state = s.slot?.state, working = state === 'unloading';
   if (s.incoming || state === 'entering') p.padLights = 1.3 - 0.5 * ((now * 0.0015) % 1);   // chevrons converge on the pad: a Harvester is due
   else p.padLights = working ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
-  v.rotor = (v.rotor ?? 0) + ((working ? ROTOR_SPEED : 0) - (v.rotor ?? 0)) * Math.min(1, dt * ROTOR_SPIN_UP);
-  v.spin = ((v.spin ?? 0) + v.rotor * dt) % (Math.PI * 2);
+  // Integrate exponential spin-up and its travelled angle exactly, not once per rendered frame.
+  const target = working ? ROTOR_SPEED : 0, before = v.rotor ?? 0;
+  const decay = Math.exp(-ROTOR_SPIN_UP * dt);
+  v.rotor = target + (before - target) * decay;
+  v.spin = ((v.spin ?? 0) + target * dt + (before - target) * (1 - decay) / ROTOR_SPIN_UP) % (Math.PI * 2);
   p.spin = v.spin;
   p.ram = working ? 0.035 * Math.max(0, Math.sin(now * 0.007)) : 0;
   p.flow = working ? 0.9 + 0.12 * Math.sin(now * 0.018) : 0.001;
@@ -88,7 +91,7 @@ export class StructureViews {
 
   pose(world, s, v, now, alpha = 1) {
     v.last = s;
-    const dt = Math.min(0.1, Math.max(0, (now - (v.now ?? now)) / 1000));
+    const dt = Math.max(0, (now - (v.now ?? now)) / 1000);
     v.now = now;
     const visible = !this.viewer || structureVisibleTo(world, this.viewer, s);
     let scale = 1 - Math.pow(1 - Math.min(1, (now - v.born) / RISE_MS), 3);
