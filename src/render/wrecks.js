@@ -78,7 +78,7 @@ function pivotY(def, node) {
 const normal = { x: 0, y: 1, z: 0 };
 
 export class Wrecks {
-  /** hf: the Heightfield. cap: wrecks kept at once; past it the oldest sink early. */
+  /** hf: the Heightfield. cap: standing wrecks, plus at most cap old wrecks fading out. */
   constructor(scene, hf, { cap = 24, castShadow = true } = {}) {
     Object.assign(this, { scene, hf, cap, castShadow });
     this.models = new Map();
@@ -97,6 +97,11 @@ export class Wrecks {
    * is how long it stays alight.
    */
   add({ modelId, x, z, heading = 0, turret = heading, alt = 0, vx = 0, vz = 0, size = 1, life = 30, burn = 10 }) {
+    // Bound the fade reserve too: a mass death must not grow handles until sinking finishes.
+    while (this.list.length >= Math.max(1, this.cap * 2)) {
+      const old = this.list.shift();
+      old.model.remove(old.h);
+    }
     const model = this.model(modelId), h = model.add();
     h.params.turret = -(turret - heading) + (Math.random() - 0.5) * 1.2;   // blown round on its ring
     h.params.barrel = -0.03;
@@ -164,7 +169,7 @@ export class Wrecks {
         w.heading += f.spin * dt;
         f.pitch = Math.min(0.9, f.pitch + dt * 0.8);
         if (fx && near(w.x, w.z) && Math.random() < dt * 45) { blackSmoke(fx, w.x, f.y, w.z, 0.7 * w.size); fire(fx, w.x, f.y, w.z, 0.9 * w.size); }
-        if (f.y <= this.hf.heightAt(w.x, w.z)) { w.fall = null; w.age = 0; onCrash?.(w); }
+        if (f.y <= this.hf.heightAt(w.x, w.z)) { w.fall = null; onCrash?.(w); }
       } else {
         w.age += dt;
         if (w.age >= w.life) { w.model.remove(w.h); this.list.splice(i--, 1); continue; }
