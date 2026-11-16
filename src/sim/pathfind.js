@@ -89,7 +89,9 @@ export class PathFinder {
       if (hc < bestH) { bestH = hc; best = cur; }
       if (++expanded > maxNodes) break;
       const cx = cur % w, cy = (cur / w) | 0;
-      for (const [dx, dy, dist] of DIRS) {
+      // Index the fixed tuples: destructuring creates an iterator for every neighbour.
+      for (let k = 0; k < DIRS.length; k++) {
+        const dir = DIRS[k], dx = dir[0], dy = dir[1], dist = dir[2];
         const nx = cx + dx, ny = cy + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
         const ni = ny * w + nx;
