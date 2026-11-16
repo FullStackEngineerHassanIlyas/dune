@@ -35,7 +35,7 @@ export function createSky(sunDir) {
 }
 
 /** Image-based light from a sky-over-sand gradient, so metal and paint pick up the desert ambience. */
-export function createEnvironment(renderer) {
+export function createEnvironment(renderer, { Pmrem = THREE.PMREMGenerator } = {}) {
   const geo = new THREE.SphereGeometry(10, 32, 16);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
@@ -46,10 +46,15 @@ export function createEnvironment(renderer) {
     colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide });
   const scene = new THREE.Scene();
-  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromScene(scene, 0.04).texture;
-  pmrem.dispose();
-  return env;
+  scene.add(new THREE.Mesh(geo, mat));
+  const pmrem = new Pmrem(renderer);
+  try {
+    return pmrem.fromScene(scene, 0.04).texture;
+  } finally {   // the sphere serves only the bake: it and its material go with the generator, even when the bake fails
+    pmrem.dispose();
+    geo.dispose();
+    mat.dispose();
+  }
 }
