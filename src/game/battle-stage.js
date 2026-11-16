@@ -90,6 +90,11 @@ export class BattleStage {
     }
     if (e.type === 'concretePlaced') this.destruction.structurePlaced(e);   // fresh slabs over old ruins
     switch (e.type) {
+      case 'undocked': { // a vanished refinery ejects its load, rather than driving it off the pad
+        const u = this.world.units.get(e.id);
+        if (u && !this.world.structures.has(e.refinery)) this.unitViews.snap(u, this.world.tick);
+        break;
+      }
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
       case 'impact': this.onImpact(e); break;
       case 'explosion': {

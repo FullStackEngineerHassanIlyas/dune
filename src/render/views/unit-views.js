@@ -133,12 +133,19 @@ export class UnitViews {
     this.fallen = [];
   }
 
+  /** A discontinuous relocation: never interpolate from the old pad during this tick. */
+  snap(u, tick) {
+    if (!this.views.has(u.id)) this.create(u);
+    this.views.get(u.id).snapTick = tick;
+  }
+
   recoil(id) {
     const v = this.views.get(id);
     if (v) v.recoil = 0.08;
   }
 
   pose(u, v, alpha, dt, world = null) {
+    if (v.snapTick !== undefined && v.snapTick === world?.tick) alpha = 1;
     // A load is rigidly attached: its own previous pose may still be its spawn/pickup pose.
     const carrier = world?.units.get(u.inside);
     const carried = carrier?.cargo === u.id;
