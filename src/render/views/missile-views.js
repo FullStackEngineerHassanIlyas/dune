@@ -34,7 +34,8 @@ export function shotPoint(p, alpha, heightAt, out) {
   let gx = p.x - p.px, gz = p.y - p.py;   // this tick's step, which follows a homing shot's turns
   if (gx === 0 && gz === 0) { gx = p.tx - p.sx; gz = p.ty - p.sy; }
   const g = Math.hypot(gx, gz) || 1;
-  const rise = (to - from) / total + (arcHeight(p.projectile, Math.min(1, t + 0.01), total) - arcHeight(p.projectile, Math.max(0, t - 0.01), total)) / (0.02 * total);
+  // d/dt of the quadratic arc. A clamped central difference halved the slope at each end.
+  const rise = (to - from + 4 * (1 - 2 * t) * arcHeight(p.projectile, 0.5, total)) / total;
   const n = Math.hypot(1, rise);
   out.dx = gx / g / n;
   out.dz = gz / g / n;

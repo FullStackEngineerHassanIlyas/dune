@@ -90,6 +90,18 @@ export class BattleStage {
     }
     if (e.type === 'concretePlaced') this.destruction.structurePlaced(e);   // fresh slabs over old ruins
     switch (e.type) {
+      case 'unitRemoved':
+        this.volley.delete(e.id);
+        this.trackFrom.delete(e.id);
+        break;
+      case 'structureRemoved':
+        this.destruction.roofs.delete(e.id);
+        break;
+      case 'undocked': { // a vanished refinery ejects its load, rather than driving it off the pad
+        const u = this.world.units.get(e.id);
+        if (u && !this.world.structures.has(e.refinery)) this.unitViews.snap(u, this.world.tick);
+        break;
+      }
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
       case 'impact': this.onImpact(e); break;
       case 'explosion': {
@@ -323,6 +335,10 @@ export class BattleStage {
     this.structureViews.dispose();
     this.missiles.dispose();
     this.destruction.dispose();
+    this.volley.clear();
+    this.trackFrom.clear();
+    this.shotFx.trails.clear();
+    this.shotFx.spare.length = 0;
     this.effects.dispose();
     this.terrain.dispose();
   }
