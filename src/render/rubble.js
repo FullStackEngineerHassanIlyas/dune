@@ -5,6 +5,7 @@
 // the spot clears the rubble under it.
 import * as THREE from 'three';
 import { shardGeometry, debrisMaterial } from './debris.js';
+import { depthMaterialFor } from './models/materials.js';
 
 const SLAB = [0x8e8a84, 0x7a756e, 0x9c958b, 0x6e6a66];
 const CHUNK = [0x9492b4, 0xc9c5c0, 0x5c3c24, 0x6c4a24, 0x2c2622, 0x8a8480];
@@ -25,6 +26,7 @@ export class Rubble {
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
+    this.mesh.customDepthMaterial = depthMaterialFor(this.mesh);
     this.mesh.receiveShadow = true;
     scene.add(this.mesh);
   }

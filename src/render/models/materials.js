@@ -113,6 +113,17 @@ function treadMaterial() {
   return m;
 }
 
+// three.js draws shadow casters with one depth material it shares among all meshes, and works its shader out again
+// each time the next caster differs in instancing or instance colours: with units, debris and terrain interleaved,
+// that was many times a frame. Instanced casters bring a depth material of their own kind instead (the same shader,
+// so the same shadows); plain meshes keep three.js's.
+const depthMaterials = new Map();
+export function depthMaterialFor(mesh) {
+  const key = mesh.instanceColor ? 'instanced+colour' : 'instanced';
+  if (!depthMaterials.has(key)) depthMaterials.set(key, new THREE.MeshDepthMaterial());
+  return depthMaterials.get(key);
+}
+
 export function getMaterial(key) {
   if (cache.has(key)) return cache.get(key);
   let m;

@@ -6,6 +6,7 @@
 // full pool refuses new pieces rather than growing, and nothing is allocated per frame.
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { depthMaterialFor } from './models/materials.js';
 
 const GRAVITY = 9, FADE = 1.4;
 const TRAIL_SMOKE = { size: [0.08, 0.38], color: [0.1, 0.09, 0.08], color2: [0.38, 0.36, 0.33], alpha: [0.6, 0], drag: 1.2 };   // a burning piece's trail
@@ -53,6 +54,7 @@ export class Debris {
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
+    this.mesh.customDepthMaterial = depthMaterialFor(this.mesh);
     this.mesh.receiveShadow = true;
     scene.add(this.mesh);
   }
