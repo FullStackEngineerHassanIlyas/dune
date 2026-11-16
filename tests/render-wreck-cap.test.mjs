@@ -19,4 +19,3 @@ test('wreck death bursts retain only a bounded standing and fading reserve', () 
     w.dispose();
   }
 });
-

@@ -245,5 +245,6 @@ export class Destruction {
     this.sites = [];
     this.pending = [];
     this.buried = [];
+    this.roofs.clear();
   }
 }
