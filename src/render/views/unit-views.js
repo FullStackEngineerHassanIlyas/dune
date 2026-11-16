@@ -139,15 +139,22 @@ export class UnitViews {
   }
 
   pose(u, v, alpha, dt, world = null) {
-    const x = u.px + (u.x - u.px) * alpha, z = u.py + (u.y - u.py) * alpha;
-    const heading = lerpAngle(u.pheading, u.heading, alpha);
-    const turret = lerpAngle(u.pturret, u.turret, alpha);
+    // A load is rigidly attached: its own previous pose may still be its spawn/pickup pose.
+    const carrier = world?.units.get(u.inside);
+    const carried = carrier?.cargo === u.id;
+    const pose = carried ? carrier : u;
+    const x = pose.px + (pose.x - pose.px) * alpha, z = pose.py + (pose.y - pose.py) * alpha;
+    const heading = lerpAngle(pose.pheading, pose.heading, alpha);
+    const turret = carried ? heading : lerpAngle(u.pturret, u.turret, alpha);
     const dist = u.pdistance + (u.distance - u.pdistance) * alpha;
     v.x = x;
     v.z = z;
     v.heading = heading;
     v.turret = turret;
-    const alt = u.alt === undefined ? undefined : u.alt + ((u.palt ?? u.alt) - u.alt) * (1 - alpha);   // flying or hanging under a Carryall: between the height a tick ago and now
+    // Keep the carrier/load gap through a climb; finish the last descent on the set-down tick.
+    const alt = carried ? Math.max(0, u.alt + ((carrier.palt ?? carrier.alt) - carrier.alt) * (1 - alpha))
+      : u.alt === undefined && u.palt === undefined ? undefined
+      : (u.palt ?? u.alt) + ((u.alt ?? 0) - (u.palt ?? u.alt)) * alpha;
     v.alt = alt ?? 0;
     v.inside = !!u.inside && u.alt === undefined;   // held in a building; a load under its Carryall hangs in the open
     v.visible = !this.viewer || !world || unitVisibleTo(world, this.viewer, u);
