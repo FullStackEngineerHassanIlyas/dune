@@ -3,9 +3,10 @@
 // flat-shaded chunk, scaled per piece into plates or lumps and tinted per piece. Pieces tumble,
 // bounce once on the heightfield, settle, lie a while and sink away. Burning pieces trail smoke and
 // flame through the effect pools while they fly. The capacity is fixed by the quality preset: a
-// full pool refuses new pieces rather than growing, and nothing is allocated per frame.
+// full pool refuses new pieces unless a fresh death explicitly recycles the oldest; it never grows.
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { depthMaterialFor } from './models/materials.js';
 
 const GRAVITY = 9, FADE = 1.4;
 const TRAIL_SMOKE = { size: [0.08, 0.38], color: [0.1, 0.09, 0.08], color2: [0.38, 0.36, 0.33], alpha: [0.6, 0], drag: 1.2 };   // a burning piece's trail
@@ -38,6 +39,8 @@ export class Debris {
   constructor(scene, { capacity = 160, castShadow = false } = {}) {
     const N = (this.capacity = Math.max(8, Math.floor(capacity)));
     this.n = 0;
+    this.serial = 0;
+    this.born = new Float64Array(N);
     this.pos = new Float32Array(N * 3);
     this.vel = new Float32Array(N * 3);
     this.rot = new Float32Array(N * 4);
@@ -53,17 +56,25 @@ export class Debris {
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
+    this.mesh.customDepthMaterial = depthMaterialFor(this.mesh);
     this.mesh.receiveShadow = true;
     scene.add(this.mesh);
   }
 
   /**
    * One piece at (x, y, z) flying at v, sized s = [x, y, z], tinted `color` (hex or THREE.Color).
-   * rest: seconds it lies before sinking away; burn: seconds it trails fire. Returns false when full.
+   * rest: seconds it lies before sinking away; burn: seconds it trails fire. When full, recycle
+   * replaces the oldest survivor; otherwise returns false.
    */
-  emit({ x, y, z, vx = 0, vy = 0, vz = 0, size, color = 0x333333, rest = 5, burn = 0, spin = 12 }) {
-    if (this.n >= this.capacity) return false;
-    const i = this.n++, p = i * 3;
+  emit({ x, y, z, vx = 0, vy = 0, vz = 0, size, color = 0x333333, rest = 5, burn = 0, spin = 12, recycle = false }) {
+    let i;
+    if (this.n >= this.capacity) {
+      if (!recycle) return false;
+      i = 0;
+      for (let k = 1; k < this.n; k++) if (this.born[k] < this.born[i]) i = k;
+    } else i = this.n++;
+    this.born[i] = ++this.serial;
+    const p = i * 3;
     this.pos[p] = x; this.pos[p + 1] = y; this.pos[p + 2] = z;
     this.vel[p] = vx; this.vel[p + 1] = vy; this.vel[p + 2] = vz;
     this.scale[p] = size[0]; this.scale[p + 1] = size[1]; this.scale[p + 2] = size[2];
@@ -86,6 +97,7 @@ export class Debris {
     this.timer[i] = this.timer[last];
     this.rest[i] = this.rest[last];
     this.burn[i] = this.burn[last];
+    this.born[i] = this.born[last];
   }
 
   /** heightAt(x, z): the ground. fx: the Effects pools, for the trails of burning pieces and dust where big ones land (optional). */

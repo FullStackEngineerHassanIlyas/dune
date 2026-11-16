@@ -48,3 +48,27 @@ test('skirmish difficulty goes to the rival\'s brain; aiPlayer makes both sides 
   const both = setupSkirmish({ seed: 3, aiPlayer: true });
   assert.ok(both.world.houses.get(both.house).brain && both.world.houses.get(both.rival).brain);
 });
+
+test('a battle address with a size or credits that make no sense still sets up a game', () => {   // ?size=47.5 threw "Invalid array length", 0 and -64 spawned off the map
+  const sized = (size) => setupSkirmish({ seed: 2, size }).world.map.w;
+  assert.equal(sized(47.5), 48, 'a fraction rounds');
+  assert.equal(sized(0), 16);
+  assert.equal(sized(-64), 16);
+  assert.equal(sized(1e6), 256, 'a map the page could never hold');
+  assert.equal(sized(NaN), 64);
+  assert.equal(sized(Infinity), 64);
+  const cash = (credits) => [...setupSkirmish({ seed: 2, credits }).world.houses.values()].map((h) => h.credits);   // ?credits=-100 started every house in debt, ?credits=Infinity at NaN
+  assert.deepEqual(cash(-100), [3000, 3000]);
+  assert.deepEqual(cash(Infinity), [3000, 3000]);
+  assert.deepEqual(cash(NaN), [3000, 3000]);
+  assert.deepEqual(cash(0), [0, 0], 'no credits at all is a game');
+});
+
+test('a battle address with a house no skirmish can be played as sets up a game as the first house', () => {   // ?house=fremen threw "Cannot read properties of undefined", ?house=bogus "unknown house bogus": a blank page
+  for (const house of ['fremen', 'bogus', '', undefined, null]) {
+    const r = setupSkirmish({ seed: 2, house });
+    assert.equal(r.house, 'atreides', `house ${house}`);
+    assert.ok(r.world.houses.get('atreides') && !r.opponents.includes('atreides'));
+  }
+  assert.equal(setupSkirmish({ seed: 2, house: 'sardaukar' }).house, 'sardaukar', 'a house of the skirmish stays');
+});

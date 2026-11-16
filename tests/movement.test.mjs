@@ -142,3 +142,19 @@ test('two units meeting head-on in a two-lane pass get past each other', () => {
   assert.ok(t > 0 && t < 40, `settled after ${t} s`);
   assert.ok(a.ty >= 13 && b.ty <= 2, `a at ${a.tx},${a.ty}; b at ${b.tx},${b.ty}`);
 });
+
+// A new order while a unit is between two tiles: its route starts from the tile it is entering.
+for (const [name, dx, dy] of [['beside the tile it is leaving', 0, -1], ['the tile it is leaving', 0, 0]]) {
+  test(`a move order given mid-step to ${name} ends on that tile`, () => {
+    const world = flatWorld();
+    const tank = world.spawnUnit('combatTank', 'atreides', 10, 10, { heading: 0 });
+    world.issue('atreides', { type: 'move', ids: [tank.id], x: 20, y: 10 });
+    assert.ok(runUntil(world, () => tank.step && tank.step.progress > 0.2 && tank.step.progress < 0.4, 10) >= 0);
+    const gx = tank.tx + dx, gy = tank.ty + dy;   // tx, ty are still the tile it is leaving
+    world.issue('atreides', { type: 'move', ids: [tank.id], x: gx, y: gy });
+    world.step();
+    assert.ok(runUntil(world, () => tank.order.type === 'idle' && !tank.step, 20) >= 0, 'the tank settles');
+    assert.deepEqual([tank.tx, tank.ty], [gx, gy]);
+    assert.equal(world.map.unit[world.map.idx(gx, gy)], tank.id);
+  });
+}

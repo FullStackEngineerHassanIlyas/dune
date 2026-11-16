@@ -246,3 +246,25 @@ test('a right click on a ware while the Frigate unloads says why nothing happens
   world.step();
   assert.ok(world.events.drain().some((e) => e.type === 'eva' && e.key === 'busy'));
 });
+
+test('a batch on its way to a Starport the enemy has captured lands at another the house holds', async () => {
+  const { transferStructure } = await import('../src/sim/capture.js');
+  const { flatWorld, run, runUntil } = await import('./helpers.mjs');
+  const { G } = await import('../src/data/terrain.js');
+  const world = flatWorld(48, 32, G.ROCK);
+  const h = world.houses.get('atreides');
+  h.credits = 5000; h.startBuffer = 100000;
+  world.spawnStructure('windtrap', 'atreides', 1, 1);
+  const first = world.spawnStructure('starport', 'atreides', 8, 6);
+  const second = world.spawnStructure('starport', 'atreides', 34, 22);
+  world.step();
+  world.issue('atreides', { type: 'starportOrder', typeId: 'quad' });
+  run(world, 1);
+  assert.equal(h.starport.batch.structureId, first.id);
+  transferStructure(world, first, 'harkonnen');   // taken before the Frigate lands
+  const quad = () => [...world.units.values()].find((u) => u.typeId === 'quad');
+  assert.ok(runUntil(world, () => quad(), 90) > 0, 'the order is delivered');
+  const q = quad(), pad = { x: second.x + second.w / 2, y: second.y + second.h / 2 };
+  assert.equal(q.house, 'atreides');
+  assert.ok(Math.hypot(q.x - pad.x, q.y - pad.y) < 6, `set down at ${q.tx},${q.ty}, by the Starport still held (${pad.x},${pad.y})`);
+});

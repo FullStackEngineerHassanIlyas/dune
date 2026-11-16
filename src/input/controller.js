@@ -30,8 +30,8 @@ const HOTKEYS = { s: 'stop', g: 'guard', x: 'scatter', d: 'deploy' };
 const ALERTS = new Set(['baseAttack', 'harvesterAttack', 'structureLost']);
 
 export class Controller {
-  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
-    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, onCursor, onMarker, onDragBox, canSee, canSeeStructure, onMode, onGhost, onNotice });
+  constructor({ world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, structureAt = () => null, onCursor = () => {}, onMarker = () => {}, onDragBox = () => {}, canSee = () => true, canSeeStructure = () => true, onMode = () => {}, onGhost = () => {}, onNotice = () => {} }) {
+    Object.assign(this, { world, house, selection, groups, settings, project, ground, viewport, rig, positionOf, structureAt, onCursor, onMarker, onDragBox, canSee, canSeeStructure, onMode, onGhost, onNotice });
     this.mouse = { x: -1, y: -1 };
     this.hoverId = null;
     this.hoverStructureId = null;
@@ -56,6 +56,8 @@ export class Controller {
     const hit = pickAt(this.candidates(), x, y);
     if (hit) return { kind: 'unit', unit: hit.unit };
     const g = this.ground(x, y);
+    const body = this.structureAt(x, y, g);   // a roof or a back wall under the pointer: the building, not the ground the ray would reach behind it
+    if (body && this.canSeeStructure(body.structure)) return { kind: 'structure', structure: body.structure, tx: body.tx, ty: body.ty };
     if (!g) return null;
     const map = this.world.map, tx = Math.floor(g.x), ty = Math.floor(g.z);
     if (!map.inBounds(tx, ty)) return null;
@@ -307,7 +309,8 @@ export class Controller {
 
   onDragEnd(x0, y0, x1, y1, mods) {
     this.onDragBox(null);
-    let ids = inBox(this.candidates().filter((c) => c.own), x0, y0, x1, y1);
+    const v = this.viewport();   // the box can end over the sidebar, and project() keeps units 60 px past the canvas edge: only what is in the view counts
+    let ids = inBox(this.candidates().filter((c) => c.own && c.sx >= v.left && c.sx <= v.right && c.sy >= v.top && c.sy <= v.bottom), x0, y0, x1, y1);
     // a box round the army leaves out the Carryalls waiting on duty over it — an order would take them off duty and
     // along to the front; a box round Carryalls alone (or a click, or a double click) still picks them up
     const lifter = (id) => isLifter(this.world.units.get(id));

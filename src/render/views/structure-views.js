@@ -8,8 +8,11 @@
 import * as THREE from 'three';
 import { HOUSES } from '../../data/houses.js';
 import { structureVisibleTo } from '../../sim/fog.js';
+import { lerpAngle } from '../../sim/geometry.js';
 import { InstancedModel } from '../models/instancer.js';
 import { modelDef, structureModelId } from '../models/index.js';
+import { modelTop } from '../wrecks.js';
+import { screenToStructure } from '../picking.js';
 
 const ARMS = [[1, 0, 0], [0, 1, -Math.PI / 2], [-1, 0, Math.PI], [0, -1, Math.PI / 2]];   // E, S, W, N and their yaw
 const RISE_MS = 900, SINK_MS = 700, COLLAPSE_MS = 1900, DOOR_MS = 2000;
@@ -22,8 +25,11 @@ function refineryParams(s, v, p, now, dt) {
   const state = s.slot?.state, working = state === 'unloading';
   if (s.incoming || state === 'entering') p.padLights = 1.3 - 0.5 * ((now * 0.0015) % 1);   // chevrons converge on the pad: a Harvester is due
   else p.padLights = working ? 1 + 0.25 * Math.sin(now * 0.012) : 1;
-  v.rotor = (v.rotor ?? 0) + ((working ? ROTOR_SPEED : 0) - (v.rotor ?? 0)) * Math.min(1, dt * ROTOR_SPIN_UP);
-  v.spin = ((v.spin ?? 0) + v.rotor * dt) % (Math.PI * 2);
+  // Integrate exponential spin-up and its travelled angle exactly, not once per rendered frame.
+  const target = working ? ROTOR_SPEED : 0, before = v.rotor ?? 0;
+  const decay = Math.exp(-ROTOR_SPIN_UP * dt);
+  v.rotor = target + (before - target) * decay;
+  v.spin = ((v.spin ?? 0) + target * dt + (before - target) * (1 - decay) / ROTOR_SPIN_UP) % (Math.PI * 2);
   p.spin = v.spin;
   p.ram = working ? 0.035 * Math.max(0, Math.sin(now * 0.007)) : 0;
   p.flow = working ? 0.9 + 0.12 * Math.sin(now * 0.018) : 0.001;
@@ -52,14 +58,15 @@ export class StructureViews {
     }
   }
 
-  sync(world, now) {
+  /** `alpha` is how far the frame is between the last tick and the next (turrets turn through it); 1 shows the tick's end. */
+  sync(world, now, alpha = 1) {
     for (const s of world.structures.values()) if (!this.views.has(s.id)) this.create(s, now);
     for (const [id, v] of this.views) {
       if (world.structures.has(id)) continue;
       v.dying ??= now;
       if (now - v.dying >= (v.collapse ? COLLAPSE_MS : SINK_MS)) { for (const h of v.handles) v.model(h).remove(h); this.views.delete(id); }
     }
-    for (const [id, v] of this.views) this.pose(world, world.structures.get(id) ?? v.last, v, now);
+    for (const [id, v] of this.views) this.pose(world, world.structures.get(id) ?? v.last, v, now, alpha);
     for (const m of this.models.values()) m.update();
   }
 
@@ -82,9 +89,9 @@ export class StructureViews {
     this.views.set(s.id, { handles, model: (h) => owners.get(h), born: now, cx: s.x + s.w / 2, cz: s.y + s.h / 2, y: sum / n, house: s.house, doorUntil: 0, last: s });
   }
 
-  pose(world, s, v, now) {
+  pose(world, s, v, now, alpha = 1) {
     v.last = s;
-    const dt = Math.min(0.1, Math.max(0, (now - (v.now ?? now)) / 1000));
+    const dt = Math.max(0, (now - (v.now ?? now)) / 1000);
     v.now = now;
     const visible = !this.viewer || structureVisibleTo(world, this.viewer, s);
     let scale = 1 - Math.pow(1 - Math.min(1, (now - v.born) / RISE_MS), 3);
@@ -104,7 +111,7 @@ export class StructureViews {
     if (s.typeId === 'refinery') refineryParams(s, v, p, now, dt);
     p.arm = s.bay?.state === 'repairing' && !s.bay.stalled ? armOffset(now) : 0;
     p.door = now < v.doorUntil ? 0.4 : 0;
-    p.turret = s.turret === undefined ? Math.PI / 2 : -s.turret;
+    p.turret = s.turret === undefined ? Math.PI / 2 : -lerpAngle(s.pturret ?? s.turret, s.turret, alpha);
     if (!arms.length) return;
     const map = world.map;
     arms.forEach((h, k) => {
@@ -125,6 +132,18 @@ export class StructureViews {
     lean.setFromAxisAngle(axis.set(c.az, 0, -c.ax), c.tilt * e);
     at.set(v.cx + Math.sin(now * 0.083) * shake, v.y - 0.1 * e, v.cz + Math.cos(now * 0.071) * shake);
     out.compose(at, lean, size.set(1 + 0.08 * e, Math.max(0.03, 1 - 0.95 * e), 1 + 0.08 * e));
+  }
+
+  /**
+   * The standing building, drawn for the viewer last frame, whose body the ray through an NDC point meets first:
+   * { structure, tx, ty } or null (render/picking.js screenToStructure). `ground` is where that ray meets the terrain.
+   */
+  under(camera, ndcX, ndcY, ground = null) {
+    return screenToStructure(camera, ndcX, ndcY, this.standing(), (s) => modelTop(modelDef(structureModelId(s.typeId, s.w, s.h))), (s) => this.views.get(s.id).y, ground);
+  }
+
+  *standing() {
+    for (const v of this.views.values()) if (v.dying === undefined && v.handles[0].visible) yield v.last;
   }
 
   /** Whether structure `id` was drawn for the viewer last frame (seen once, it is drawn whole, shroud or not). */

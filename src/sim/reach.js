@@ -28,7 +28,9 @@ export class Reachability {
       lab[s] = next;
       while (head < tail) {
         const i = queue[head++], x = i % m.w, y = (i / m.w) | 0;
-        for (const [dx, dy] of N4) {
+        // Fixed cardinal order, without an iterator allocation for every neighbour.
+        for (let k = 0; k < N4.length; k++) {
+          const dir = N4[k], dx = dir[0], dy = dir[1];
           const nx = x + dx, ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= m.w || ny >= m.h) continue;
           const j = ny * m.w + nx;

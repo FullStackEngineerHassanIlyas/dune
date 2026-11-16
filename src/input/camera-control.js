@@ -43,6 +43,12 @@ export class CameraControl {
     this.reported = 'none';
     win.addEventListener('pointermove', (e) => {
       this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.inside = true; this.mouse.out = null;
+      // A button let go while another is still held comes as a pointermove with fewer `buttons`, never as a
+      // pointerup for it: without this the map would keep scrolling with every button up.
+      if (typeof e.buttons === 'number') {
+        if (this.pull && !(e.buttons & 2)) this.pull = null;
+        if (this.drag && !(e.buttons & 4)) this.drag = null;
+      }
       if (this.drag) this.onDrag(e);
       if (this.pull) {
         this.pull.x = e.clientX; this.pull.y = e.clientY;
@@ -68,7 +74,7 @@ export class CameraControl {
       element.setPointerCapture?.(e.pointerId);
     });
     element.addEventListener('pointerup', (e) => { if (e.button === 1) this.drag = null; });
-    win.addEventListener('pointerup', (e) => { if (e.button === 2) this.pull = null; });
+    win.addEventListener('pointerup', (e) => { if (e.button === 2 || (typeof e.buttons === 'number' && !(e.buttons & 2))) this.pull = null; });
     win.addEventListener('pointercancel', () => { this.pull = null; });
     win.addEventListener('keydown', (e) => { if (e.key.startsWith('Arrow') && !this.suspended) { this.keys.add(e.key); e.preventDefault(); } });   // a menu keeps its arrows for its sliders
     win.addEventListener('keyup', (e) => this.keys.delete(e.key));

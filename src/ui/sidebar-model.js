@@ -16,9 +16,10 @@ export { clock };
 
 const UNIT_LINES = ['infantry', 'heavy', 'air'];
 
-export function powerLevel({ produced, used }) {
-  if (used <= produced) return 'ok';
-  return used > 2 * produced ? 'critical' : 'low';
+/** The level follows the unrounded ratio the simulation decides low power (radar, warning) by; the rounded numbers shown can read equal while it is short. */
+export function powerLevel({ ratio }) {
+  if (ratio >= 1) return 'ok';
+  return ratio < 0.5 ? 'critical' : 'low';
 }
 
 /** The yard takes one structure at a time; an upgrade sets aside one under construction (production.js), so

@@ -22,6 +22,7 @@ import { isArmed, distanceTo } from './combat.js';
 import { findPlacement } from './placement.js';
 import { deploySpot } from './deploy.js';
 import { needsRepair } from './repair-bay.js';
+import { REPAIR_COST_FRACTION } from './structure-actions.js';
 import { dockTile } from './harvest.js';
 import { palaceReady, palaceWeapon } from './palace.js';
 import { DEATH_HAND, SABOTEUR } from '../data/tuning.js';
@@ -43,6 +44,8 @@ export const BUILD_ORDER = {
   sardaukar: ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'wor', 'repair', 'hiTech', 'windtrap'],   // troopers once the WOR opens
   mercenary: ['windtrap', 'refinery', 'windtrap', 'outpost', 'barracks', 'windtrap', 'heavyFactory', 'silo', 'refinery', 'repair', 'hiTech', 'windtrap'],
 };
+
+const SKIRMISH_MOBILIZE_AT = 20 * 60;   // late skirmishes commit larger waves, using the existing paid army
 
 const NO_ROOM_RETRY = 60;   // seconds before a structure that found no spot is tried again
 
@@ -139,6 +142,7 @@ function affords(house, view, need, cost = need) {
 
 function think(world, house) {
   const view = survey(world, house);
+  repairBuildings(world, house, view);
   if (!view.yard) {
     if (view.units.some((u) => u.type.deploysTo)) deployMcv(world, house, view);
     else rebuildMcv(world, house, view);
@@ -152,9 +156,28 @@ function think(world, house) {
   rally(world, house, view);
   const repairing = sendForRepairs(world, house, view);
   const defending = defend(world, house, view, repairing);
-  attack(world, house, view, defending);
+  attack(world, house, view, [...defending, ...repairing]);
   usePalace(world, house, view);
   sabotage(world, house, view);
+}
+
+/** Restore damaged buildings through the same paid order as a player, without spending production or recovery money. */
+function repairBuildings(world, house, view) {
+  const cost = (s) => (1 - s.hp / s.maxHp) * s.type.cost * REPAIR_COST_FRACTION;
+  let spare = house.credits - owed(house) - view.keep - tuning(house).reserve;
+  for (const s of view.mine) if (s.repairing) {
+    const price = cost(s);
+    spare -= price;
+    if (view.keep) view.spare -= price;   // production must also leave the rest of an ongoing repair funded
+  }
+  for (const s of view.mine) {
+    if (s.hp >= s.maxHp || s.repairing || s.type.isWall) continue;
+    const price = cost(s);
+    if (price > spare) continue;
+    spare -= price;
+    view.spare -= price;
+    issue(world, house, { type: 'repair', structureId: s.id, on: true });
+  }
 }
 
 function deployMcv(world, house, view) {
@@ -251,13 +274,21 @@ function buildBase(world, house, view) {
   const b = house.brain;
   const item = house.lines.structure.current;
   if (item?.state === 'ready') {
-    const turret = item.typeId === 'turret' || item.typeId === 'rocketTurret';
-    const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
-    const spot = findPlacement(world, house.id, item.typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, item.typeId));
-    if (spot) issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
-    else { b.noRoom[item.typeId] = world.time; issue(world, house, { type: 'hold', typeId: item.typeId }); }   // a ready structure cancels at once, refunded
+    const spot = structureSpot(world, house, view, item.typeId);
+    if (spot) {
+      b.placeWaitSince = null;
+      issue(world, house, { type: 'place', typeId: item.typeId, x: spot.x, y: spot.y });
+    } else {
+      b.placeWaitSince ??= world.time;   // traffic may have occupied the spot while the building was under way
+      if (world.time - b.placeWaitSince >= NO_ROOM_RETRY) {
+        b.noRoom[item.typeId] = world.time;
+        b.placeWaitSince = null;
+        issue(world, house, { type: 'hold', typeId: item.typeId });   // still no room: refund the ready building
+      }
+    }
     return;
   }
+  b.placeWaitSince = null;
   if (item) return;
   const next = nextStructure(world, house, view);
   if (next) {
@@ -267,6 +298,13 @@ function buildBase(world, house, view) {
   }
   const yardUp = upgradeId('constructionYard'), upCost = upgradeCost(house, 'constructionYard');   // the base stands: the yard upgrades that lead to Rocket Turrets
   if (view.count.heavyFactory && canBuild(world, house.id, yardUp) && affords(house, view, upCost + tuning(house).reserve, upCost)) issue(world, house, { type: 'build', typeId: yardUp });
+}
+
+/** Use the same footprint, anchor and access rules before production and again when placing. */
+function structureSpot(world, house, view, typeId) {
+  const turret = typeId === 'turret' || typeId === 'rocketTurret';
+  const anchor = turret ? towardsEnemy(world, house, view, 6) : view.home;
+  return findPlacement(world, house.id, typeId, anchor.x, anchor.y, 12, keepsWaysIn(world, house.id, typeId));
 }
 
 const WAY_OUT = 8;   // tiles an entrance must lead out, past the rest of the base
@@ -293,10 +331,13 @@ function leadsOut(map, from, covers = () => false) {
  * A placement test for a building of `typeId`: it may not go up on the apron of one of the house's
  * Refineries or Repair Facilities — the entrance, the tile straight out of it (where a harvester backs
  * out) and the tiles either side of both, room for the others to wait and pass — nor shut an entrance in;
- * a new one needs its own apron clear and an entrance that leads out.
+ * a new one needs its own apron clear and an entrance that leads out. The ground factories (Barracks, WOR, Heavy
+ * Factory) send their units out by the tiles around them (sim/spawn.js exitTile). Every usable exit left
+ * uncovered must still lead out, not just one: production may choose any free exit. A new factory must
+ * likewise have no usable exit in a sealed pocket, or troops and tanks can be born unable to leave.
  */
 export function keepsWaysIn(world, houseId, typeId) {
-  const map = world.map, t = STRUCTURES[typeId], aprons = [];
+  const map = world.map, t = STRUCTURES[typeId], aprons = [], exits = [];
   if (!t || t.isConcrete) return () => true;
   const apron = (x, y) => {   // entrances face south
     const out = [];
@@ -309,6 +350,11 @@ export function keepsWaysIn(world, houseId, typeId) {
     if (door < 0 || !leadsOut(map, door)) continue;   // one already shut in has nothing left to keep
     aprons.push({ door, open: apron(map.xOf(door), map.yOf(door)).filter((i) => !map.structure[i]) });
   }
+  for (const s of world.structures.values()) {
+    if (s.house !== houseId || !groundFactory(s.type)) continue;
+    const ring = ringAround(map, s.x, s.y, s.w, s.h).filter((i) => leadsOut(map, i));
+    if (ring.length) exits.push(ring);   // one already shut in has nothing left to keep
+  }
   return (x, y) => {
     const covers = (tx, ty) => tx >= x && tx < x + t.w && ty >= y && ty < y + t.h;
     const clear = (i) => !covers(map.xOf(i), map.yOf(i));
@@ -316,14 +362,39 @@ export function keepsWaysIn(world, houseId, typeId) {
       const ex = x + t.entrance[0], ey = y + t.entrance[1];
       if (!map.inBounds(ex, ey + 1) || apron(ex, ey).some((i) => map.structure[i]) || !leadsOut(map, map.idx(ex, ey + 1), covers)) return false;
     }
-    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers));
+    if (groundFactory(t)) {
+      const ring = ringAround(map, x, y, t.w, t.h).filter((i) => map.moveFactor(i, 'harvester') > 0);
+      if (!ring.length || !ring.every((i) => leadsOut(map, i, covers))) return false;
+    }
+    return aprons.every((a) => a.open.every(clear) && leadsOut(map, a.door, covers)) && exits.every((ring) => {
+      const remaining = ring.filter(clear);
+      return remaining.length > 0 && remaining.every((i) => leadsOut(map, i, covers));
+    });
   };
+}
+
+/** Factories whose units go out on foot or by wheel and track (the Hi-Tech's aircraft rise from its roof). */
+const groundFactory = (t) => t.produces === 'infantry' || t.produces === 'heavy';
+
+/** The tiles without a building around a footprint, corners included: where a factory's units step out. */
+function ringAround(map, x, y, w, h) {
+  const out = [];
+  for (let ty = y - 1; ty <= y + h; ty++) for (let tx = x - 1; tx <= x + w; tx++) {
+    if (tx >= x && tx < x + w && ty >= y && ty < y + h) continue;
+    if (map.inBounds(tx, ty) && !map.structure[map.idx(tx, ty)]) out.push(map.idx(tx, ty));
+  }
+  return out;
 }
 
 /** The next building: a Wind Trap whenever the margin is thin or the building due would use more than is spare. */
 function nextStructure(world, house, view) {
   const b = house.brain, id = house.id;
-  const can = (t) => canBuild(world, id, t) && world.time - (b.noRoom[t] ?? -1e9) >= NO_ROOM_RETRY;
+  const can = (t) => {
+    if (!canBuild(world, id, t) || world.time - (b.noRoom[t] ?? -1e9) < NO_ROOM_RETRY) return false;
+    if (structureSpot(world, house, view, t)) return true;
+    b.noRoom[t] = world.time;   // skip impossible footprints before tying up the construction line
+    return false;
+  };
   if (view.recover && can('refinery')) return 'refinery';   // the last Harvester is gone and none is for sale: a Refinery brings one
   const power = computePower(world, id);
   if (power.produced < power.used + 20 && can('windtrap')) return 'windtrap';
@@ -351,6 +422,11 @@ function wantedStructure(world, house, view, can) {
     if (ixWorth && has('starport') && !has('ix') && can('ix')) return 'ix';
     if (has('ix') && !has('palace') && can('palace')) return 'palace';
   }
+  // Spend a mature skirmish economy on throughput: extra factories use the same
+  // paid 25% production bonus as the player, instead of banking credits forever.
+  if (!house.brain.params && has('heavyFactory') < 3 && house.lines.heavy.current?.state === 'building' &&
+      view.units.filter(fighter).length < d.armyCap && house.credits - owed(house) >= 2 * STRUCTURES.heavyFactory.cost + d.reserve &&
+      can('heavyFactory')) return 'heavyFactory';
   return null;
 }
 
@@ -363,7 +439,19 @@ function keepHarvesters(world, house, view) {
   const heavy = house.lines.heavy;
   const queued = (heavy.current?.typeId === 'harvester' ? 1 : 0) + heavy.queue.filter((t) => t === 'harvester').length;
   const have = view.units.filter((u) => u.typeId === 'harvester').length;
+  if (!have && dropUnpayableHarvesters(world, house, heavy)) return;
   if (have + queued < Math.min(6, 2 * refineries) && house.credits >= 300 && canBuild(world, house.id, 'harvester')) issue(world, house, { type: 'build', typeId: 'harvester' });
+}
+
+/** No Harvester anywhere and the one on order has stalled for want of credits: with no spice coming in none will ever
+ *  come, and while a Harvester is on order the Refinery's free one (sim/harvest.js ensureHarvesters) stays away, so the
+ *  house is left dead. Cancel the orders (what was paid comes back) and the free Harvester flies in. */
+function dropUnpayableHarvesters(world, house, heavy) {
+  const item = heavy.current;
+  if (!world.rules.airDelivery || item?.typeId !== 'harvester' || !item.starved || house.credits >= item.cost - item.paid) return false;
+  const orders = 2 + heavy.queue.filter((t) => t === 'harvester').length;   // two to cancel the one in hand (hold, then cancel), one for each queued
+  for (let k = 0; k < orders; k++) issue(world, house, { type: 'hold', typeId: 'harvester' });
+  return true;
 }
 
 /** One Carryall of its own for ferrying, never more (the original's AI rule). */
@@ -388,11 +476,20 @@ function weightedPick(rng, pool) {
 export const LIGHT_SHARE = 1 / 3;   // of the vehicles in the field: the one vehicle factory keeps light ones coming
 
 /** The vehicle line's pick: a light vehicle whenever they make up less than a third of the army's vehicles, else a tank. */
-function vehicleChoice(view, pool) {
+function vehicleChoice(world, house, view, pool) {
   const wheeled = (t) => UNITS[t].move === MOVE.WHEELED;
   const vehicles = view.units.filter((u) => fighter(u) && u.type.builtAt === 'heavyFactory');
   const light = vehicles.filter((u) => wheeled(u.typeId)).length < LIGHT_SHARE * (vehicles.length + 1);
   const want = pool.filter((t) => wheeled(t) === light);
+  if (!light && want.length && [...world.structures.values()].some((s) => !friendly(world, house.id, s.house) && s.type.weapon)) {
+    // Fortifications need weapons that can reach them. Keep light escorts, and make
+    // at least half the heavy support the longest-range damaging choice available.
+    const damaging = want.filter((t) => UNITS[t].damage > 0);
+    const range = Math.max(...damaging.map((t) => UNITS[t].range));
+    const siege = damaging.filter((t) => UNITS[t].range === range);
+    const heavy = vehicles.filter((u) => !wheeled(u.typeId));
+    if (siege.length && heavy.filter((u) => siege.includes(u.typeId)).length < (heavy.length + 1) / 2) return siege;
+  }
   return want.length ? want : pool;
 }
 
@@ -404,7 +501,7 @@ function buildArmy(world, house, view) {
     const l = house.lines[line];
     if (l.current || l.queue.length) continue;
     const pool = options[line].filter((t) => ARMY_WEIGHTS[t]);
-    if (pool.length && affords(house, view, d.reserve)) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(view, pool) : pool) });   // the reserve covers any unit of the missions that keep money back
+    if (pool.length && affords(house, view, d.reserve)) issue(world, house, { type: 'build', typeId: weightedPick(world.rng, line === 'heavy' ? vehicleChoice(world, house, view, pool) : pool) });   // the reserve covers any unit of the missions that keep money back
   }
 }
 
@@ -441,7 +538,9 @@ function defend(world, house, view, repairing = []) {
   for (const u of world.units.values()) {
     if (friendly(world, u.house, house.id) || !u.isGround || u.inside || !world.houses.has(u.house)) continue;   // a vehicle in a repair bay is no intruder, nor a worm or an ally
     for (const s of view.mine) {
-      const d = Math.hypot(u.x - s.x - s.w / 2, u.y - s.y - s.h / 2);
+      const dx = u.x - s.x - s.w / 2, dy = u.y - s.y - s.h / 2;
+      if (Math.abs(dx) >= best || Math.abs(dy) >= best) continue;
+      const d = Math.hypot(dx, dy);
       if (d < best) { best = d; intruder = u; }
     }
   }
@@ -474,9 +573,16 @@ function sendForRepairs(world, house, view) {
   return ids;
 }
 
-function attack(world, house, view, defending = []) {
+function attack(world, house, view, unavailable = []) {
   const b = house.brain, d = tuning(house);
   b.wave = b.wave.filter((id) => world.units.get(id)?.house === house.id);   // lost, or turned by gas
+  for (const id of b.wave) {
+    const u = world.units.get(id);
+    if (u.move !== MOVE.TRACKED || !(u.type.damage > 0) || u.order.type !== 'attackMove') continue;
+    const own = b.waveFoe[id], foe = own && !world.houses.get(own)?.defeated ? own : null;
+    const s = siegeTarget(world, house.id, u, foe);
+    if (s) issue(world, house, { type: 'attack', ids: [id], targetKind: 'structure', targetId: s.id });
+  }
   const idle = b.wave.map((id) => world.units.get(id)).filter((u) => u.order.type === 'idle' || (!u.isGround && u.order.type === 'guard'));   // aircraft end a move on guard
   if (b.foe && world.houses.get(b.foe)?.defeated) b.foe = null;
   if (idle.length && world.time >= (b.huntAt ?? 0)) {   // wave members that stopped hunt the next target, their own wave's foe first (at most every 10 s)
@@ -489,9 +595,21 @@ function attack(world, house, view, defending = []) {
     for (const [foe, members] of byFoe) hunt(world, house, members, foe);
   }
   if (world.time < b.nextAttack) return;
-  const size = Math.min(d.waveMax, Math.round(d.waveBase + d.waveGrow * b.waves));
-  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !defending.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // not the ones just sent at an intruder, nor a mission's posted guards
-  if (ready.length < size) { b.nextAttack = world.time + 15; return; }
+  // Survivors of earlier waves count toward the army cap, so no more than the rest can ever stand ready at home:
+  // a wave that waited for more would never go, and with the cap full nothing more would be built either.
+  // Repeated small attacks can trade forever into a fully replenished home army.
+  // Easy/normal skirmishes may commit the available cap late; hard already sends
+  // larger, more frequent waves. Keep that cadence and authored mission limits.
+  const waveCap = !b.params && b.difficulty !== 'hard' && world.time >= SKIRMISH_MOBILIZE_AT ? d.armyCap : d.waveMax;
+  const size = Math.min(waveCap, Math.round(d.waveBase + d.waveGrow * b.waves), Math.max(1, d.armyCap - b.wave.length));
+  const ready = view.units.filter((u) => fighter(u) && !u.garrison && !b.wave.includes(u.id) && !unavailable.includes(u.id) && (u.order.type === 'idle' || u.order.type === 'guard'));   // neither pending defenders/repairs nor a mission's posted guards
+  // A battered house may never assemble the later, larger waves. Give reinforcements one
+  // normal wave interval to gather, then send what is ready instead of waiting forever.
+  // Extra late reinforcements are welcome, but never delay a full ordinary wave to wait for them.
+  if (ready.length < Math.min(size, d.waveMax)) {
+    b.waveWaitSince ??= world.time;
+    if (!ready.length || world.time - b.waveWaitSince < d.waveEvery) { b.nextAttack = world.time + 15; return; }
+  }
   const units = ready.slice(0, size);
   const foe = chooseFoe(world, house, view, units.reduce((n, u) => n + u.type.cost, 0));
   if (!foe) return;
@@ -501,8 +619,23 @@ function attack(world, house, view, defending = []) {
   b.wave.push(...group);
   for (const id of group) b.waveFoe[id] = foe.house;
   b.waves++;
+  b.waveWaitSince = null;
   b.nextAttack = world.time + d.waveEvery;
   world.events.push('aiAttack', { house: house.id, target: foe.house, size: group.length, x: target.x, y: target.y });
+}
+
+/** Tanks that reach a base commit to its infrastructure; escorts keep handling the defenders.
+ * Only buildings already in range qualify, so tanks still fight on their approach instead of driving past threats. */
+function siegeTarget(world, houseId, u, foe) {
+  let best = null, bestRank = -1, bestDistance = Infinity;
+  for (const s of world.structures.values()) {
+    if (friendly(world, houseId, s.house) || s.type.isWall || (foe && s.house !== foe)) continue;
+    const distance = distanceTo(u.x, u.y, { kind: 'structure' }, { entity: s });
+    if (distance > u.type.range) continue;
+    const rank = s.typeId === 'constructionYard' ? 3 : s.type.produces || s.type.weapon ? 2 : s.typeId === 'refinery' ? 1 : 0;
+    if (rank > bestRank || (rank === bestRank && distance < bestDistance)) { best = s; bestRank = rank; bestDistance = distance; }
+  }
+  return best;
 }
 
 /** Idle members of one wave go for the nearest target of their foe (any rival's, when it is beaten). */
@@ -512,7 +645,32 @@ function hunt(world, house, members, foe) {
   const stuckShort = t && Math.hypot(t.x + 0.5 - lead.x, t.y + 0.5 - lead.y) > lead.type.range + 2;
   const wall = stuckShort ? nearestEnemyWall(world, house.id, lead.x, lead.y, 8) : null;   // walls in the way: break through
   if (wall) issue(world, house, { type: 'attack', ids, targetKind: 'structure', targetId: wall.id });
-  else if (t) issue(world, house, { type: 'attackMove', ids, x: t.x, y: t.y });
+  else if (t) {
+    const map = world.map, goal = map.idx(t.x, t.y);
+    // A path to a disconnected goal stops at the nearest reachable tile. Once there,
+    // leave the unit idle instead of reissuing the same impossible order every hunt.
+    // Recheck reachability next time: a destroyed building may open the way again.
+    const able = members.filter((u) => {
+      if (!u.isGround) return true;
+      const here = map.idx(u.tx, u.ty);
+      if (!world.reach.connected(here, goal, u.move)) {
+        const near = world.reach.nearestReachable(goal, here, u.move);
+        if (near === null || near === here) return false;
+      }
+      // Movement also gives up on parked units. Do not immediately undo that decision:
+      // retry from the same tile only after the target, terrain or neighbouring traffic changes.
+      const traffic = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = u.tx + dx, y = u.ty + dy;
+        if (map.inBounds(x, y)) traffic.push(map.unit[map.idx(x, y)]);
+      }
+      const attempt = `${house.id}:${here}:${u.distance}:${goal}:${map.revision}:${traffic.join(',')}`;
+      if (u.aiHuntAttempt === attempt) return false;
+      u.aiHuntAttempt = attempt;
+      return true;
+    }).map((u) => u.id);
+    if (able.length) issue(world, house, { type: 'attackMove', ids: able, x: t.x, y: t.y });
+  }
 }
 
 function nearestEnemyWall(world, houseId, x, y, radius) {

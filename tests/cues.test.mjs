@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cueFor } from '../src/audio/cues.js';
+import { G } from '../src/data/terrain.js';
+import { flatWorld } from './helpers.mjs';
 
 const all = () => true;
 
@@ -33,6 +35,18 @@ test('the player hears their own interface, not the enemy\'s', () => {
   assert.equal(cueFor({ type: 'productionReady', house: 'atreides' }, 'atreides', all).id, 'ready');
   assert.equal(cueFor({ type: 'repairToggled', house: 'atreides', on: false }, 'atreides', all), null);
   assert.equal(cueFor({ type: 'moveOrdered' }, 'atreides', all), null);
+});
+
+test('a deploying MCV clunks once, not once for the new yard and again for the deploy', () => {
+  const world = flatWorld(12, 12, G.ROCK);
+  const mcv = world.spawnUnit('mcv', 'atreides', 5, 5);
+  world.events.drain();
+  world.issue('atreides', { type: 'deploy', ids: [mcv.id] });
+  world.step();
+  const events = world.events.drain();
+  assert.ok(events.some((e) => e.type === 'deployed') && events.some((e) => e.type === 'structurePlaced'), 'the sim reports both');
+  const clunks = events.map((e) => cueFor(e, 'atreides', all)).filter((c) => c?.id === 'clunk');
+  assert.equal(clunks.length, 1);
 });
 
 test('the repair bay clanks as vehicles roll in and out; a capture thuds for the captor', () => {

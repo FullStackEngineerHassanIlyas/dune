@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bloomBurst, bloomCloud } from './sand-fx.js';
+import { depthMaterialFor } from './models/materials.js';
 
 const CLOUD_AFTER = 0.9;   // seconds from the fountain to its dust cloud: as the spice comes back down
 
@@ -101,6 +102,7 @@ export class BloomViews {
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = true;
+    this.mesh.customDepthMaterial = depthMaterialFor(this.mesh);
     this.mesh.receiveShadow = true;
     this.scene.add(this.mesh);
   }

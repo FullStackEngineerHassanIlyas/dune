@@ -114,7 +114,16 @@ export function clearDock(world, id, requester) {
   }
   if (!spot) return;
   if (o.harvest && o.order.type === 'harvest') { o.harvest.wait = Math.max(o.harvest.wait, 3); world.requestPath(o, map.idx(spot.x, spot.y)); }
-  else orderMove(world, [o], spot.x, spot.y);
+  else {
+    // Like a step aside for a friend (movement.js nudge), this sets the unit's order by instead of ending it.
+    // A guard's post moves with it: with the old post it would walk straight back onto the entrance.
+    const keep = o.order.type === 'idle' || o.order.type === 'move' ? null : o.order;
+    orderMove(world, [o], spot.x, spot.y);
+    if (keep && o.order.type === 'move') {
+      o.order.nudge = true;
+      o.resumeOrder = keep.type === 'guard' && o.goal >= 0 ? { ...keep, x: map.xOf(o.goal), y: map.yOf(o.goal) } : keep;
+    }
+  }
 }
 
 function claimedFields(world, self) {
@@ -130,9 +139,13 @@ function searchSpice(world, from, radius, claimed, self) {
   const fx = map.xOf(from), fy = map.yOf(from);
   const seen = new Set([from]);
   const queue = [from];
+  // Only spice the harvester can drive to counts: a pocket ringed by mountains, or a field behind a gap it
+  // would have to cut a corner through, would have it set off, stop short and pick the same tile again for good.
+  const home = map.idx(self.tx, self.ty), reach = world.reach;
+  const within = reach.connected(home, home, self.move) ? (i) => reach.connected(home, i, self.move) : () => true;
   for (let k = 0; k < queue.length; k++) {
     const i = queue[k];
-    if (map.spice[i] > 0 && !claimed.has(i) && (!map.unit[i] || map.unit[i] === self.id)) return i;
+    if (map.spice[i] > 0 && !claimed.has(i) && (!map.unit[i] || map.unit[i] === self.id) && within(i)) return i;
     const x = map.xOf(i), y = map.yOf(i);
     for (const [dx, dy] of N8) {
       const nx = x + dx, ny = y + dy;
@@ -448,6 +461,7 @@ function exitTile(world, ref, u, slot) {
   if ((slot.waited += DT) < EXIT_PATIENCE) return -1;
   const sameGround = ground(door);
   let best = -1, bestD = Infinity, stray = -1, strayD = Infinity, linked = false;
+  const parked = [];
   for (let y = ref.y - 1; y <= ref.y + ref.h; y++) for (let x = ref.x - 1; x <= ref.x + ref.w; x++) {
     if (!map.inBounds(x, y)) continue;
     const i = map.idx(x, y);
@@ -455,9 +469,10 @@ function exitTile(world, ref, u, slot) {
     const d = Math.hypot(x - map.xOf(door), y - map.yOf(door));
     if (sameGround && !world.reach.connected(door, i, 'harvester')) { if (!map.unit[i] && d < strayD) { strayD = d; stray = i; } continue; }
     linked = true;
-    if (map.unit[i]) { clearDock(world, map.unit[i], u); continue; }
+    if (map.unit[i]) { parked.push(map.unit[i]); continue; }
     if (d < bestD) { bestD = d; best = i; }
   }
+  if (best < 0) for (const id of parked) clearDock(world, id, u);   // boxed in: only then are parked friends asked to make room
   return best >= 0 || linked ? best : stray;
 }
 

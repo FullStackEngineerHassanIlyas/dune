@@ -133,21 +133,36 @@ export class UnitViews {
     this.fallen = [];
   }
 
+  /** A discontinuous relocation: never interpolate from the old pad during this tick. */
+  snap(u, tick) {
+    if (!this.views.has(u.id)) this.create(u);
+    this.views.get(u.id).snapTick = tick;
+  }
+
   recoil(id) {
     const v = this.views.get(id);
     if (v) v.recoil = 0.08;
   }
 
   pose(u, v, alpha, dt, world = null) {
-    const x = u.px + (u.x - u.px) * alpha, z = u.py + (u.y - u.py) * alpha;
-    const heading = lerpAngle(u.pheading, u.heading, alpha);
-    const turret = lerpAngle(u.pturret, u.turret, alpha);
+    if (v.snapTick !== undefined && v.snapTick === world?.tick) alpha = 1;
+    // A load is rigidly attached: its own previous pose may still be its spawn/pickup pose.
+    const carrier = world?.units.get(u.inside);
+    const carried = carrier?.cargo === u.id;
+    const pose = carried ? carrier : u;
+    const x = pose.px + (pose.x - pose.px) * alpha, z = pose.py + (pose.y - pose.py) * alpha;
+    const heading = lerpAngle(pose.pheading, pose.heading, alpha);
+    const turret = carried ? heading : lerpAngle(u.pturret, u.turret, alpha);
     const dist = u.pdistance + (u.distance - u.pdistance) * alpha;
     v.x = x;
     v.z = z;
     v.heading = heading;
     v.turret = turret;
-    v.alt = u.alt ?? 0;
+    // Keep the carrier/load gap through a climb; finish the last descent on the set-down tick.
+    const alt = carried ? Math.max(0, u.alt + ((carrier.palt ?? carrier.alt) - carrier.alt) * (1 - alpha))
+      : u.alt === undefined && u.palt === undefined ? undefined
+      : (u.palt ?? u.alt) + ((u.alt ?? 0) - (u.palt ?? u.alt)) * alpha;
+    v.alt = alt ?? 0;
     v.inside = !!u.inside && u.alt === undefined;   // held in a building; a load under its Carryall hangs in the open
     v.visible = !this.viewer || !world || unitVisibleTo(world, this.viewer, u);
     v.recoil = Math.max(0, v.recoil - dt * 0.3);
@@ -169,10 +184,18 @@ export class UnitViews {
     }
     v.shown = shown;
     const cos = Math.cos(heading), sin = Math.sin(heading);
-    let lift = u.alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
+    let lift = alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
     if (u.move === 'saboteur' && world) {   // up and over walls
-      const top = (i) => (world.map.wall[i] ? WALL_TOP : 0), s = u.step;
-      lift = s ? top(s.from) + (top(s.to) - top(s.from)) * Math.min(1, s.progress) : top(world.map.idx(u.tx, u.ty));
+      const map = world.map, s = u.step, top = (i) => (map.wall[i] ? WALL_TOP : 0);
+      // The last movement tick has already cleared step; recover its two tile centres from
+      // the direction travelled. Standing still gives the same centre at both ends.
+      const to = s?.to ?? map.idx(u.tx, u.ty);
+      const from = s?.from ?? map.idx(u.tx - Math.sign(u.x - u.px), u.ty - Math.sign(u.y - u.py));
+      const ax = map.xOf(from) + 0.5, az = map.yOf(from) + 0.5;
+      const dx = map.xOf(to) - map.xOf(from), dz = map.yOf(to) - map.yOf(from);
+      const length2 = dx * dx + dz * dz;
+      const along = length2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / length2)) : 0;
+      lift = top(from) + (top(to) - top(from)) * along;
     }
     const bank = air ? Math.max(-0.5, Math.min(0.5, angleDiff(u.pheading, u.heading) * 2.5)) : 0;   // lean into turns
     const banked = { x: -sin * Math.sin(bank), y: Math.cos(bank), z: cos * Math.sin(bank) };

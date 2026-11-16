@@ -2,7 +2,7 @@
 // (turret yaw, recoil, wheel spin …), a house colour and a tread scroll value.
 import * as THREE from 'three';
 import { MAT } from './kit.js';
-import { getMaterial, HOUSE_TINTED } from './materials.js';
+import { getMaterial, HOUSE_TINTED, depthMaterialFor } from './materials.js';
 
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const local = new THREE.Matrix4(), tmp = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -56,6 +56,7 @@ export class InstancedModel {
       attr.setUsage(THREE.DynamicDrawUsage);
       part.geometry.setAttribute('aTread', attr);
     }
+    if (mesh.castShadow) mesh.customDepthMaterial = depthMaterialFor(mesh);
     this.scene.add(mesh);
     return mesh;
   }

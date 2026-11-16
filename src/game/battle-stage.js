@@ -90,6 +90,18 @@ export class BattleStage {
     }
     if (e.type === 'concretePlaced') this.destruction.structurePlaced(e);   // fresh slabs over old ruins
     switch (e.type) {
+      case 'unitRemoved':
+        this.volley.delete(e.id);
+        this.trackFrom.delete(e.id);
+        break;
+      case 'structureRemoved':
+        this.destruction.roofs.delete(e.id);
+        break;
+      case 'undocked': { // a vanished refinery ejects its load, rather than driving it off the pad
+        const u = this.world.units.get(e.id);
+        if (u && !this.world.structures.has(e.refinery)) this.unitViews.snap(u, this.world.tick);
+        break;
+      }
       case 'fired': if (!this.catchingUp) this.onFired(e); break;
       case 'impact': this.onImpact(e); break;
       case 'explosion': {
@@ -151,12 +163,15 @@ export class BattleStage {
     return map.concrete[i] ? 'concrete' : GROUND_NAME[map.ground[i]] ?? 'sand';
   }
 
-  /** Whether a shot landing at (x, z) that hit something struck metal — a vehicle or a building — rather than a soldier on the ground. */
+  /** Whether a shot landing at (x, z) that hit something struck metal — a vehicle or a building — rather than a soldier on the ground or a worm. */
   struckMetal(x, z) {
     const map = this.world.map, tx = Math.floor(x), ty = Math.floor(z);
     if (!map.inBounds(tx, ty)) return true;
     const i = map.idx(tx, ty), u = this.world.units.get(map.unit[i]);
-    return map.structure[i] ? true : u ? !onFoot(u.move) : true;
+    if (map.structure[i]) return true;
+    if (u) return !onFoot(u.move);
+    for (const w of this.world.units.values()) if (w.move === 'worm' && Math.hypot(w.x - x, w.y - z) <= 0.9) return false;   // a worm up out of the sand holds no tile (the simulation's own reach for a stray shot): it is hide, not metal
+    return true;
   }
 
   /**
@@ -232,7 +247,7 @@ export class BattleStage {
     this.unitViews.sync(world, alpha, dt);
     this.worms.sync(world, alpha, dt, this.seenAt, !this.catchingUp);
     this.blooms.sync(world, dt, this.exploredAt);
-    this.structureViews.sync(world, now);
+    this.structureViews.sync(world, now, alpha);
     if (dt > 0) this.combatEffects(dt, alpha);
     this.missiles.sync(world, alpha, this.heightAt, this.seenAt);
     this.ambient(dt, now);
@@ -320,6 +335,10 @@ export class BattleStage {
     this.structureViews.dispose();
     this.missiles.dispose();
     this.destruction.dispose();
+    this.volley.clear();
+    this.trackFrom.clear();
+    this.shotFx.trails.clear();
+    this.shotFx.spare.length = 0;
     this.effects.dispose();
     this.terrain.dispose();
   }

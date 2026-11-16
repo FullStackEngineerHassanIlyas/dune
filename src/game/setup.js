@@ -29,6 +29,8 @@ export const VISIBILITY = ['shroud', 'fog', 'revealed'];
 export const WORMS = ['off', 'few', 'many'];
 export const TECH_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+const MAP_LIMITS = [16, 256];   // the smallest and largest side a skirmish map may have (the set-up screen offers 48 to 128)
+
 /** Opponents a map has room for: four corner bases from Medium (64) up, three on a Small map. */
 export const maxOpponents = (size) => (size < 64 ? 2 : 3);
 
@@ -68,6 +70,9 @@ function resolveOpponents(house, list, size, difficulty) {
 export function setupSkirmish({ seed = 1, size = 64, house = 'atreides', enemy = null, opponents = null, credits = 3000, fog = true, visibility = fog ? 'shroud' : 'revealed',
   difficulty = 'normal', techLevel = 9, worms = 'off', aiPlayer = false, allied = false } = {}) {   // no worms unless asked: scenes and tests stay as they were
   const level = DIFFICULTY[difficulty] ? difficulty : 'normal';
+  if (!SKIRMISH_HOUSES.includes(house)) house = SKIRMISH_HOUSES[0];   // a house the skirmish has no forces for (a mistyped or hand-written address) is the first one, not a blank page
+  size = Number.isFinite(size) ? Math.max(MAP_LIMITS[0], Math.min(MAP_LIMITS[1], Math.round(size))) : 64;   // an address may say anything: a fraction, nothing, a map no page could hold
+  if (!Number.isFinite(credits) || credits < 0) credits = 3000;   // nor can a game start in debt, or with infinite money
   const rivals = resolveOpponents(house, opponents?.length ? opponents : [{ house: enemy, difficulty: level }], size, level);
   const { map, starts } = generateMap({ w: size, h: size, seed, players: 1 + rivals.length });
   const world = new World({ map, seed });

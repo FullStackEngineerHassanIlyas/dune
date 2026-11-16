@@ -21,6 +21,7 @@ export const VOICE_LEVEL = 0.85;  // lines are mastered to -16 LUFS; at the defa
 export const GAP = 0.18;          // seconds of quiet between two lines
 export const LEAD = 0.15;         // an announcement waits this long so the interface's chirp comes first; acknowledgements do not
 export const ERROR_LEAD = 0.27;   // a refusal waits out the error buzz (0.31 s; speech starts ≥0.05 s into a line), not talk over it
+const CUT_FADE = 0.015;           // seconds a line cut short takes to fade out (the source stops after twice that)
 
 /** How urgent a class of line is, how long it may wait for its turn and how soon it may repeat (seconds). */
 export const CLASSES = {
@@ -322,6 +323,7 @@ export class WebVoiceOutput {
     this.missing = new Set();
     this.bus = null;
     this.source = null;
+    this.line = null;
     this.warmed = false;
     const manifest = fetchFn ? fetchFn(new URL('manifest.json', base).href).then((r) => (r.ok ? r.json() : null)).then((m) => this.useManifest(m)).catch(() => null) : Promise.resolve(null);
     this.ready = Promise.all([manifest, this.loadOriginals()]).then(([m]) => m);
@@ -439,13 +441,18 @@ export class WebVoiceOutput {
     try {
       if (!this.bus) { this.bus = ctx.createGain(); this.bus.connect(this.sound.master); }
       this.bus.gain.value = gain;
-      const src = ctx.createBufferSource();
+      const src = ctx.createBufferSource(), line = ctx.createGain();   // a gain of its own, so a line cut short can fade out
       src.buffer = buffer;
-      src.connect(this.bus);
-      src.onended = () => { if (this.source === src) { this.source = null; this.sound.duck?.(false); } };
+      src.connect(line);
+      line.connect(this.bus);
+      src.onended = () => {
+        try { line.disconnect(); } catch { /* already gone */ }
+        if (this.source === src) { this.source = null; this.line = null; this.sound.duck?.(false); }
+      };
       src.start();
       this.sound.duck?.(true);   // the battle steps back a little while the announcer speaks
       this.source = src;
+      this.line = line;
       return buffer.duration;
     } catch {
       return 0;
@@ -470,10 +477,16 @@ export class WebVoiceOutput {
   }
   /** Cuts the line short. Its 'ended' no longer lets the effects back up (it is not the current line), so this does. */
   stop() {
-    const src = this.source;
+    const src = this.source, line = this.line;
     if (!src) return;
     this.source = null;
-    try { src.stop(); } catch { /* already ended */ }
+    this.line = null;
+    try {
+      // A speech waveform stopped mid-swing clicks: the line's gain falls to nothing in about 15 ms and the source stops after it.
+      const t = this.sound.ctx.currentTime;
+      line.gain.setTargetAtTime(0, t, CUT_FADE / 3);
+      src.stop(t + 2 * CUT_FADE);
+    } catch { try { src.stop(); } catch { /* already ended */ } }
     this.sound.duck?.(false);
   }
 }

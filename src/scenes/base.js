@@ -19,8 +19,7 @@ const LAYOUT = ['windtrap', 'refinery', 'windtrap', 'outpost', 'silo', 'barracks
 export async function start({ search }) {
   const params = readParams(search);
   const settings = loadSettings(params);
-  const house = params.str('house', 'atreides');
-  const { world, starts, rival } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house, credits: 5000, fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined,
+  const { world, starts, rival, house } = setupSkirmish({ seed: params.num('seed', 11), size: params.num('size', 64), house: params.str('house', 'atreides'), credits: 5000, fog: params.bool('fog', true), visibility: params.str('visibility') ?? undefined,
     worms: params.str('worms', 'off') });   // a still showcase: no worm takes a harvester off the shot unless asked for
   const mcv = [...world.units.values()].find((u) => u.house === house && u.typeId === 'mcv');
   world.issue(house, { type: 'deploy', ids: [mcv.id] });
@@ -53,6 +52,7 @@ export async function start({ search }) {
     const spot = quietSpot(world, house, yard.x, yard.y);
     if (spot) {
       world.spawnStructure('silo', rival, spot.x, spot.y).hp = 25;
+      world.houses.get(rival).brain = null;   // its owner is not played here: a computer player repairs the silo before the squad gets there
       const tile = findFreeTile(world, spot.x, spot.y + 5, 'foot', 4);
       if (tile) world.spawnUnit(INFANTRY[house], house, tile.x, tile.y);
       focus = { x: spot.x + 1, z: spot.y + 3 };

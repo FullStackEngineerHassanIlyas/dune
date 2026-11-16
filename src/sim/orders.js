@@ -59,6 +59,7 @@ export function stopUnit(u) {
   u.path = []; u.pathIndex = 0; u.pathState = 'none'; u.goal = -1;
   u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
   u.order = { type: 'idle' };
+  u.resumeOrder = null;   // Stop also ends what a step aside for a friend had set by (a harvester's routine)
   u.loiter = null;
 }
 
@@ -72,6 +73,7 @@ export function orderMove(world, units, x, y) {
     const slots = findDestinations(world, map.idx(tx, ty), ground);
     for (const u of ground) {
       u.order = { type: 'move', x: tx, y: ty };
+      u.resumeOrder = null;   // a move order replaces what a step aside had set by
       u.stuckTicks = 0; u.waitTicks = 0; u.repaths = 0;
       world.requestPath(u, slots.get(u.id));
     }

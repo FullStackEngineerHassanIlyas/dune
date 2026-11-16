@@ -103,7 +103,7 @@ export class Destruction {
       const plate = Math.random() < 0.6, big = building ? rnd(0.09, 0.26) : rnd(0.05, 0.14) * k;
       const size = plate ? [big, big * rnd(0.12, 0.25), big * rnd(0.6, 1)] : [big * 0.7, big * rnd(0.5, 0.8), big * 0.7];
       const color = Math.random() < 0.25 ? scorched(house) : palette[Math.floor(Math.random() * palette.length)];
-      this.debris.emit({ x: x + Math.cos(a) * 0.1, y, z: z + Math.sin(a) * 0.1, vx: Math.cos(a) * s, vy: rnd(2.2, building ? 5.5 : 4.8), vz: Math.sin(a) * s, size, color, rest: rnd(4, building ? 9 : 7), burn: Math.random() < 0.3 ? rnd(0.6, 1.5) : 0 });
+      this.debris.emit({ recycle: true, x: x + Math.cos(a) * 0.1, y, z: z + Math.sin(a) * 0.1, vx: Math.cos(a) * s, vy: rnd(2.2, building ? 5.5 : 4.8), vz: Math.sin(a) * s, size, color, rest: rnd(4, building ? 9 : 7), burn: Math.random() < 0.3 ? rnd(0.6, 1.5) : 0 });
     }
   }
 
@@ -171,7 +171,7 @@ export class Destruction {
     this.woundClock = 0;
     const fx = this.fx, rate = Math.min(1, this.density);
     for (const u of world.units.values()) {
-      if (u.inside || u.hp > u.maxHp / 2 || onFoot(u.move)) continue;
+      if (u.inside || u.hp > u.maxHp / 2 || onFoot(u.move) || u.move === 'worm') continue;   // a worm is no machine: nothing smoulders on it
       const p = positionOf(u);
       if (!this.lingers(p.x, p.z)) continue;
       const r = modelDef(unitModelId(u.typeId)).radius ?? 0.5, crit = u.hp <= u.maxHp / 4;
@@ -245,5 +245,6 @@ export class Destruction {
     this.sites = [];
     this.pending = [];
     this.buried = [];
+    this.roofs.clear();
   }
 }
