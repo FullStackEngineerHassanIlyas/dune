@@ -186,8 +186,16 @@ export class UnitViews {
     const cos = Math.cos(heading), sin = Math.sin(heading);
     let lift = alt ?? (u.docked ? slotLift(world, u, x, z) : u.inside ? PAD_LIFT : 0);   // flying, hanging under a Carryall, in a refinery's slot or on a repair pad
     if (u.move === 'saboteur' && world) {   // up and over walls
-      const top = (i) => (world.map.wall[i] ? WALL_TOP : 0), s = u.step;
-      lift = s ? top(s.from) + (top(s.to) - top(s.from)) * Math.min(1, s.progress) : top(world.map.idx(u.tx, u.ty));
+      const map = world.map, s = u.step, top = (i) => (map.wall[i] ? WALL_TOP : 0);
+      // The last movement tick has already cleared step; recover its two tile centres from
+      // the direction travelled. Standing still gives the same centre at both ends.
+      const to = s?.to ?? map.idx(u.tx, u.ty);
+      const from = s?.from ?? map.idx(u.tx - Math.sign(u.x - u.px), u.ty - Math.sign(u.y - u.py));
+      const ax = map.xOf(from) + 0.5, az = map.yOf(from) + 0.5;
+      const dx = map.xOf(to) - map.xOf(from), dz = map.yOf(to) - map.yOf(from);
+      const length2 = dx * dx + dz * dz;
+      const along = length2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / length2)) : 0;
+      lift = top(from) + (top(to) - top(from)) * along;
     }
     const bank = air ? Math.max(-0.5, Math.min(0.5, angleDiff(u.pheading, u.heading) * 2.5)) : 0;   // lean into turns
     const banked = { x: -sin * Math.sin(bank), y: Math.cos(bank), z: cos * Math.sin(bank) };
