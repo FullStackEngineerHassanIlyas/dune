@@ -44,29 +44,30 @@ const seesAll = (world, houseId) => { const h = world.houses.get(houseId); retur
 export const canSee = (world, houseId, kind, e) => seesAll(world, houseId) || (kind === 'unit' ? unitVisibleTo(world, houseId, e) : structureVisibleTo(world, houseId, e));
 
 export function findTarget(world, houseId, x, y, radius, { structures = true, ignoreFog = false, exclude = 0, air = false, only = null } = {}) {
-  let best = null, bestD = Infinity;
-  for (const u of world.units.values()) {
-    if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) continue;   // aircraft only for anti-air; never the Frigate (a worm on the move is fair game, as in the original)
+  let best = null, bestKind = null, bestD = Infinity;
+  // forEach visits the same live insertion order without per-candidate iterator results.
+  world.units.forEach((u) => {
+    if (friendly(world, u.house, houseId) || (!u.isGround && !air) || u.inside || u.type.untargetable || u.id === exclude || (only && !only(u))) return;   // aircraft only for anti-air; never the Frigate (a worm on the move is fair game, as in the original)
     // Reject the distant bounding box first; keep hypot for exact radius and tie decisions.
     const dx = u.x - x, dy = u.y - y;
-    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD || Math.abs(dy) >= bestD) continue;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD || Math.abs(dy) >= bestD) return;
     const d = Math.hypot(dx, dy);
-    if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) continue;
-    best = { kind: 'unit', id: u.id };
+    if (d > radius || d >= bestD || (!ignoreFog && !canSee(world, houseId, 'unit', u))) return;
+    best = u; bestKind = 'unit';
     bestD = d;
-  }
-  if (!structures) return best;
-  for (const s of world.structures.values()) {
-    if (friendly(world, s.house, houseId) || s.type.isWall || s.id === exclude) continue;
+  });
+  if (!structures) return best ? { kind: bestKind, id: best.id } : null;
+  world.structures.forEach((s) => {
+    if (friendly(world, s.house, houseId) || s.type.isWall || s.id === exclude) return;
     const dx = Math.max(s.x + 0.5, Math.min(s.x + s.w - 0.5, x)) - x;
     const dy = Math.max(s.y + 0.5, Math.min(s.y + s.h - 0.5, y)) - y;
-    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD - 0.5 || Math.abs(dy) >= bestD - 0.5) continue;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius || Math.abs(dx) >= bestD - 0.5 || Math.abs(dy) >= bestD - 0.5) return;
     const d = Math.hypot(dx, dy);
-    if (d > radius || d >= bestD - 0.5 || (!ignoreFog && !canSee(world, houseId, 'structure', s))) continue;   // units win close calls: they shoot back
-    best = { kind: 'structure', id: s.id };
+    if (d > radius || d >= bestD - 0.5 || (!ignoreFog && !canSee(world, houseId, 'structure', s))) return;   // units win close calls: they shoot back
+    best = s; bestKind = 'structure';
     bestD = d;
-  }
-  return best;
+  });
+  return best ? { kind: bestKind, id: best.id } : null;
 }
 
 export function validTarget(world, houseId, t, force, canHitAir = false) {
@@ -364,13 +365,12 @@ function aimAndFire(world, u, t, p, dist) {
     aimed = Math.abs(angleDiff(u.heading, want)) < AIM_TOLERANCE;
   }
   if (!aimed) return;
-  const gun = { kind: 'unit', id: u.id, house: u.house, x: u.x, y: u.y };
   if (u.secondShot > 0) {
-    if ((u.secondShot -= DT) <= 0) { u.secondShot = 0; fireAt(world, gun, t, p, dist, u.type); }
+    if ((u.secondShot -= DT) <= 0) { u.secondShot = 0; fireAt(world, { kind: 'unit', id: u.id, house: u.house, x: u.x, y: u.y }, t, p, dist, u.type); }
     return;
   }
   if (u.cooldown > 0) return;
-  fireAt(world, gun, t, p, dist, u.type);
+  fireAt(world, { kind: 'unit', id: u.id, house: u.house, x: u.x, y: u.y }, t, p, dist, u.type);
   u.cooldown = fireDelaySeconds(u.type.fireDelay);
   if (u.type.firesTwice && u.hp > u.maxHp / 2) u.secondShot = SECOND_SHOT_DELAY;
 }
