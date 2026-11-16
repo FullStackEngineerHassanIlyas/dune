@@ -278,3 +278,102 @@ export function fakeDunePak({ skip = [], version = '1.07', herald = 'HERALD.ENG'
   entries.push(['SCREEN.CPS', cpsFile(new Uint8Array(64000))]);   // a picture the game does not show
   return pakFile(entries.filter(([n]) => !skip.includes(n)));
 }
+
+// ——— a made-up Mentat as detailed as the PC files' and as large (tests/picture-work.test.mjs, scripts/mentat-longtasks.mjs) ———
+
+/** Value noise in 0..1, cells `cell` pixels wide. */
+function noise(w, h, seed, cell) {
+  const r = rng(seed), gw = Math.ceil(w / cell) + 2, g = Float32Array.from({ length: gw * (Math.ceil(h / cell) + 2) }, r);
+  return (x, y) => {
+    const fx = x / cell, fy = y / cell, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, i = y0 * gw + x0;
+    return (g[i] * (1 - tx) + g[i + 1] * tx) * (1 - ty) + (g[i + gw] * (1 - tx) + g[i + gw + 1] * tx) * ty;
+  };
+}
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** A shade of fakePalette6 band `band` (32 shades a band), ordered-dithered as VGA art is; never index 0. */
+const shade = (band, v, x, y) => band * 32 + Math.max(1, Math.min(31, Math.floor(v * 30 + BAYER[(y & 3) * 4 + (x & 3)] / 16)));
+function painter(w, h, seed) {
+  const a = noise(w, h, seed, 23), b = noise(w, h, seed + 1, 7), c = noise(w, h, seed + 2, 2);
+  return (x, y) => 0.55 * a(x, y) + 0.3 * b(x, y) + 0.15 * c(x, y);
+}
+const BAND = { atreides: 2, harkonnen: 4, ordos: 3 }, SKIN_BAND = 5, GOLD_BAND = 7, SAND_BAND = 1;
+
+/** The PC files' part sizes (notes 2026-10-05-original-art.md): eyes, mouth, shoulder, the "other" (Cyril's book
+ *  twice and two 1 x 1 fillers, four 1 x 1 fillers for Radnor, Ammon's ring four times). */
+export const REAL_SIZES = {
+  atreides: { eyes: [48, 16], mouth: [48, 40], shoulder: [24, 32], other: [[96, 48], [96, 48], [1, 1], [1, 1]] },
+  harkonnen: { eyes: [48, 24], mouth: [56, 40], shoulder: [16, 56], other: [[1, 1], [1, 1], [1, 1], [1, 1]] },
+  ordos: { eyes: [56, 16], mouth: [64, 40], shoulder: [24, 32], other: [[16, 16], [16, 16], [16, 16], [16, 16]] },
+};
+
+/** A 320 x 200 room in dithered shades: the wall, the words' strip, the black screen beside him, his robe and head. */
+export function detailedRoom(house, seed = 150) {
+  const m = MENTATS[house], tone = BAND[house], v = painter(320, 200, seed), px = new Uint8Array(320 * 200);
+  const s = REAL_SIZES[house], cx = m.eyes[0] + s.eyes[0] / 2, cy = m.eyes[1] + 10;
+  for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) {
+    if (x >= 128 && x < 312 && y >= 48 && y < 160) continue;   // the screen beside him: black
+    let band = tone;
+    if (y >= 21 && y < 35 && x >= 8 && x < 312) band = SAND_BAND;
+    if (((x - cx - 8) / 78) ** 2 + ((y - 205) / 85) ** 2 <= 1) band = (tone + 4) % 8;   // robe
+    if (((x - cx) / 30) ** 2 + ((y - cy) / 40) ** 2 <= 1) band = SKIN_BAND;            // head
+    px[y * 320 + x] = shade(band, v(x, y), x, y);
+  }
+  return px;
+}
+
+/** A dithered shape of `w` x `h` in `band`; see-through (index 0) where `inside(x, y)` is false; `mark` paints over. */
+function detailedShape(w, h, band, seed, inside = () => true, mark = () => null) {
+  const v = painter(w, h, seed), indices = new Uint8Array(w * h);
+  if (w * h > 1) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inside(x, y)) indices[y * w + x] = mark(x, y) ?? shade(band, v(x, y), x, y);
+  return { width: w, height: h, indices };
+}
+
+/** His 15 shapes at the PC files' sizes: eyes (ahead, left, right, down, shut), mouth (shut, then open), shoulder,
+ *  the "other"; the shoulder, book and ring see-through around their edges. */
+export function detailedShapes(house, seed = 200) {
+  const s = REAL_SIZES[house], [ew, eh] = s.eyes, [mw, mh] = s.mouth;
+  const eyes = [0, 1, 2, 3, 4].map((k) => detailedShape(ew, eh, SKIN_BAND, seed + k, undefined, (x, y) => {
+    const lx = x % (ew / 2), ly = y - (eh >> 1);
+    if (k === 4) return Math.abs(ly) < 1 && lx > 4 && lx < ew / 2 - 4 ? 4 * 32 + 8 : null;   // shut: a line of lid
+    if (lx < 5 || lx > ew / 2 - 5 || Math.abs(ly) > eh / 4) return null;
+    const pupil = ew / 4 + (k === 1 ? -4 : k === 2 ? 4 : 0), down = k === 3 ? 2 : 0;
+    return Math.abs(lx - pupil) < 3 && Math.abs(ly - down) < 3 ? 2 : 31;            // pupil, white
+  }));
+  const opens = [null, [mw / 5, 2], [mw / 6, mh / 4], [mw / 3, mh / 3], [mw / 2, mh / 6]];
+  const mouth = opens.map((o, k) => detailedShape(mw, mh, SKIN_BAND, seed + 10 + k, undefined, (x, y) => {
+    const dx = Math.abs(x - mw / 2), dy = Math.abs(y - mh / 2);
+    if (!o) return dx < mw / 4 && dy < 1 ? 4 * 32 + 16 : null;                         // shut: a line of lip
+    return dx < o[0] / 2 && dy < o[1] / 2 ? 1 : null;                                    // the mouth's dark inside
+  }));
+  const [sw, sh] = s.shoulder;
+  const shoulder = detailedShape(sw, sh, (BAND[house] + 4) % 8, seed + 20, (x, y) => ((x - sw * 0.2) / sw) ** 2 + ((y - sh) / sh) ** 2 <= 1);
+  const other = s.other.map(([w, h], k) => detailedShape(w, h, GOLD_BAND, seed + 30 + k,
+    (x, y) => (w > 20 ? x > 2 && y > 3 + k * 2 && x < w - 2 : ((x - w / 2 + 0.5) / (w / 2)) ** 2 + ((y - h / 2 + 0.5) / (h / 2)) ** 2 <= 1),
+    (x, y) => (w > 20 && y % 6 === 0 && x > 8 && x < w - 8 ? 28 : w <= 20 && x === 4 + k * 2 && y < h / 2 ? 31 : null)));
+  return [...eyes, ...mouth, shoulder, ...other];
+}
+
+/** The house selection screen in dithered shades: each emblem a shield in its house's band with a gold rim, the
+ *  screen's black around it in its box (as the PC screen has it, for clearSurround to take away). */
+export function detailedHerald(seed = 90) {
+  const v = painter(320, 200, seed), px = new Uint8Array(320 * 200);
+  for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) px[y * 320 + x] = shade(SAND_BAND, v(x, y), x, y);
+  for (const [house, [bx, by, w, h]] of Object.entries(HERALD)) {
+    for (let y = by; y < by + h; y++) for (let x = bx; x < bx + w; x++) {
+      const dx = (x - bx - w / 2) / (w / 2 - 6), dy = (y - by - h / 2 + 4) / (h / 2 - 8);
+      const r = dx * dx + (dy > 0 ? dy * dy * 1.6 : dy * dy * 0.3);   // a shield: square-ish above, pointed below
+      px[y * 320 + x] = r > 1 ? 0 : r > 0.8 ? shade(GOLD_BAND, v(x, y), x, y) : shade(BAND[house], v(x, y), x, y);
+    }
+  }
+  return px;
+}
+
+/** A DUNE.PAK whose Mentats and emblems are as detailed and as large as the PC files'. */
+export function detailedDunePak() {
+  const entries = [['IBM.PAL', palFile()], ['HERALD.ENG', cpsFile(detailedHerald())]];
+  let seed = 100;
+  for (const [house, m] of Object.entries(MENTATS)) {
+    entries.push([`MENTAT${m.letter}.CPS`, cpsFile(detailedRoom(house, (seed += 50)))], [`MENSHP${m.letter}.SHP`, shpFile(detailedShapes(house, (seed += 50)))]);
+  }
+  return pakFile(entries);
+}
