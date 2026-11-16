@@ -14,10 +14,14 @@
 //     that fits it best (mouthVisemes), and whose lids are the original's shut eyes, so he blinks with them as he
 //     talks; nothing tilts, nods, warps or scales (pixel art does not bend).
 // Pure: from a stored picture record to { figure (HTML markup for innerHTML), rig }; original-pictures.js keeps them.
+// The pixel work (the enlarged pictures and their PNGs) is picture-work.js's, handed to the `run` the caller gives:
+// a Worker's (picture-jobs.js) on the page, the page's own thread by default.
 import { RIG_VERSION, EXPRESSIONS, VISEMES } from './mentat-face-rig.js';
-import { encodePng, encodeIndexedPng, pngDataUrl } from '../../formats/png.js';
+import { encodePng, pngDataUrl } from '../../formats/png.js';
 import { MENTATS } from '../../formats/dune2-pictures.js';
-import { scaleIndexed, rgbaWords, wordsRgba, REACH } from './pixel-scale.js';
+import { pictureWork, drawn, blit } from './picture-work.js';
+
+export { enlargeFigure, clearSurround } from './picture-work.js';
 
 export const SCALE = 4;             // the emblems' whole-pixel enlargement (crisp even where a browser smooths)
 export const ENLARGE = 8;           // the Mentat's: Scale2x three times, larger than he is drawn on nearly any screen
@@ -84,9 +88,6 @@ export function otherSchedule(house, real, seed = SEEDS[house] ?? 1, { ticks = 9
   } while (t < ticks || k !== 0);
   return out;
 }
-
-/** A shape that draws something: the files fill unused places with 1 x 1 ones. */
-const drawn = (q) => !!q && q.width * q.height > 1;
 
 const luma = (b, o) => b[o] * 0.299 + b[o + 1] * 0.587 + b[o + 2] * 0.114;
 
@@ -165,19 +166,6 @@ export function figureBox(record) {
   return [0, top, right, record.height - top];
 }
 
-/** `src` (rgba w x h, see-through where alpha is 0) drawn over `dst` (dw wide) at [x, y]. */
-function blit(dst, dw, dh, src, sw, sh, x, y) {
-  for (let r = 0; r < sh; r++) {
-    const ty = y + r;
-    if (ty < 0 || ty >= dh) continue;
-    for (let c = 0; c < sw; c++) {
-      const tx = x + c, o = (r * sw + c) * 4;
-      if (tx < 0 || tx >= dw || !src[o + 3]) continue;
-      dst.set(src.subarray(o, o + 4), (ty * dw + tx) * 4);
-    }
-  }
-}
-
 /** Frames drawn from one corner, each padded (see-through) to the largest's size, so one box holds them all. */
 function sameBox(frames) {
   const live = frames.filter(Boolean);
@@ -191,75 +179,9 @@ function sameBox(frames) {
   });
 }
 
-function cut(rgba, width, [x, y, w, h]) {
-  const out = new Uint8Array(w * h * 4);
-  for (let r = 0; r < h; r++) out.set(rgba.subarray(((y + r) * width + x) * 4, ((y + r) * width + x + w) * 4), r * w * 4);
-  return out;
-}
-
 /** A PNG data: URL of `rgba`, enlarged SCALE times by whole pixels. */
 export async function pictureUrl(rgba, width, height, scale = SCALE) {
   return pngDataUrl(await encodePng(rgba, width, height, { scale }));
-}
-
-/**
- * The figure's pictures for the pixel-art scaler (pixel-scale.js), in one palette: the room at rest (W x H RGBA,
- * the figure's top at `top` in the room) and the frames of its parts (eyes, mouth, book; `frames`) as colour
- * indices, index 0 see-through (as a colour word a pixel, 0 see-through, should they hold more than 255 colours).
- * Returns { head: the room enlarged `s` times, part(q, { pad }): frame q enlarged in place, as { values, box },
- * url(values, w, h): a PNG data: URL }; the PNGs are written straight from the indices, so no pixel of the large
- * pictures has its colour looked up.
- *
- * A part's frame is drawn over the room at rest, enlarged there with REACH pixels of the room around it (the
- * scaler's corners look at their neighbours) and cut to its box — the frame's own, `pad` pixels of the figure wider
- * on each side (as far as the figure goes) — see-through wherever it leaves the enlarged room as it was. Laid over
- * the enlarged head at that box ([x, y, w, h] in the figure's pixels) it shows what the whole picture enlarged with
- * this frame in it would, inside the box: a frame changes the enlarged picture up to REACH pixels beyond its own
- * edges, so with `pad` REACH it is that picture everywhere, and with no pad (a box the face's rig fixes, as the
- * mouth's) only inside the frame's box, the few pixels just outside keeping the head's at rest. A frame reaching out
- * of the figure is enlarged alone, in its own box.
- */
-export function enlargeFigure(room, W, H, frames, top, s) {
-  const colourAt = new Map([[0, 0]]);
-  const note = (words) => {
-    let last = 0;
-    for (const c of words) if (c !== last) { last = c; if (!colourAt.has(c)) colourAt.set(c, colourAt.size); }
-    return words;
-  };
-  const roomWords = note(rgbaWords(room));
-  const frameWords = new Map(frames.filter(Boolean).map((q) => [q, note(rgbaWords(q.rgba))]));
-  const colours = colourAt.size <= 256 ? Uint32Array.from(colourAt.keys()) : null;
-  const values = (words) => {   // the colour words as indices (looked up once a run of one colour)
-    if (!colours) return words;
-    const out = new Uint8Array(words.length);
-    for (let i = 0, last = 0, at = 0; i < words.length; i++) {
-      const c = words[i];
-      if (c !== last) { last = c; at = colourAt.get(c); }
-      out[i] = at;
-    }
-    return out;
-  };
-  const rest = values(roomWords), head = scaleIndexed(rest, W, H, s);
-  const part = (q, { pad = 0 } = {}) => {
-    if (!frameWords.has(q)) throw new Error('enlargeFigure: a frame it was not given');
-    const x = q.x, y = q.y - top, w = q.width, h = q.height, own = values(frameWords.get(q));
-    if (x < 0 || y < 0 || x + w > W || y + h > H) return { values: scaleIndexed(own, w, h, s), box: [x, y, w, h] };
-    const bx = Math.max(0, x - pad), by = Math.max(0, y - pad), bw = Math.min(W, x + w + pad) - bx, bh = Math.min(H, y + h + pad) - by;
-    const x0 = Math.max(0, bx - REACH), y0 = Math.max(0, by - REACH);
-    const ww = Math.min(W, bx + bw + REACH) - x0, wh = Math.min(H, by + bh + REACH) - y0;
-    const win = new rest.constructor(ww * wh);
-    for (let r = 0; r < wh; r++) win.set(rest.subarray((y0 + r) * W + x0, (y0 + r) * W + x0 + ww), r * ww);
-    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (own[r * w + c]) win[(y - y0 + r) * ww + x - x0 + c] = own[r * w + c];
-    const big = scaleIndexed(win, ww, wh, s);
-    const ow = bw * s, oh = bh * s, out = new rest.constructor(ow * oh);   // 0: see-through
-    for (let r = 0; r < oh; r++) {
-      const from = (r + (by - y0) * s) * ww * s + (bx - x0) * s, at = (by * s + r) * W * s + bx * s;
-      for (let c = 0; c < ow; c++) if (big[from + c] !== head[at + c]) out[r * ow + c] = big[from + c];
-    }
-    return { values: out, box: [bx, by, bw, bh] };
-  };
-  const url = async (v, w, h) => pngDataUrl(await (colours ? encodeIndexedPng(v, w, h, colours) : encodePng(wordsRgba(v), w, h)));
-  return { colours, head, part, url };
 }
 
 /** Lets the page through (a frame drawn, a click taken) before the next part of the work: scheduler.yield() where
@@ -299,37 +221,26 @@ export function figureSizeCss(sel, W, H) {
  * the HTML portrait's contract the face engine takes (portraits.js mentatSvg of the face-art step): the root
  * `.cp-mentat-art` (a size container) holding the frame, which holds `.cpm-sway` with the head <img> first, the book
  * or ring (`.cpo-other`) and the eyes (`.cpm-blink`), each placed in % of the frame; `rig` the face's rig (null when
- * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks). The work is done in
- * steps, `pause()` awaited between them (by default breathe(): the page drawn and its input taken in between).
+ * the files hold no open mouth frame), `info` what was used (for tests and the debug hooks). The pictures are made
+ * by `run(job, { pause })` (picture-work.js pictureWork's contract): by default on this thread, in steps, `pause()`
+ * awaited between them (by default breathe(): the page drawn and its input taken in between); original-pictures.js
+ * gives a Worker's (picture-jobs.js).
  */
-export async function buildMentatArt(record, { scale = ENLARGE, pause = breathe } = {}) {
+export async function buildMentatArt(record, { scale = ENLARGE, pause = breathe, run = pictureWork } = {}) {
   const house = record.house, m = MENTATS[house];
   if (!m) throw new Error(`no Mentat for "${house}"`);
   const parts = record.parts ?? {}, eyes = parts.eyes ?? [], other = parts.other ?? [];
   const mouth = sameBox(parts.mouth ?? []);
   const box = figureBox(record), [, top, W, H] = box;
-  // the head: the room with what the original draws over it at rest (eyes ahead, mouth shut, the book's first
-  // frame, the shoulder in front of the screen), enlarged by the pixel-art scaler; every other frame of a part
-  // enlarged in place over it (enlargeFigure), so it lines up with the head pixel for pixel — the eyes and the book
-  // in a box REACH pixels wider, all the frame changes; the mouth in its own box, the one the face's rig draws it in
-  const room = cut(record.rgba, record.width, box);
-  for (const q of [eyes[0], mouth[0], other[0], parts.shoulder]) if (drawn(q)) blit(room, W, H, q.rgba, q.width, q.height, q.x, q.y - top);
-  const fig = enlargeFigure(room, W, H, [...eyes, ...mouth, ...other], top, scale);
-  await pause();
-  const head = await fig.url(fig.head, W * scale, H * scale);
-  // the frames a few at a time, the page let through between them (one long task would hold the menu still)
-  const enlarged = async (frames, pad, want) => {
-    await pause();
-    return Promise.all(frames.map((q, k) => {
-      if (!want(q, k)) return null;
-      const { values, box: b } = fig.part(q, { pad });
-      return fig.url(values, b[2] * scale, b[3] * scale).then((src) => ({ src, box: b }));
-    }));
-  };
-  const eyeArt = await enlarged(eyes, REACH, (q, k) => q && k);
-  const mouthUrls = (await enlarged(mouth, 0, (q, k) => q && k)).map((a) => a?.src ?? null);
-  const otherArt = await enlarged(other, REACH, (q, k) => k && drawn(q));
+  // the head: the room cut to the figure, with what the original draws over it at rest, enlarged by the pixel-art
+  // scaler; every other frame of a part enlarged in place over it, so it lines up with the head pixel for pixel
+  // (picture-work.js mentatPictures)
+  const pictures = await run({ kind: 'mentat', rgba: record.rgba, width: record.width, box, eyes, mouth, other, shoulder: parts.shoulder ?? null, scale }, { pause });
+  const head = pictures.head, eyeArt = pictures.eyes, otherArt = pictures.other;
+  const mouthUrls = pictures.mouth.map((a) => a?.src ?? null);
   const at = (q) => [q.x, q.y - top, q.width, q.height];
+  await pause();   // the enlarging is done (in the Worker or here); what is left (the schedules, the markup, the
+  // mouth measure below) is the page's own and, under a slow CPU, can itself pass a long task's 50 ms on its own
 
   // the eyes and the book on the original's schedules, as CSS animations of their frames over the head
   const cls = `cpo-${house}`, seed = SEEDS[house] ?? 1;
@@ -361,6 +272,7 @@ export async function buildMentatArt(record, { scale = ENLARGE, pause = breathe 
     + `<div class="cpm-blink">${eyeImgs.join('')}</div></div></div></div>`;
 
   // the face's rig: the mouth frames for the voice's shapes, the shut eyes for its blinks
+  await pause();   // mouthVisemes below measures every pixel of every mouth frame: its own slow step
   const known = KNOWN_MOUTHS[house];
   const asKnown = known && mouth.length === 5 && mouth.every((q) => q && q.width === known.size[0] && q.height === known.size[1]);
   const visemes = mouthVisemes(mouth, asKnown ? known.map : null);
@@ -385,39 +297,13 @@ export async function buildMentatArt(record, { scale = ENLARGE, pause = breathe 
 }
 
 /**
- * The black of the screen around a picture made see-through: every pure black pixel reached from the edges through
- * pure black ones (black inside the picture stays), then the picture trimmed to what is left. Returns { rgba,
- * width, height }.
- */
-export function clearSurround(rgba, width, height) {
-  const out = rgba.slice(), seen = new Uint8Array(width * height), stack = [];
-  const black = (i) => out[i * 4] === 0 && out[i * 4 + 1] === 0 && out[i * 4 + 2] === 0;
-  const push = (x, y) => { const i = y * width + x; if (!seen[i] && black(i)) { seen[i] = 1; stack.push(i); } };
-  for (let x = 0; x < width; x++) { push(x, 0); push(x, height - 1); }
-  for (let y = 0; y < height; y++) { push(0, y); push(width - 1, y); }
-  while (stack.length) {
-    const i = stack.pop(), x = i % width, y = (i - x) / width;
-    out[i * 4 + 3] = 0;
-    if (x > 0) push(x - 1, y); if (x + 1 < width) push(x + 1, y); if (y > 0) push(x, y - 1); if (y + 1 < height) push(x, y + 1);
-  }
-  let x0 = width, x1 = -1, y0 = height, y1 = -1;
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-    if (!out[(y * width + x) * 4 + 3]) continue;
-    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-  }
-  if (x1 < 0) return { rgba: out, width, height };
-  const w = x1 - x0 + 1, h = y1 - y0 + 1;
-  return { rgba: cut(out, width, [x0, y0, w, h]), width: w, height: h };
-}
-
-/**
  * A house emblem (formats/dune2-pictures.js 'emblem:<house>': the original's house selection piece — the banner,
  * its chains and its name plate) as SVG markup for the house selection's crest box, the screen's black around it
- * see-through. The piece names the house itself, so the card's own name plate steps aside while it is shown.
+ * see-through (clearSurround). The piece names the house itself, so the card's own name plate steps aside while it
+ * is shown. Its picture is made by `run` as buildMentatArt's are.
  */
-export async function buildEmblemArt(record, { scale = SCALE } = {}) {
-  const { rgba, width, height } = clearSurround(record.rgba, record.width, record.height);
-  const src = await pictureUrl(rgba, width, height, scale);
+export async function buildEmblemArt(record, { scale = SCALE, run = pictureWork } = {}) {
+  const { src, width, height } = await run({ kind: 'emblem', rgba: record.rgba, width: record.width, height: record.height, scale });
   const label = `The emblem of House ${HOUSE_NAMES[record.house] ?? record.house}, from your copy of the original game`;
   return `<svg class="cp-crest-art cpo-emblem" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(label)}">`
     + '<style>.cp-house:has(.cpo-emblem) .cp-plaque{display:none}</style>'

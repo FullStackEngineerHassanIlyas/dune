@@ -5,15 +5,21 @@
 // pixel-art scaler, the emblems by whole pixels, as PNG data: URLs; the house on the screen first, the others when
 // the browser is idle) and keeps them here for the screens to take synchronously; switching them off, forgetting
 // the files or reading new ones makes them again (the store tells this module). Without them every screen keeps
-// this game's own art.
-import { buildMentatArt, buildEmblemArt } from './original-mentat-art.js';
+// this game's own art. Their pixels are worked in a Worker (picture-jobs.js), one for each making, ended when it is
+// done or at once when it is no longer wanted; without one, on the page's thread with pauses, as before.
+import { buildMentatArt, buildEmblemArt, breathe } from './original-mentat-art.js';
+import { pictureJobs, isCancelled } from './picture-jobs.js';
 
-const state = { value: null, loading: null, ready: null, generation: 0, files: null, followed: false };
+const state = { value: null, loading: null, ready: null, generation: 0, files: null, followed: false, jobs: null };
+
+/** The making under way is no longer wanted: its Worker ended, the job it was doing cancelled. */
+const cancelMaking = () => { state.jobs?.close(); state.jobs = null; };
 
 // told by the store (user-files.js follow(), held weakly there, so kept here) when the pictures or their switch change
 const follower = {
   picturesChanged() {
     state.generation++;
+    cancelMaking();
     state.value = null;
     state.loading = null;
     state.ready = null;
@@ -53,23 +59,36 @@ export function loadOriginalPictures({ files = null, first = null } = {}) {
     let value = null;
     if (pictures?.size) {
       value = { mentats: {}, emblems: {} };
+      // their pixels in a Worker of this making's own (reused for each picture, ended when they are made, or by
+      // cancelMaking() when the switch or the files change: what it was doing is then dropped, unsaid)
+      const jobs = pictureJobs(), run = jobs.run;
+      if (generation === state.generation) state.jobs = jobs;   // (a making already stale starts no job)
       const make = async (p) => {
         try {
-          if (p.kind === 'mentat') value.mentats[p.house] = await buildMentatArt(p);
-          else if (p.kind === 'emblem') value.emblems[p.house] = await buildEmblemArt(p);
-        } catch (err) { console.warn(`original pictures: ${p.name}:`, err?.message ?? err); }
+          if (p.kind === 'mentat') value.mentats[p.house] = await buildMentatArt(p, { run });
+          else if (p.kind === 'emblem') value.emblems[p.house] = await buildEmblemArt(p, { run });
+        } catch (err) { if (!isCancelled(err)) console.warn(`original pictures: ${p.name}:`, err?.message ?? err); }
       };
-      // one at a time (side by side their work would run on in one long task and hold the page still)
-      const all = [...pictures.values()], later = (p) => !!first && p.kind === 'mentat' && p.house !== first;
-      for (const p of all.filter((q) => !later(q))) {
-        if (generation !== state.generation) break;   // switched or read again: a newer load makes them
-        await make(p);
-      }
-      publish(value);
-      for (const p of all.filter(later)) {
-        await idle();
-        if (generation !== state.generation) break;
-        await make(p);
+      try {
+        // one at a time (side by side, on the page's thread, their work would run on in one long task); breathe()
+        // between them even with a Worker — its reply resolves a chain of promises, and without a real yield in it
+        // one picture's finish and the next one's start (posting its job) run together as one task on the page's
+        // thread (seen as a long task under CPU throttling: scripts/mentat-longtasks.mjs)
+        const all = [...pictures.values()], later = (p) => !!first && p.kind === 'mentat' && p.house !== first;
+        for (const p of all.filter((q) => !later(q))) {
+          if (generation !== state.generation) break;   // switched or read again: a newer load makes them
+          await make(p);
+          await breathe();
+        }
+        publish(value);
+        for (const p of all.filter(later)) {
+          await idle();
+          if (generation !== state.generation) break;
+          await make(p);
+        }
+      } finally {
+        jobs.close();
+        if (state.jobs === jobs) state.jobs = null;
       }
     }
     publish(value);
@@ -103,5 +122,6 @@ export function originalEmblem(house, pictures = state.value) { return pictures?
 /** Forgets what was made (tests; the next load makes it again). */
 export function resetOriginalPictures() {
   state.generation++;
+  cancelMaking();
   Object.assign(state, { value: null, loading: null, ready: null, files: null });
 }

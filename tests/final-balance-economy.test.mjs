@@ -18,7 +18,7 @@ const MINUTES = 12, REFINERY = 400;
 const harvesters = (world, id) => [...world.units.values()].filter((u) => u.house === id && u.typeId === 'harvester').length;
 
 test(`mission 3: a computer whose Harvesters the worm ate rebuilds whenever it can pay for a Refinery (${MINUTES} game minutes)`, () => {
-  const broke = {};
+  const broke = {}, bare = {};
   for (const house of CAMPAIGN_HOUSES) {
     const def = missionDef(house, 3), foe = def.houses[0].id;
     const { world } = setupMission(def);
@@ -27,18 +27,22 @@ test(`mission 3: a computer whose Harvesters the worm ate rebuilds whenever it c
     const h = world.houses.get(foe);
     let bareSince = null;
     broke[def.id] = 0;
+    bare[def.id] = 0;
     for (let k = 1; k <= MINUTES * 60 * 20; k++) {
       world.step();
       if (k % 20 === 0) world.events.drain();
       if (k % 200) continue;   // every 10 s
       if (harvesters(world, foe)) { bareSince = null; continue; }
       bareSince ??= world.time;
+      bare[def.id] = Math.max(bare[def.id], world.time - bareSince);
       if (h.credits < 50) broke[def.id] += 10;
       if (world.time - bareSince > 150) assert.ok(h.credits < REFINERY || h.lines.structure.current?.typeId === 'refinery', `${def.id} at ${world.time.toFixed(0)} s: ${foe} sits on ${Math.floor(h.credits)} credits with no Harvester`);
     }
   }
-  // the worm on the Atreides map eats the Harkonnen Harvesters faster than a 300-credit base can replace them; the others recover
-  assert.ok(broke['ordos-3'] <= 60 && broke['harkonnen-3'] <= 60, JSON.stringify(broke));
+  // A Harvester the worm eats comes back by Carryall (99b7b90), so no computer goes long without one or runs out of
+  // money. That includes the Harkonnen of Atreides mission 3, whom the worm left broke for good before the fix
+  // (seen in play on 2026-10-04; on the old code it went 27 of 30 minutes with no Harvester in 6 of 10 seeds).
+  for (const id of Object.keys(broke)) assert.ok(broke[id] <= 60 && bare[id] <= 60, `${id}: ${JSON.stringify({ broke, bare })}`);
 });
 
 /** A small Sega mission-3 world: the Harkonnen base on rock in the north, sand in the south. */

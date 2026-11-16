@@ -1,0 +1,28 @@
+diff --git a/src/sim/ai.js b/src/sim/ai.js
+index 172327c..a5a04b0 100644
+--- a/src/sim/ai.js
++++ b/src/sim/ai.js
+@@ -251,8 +251,22 @@ const GRUDGE = 120;   // seconds a raid on the base is remembered
+  */
+ function chooseFoe(world, house, view, strength) {
+   const b = house.brain;
++  let rivals = sizeUpRivals(world, house.id, view.home);
++  // Independent armies open different fronts instead of helping a rival finish the same exposed base.
++  // Keep duels, authored missions and the allied-computers option on their existing decision path.
++  if (!world.mission && !world.teams && world.houses.size >= 4 && rivals.length > 1) {
++    const contested = new Set();
++    for (const other of world.houses.values()) {
++      if (other.id === house.id || other.defeated || !other.brain) continue;
++      for (const id of other.brain.wave) {
++        if (world.units.get(id)?.house === other.id) contested.add(other.brain.waveFoe[id]);
++      }
++    }
++    const free = rivals.filter(r => !contested.has(r.house));
++    if (free.length) rivals = free;
++  }
+   let best = null, bestCost = Infinity;
+-  for (const r of sizeUpRivals(world, house.id, view.home)) {
++  for (const r of rivals) {
+     let cost = r.d * (0.5 + r.army / (r.army + strength + 1));
+     if (b.grudge?.house === r.house && world.time - b.grudge.at < GRUDGE) cost *= 0.5;
+     if (r.house === b.foe) cost *= 0.8;
