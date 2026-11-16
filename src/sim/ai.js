@@ -247,12 +247,33 @@ const GRUDGE = 120;   // seconds a raid on the base is remembered
 /**
  * The house the next wave goes for: the nearest, unless it is much better guarded than the wave is strong —
  * a bare rival a little further off comes first — and a house that raided the base lately before the others.
- * The last foe keeps a small edge, so waves do not swap targets on a whim.
+ * The last foe keeps a small edge, so waves do not swap targets on a whim. Independent four-house
+ * armies answer an incoming rival first; otherwise they prefer a front not already taken by another army.
  */
 function chooseFoe(world, house, view, strength) {
   const b = house.brain;
+  let rivals = sizeUpRivals(world, house.id, view.home);
+  // Independent armies open different fronts instead of helping a rival finish the same exposed base.
+  // Two- and three-house games, authored missions and the allied-computers option keep the old path: with
+  // three houses, answering an attacker could join the wave a third house has already sent to its base.
+  if (!world.mission && !world.teams && world.houses.size >= 4 && rivals.length > 1) {
+    const contested = new Set(), incoming = new Set();
+    for (const other of world.houses.values()) {
+      if (other.id === house.id || other.defeated || !other.brain) continue;
+      for (const id of other.brain.wave) {
+        if (world.units.get(id)?.house !== other.id) continue;
+        const target = other.brain.waveFoe[id];
+        contested.add(target);
+        if (target === house.id) incoming.add(other.id);
+      }
+    }
+    const attackers = rivals.filter(r => incoming.has(r.house));
+    const free = rivals.filter(r => !contested.has(r.house));
+    if (attackers.length) rivals = attackers;
+    else if (free.length) rivals = free;
+  }
   let best = null, bestCost = Infinity;
-  for (const r of sizeUpRivals(world, house.id, view.home)) {
+  for (const r of rivals) {
     let cost = r.d * (0.5 + r.army / (r.army + strength + 1));
     if (b.grudge?.house === r.house && world.time - b.grudge.at < GRUDGE) cost *= 0.5;
     if (r.house === b.foe) cost *= 0.8;

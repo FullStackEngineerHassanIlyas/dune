@@ -1,6 +1,19 @@
 # Four-house AI closeout — 16 November 2026
 
-## Verdict: no accepted gameplay change
+## Decision: Variant 2 ships, in four-house games only
+
+Codex measured five variants that change only how a computer picks the house its next wave attacks. As the brief required, Codex stopped when none met both gates, restored the shipping AI and handed the trade-off back. Claude chose Variant 2 on 16 November 2026. It is now the shipping rule. The measured file had SHA-256 `0f57a2554541331cf224648571d51f1e9e7fb0e3e506a00977e3155dabfe3859`. The committed `src/sim/ai.js` differs from it only in one comment in `chooseFoe`, which explains why games with fewer than four houses keep the old path. Seeds 2, 7 and 9, re-run on the committed file, end with the same state hashes as in the receipts.
+
+- **It removes what the decision named.** On the base, all 21 four-house games of the matrix (12 default and 9 others) open with two waves on the same house. With V2, none of the 21 does.
+- **Pacing holds.** 24 of 40 games end in 20–40 minutes, as on the base, and 2 end under 20 minutes instead of 4. Of the 12 default games, 10 end in 20–40 minutes (base: 9).
+- **It misses the 10/12 survival gate by one seed.** Two of its three misses fall 7 s and 1 s short of 12 minutes (11.883 and 11.983). The third, seed 4, is Atreides losing a straight duel to Ordos at 7.796 minutes, not a pile-on: only Ordos attacked it, and Ordos's two waves destroyed all ten of its buildings.
+- **The guard rails hold.** All 7 guard fixtures (135 minute-checkpoints) and all 19 two- and three-house games of the matrix keep identical hashes. `npm test` passes.
+
+**Still open:** three-house games keep the old path. Two of the hard ones (64 and 128 tiles) still lose Atreides to both rivals' openings, at 6.92 and 6.70 minutes. V2 cannot simply be widened to three houses: with three computers, a house that answers its attacker can join the wave a third house already sent to the same base. A fix for three houses needs its own rule and measurement.
+
+The rest of this file is Codex's report, written before the decision.
+
+## Codex's hand-back, before the decision: no accepted gameplay change
 
 Five target-choice-only variants were measured. None meets both required gates: all houses survive 12 minutes in at least 10/12 default seeds, and at least the baseline number of 40 games finish in 20–40 minutes. Per the delegated stop condition, shipping `src/sim/ai.js` and `tests/ai-ffa.test.mjs` were restored byte-for-byte to `141d9c5`. No wave sizes, timers, costs, health, alliances, missions or other worktrees changed. No push, merge or PR was made.
 

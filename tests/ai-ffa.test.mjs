@@ -40,12 +40,48 @@ test('a well guarded rival is passed over for a bare one not much further off', 
   assert.equal(wave?.target, 'atreides');
 });
 
+test('independent first waves do not both pile onto the same exposed fourth-house base', () => {
+  const world = flatWorld(72, 48, G.ROCK);
+  world.addHouse('sardaukar');
+  for (const [house, x, y] of [['harkonnen', 3, 20], ['sardaukar', 62, 20], ['ordos', 32, 8], ['atreides', 32, 36]]) {
+    world.spawnStructure('constructionYard', house, x, y);
+  }
+  for (let k = 0; k < 8; k++) world.spawnUnit('combatTank', 'atreides', 30 + k * 2, 42);
+  for (const [house, x] of [['harkonnen', 6], ['sardaukar', 60]]) {
+    for (let k = 0; k < 6; k++) world.spawnUnit('combatTank', house, x, 16 + k * 2);
+    createBrain(world, house, 'normal').nextAttack = 0;
+    world.houses.get(house).credits = 0;
+  }
+  const waves = [];
+  runUntil(world, () => {
+    waves.push(...world.events.drain().filter(e => e.type === 'aiAttack'));
+    return waves.length >= 2;
+  }, 5);
+  assert.equal(waves.length, 2);
+  assert.equal(waves[0].target, 'ordos', 'the first house still finds the nearby exposed base');
+  assert.notEqual(waves[1].target, waves[0].target, 'the next independent wave finds a different front');
+});
+
 test('a house that raided the base is paid back first', () => {
   const { world } = threeBases();
   const raider = world.spawnUnit('quad', 'atreides', 3, 20);   // inside the base, out of the tanks' reach at first
   const wave = firstWave(world);
   assert.ok(!world.units.has(raider.id), 'the raider was dealt with');
   assert.equal(wave?.target, 'atreides');
+});
+
+test('a four-house army answers an incoming rival wave instead of leaving for a weaker bystander', () => {
+  const { world } = threeBases();
+  world.addHouse('sardaukar');
+  world.spawnStructure('constructionYard', 'sardaukar', 49, 12);
+  const invader = world.spawnUnit('combatTank', 'sardaukar', 45, 18);
+  const brain = createBrain(world, 'sardaukar', 'normal');
+  brain.nextAttack = Infinity;
+  world.houses.get('sardaukar').credits = 0;
+  brain.wave = [invader.id];
+  brain.waveFoe[invader.id] = 'harkonnen';
+  world.issue('sardaukar', { type: 'attackMove', ids: [invader.id], x: 3, y: 12 });
+  assert.equal(firstWave(world, 5)?.target, 'sardaukar');
 });
 
 test('a wave whose rival is beaten turns on the next one', () => {
