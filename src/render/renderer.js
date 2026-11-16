@@ -11,7 +11,9 @@ import { createSky, createEnvironment } from './sky.js';
 import { QUALITY, qualityPreset, pixelRatioFor, bloomSize } from './quality.js';
 import { createGradePass } from './grade-pass.js';
 
-export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.9, 0.42).normalize();
+// Towards the sun: north-west and high (about 52°), as the Genesis sprites are lit, so cast shadows fall south-east
+// (docs/research/raw/visual-structures.md §1.1) and the camera, south of what it looks at, sees them.
+export const SUN_DIRECTION = new THREE.Vector3(-0.5, 0.92, -0.5).normalize();
 /** The battlefield's haze (sRGB hex). The menu's planet dives into the same colour, so the seam with the battle matches. */
 export const FOG_COLOR = 0xd9bb8e;
 
